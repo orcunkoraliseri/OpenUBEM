@@ -28,6 +28,7 @@ from openubem.acquisition.osm_fetcher import (
     _parse_height_to_m,
     _parse_year,
     _resolve_mode,
+    _resolve_overlaps,
     _seven_step_clean,
     _validate_schema,
     _SCHEMA_COLUMNS,
@@ -172,6 +173,53 @@ class TestFlattenTags:
         result = _flatten_tags(raw)
         assert result.iloc[0]["building_tag"] == "house"
 
+    def test_fractional_levels_rounded_and_row_retained(self):
+        # D1: "2.5" must round to 2 (round-half-to-even) and the row must survive.
+        raw = self._raw({"building:levels": ["2.5"]})
+        result = _flatten_tags(raw)
+        assert len(result) == 1, "row must survive fractional levels"
+        assert result.iloc[0]["levels"] == 2
+        assert str(result["levels"].dtype) == "Int64"
+
+    def test_osm_id_prefers_element_type_plus_osmid(self):
+        # D2(a): when both element_type and osmid columns are present, produce "way/12345" form.
+        idx = pd.MultiIndex.from_tuples([("way", 12345)], names=["element_type", "osmid"])
+        geom = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
+        raw = gpd.GeoDataFrame({"geometry": [geom], "building": ["yes"]}, index=idx)
+        result = _flatten_tags(raw)
+        assert result.iloc[0]["osm_id"] == "way/12345"
+
+    def test_osm_id_way_and_node_same_numeric_id_are_distinct(self):
+        # D2(b): way/12345 and node/12345 must be two distinct osm_id values.
+        idx = pd.MultiIndex.from_tuples(
+            [("way", 12345), ("node", 12345)], names=["element_type", "osmid"]
+        )
+        geom = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])
+        raw = gpd.GeoDataFrame({"geometry": [geom, geom], "building": ["yes", "yes"]}, index=idx)
+        result = _flatten_tags(raw)
+        ids = list(result["osm_id"])
+        assert "way/12345" in ids
+        assert "node/12345" in ids
+        assert ids[0] != ids[1]
+
+    def test_surplus_tags_excludes_rename_sources(self):
+        # D6: mapped source tags must NOT appear in surplus_tags; unmapped tags must appear;
+        # height_raw must always be present when height is set.
+        raw = self._raw({
+            "height": ["30 ft"],
+            "amenity": ["school"],
+            "building:levels": ["2"],
+            "wikidata": ["Q999"],
+        })
+        result = _flatten_tags(raw)
+        surplus = json.loads(result.iloc[0]["surplus_tags"])
+        assert "building" not in surplus, "building is a rename source; must be excluded"
+        assert "height" not in surplus, "height is a rename source; must be excluded"
+        assert "amenity" not in surplus, "amenity is a rename source; must be excluded"
+        assert "building:levels" not in surplus, "building:levels is a rename source; must be excluded"
+        assert surplus.get("wikidata") == "Q999", "unmapped tag must appear"
+        assert "height_raw" in surplus, "height_raw must always be present when height is set"
+
 
 # ---------------------------------------------------------------------------
 # T3 — _resolve_mode
@@ -261,21 +309,21 @@ class TestSevenStepClean:
     def test_step1_drops_null_geometry(self, caplog):
         gdf = _synthetic_gdf()
         with caplog.at_level(logging.INFO, logger="openubem.acquisition"):
-            result = _seven_step_clean(gdf)
+            result, _ = _seven_step_clean(gdf)
         step1_record = _find_step_log(caplog, 1)
         assert step1_record["dropped"] == 1, f"step1 dropped: {step1_record['dropped']}"
 
     def test_step2_drops_linestring(self, caplog):
         gdf = _synthetic_gdf()
         with caplog.at_level(logging.INFO, logger="openubem.acquisition"):
-            result = _seven_step_clean(gdf)
+            result, _ = _seven_step_clean(gdf)
         step2_record = _find_step_log(caplog, 2)
         assert step2_record["dropped"] == 1, f"step2 dropped: {step2_record['dropped']}"
 
     def test_step3_explodes_multipolygon(self, caplog):
         gdf = _synthetic_gdf()
         with caplog.at_level(logging.INFO, logger="openubem.acquisition"):
-            result = _seven_step_clean(gdf)
+            result, _ = _seven_step_clean(gdf)
         osm_ids = list(result["osm_id"])
         assert "C_part0" in osm_ids
         assert "C_part1" in osm_ids
@@ -291,13 +339,13 @@ class TestSevenStepClean:
         """
         gdf = _synthetic_gdf()
         with caplog.at_level(logging.INFO, logger="openubem.acquisition"):
-            result = _seven_step_clean(gdf)
+            result, _ = _seven_step_clean(gdf)
         assert "D" not in list(result["osm_id"]), "bowtie row D should have been dropped"
 
     def test_step6_drops_sliver(self, caplog):
         gdf = _synthetic_gdf()
         with caplog.at_level(logging.INFO, logger="openubem.acquisition"):
-            result = _seven_step_clean(gdf)
+            result, _ = _seven_step_clean(gdf)
         assert "E" not in list(result["osm_id"]), "5 m² sliver E should have been dropped"
         step6_record = _find_step_log(caplog, 6)
         assert step6_record["dropped"] >= 1
@@ -305,7 +353,7 @@ class TestSevenStepClean:
     def test_step7_drops_smaller_dup(self, caplog):
         gdf = _synthetic_gdf()
         with caplog.at_level(logging.INFO, logger="openubem.acquisition"):
-            result = _seven_step_clean(gdf)
+            result, _ = _seven_step_clean(gdf)
         ids = list(result["osm_id"])
         assert "F" in ids, "larger duplicate F should survive"
         assert "G" not in ids, "smaller duplicate G should be dropped"
@@ -313,7 +361,7 @@ class TestSevenStepClean:
     def test_step7_overlap_resolved_flag(self, caplog):
         gdf = _synthetic_gdf()
         with caplog.at_level(logging.INFO, logger="openubem.acquisition"):
-            result = _seven_step_clean(gdf)
+            result, _ = _seven_step_clean(gdf)
         f_row = result[result["osm_id"] == "F"]
         assert len(f_row) == 1
         assert bool(f_row.iloc[0]["_overlap_resolved"]) is True
@@ -328,6 +376,39 @@ def _find_step_log(caplog, step) -> dict:
         except (json.JSONDecodeError, AttributeError):
             pass
     raise AssertionError(f"No cleaner_step log record found for step={step}")
+
+
+def _make_overlap_gdf(geoms: list, areas: list) -> gpd.GeoDataFrame:
+    """Helper for D3 tests: build a minimal GDF suitable for _resolve_overlaps."""
+    from pyproj import CRS
+    data = {
+        "osm_id": [f"way/{i}" for i in range(len(geoms))],
+        "geometry": geoms,
+        "footprint_area_m2": areas,
+        "_overlap_resolved": [False] * len(geoms),
+    }
+    return gpd.GeoDataFrame(data, geometry="geometry", crs=CRS.from_epsg(32619))
+
+
+class TestResolveOverlaps:
+    def test_contained_polygon_deduped_by_intersects(self):
+        # D3: smaller polygon fully INSIDE larger one (DE-9IM: within, not overlaps).
+        # IoU = small.area / large.area ≈ 100/104 ≈ 0.96 > 0.95 → smaller dropped.
+        large = Polygon([(0, 0), (10.2, 0), (10.2, 10.2), (0, 10.2)])  # ~104 m²
+        small = Polygon([(0.1, 0.1), (10.1, 0.1), (10.1, 10.1), (0.1, 10.1)])  # ~100 m²
+        gdf = _make_overlap_gdf([large, small], [large.area, small.area])
+        result = _resolve_overlaps(gdf, iou_threshold=0.95)
+        assert len(result) == 1, "smaller contained polygon must be dropped"
+        assert result.iloc[0]["osm_id"] == "way/0", "larger polygon must survive"
+        assert bool(result.iloc[0]["_overlap_resolved"]) is True
+
+    def test_party_wall_neighbours_not_deduped(self):
+        # D3 guard: two adjacent squares sharing only an edge (IoU≈0) must both survive.
+        left  = Polygon([(0, 0), (10, 0), (10, 10), (0, 10)])
+        right = Polygon([(10, 0), (20, 0), (20, 10), (10, 10)])
+        gdf = _make_overlap_gdf([left, right], [left.area, right.area])
+        result = _resolve_overlaps(gdf, iou_threshold=0.95)
+        assert len(result) == 2, "party-wall neighbours must both survive"
 
 
 # ---------------------------------------------------------------------------
@@ -398,7 +479,7 @@ class TestRetryPolicy:
 
         call_count = 0
 
-        def always_fails():
+        def always_fails(*args, **kwargs):
             nonlocal call_count
             call_count += 1
             raise ConnectionError("mock network failure")
@@ -419,73 +500,59 @@ class TestRetryPolicy:
 
 
 # ---------------------------------------------------------------------------
-# T7 — all_generic_neighbourhood warning
+# T7 — all_generic_neighbourhood warning (D5/W1.5)
 # ---------------------------------------------------------------------------
 
-class TestAllGenericNeighbourhood:
-    def test_warning_emitted_and_gdf_returned(self, caplog):
-        """
-        Build a synthetic GDF where every building_tag is 'yes',
-        run the post-cleaner provenance + flag steps, then call the
-        dataset-level warning check directly via a minimal ingest_buildings
-        mock path.
-        """
-        from pyproj import CRS
-        geom = _make_square(0, 0, 20)
-        data = {
-            "geometry": [geom, _make_square(50, 50, 20)],
-            "osm_id": ["way/1", "way/2"],
-            "crs_utm": ["EPSG:32619", "EPSG:32619"],
-            "building_tag": ["yes", "yes"],
-            "function_tag": ["", ""],
-            "levels": pd.array([pd.NA, pd.NA], dtype="Int64"),
-            "height_m": [float("nan"), float("nan")],
-            "year_built": pd.array([pd.NA, pd.NA], dtype="Int64"),
-            "postcode": [None, None],
-            "underground": pd.array([0, 0], dtype="Int64"),
-            "roof_shape": ["", ""],
-            "roof_height_m": [float("nan"), float("nan")],
-            "footprint_area_m2": [400.0, 400.0],
-            "perimeter_m": [80.0, 80.0],
-            "surplus_tags": ["{}", "{}"],
-            "provenance_levels": ["OSM_MISSING", "OSM_MISSING"],
-            "provenance_height_m": ["OSM_MISSING", "OSM_MISSING"],
-            "provenance_year_built": ["OSM_MISSING", "OSM_MISSING"],
-            "provenance_building_tag": ["OSM_GENERIC", "OSM_GENERIC"],
-            "provenance_function_tag": ["OSM_MISSING", "OSM_MISSING"],
-            "provenance_postcode": ["OSM_MISSING", "OSM_MISSING"],
-            "provenance_geometry": ["OSM_OBSERVED", "OSM_OBSERVED"],
-            "data_quality_flag": [
-                "generic_tag,no_floors,no_function,no_height,no_year",
-                "generic_tag,no_floors,no_function,no_height,no_year",
-            ],
-        }
-        gdf = gpd.GeoDataFrame(data, geometry="geometry", crs=CRS.from_epsg(32619))
+def _make_all_generic_raw_gdf() -> gpd.GeoDataFrame:
+    """Raw GDF mimicking osmnx output: MultiIndex (element_type, osmid), building="yes"."""
+    idx = pd.MultiIndex.from_tuples(
+        [("way", 1), ("way", 2)], names=["element_type", "osmid"]
+    )
+    # Two 20×20 squares in EPSG:4326 degrees (small, near Boston)
+    geom1 = shapely.geometry.Polygon([
+        (-71.06, 42.36), (-71.06, 42.3602), (-71.0598, 42.3602), (-71.0598, 42.36),
+    ])
+    geom2 = shapely.geometry.Polygon([
+        (-71.07, 42.37), (-71.07, 42.3702), (-71.0698, 42.3702), (-71.0698, 42.37),
+    ])
+    return gpd.GeoDataFrame(
+        {"geometry": [geom1, geom2], "building": ["yes", "yes"]},
+        index=idx,
+        geometry="geometry",
+        crs="EPSG:4326",
+    )
 
-        # Simulate the dataset-level check from ingest_buildings
+
+class TestAllGenericNeighbourhood:
+    def test_warning_emitted_with_wgs84_bbox(self, mocker, caplog):
+        # D5: drive ingest_buildings via mock; assert warning payload has WGS84 (n,s,e,w) bbox.
+        from openubem.acquisition.osm_fetcher import ingest_buildings
+
+        mock_raw = _make_all_generic_raw_gdf()
+        mocker.patch(
+            "openubem.acquisition.osm_fetcher.ox.features.features_from_point",
+            return_value=mock_raw,
+        )
+
         with caplog.at_level(logging.WARNING, logger="openubem.acquisition"):
-            if len(gdf) > 0 and gdf["data_quality_flag"].str.contains("generic_tag").all():
-                logger_under_test = logging.getLogger("openubem.acquisition")
-                logger_under_test.warning(
-                    json.dumps({
-                        "event": "all_generic_neighbourhood",
-                        "bbox": list(gdf.total_bounds.tolist()),
-                        "n_rows": len(gdf),
-                    })
-                )
+            result = ingest_buildings(location=(42.36, -71.06), radius_m=500.0)
 
         warnings = [
             r for r in caplog.records
             if r.levelno == logging.WARNING and r.name == "openubem.acquisition"
         ]
-        assert len(warnings) == 1, f"Expected 1 warning, got {len(warnings)}"
+        assert len(warnings) >= 1, f"Expected >=1 warning, got {len(warnings)}"
 
         payload = json.loads(warnings[0].message)
         assert payload["event"] == "all_generic_neighbourhood"
-        assert payload["n_rows"] == 2
+        assert payload["n_rows"] == len(result)
 
-        # GDF must be returned non-empty
-        assert len(gdf) > 0
+        # bbox must be WGS84 (n, s, e, w) — values must be plausible lat/lon, not UTM metres
+        warn_bbox = payload["bbox"]
+        assert len(warn_bbox) == 4
+        n, s, e, w = warn_bbox
+        assert -90 <= s < n <= 90, f"bbox lat out of range: s={s}, n={n}"
+        assert -180 <= w < e <= 180, f"bbox lon out of range: w={w}, e={e}"
 
 
 # ---------------------------------------------------------------------------
@@ -565,3 +632,153 @@ class TestSerialize:
                 assert "name" in entry and "dtype" in entry and "provenance_role" in entry
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_log_file_non_empty_and_contains_step4b(self):
+        # D4: log file must be > 0 bytes and contain the "step4b" token from _seven_step_clean.
+        import shutil
+        import tempfile
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            gdf = _make_valid_gdf()
+            log_lines = [
+                json.dumps({"event": "cleaner_step", "step": "4b", "dropped": 0, "remaining": 1}),
+            ]
+            _serialize(gdf, tmp, log_lines=log_lines)
+            log_path = tmp / "01_buildings_clean.log"
+            assert log_path.stat().st_size > 0, "log file must not be 0 bytes"
+            log_text = log_path.read_text(encoding="utf-8")
+            assert "4b" in log_text, "log must contain step4b token"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# D7 — mocked end-to-end ingest_buildings test (W1.9)
+# ---------------------------------------------------------------------------
+
+class TestIngestBuildingsEndToEnd:
+    def _make_raw_gdf(self) -> gpd.GeoDataFrame:
+        """
+        Small raw GDF mimicking osmnx 1.9 output: MultiIndex (element_type, osmid).
+        Contains one way/node id pair with the same numeric id, plus one fractional level.
+        All geometries are valid, large enough to survive cleaning.
+        """
+        idx = pd.MultiIndex.from_tuples(
+            [("way", 99001), ("node", 99001), ("way", 99002)],
+            names=["element_type", "osmid"],
+        )
+        # Three 30×30 squares in WGS84 (near Boston), spaced far apart so no overlap dedup.
+        def _wgs84_square(lon0, lat0, d=0.0003):
+            return shapely.geometry.Polygon([
+                (lon0, lat0), (lon0 + d, lat0), (lon0 + d, lat0 + d), (lon0, lat0 + d),
+            ])
+
+        return gpd.GeoDataFrame(
+            {
+                "geometry": [
+                    _wgs84_square(-71.060, 42.360),
+                    _wgs84_square(-71.070, 42.370),
+                    _wgs84_square(-71.080, 42.380),
+                ],
+                "building": ["residential", "yes", "commercial"],
+                "building:levels": ["2.5", "3", "5"],
+            },
+            index=idx,
+            geometry="geometry",
+            crs="EPSG:4326",
+        )
+
+    def test_end_to_end_schema_and_key_invariants(self, mocker):
+        # D7: mock the fetch; drive the full flatten→UTM→clean→provenance→trim→validate pipeline.
+        import shutil
+        import tempfile
+        from openubem.acquisition.osm_fetcher import ingest_buildings
+
+        mocker.patch(
+            "openubem.acquisition.osm_fetcher.ox.features.features_from_point",
+            return_value=self._make_raw_gdf(),
+        )
+
+        tmp = Path(tempfile.mkdtemp())
+        try:
+            result = ingest_buildings(
+                location=(42.36, -71.06),
+                radius_m=500.0,
+                output_dir=tmp,
+            )
+
+            # 23-column schema
+            assert len(result.columns) == 23, f"Expected 23 cols, got {list(result.columns)}"
+            assert list(result.columns) == _SCHEMA_COLUMNS
+
+            # crs_utm uniform (all rows same projected CRS string)
+            assert result["crs_utm"].nunique() == 1
+            crs_val = result["crs_utm"].iloc[0]
+            assert crs_val != "", "crs_utm must not be empty"
+
+            # osm_id starts with "way/" or "node/"
+            for oid in result["osm_id"]:
+                assert oid.startswith("way/") or oid.startswith("node/"), (
+                    f"osm_id {oid!r} does not start with way/ or node/"
+                )
+
+            # fractional levels="2.5" row must survive with levels==2 (round-half-to-even)
+            way_row = result[result["osm_id"] == "way/99001"]
+            assert len(way_row) == 1, "way/99001 row must survive cleaning"
+            assert way_row.iloc[0]["levels"] == 2, "2.5 must round to 2"
+
+            # log file non-empty
+            log_path = tmp / "01_buildings_clean.log"
+            assert log_path.exists() and log_path.stat().st_size > 0, "log file must be non-empty"
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+# ---------------------------------------------------------------------------
+# D8 — vertex-count warning (W1.7)
+# ---------------------------------------------------------------------------
+
+class TestVertexCountWarning:
+    def _make_high_vert_raw(self) -> gpd.GeoDataFrame:
+        """Raw GDF with one 130-vertex polygon (> 20 m², valid) in WGS84."""
+        import math as _math
+        n_verts = 130
+        cx, cy, r = -71.060, 42.360, 0.002  # WGS84 degrees, ~200 m radius
+        angles = [2 * _math.pi * i / n_verts for i in range(n_verts)]
+        coords = [(cx + r * _math.cos(a), cy + r * _math.sin(a)) for a in angles]
+        poly = shapely.geometry.Polygon(coords)
+        idx = pd.MultiIndex.from_tuples([("way", 77001)], names=["element_type", "osmid"])
+        return gpd.GeoDataFrame(
+            {"geometry": [poly], "building": ["yes"]},
+            index=idx,
+            geometry="geometry",
+            crs="EPSG:4326",
+        )
+
+    def test_warning_emitted_and_row_retained(self, mocker, caplog):
+        # D8: a 130-vertex polygon triggers the high_vertex_count warning; the row survives.
+        from openubem.acquisition.osm_fetcher import ingest_buildings
+
+        mocker.patch(
+            "openubem.acquisition.osm_fetcher.ox.features.features_from_point",
+            return_value=self._make_high_vert_raw(),
+        )
+
+        with caplog.at_level(logging.WARNING, logger="openubem.acquisition"):
+            result = ingest_buildings(location=(42.36, -71.06), radius_m=500.0)
+
+        warnings = [
+            r for r in caplog.records
+            if r.levelno == logging.WARNING
+            and r.name == "openubem.acquisition"
+            and "high_vertex_count" in r.message
+        ]
+        assert len(warnings) >= 1, "high_vertex_count warning must be emitted for 130-vertex polygon"
+
+        payload = json.loads(warnings[0].message)
+        assert payload["event"] == "high_vertex_count"
+        assert payload["p95_vertices"] >= 80
+
+        # Row must survive (no drop)
+        assert len(result) == 1, "130-vertex polygon row must be retained"
+        assert result.iloc[0]["osm_id"] == "way/77001"
