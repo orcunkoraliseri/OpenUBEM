@@ -339,6 +339,11 @@ def _assign_confidence(
     if levels_source != "OSM_OBSERVED" and head in _LEVELS_CONSUMING:
         return "MEDIUM"
 
+    # HIGH(b) wins: rules 1a/1b/2a/2b with observed building_tag + observed levels (R6)
+    _HIGH_B_RULES: frozenset[str] = frozenset({"RULE_HIGHRISE", "RULE_RESIDENTIAL_TIER"})
+    if head in _HIGH_B_RULES and pbt == "OSM_OBSERVED" and levels_source == "OSM_OBSERVED":
+        return "HIGH"
+
     # MEDIUM: function tag missing, building tag observed and specific
     pfn = _to_str(row.get("provenance_function_tag", ""))
     if pfn == "OSM_MISSING" and pbt == "OSM_OBSERVED" and head != "FALLBACK_UNKNOWN":
@@ -398,6 +403,13 @@ def _apply_overrides(
 
 # ── Schema validators (DESIGN §3F line 278, plan T11) ──────────────────────────
 
+_LOAD_BEARING_DTYPES: dict[str, str] = {
+    "levels": "Int64",
+    "footprint_area_m2": "float64",
+    "height_m": "float64",
+}
+
+
 def _validate_input_schema(gdf: gpd.GeoDataFrame) -> None:
     cols = list(gdf.columns)
     if len(cols) != 23:
@@ -405,6 +417,18 @@ def _validate_input_schema(gdf: gpd.GeoDataFrame) -> None:
     if cols != _INPUT_SCHEMA_COLUMNS:
         first_bad = next((c for c, e in zip(cols, _INPUT_SCHEMA_COLUMNS) if c != e), cols[-1])
         raise SchemaError(f"input column order mismatch; first offending: {first_bad!r}")
+
+    # E3: dtype assertions for load-bearing columns (DESIGN §3F line 278, W2.7)
+    for col, expected in _LOAD_BEARING_DTYPES.items():
+        actual = str(gdf[col].dtype)
+        if actual != expected:
+            raise ValueError(
+                f"column {col!r} dtype mismatch: expected {expected!r}, got {actual!r}"
+            )
+
+    # geometry column checked separately (any geometry dtype is valid)
+    if not hasattr(gdf[cols[0]], "geom_type"):
+        raise SchemaError("column 'geometry' must be a geometry column")
 
 
 def _validate_output_schema(gdf: gpd.GeoDataFrame) -> None:
@@ -528,6 +552,14 @@ class BuildingClassifier:
         input_gdf = gdf
         _validate_input_schema(input_gdf)
 
+        # E4: guard empty GDF before apply (0-row expand crashes with KeyError)
+        if len(gdf) == 0:
+            out = gdf.copy()
+            out["archetype_id"] = pd.Series(dtype="object")
+            out["archetype_confidence"] = pd.Series(dtype="object")
+            out["archetype_source"] = pd.Series(dtype="object")
+            return out
+
         out = gdf.copy()
         results = out.apply(
             lambda row: classify_building(
@@ -571,30 +603,53 @@ class BuildingClassifier:
             )
 
         if output_dir is not None:
-            self._serialize(out, Path(output_dir))
+            # Collect summary lines for the log file (D4/W2.3): rule-fire counts, tier counts, FALLBACKs.
+            log_lines = self._build_log_lines(out)
+            self._serialize(out, Path(output_dir), log_lines=log_lines)
 
         return out
 
+    def _build_log_lines(self, out: gpd.GeoDataFrame) -> list[str]:
+        # Per-rule fire counts (first token of archetype_source).
+        rule_counts: dict[str, int] = {}
+        for src in out["archetype_source"]:
+            tok = str(src).split(",")[0]
+            rule_counts[tok] = rule_counts.get(tok, 0) + 1
+        # Per-tier counts.
+        tier_counts = out["archetype_confidence"].value_counts().to_dict()
+        # FALLBACK osm_ids.
+        fallback_ids = list(
+            out.loc[out["archetype_id"] == "OpenUBEMUnknown", "osm_id"]
+        )
+        return [
+            json.dumps({"event": "rule_fire_counts", "counts": rule_counts}),
+            json.dumps({"event": "tier_counts", "counts": {str(k): int(v) for k, v in tier_counts.items()}}),
+            json.dumps({"event": "FALLBACK", "osm_ids": fallback_ids, "n": len(fallback_ids)}),
+        ]
+
     # ── serialisation (plan T12) ───────────────────────────────────────────────
 
-    def _serialize(self, gdf: gpd.GeoDataFrame, output_dir: Path) -> None:
+    def _serialize(
+        self,
+        gdf: gpd.GeoDataFrame,
+        output_dir: Path,
+        log_lines: list[str] | None = None,
+    ) -> None:
         output_dir.mkdir(parents=True, exist_ok=True)
-        handler = logging.FileHandler(
-            output_dir / "02_buildings_classified.log", encoding="utf-8"
+
+        # Write collected summary lines directly so the file is never 0 bytes (D4/W2.3).
+        log_path = output_dir / "02_buildings_classified.log"
+        lines = list(log_lines) if log_lines else []
+        lines.append(json.dumps({"event": "serialize_complete", "n_rows": len(gdf)}))
+        log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        gdf.to_file(
+            output_dir / "02_buildings_classified.gpkg",
+            layer="buildings",
+            driver="GPKG",
         )
-        handler.setLevel(logging.INFO)
-        logger.addHandler(handler)
-        try:
-            gdf.to_file(
-                output_dir / "02_buildings_classified.gpkg",
-                layer="buildings",
-                driver="GPKG",
-            )
-            self._write_schema_json(gdf, output_dir)
-            self._write_distribution_csv(gdf, output_dir)
-        finally:
-            logger.removeHandler(handler)
-            handler.close()
+        self._write_schema_json(gdf, output_dir)
+        self._write_distribution_csv(gdf, output_dir)
 
     def _write_schema_json(self, gdf: gpd.GeoDataFrame, output_dir: Path) -> None:
         entries = []

@@ -57,24 +57,53 @@ def ingest_buildings(
     gdf["crs_utm"] = utm.to_string()
     assert gdf.crs.is_projected
 
-    gdf = _seven_step_clean(gdf)
+    gdf, _clean_log_lines = _seven_step_clean(gdf)
+
+    # D8/W1.7 — vertex-count warning (§5.1 metric signal for Stage 3 simplify).
+    if len(gdf) > 0:
+        _vert_counts = gdf.geometry.apply(lambda g: len(g.exterior.coords))
+        _p95 = int(_vert_counts.quantile(0.95))
+        _clean_log_lines.append(json.dumps({"event": "vertex_p95", "p95_vertices": _p95}))
+        if _p95 >= 80:
+            logger.warning(
+                json.dumps({"event": "high_vertex_count", "p95_vertices": _p95, "n_rows": len(gdf)})
+            )
 
     gdf = _assign_provenance(gdf)
     gdf = _build_quality_flag(gdf)
+
+    # Build WGS84 bbox for the warning payload (D5/W1.5): prefer caller-supplied bbox,
+    # else derive from the projected GDF bounds converted back to geographic.
+    if bbox is not None:
+        _warning_bbox = list(bbox)
+    elif len(gdf) > 0:
+        _wgs84 = gdf.to_crs("EPSG:4326")
+        b = _wgs84.total_bounds  # [minx, miny, maxx, maxy] = [W, S, E, N]
+        _warning_bbox = [b[3], b[1], b[2], b[0]]  # (n, s, e, w) per DESIGN
+    else:
+        _warning_bbox = []
 
     if len(gdf) > 0 and gdf["data_quality_flag"].str.contains("generic_tag").all():
         logger.warning(
             json.dumps({
                 "event": "all_generic_neighbourhood",
-                "bbox": list(gdf.total_bounds.tolist()),
+                "bbox": _warning_bbox,
                 "n_rows": len(gdf),
             })
         )
 
+    # Drop surplus raw OSM tag columns + enforce canonical column order before validation.
+    # Live OSM fetches return ~150 extra tag columns that _flatten_tags preserves; they are
+    # already captured in surplus_tags JSON and must not leak into the persisted 23-col schema.
+    missing = [c for c in _SCHEMA_COLUMNS if c not in gdf.columns]
+    if missing:
+        raise ValueError(f"Schema error: required columns missing after pipeline: {missing}")
+    gdf = gdf[_SCHEMA_COLUMNS]
+
     _validate_schema(gdf)
 
     if output_dir is not None:
-        _serialize(gdf, Path(output_dir))
+        _serialize(gdf, Path(output_dir), log_lines=_clean_log_lines)
 
     return gdf
 
@@ -162,20 +191,13 @@ _OSM_RENAME_SOURCES = {
 def _flatten_tags(gdf_raw: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     gdf = gdf_raw.reset_index()
 
-    # osm_id from index columns
-    if "osmid" in gdf.columns:
-        gdf["osm_id"] = gdf["osmid"].astype(str)
-    elif "element_type" in gdf.columns and "osmid" in gdf.columns:
+    # osm_id from index columns — check element_type+osmid co-presence FIRST (D2/R5)
+    if "element_type" in gdf.columns and "osmid" in gdf.columns:
         gdf["osm_id"] = gdf["element_type"].astype(str) + "/" + gdf["osmid"].astype(str)
+    elif "osmid" in gdf.columns:
+        gdf["osm_id"] = gdf["osmid"].astype(str)
     else:
-        # MultiIndex was (element_type, osmid) — after reset_index these become columns
-        id_cols = [c for c in gdf.columns if c in ("element_type", "osmid")]
-        if len(id_cols) == 2:
-            gdf["osm_id"] = gdf["element_type"].astype(str) + "/" + gdf["osmid"].astype(str)
-        elif "osmid" in gdf.columns:
-            gdf["osm_id"] = gdf["osmid"].astype(str)
-        else:
-            gdf["osm_id"] = gdf.index.astype(str)
+        gdf["osm_id"] = gdf.index.astype(str)
 
     # Preserve raw height string for surplus_tags
     raw_height = gdf.get("height", pd.Series(dtype=object))
@@ -199,7 +221,7 @@ def _flatten_tags(gdf_raw: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
     # levels
     if "building:levels" in gdf.columns:
-        gdf["levels"] = pd.to_numeric(gdf["building:levels"], errors="coerce").astype("Int64")
+        gdf["levels"] = pd.to_numeric(gdf["building:levels"], errors="coerce").round().astype("Int64")
     else:
         gdf["levels"] = pd.array([pd.NA] * len(gdf), dtype="Int64")
 
@@ -230,6 +252,7 @@ def _flatten_tags(gdf_raw: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if "building:levels:underground" in gdf.columns:
         gdf["underground"] = (
             pd.to_numeric(gdf["building:levels:underground"], errors="coerce")
+            .round()
             .fillna(0)
             .astype("Int64")
         )
@@ -260,8 +283,9 @@ def _flatten_tags(gdf_raw: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
     def _make_surplus(row):
         surplus = {}
+        _skip = canonical_out | _OSM_RENAME_SOURCES  # D6: source tags are already mapped
         for col in gdf.columns:
-            if col in canonical_out:
+            if col in _skip:
                 continue
             v = row[col]
             if pd.isna(v) if not isinstance(v, (list, dict)) else False:
@@ -296,7 +320,7 @@ def _resolve_overlaps(gdf: gpd.GeoDataFrame, iou_threshold: float = 0.95) -> gpd
         if idx_i in drop_set:
             continue
         geom_i = geoms[pos_i]
-        candidates = gdf.sindex.query(geom_i, predicate="overlaps")
+        candidates = gdf.sindex.query(geom_i, predicate="intersects")
         for pos_j in candidates:
             idx_j = idx_list[pos_j]
             if pos_j <= pos_i or idx_j in drop_set:
@@ -328,16 +352,24 @@ def _resolve_overlaps(gdf: gpd.GeoDataFrame, iou_threshold: float = 0.95) -> gpd
 # T07 — _seven_step_clean
 # ---------------------------------------------------------------------------
 
-def _seven_step_clean(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+def _seven_step_clean(gdf: gpd.GeoDataFrame) -> tuple["gpd.GeoDataFrame", list[str]]:
+    # Returns (cleaned_gdf, log_lines) so _serialize can write non-empty log content.
+    log_lines: list[str] = []
+
+    def _emit(payload: dict) -> None:
+        line = json.dumps(payload)
+        logger.info(line)
+        log_lines.append(line)
+
     # Step 1: drop null/empty geometry
     n_before = len(gdf)
     gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty].copy()
-    logger.info(json.dumps({"event": "cleaner_step", "step": 1, "dropped": n_before - len(gdf), "remaining": len(gdf)}))
+    _emit({"event": "cleaner_step", "step": 1, "dropped": n_before - len(gdf), "remaining": len(gdf)})
 
     # Step 2: keep only Polygon / MultiPolygon
     n_before = len(gdf)
     gdf = gdf[gdf.geom_type.isin(["Polygon", "MultiPolygon"])].copy()
-    logger.info(json.dumps({"event": "cleaner_step", "step": 2, "dropped": n_before - len(gdf), "remaining": len(gdf)}))
+    _emit({"event": "cleaner_step", "step": 2, "dropped": n_before - len(gdf), "remaining": len(gdf)})
 
     # Step 3: explode MultiPolygon → Polygon parts, re-key osm_id
     n_before = len(gdf)
@@ -354,36 +386,50 @@ def _seven_step_clean(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if exploded_parts:
         gdf = gpd.GeoDataFrame(exploded_parts, crs=gdf.crs)
     gdf = gdf.reset_index(drop=True)
+
+    # iterrows+stack demotes typed columns to object; restore the dtypes _flatten_tags set.
+    if "levels" in gdf.columns:
+        gdf["levels"] = pd.to_numeric(gdf["levels"], errors="coerce").astype("Int64")
+    if "year_built" in gdf.columns:
+        gdf["year_built"] = pd.to_numeric(gdf["year_built"], errors="coerce").astype("Int64")
+    if "underground" in gdf.columns:
+        gdf["underground"] = (
+            pd.to_numeric(gdf["underground"], errors="coerce").fillna(0).astype("Int64")
+        )
+    if "height_m" in gdf.columns:
+        gdf["height_m"] = pd.to_numeric(gdf["height_m"], errors="coerce").astype(float)
+    if "roof_height_m" in gdf.columns:
+        gdf["roof_height_m"] = pd.to_numeric(gdf["roof_height_m"], errors="coerce").astype(float)
     delta = len(gdf) - n_before
-    logger.info(json.dumps({"event": "cleaner_step", "step": 3, "added": max(delta, 0), "dropped": max(-delta, 0), "remaining": len(gdf)}))
+    _emit({"event": "cleaner_step", "step": 3, "added": max(delta, 0), "dropped": max(-delta, 0), "remaining": len(gdf)})
 
     # Step 4: buffer(0) repair
     gdf.geometry = gdf.geometry.buffer(0)
     n_before = len(gdf)
     gdf = gdf[gdf.geom_type == "Polygon"].copy()
-    logger.info(json.dumps({"event": "cleaner_step", "step": 4, "dropped": n_before - len(gdf), "remaining": len(gdf)}))
+    _emit({"event": "cleaner_step", "step": 4, "dropped": n_before - len(gdf), "remaining": len(gdf)})
 
     # Step 4b: validity re-filter
     n_before = len(gdf)
     gdf = gdf[gdf.geometry.is_valid].copy()
-    logger.info(json.dumps({"event": "cleaner_step", "step": "4b", "dropped": n_before - len(gdf), "remaining": len(gdf)}))
+    _emit({"event": "cleaner_step", "step": "4b", "dropped": n_before - len(gdf), "remaining": len(gdf)})
 
     # Step 5: area / perimeter
     gdf["footprint_area_m2"] = gdf.geometry.area
     gdf["perimeter_m"] = gdf.geometry.length
-    logger.info(json.dumps({"event": "cleaner_step", "step": 5, "dropped": 0, "remaining": len(gdf)}))
+    _emit({"event": "cleaner_step", "step": 5, "dropped": 0, "remaining": len(gdf)})
 
     # Step 6: min-area filter
     n_before = len(gdf)
     gdf = gdf[gdf["footprint_area_m2"] >= 20.0].copy()
-    logger.info(json.dumps({"event": "cleaner_step", "step": 6, "dropped": n_before - len(gdf), "remaining": len(gdf)}))
+    _emit({"event": "cleaner_step", "step": 6, "dropped": n_before - len(gdf), "remaining": len(gdf)})
 
     # Step 7: overlap resolve
     n_before = len(gdf)
     gdf = _resolve_overlaps(gdf, iou_threshold=0.95)
-    logger.info(json.dumps({"event": "cleaner_step", "step": 7, "dropped": n_before - len(gdf), "remaining": len(gdf)}))
+    _emit({"event": "cleaner_step", "step": 7, "dropped": n_before - len(gdf), "remaining": len(gdf)})
 
-    return gdf.reset_index(drop=True)
+    return gdf.reset_index(drop=True), log_lines
 
 
 # ---------------------------------------------------------------------------
@@ -510,39 +556,42 @@ def _validate_schema(gdf: gpd.GeoDataFrame) -> None:
 # T11 — _serialize
 # ---------------------------------------------------------------------------
 
-def _serialize(gdf: gpd.GeoDataFrame, output_dir: Path) -> None:
+def _serialize(
+    gdf: gpd.GeoDataFrame,
+    output_dir: Path,
+    log_lines: list[str] | None = None,
+) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    handler = logging.FileHandler(output_dir / "01_buildings_clean.log", encoding="utf-8")
-    handler.setLevel(logging.INFO)
-    logger.addHandler(handler)
-    try:
-        gdf.to_file(output_dir / "01_buildings_clean.gpkg", layer="buildings", driver="GPKG")
+    # Write collected per-step log lines directly so the file is never 0 bytes (D4/W1.3).
+    log_path = output_dir / "01_buildings_clean.log"
+    lines = list(log_lines) if log_lines else []
+    lines.append(json.dumps({"event": "serialize_complete", "n_rows": len(gdf)}))
+    log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
-        schema = []
-        provenance_roles = {
-            "geometry": "geometry", "osm_id": "identity", "crs_utm": "identity",
-            "building_tag": "raw_tag", "function_tag": "raw_tag", "levels": "raw_tag",
-            "height_m": "raw_tag", "year_built": "raw_tag", "postcode": "raw_tag",
-            "underground": "raw_tag", "roof_shape": "raw_tag", "roof_height_m": "raw_tag",
-            "footprint_area_m2": "computed", "perimeter_m": "computed",
-            "surplus_tags": "surplus",
-            "provenance_levels": "provenance", "provenance_height_m": "provenance",
-            "provenance_year_built": "provenance", "provenance_building_tag": "provenance",
-            "provenance_function_tag": "provenance", "provenance_postcode": "provenance",
-            "provenance_geometry": "provenance",
-            "data_quality_flag": "quality",
-        }
-        for col in _SCHEMA_COLUMNS:
-            schema.append({
-                "name": col,
-                "dtype": str(gdf[col].dtype),
-                "provenance_role": provenance_roles[col],
-            })
-        import json as _json
-        (output_dir / "01_buildings_clean.schema.json").write_text(
-            _json.dumps(schema, indent=2), encoding="utf-8"
-        )
-    finally:
-        logger.removeHandler(handler)
-        handler.close()
+    gdf.to_file(output_dir / "01_buildings_clean.gpkg", layer="buildings", driver="GPKG")
+
+    schema = []
+    provenance_roles = {
+        "geometry": "geometry", "osm_id": "identity", "crs_utm": "identity",
+        "building_tag": "raw_tag", "function_tag": "raw_tag", "levels": "raw_tag",
+        "height_m": "raw_tag", "year_built": "raw_tag", "postcode": "raw_tag",
+        "underground": "raw_tag", "roof_shape": "raw_tag", "roof_height_m": "raw_tag",
+        "footprint_area_m2": "computed", "perimeter_m": "computed",
+        "surplus_tags": "surplus",
+        "provenance_levels": "provenance", "provenance_height_m": "provenance",
+        "provenance_year_built": "provenance", "provenance_building_tag": "provenance",
+        "provenance_function_tag": "provenance", "provenance_postcode": "provenance",
+        "provenance_geometry": "provenance",
+        "data_quality_flag": "quality",
+    }
+    for col in _SCHEMA_COLUMNS:
+        schema.append({
+            "name": col,
+            "dtype": str(gdf[col].dtype),
+            "provenance_role": provenance_roles[col],
+        })
+    import json as _json
+    (output_dir / "01_buildings_clean.schema.json").write_text(
+        _json.dumps(schema, indent=2), encoding="utf-8"
+    )

@@ -12,7 +12,7 @@ $action = New-ScheduledTaskAction `
     -Argument "-NonInteractive -ExecutionPolicy Bypass -File `"$ScriptPath`""
 
 # Daily at 23:00
-$trigger = New-ScheduledTaskTrigger -Daily -At "23:00"
+$trigger = New-ScheduledTaskTrigger -Daily -At "23:10"
 
 $settings = New-ScheduledTaskSettingsSet `
     -StartWhenAvailable `
@@ -34,5 +34,5 @@ Register-ScheduledTask `
     -Principal $principal `
     -Description "Daily auto-commit and push for OpenUBEM to GitHub (origin/main)"
 
-Write-Host "Scheduled task '$TaskName' registered. Runs daily at 23:00." -ForegroundColor Green
+Write-Host "Scheduled task '$TaskName' registered. Runs daily at 23:10." -ForegroundColor Green
 Write-Host "Logs will appear in: C:\Users\o_iseri\Desktop\OpenUBEM\tmp\auto_commit.log"

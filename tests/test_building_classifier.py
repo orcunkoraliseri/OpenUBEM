@@ -336,9 +336,13 @@ class TestAssignConfidence:
     def test_rule_2a_observed_levels_high(self):
         r = _row(building_tag="apartments", provenance_building_tag="OSM_OBSERVED",
                  provenance_function_tag="OSM_MISSING")
-        # MEDIUM trigger 3: pfn=OSM_MISSING, pbt=OSM_OBSERVED → MEDIUM
-        # (no function tag for apartments → building_tag drove it)
         conf = _assign_confidence(r, "RULE_RESIDENTIAL_TIER", "OSM_OBSERVED", "residential")
+        assert conf == "HIGH"
+
+    def test_rule_2a_imputed_levels_medium(self):
+        r = _row(building_tag="apartments", provenance_building_tag="OSM_OBSERVED",
+                 provenance_function_tag="OSM_MISSING")
+        conf = _assign_confidence(r, "RULE_RESIDENTIAL_TIER", "HEURISTIC_DEFAULT", "residential")
         assert conf == "MEDIUM"
 
     def test_rule_2a_function_tag_observed_high(self):
@@ -725,6 +729,18 @@ class TestSerialize:
         finally:
             shutil.rmtree(td)
 
+    def test_log_file_non_empty_and_contains_fallback(self):
+        # D4: log file must be > 0 bytes and contain the "FALLBACK" token.
+        td = tempfile.mkdtemp()
+        try:
+            BuildingClassifier().classify(_make_min_gdf(2, building_tag="office"), output_dir=Path(td))
+            log_path = Path(td) / "02_buildings_classified.log"
+            assert log_path.stat().st_size > 0, "log file must not be 0 bytes"
+            log_text = log_path.read_text(encoding="utf-8")
+            assert "FALLBACK" in log_text, "log must contain FALLBACK token"
+        finally:
+            shutil.rmtree(td)
+
 
 # ── synthetic_30_gdf session fixture (plan T13) ───────────────────────────────
 
@@ -849,6 +865,74 @@ class TestArchetypeCoverage30:
         assert "SmallOfficeDetailed" in produced
         assert "MediumOfficeDetailed" in produced
         assert "LargeOfficeDetailed" in produced
+
+
+# ── TestExactBoundaries (E2) ──────────────────────────────────────────────────
+
+@pytest.mark.parametrize("tag_overrides,levels_val,area_val,expected_archetype", [
+    # area=500: exactly at Small/Medium boundary → MediumOffice (DESIGN §3C: 500 ≤ area < 4000)
+    ({"building_tag": "office", "footprint_area_m2": 500.0}, pd.NA, 500.0, "MediumOffice"),
+    # area=4000: exactly at Medium/Large boundary → LargeOffice (DESIGN §3C: area ≥ 4000)
+    ({"building_tag": "office", "footprint_area_m2": 4000.0}, pd.NA, 4000.0, "LargeOffice"),
+    # area=5000 with school → SecondarySchool (DESIGN §3C rule 6b: area ≥ 5000)
+    ({"function_tag": "school", "footprint_area_m2": 5000.0,
+      "provenance_function_tag": "OSM_OBSERVED"}, pd.NA, 5000.0, "SecondarySchool"),
+    # levels=4 with hotel → LargeHotel (DESIGN §3C rule 3a: levels ≥ 4)
+    ({"function_tag": "hotel", "provenance_function_tag": "OSM_OBSERVED",
+      "provenance_levels": "OSM_OBSERVED"}, 4, 800.0, "LargeHotel"),
+    # levels=9 with residential → HighriseApartment (DESIGN §3C rule 2a: levels ≥ 9)
+    ({"building_tag": "apartments", "provenance_levels": "OSM_OBSERVED"}, 9, 800.0, "HighriseApartment"),
+    # levels=20 with commercial → TallBuilding (DESIGN §3C rule 1b: 20 ≤ levels < 40)
+    ({"building_tag": "office", "provenance_levels": "OSM_OBSERVED"}, 20, 800.0, "TallBuilding"),
+    # levels=40 with commercial → SuperTallBuilding (DESIGN §3C rule 1a: levels ≥ 40)
+    ({"building_tag": "office", "provenance_levels": "OSM_OBSERVED"}, 40, 800.0, "SuperTallBuilding"),
+])
+class TestExactBoundaries:
+    def test_boundary(self, tag_overrides, levels_val, area_val, expected_archetype):
+        kw = {"footprint_area_m2": area_val}
+        kw.update(tag_overrides)
+        if levels_val is not pd.NA:
+            kw["levels"] = pd.array([levels_val], dtype="Int64")[0]
+        r = _row(**kw)
+        aid, _conf, _src = classify_building(r)
+        assert aid == expected_archetype, (
+            f"area={area_val}, levels={levels_val} → expected {expected_archetype}, got {aid}"
+        )
+
+
+# ── TestInputDtypeValidation (E3) ─────────────────────────────────────────────
+
+class TestInputDtypeValidation:
+    def test_float64_levels_raises_valueerror(self):
+        gdf = _make_min_gdf(2, building_tag="office")
+        gdf["levels"] = gdf["levels"].astype("float64")
+        with pytest.raises(ValueError, match="levels"):
+            _validate_input_schema(gdf)
+
+    def test_int64_levels_raises_valueerror(self):
+        gdf = _make_min_gdf(2, building_tag="office")
+        gdf["levels"] = gdf["levels"].astype("float64").fillna(0).astype("int64")
+        with pytest.raises(ValueError, match="levels"):
+            _validate_input_schema(gdf)
+
+    def test_correct_dtypes_passes(self):
+        gdf = _make_min_gdf(2, building_tag="office")
+        _validate_input_schema(gdf)
+
+
+# ── TestEmptyGDFGuard (E4) ────────────────────────────────────────────────────
+
+class TestEmptyGDFGuard:
+    def test_zero_row_input_returns_26_cols_no_exception(self):
+        gdf_full = _make_min_gdf(2, building_tag="office")
+        gdf_empty = gdf_full.iloc[0:0].copy()
+        assert len(gdf_empty) == 0
+        out = BuildingClassifier().classify(gdf_empty)
+        assert len(out) == 0
+        assert len(out.columns) == 26
+        assert "archetype_id" in out.columns
+        assert "archetype_confidence" in out.columns
+        assert "archetype_source" in out.columns
 
 
 # ── TestLabelledTop1Accuracy ──────────────────────────────────────────────────
