@@ -281,7 +281,8 @@ class TestConstructions:
         assert len(infil) == 3
         for obj in infil:
             assert obj.Schedule_Name == "Infiltration_Schedule_MediumOffice"
-            assert abs(float(obj.Flow_per_Exterior_Surface_Area) - 0.0003) < 1e-9
+            # Field renamed in EnergyPlus 23.1 IDD (W3.7): Flow_per_Exterior_Surface_Area → Flow_Rate_per_Exterior_Surface_Area
+            assert abs(float(obj.Flow_Rate_per_Exterior_Surface_Area) - 0.0003) < 1e-9
 
 
 class TestLoads:
@@ -348,7 +349,8 @@ class TestLoads:
         zones = [{"name": "way/123_F0_whole", "archetype_id": arch}]
         bidf.assign_loads(zones)
         people = bidf.idf.idfobjects["PEOPLE"][0]
-        assert abs(float(people.People_per_Zone_Floor_Area) - 1.0 / 10.0) < 1e-9
+        # Field renamed in EnergyPlus 23.1 IDD (W3.7): People_per_Zone_Floor_Area → People_per_Floor_Area
+        assert abs(float(people.People_per_Floor_Area) - 1.0 / 10.0) < 1e-9
         assert people.Activity_Level_Schedule_Name == "Activity_Level"
         assert abs(float(people.Fraction_Radiant) - 0.3) < 1e-9
         lights = bidf.idf.idfobjects["LIGHTS"][0]
@@ -446,8 +448,9 @@ class TestDoubleExtrusionFailure:
             manifest = bidf.build(gdf, {}, out_path)
 
         # No zones extruded → PEOPLE/LIGHTS/HVAC should reference nothing.
-        people_zones = {p.Zone_or_ZoneList_Name for p in bidf.idf.idfobjects["PEOPLE"]}
-        lights_zones = {l.Zone_or_ZoneList_Name for l in bidf.idf.idfobjects["LIGHTS"]}
+        # Field renamed in EnergyPlus 23.1 IDD (W3.7): Zone_or_ZoneList_or_Space_or_SpaceList_Name
+        people_zones = {p.Zone_or_ZoneList_or_Space_or_SpaceList_Name for p in bidf.idf.idfobjects["PEOPLE"]}
+        lights_zones = {l.Zone_or_ZoneList_or_Space_or_SpaceList_Name for l in bidf.idf.idfobjects["LIGHTS"]}
         hvac_zones = {h.Zone_Name for h in bidf.idf.idfobjects["HVACTEMPLATE:ZONE:IDEALLOADSAIRSYSTEM"]}
         assert people_zones == set(), f"PEOPLE references zones despite extrusion failure: {people_zones}"
         assert lights_zones == set(), f"LIGHTS references zones despite extrusion failure: {lights_zones}"

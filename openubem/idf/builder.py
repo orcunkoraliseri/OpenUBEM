@@ -21,6 +21,7 @@ from openubem.geometry.context import discover_context
 from openubem.idf.surfaces import extrude_geometry, set_adiabatic_surfaces
 from openubem.idf.hvac import assign_hvac
 from openubem.idf.outputs import write_outputs
+from openubem.semantic.schedules import write_schedules_to_idf
 
 logger = logging.getLogger("openubem.idf")
 
@@ -140,19 +141,16 @@ class BuildingIDF:
             idf.newidfobject(
                 "ZONEINFILTRATION:DESIGNFLOWRATE",
                 Name=f"Infiltration_{z['name']}",
-                Zone_or_ZoneList_Name=z["name"],
+                Zone_or_ZoneList_or_Space_or_SpaceList_Name=z["name"],
                 Schedule_Name=f"Infiltration_Schedule_{arch}",
                 Design_Flow_Rate_Calculation_Method="Flow/ExteriorWallArea",
-                Flow_per_Exterior_Surface_Area=float(row["infiltration_m3_s_m2"]),
+                Flow_Rate_per_Exterior_Surface_Area=float(row["infiltration_m3_s_m2"]),
                 Constant_Term_Coefficient=1.0,
             )
 
     def copy_schedule_library(self, archetype_id: str, schedule_library: dict) -> None:
-        """Copy Module 06 schedule stubs into IDF before load objects reference them (fact #24)."""
-        arch_lib = schedule_library.get(archetype_id, {})
-        for _family, stubs in arch_lib.items():
-            for stub in stubs:
-                self.idf.copyidfobject(stub)
+        """Write Module 07 schedule objects into IDF via write_schedules_to_idf (Step-2.2 §3F)."""
+        write_schedules_to_idf(self.idf, archetype_id)
 
     def assign_loads(self, zones: list[dict]) -> None:
         """Per-zone PEOPLE/LIGHTS/ELECTRICEQUIPMENT/HVACTEMPLATE:THERMOSTAT per DESIGN §3G (fact #23)."""
@@ -166,17 +164,17 @@ class BuildingIDF:
             idf.newidfobject(
                 "PEOPLE",
                 Name=f"People_{zname}",
-                Zone_or_ZoneList_Name=zname,
+                Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
                 Number_of_People_Schedule_Name=f"Occupancy_Schedule_{arch}",
                 Number_of_People_Calculation_Method="People/Area",
-                People_per_Zone_Floor_Area=people_per_m2,
+                People_per_Floor_Area=people_per_m2,
                 Activity_Level_Schedule_Name="Activity_Level",
                 Fraction_Radiant=0.3,
             )
             idf.newidfobject(
                 "LIGHTS",
                 Name=f"Lights_{zname}",
-                Zone_or_ZoneList_Name=zname,
+                Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
                 Schedule_Name=f"Lighting_Schedule_{arch}",
                 Design_Level_Calculation_Method="Watts/Area",
                 Watts_per_Zone_Floor_Area=float(row["lighting_w_m2"]),
@@ -185,7 +183,7 @@ class BuildingIDF:
             idf.newidfobject(
                 "ELECTRICEQUIPMENT",
                 Name=f"Equipment_{zname}",
-                Zone_or_ZoneList_Name=zname,
+                Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
                 Schedule_Name=f"Equipment_Schedule_{arch}",
                 Design_Level_Calculation_Method="Watts/Area",
                 Watts_per_Zone_Floor_Area=float(row["equipment_w_m2"]),

@@ -38,8 +38,7 @@ class TestHVAC:
         assert len(hvac_objs) == 3
 
     def test_zone_and_thermostat_fields_present(self):
-        # eppy's bundled IDD v8.0.0 only exposes Zone_Name + Template_Thermostat_Name.
-        # Extended fields (temperatures, flow rates) are present in EnergyPlus 23.1 IDD only.
+        # With EnergyPlus 23.1 IDD (T10.5), all extended fields are now available.
         idf = _fresh_idf()
         zones = _make_zones(1, "bld")
         assign_hvac(idf, _make_row(), zones)
@@ -48,7 +47,7 @@ class TestHVAC:
         assert obj.Template_Thermostat_Name == "bld_F0_whole_Thermostat"
 
     def test_extended_defaults_applied_if_idd_permits(self):
-        """Extended fields silently skipped when using bundled IDD — no exception raised."""
+        """Extended fields applied with EnergyPlus 23.1 IDD (W3.7 T10.5 — no longer silently skipped)."""
         idf = _fresh_idf()
         zones = _make_zones(1)
         assign_hvac(idf, _make_row(), zones)  # must not raise

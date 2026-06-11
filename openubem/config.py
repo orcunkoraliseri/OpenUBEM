@@ -9,8 +9,20 @@ def _resolve_idd_path() -> Path:
     env_val = os.environ.get("OPENUBEM_ENERGYPLUS_IDD_PATH")
     if env_val:
         return Path(env_val)
-    # geomeppy.utilities.IDD_PATH does not exist in geomeppy >= 0.12; fall back
-    # to eppy's bundled IDD text written to a stable temp file.
+    # Prefer the real EnergyPlus 23.1 IDD: it includes the Space Name field
+    # (inserted after Zone Name in BuildingSurface:Detailed in EnergyPlus 9.6+).
+    # Without it, eppy's 8.0 IDD omits that field and 23.1 parses subsequent
+    # fields shifted by one position, causing fatal JSON-schema validation errors (W3.7).
+    ep_idd = Path(os.environ.get("ENERGYPLUS_PATH", r"C:\EnergyPlusV23-1-0")) / "Energy+.idd"
+    if ep_idd.exists():
+        return ep_idd
+    # Last-resort fallback: eppy's bundled IDD text (v8.0.0).
+    import logging as _logging
+    _logging.getLogger("openubem.config").warning(
+        "EnergyPlus 23.1 IDD not found at %s; falling back to eppy bundled IDD v8.0.0 "
+        "(BuildingSurface:Detailed field shift will cause fatal errors under EnergyPlus 9.6+)",
+        ep_idd,
+    )
     tmp = Path(tempfile.gettempdir()) / "openubem_eppy_bundled.idd"
     if not tmp.exists():
         tmp.write_text(_iddcurrent.iddtxt, encoding="utf-8")
@@ -25,3 +37,40 @@ DP_COARSE_TOLERANCE_M: float = 1.5
 MAX_VERTICES: int = 120
 FLOOR_TO_FLOOR_M: float = 3.5
 PERIMETER_DEPTH_M: float = 4.57
+
+# ── Step 2.1 climate / EPW constants (DESIGN line 28) ─────────────────────────
+EPW_CACHE_DIR: Path = Path(
+    os.environ.get("OPENUBEM_EPW_CACHE", str(Path.home() / ".openubem" / "epw"))
+)
+EPW_MAX_STATION_KM: float = 300.0  # ASSUMPTION_DESIGN_DEFAULT (DESIGN line 84)
+EPW_PRIMARY_MIRROR: str = "https://climate.onebuilding.org"
+EPW_FALLBACK_MIRROR: str = "https://energyplus.net/weather-download"
+OFFLINE: bool = False
+
+# ── Step 2.2 semantic enrichment constants (DESIGN line 29) ───────────────────
+LOAD_MODE: str = "deterministic"
+RANDOM_SEED: int = 42
+PDE_BOUNDS_PATH: "Path | None" = None
+
+# ── Step 4 parallel simulation constants (DESIGN lines 26–27) ─────────────────
+import sys as _sys
+
+ENERGYPLUS_PATH: Path = Path(os.environ.get("ENERGYPLUS_PATH", r"C:\EnergyPlusV23-1-0"))
+ENERGYPLUS_VERSION: str = "23.1"
+SIM_TIMEOUT_S: int = 900  # ASSUMPTION_DESIGN_DEFAULT (DESIGN line 127)
+SIM_RETAIN_FILES: frozenset = frozenset({
+    "eplusout.sql",
+    "eplusout.csv",
+    "eplusout.mtr",
+    "eplusout.err",
+    "eplusout.end",
+    "eplustbl.htm",
+    "openubem_run.log",
+})
+N_JOBS: int = int(os.environ.get("SLURM_CPUS_PER_TASK", 0)) or -1
+
+# ── Step 5 results / metrics constants (DESIGN line 29) ───────────────────────
+GWP_NATURAL_GAS_KGCO2_KWH: float = 0.181  # Iseri et al. (2025)
+GWP_CONVENTION: str = "load_referenced_v1"
+IOD_SUMMER_MONTHS: tuple[int, int] = (6, 9)  # Jun–Sep inclusive (PLAN P9)
+EUI_PLAUSIBILITY_BOUNDS: tuple[float, float] = (25.0, 1000.0)  # kWh/m²/yr

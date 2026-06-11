@@ -166,48 +166,12 @@ def synthetic_10_gdf():
 
 @pytest.fixture(scope="session")
 def synthetic_schedule_library():
-    """Minimal Schedule:Compact stubs for all 10 archetype IDs in the fixture."""
-    from eppy.modeleditor import IDDAlreadySetError
-    from geomeppy import IDF
-    from importlib.resources import files as _files
-    from openubem.config import ENERGYPLUS_IDD_PATH
-
-    try:
-        IDF.setiddname(str(ENERGYPLUS_IDD_PATH))
-    except IDDAlreadySetError:
-        pass
-
-    tpl_path = str(_files("openubem.idf").joinpath("templates").joinpath("commercial_base.idf"))
+    """Schedule library in Step-2.2 dict form for all 10 archetype IDs (Step-2.2 §3F contract)."""
+    from openubem.semantic.schedules import build_schedule_library
 
     arch_ids = [
         "SmallOffice", "MidriseApartment", "HighriseApartment", "TallBuilding",
         "SuperTallBuilding", "MediumOffice", "RetailStripmall", "Warehouse",
         "SmallDataCenterHighITE", "OpenUBEMUnknown",
     ]
-    name_tpl = {
-        "lighting": "Lighting_Schedule_{}",
-        "equipment": "Equipment_Schedule_{}",
-        "occupancy": "Occupancy_Schedule_{}",
-        "heating_setpoint": "Heating_Setpoint_{}",
-        "cooling_setpoint": "Cooling_Setpoint_{}",
-        "infiltration": "Infiltration_Schedule_{}",
-    }
-
-    library = {}
-    for arch in arch_ids:
-        tmp_idf = IDF(tpl_path)
-        arch_lib = {}
-        for family, tmpl in name_tpl.items():
-            obj = tmp_idf.newidfobject(
-                "SCHEDULE:COMPACT",
-                Name=tmpl.format(arch),
-                Schedule_Type_Limits_Name="Fraction",
-                Field_1="Through: 12/31",
-                Field_2="For: AllDays",
-                Field_3="Until: 24:00",
-                Field_4="1.0",
-            )
-            arch_lib[family] = [obj]
-        library[arch] = arch_lib
-
-    return library
+    return {arch: build_schedule_library(arch) for arch in arch_ids}
