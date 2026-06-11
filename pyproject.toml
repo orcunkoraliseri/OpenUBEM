@@ -16,6 +16,12 @@ dependencies = [
     "packaging",
     "eppy >= 0.5.63, < 1.0",
     "geomeppy >= 0.11.8, < 1.0",
+    "requests",
+    "pyarrow",
+    "pyproj",
+    "scipy",
+    "joblib",
+    "matplotlib",
 ]
 
 [project.optional-dependencies]
@@ -23,12 +29,26 @@ dev = [
     "pytest",
     "pytest-mock",
     "tenacity",
-    "pyarrow",
+    "openpyxl",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
 
 [tool.setuptools.package-data]
-"openubem.data" = ["*.json"]
+"openubem.data" = ["*.json", "*.csv"]
+"openubem.data.construction" = ["*.json", "*.md"]
+"openubem.data.loads" = ["*.json"]
+"openubem.data.schedules" = ["*.json"]
 "openubem.idf" = ["templates/*.idf"]
+"openubem.data.climate_zones" = ["*.gpkg", "*.md"]
+"openubem.data.carbon" = ["*.json", "*.md"]
+
+[tool.pytest.ini_options]
+tmp_path_retention_policy = "failed"
+tmp_path_retention_count = 3
+addopts = "--basetemp=.pytest_tmp"
+markers = [
+    "slow: marks tests as slow (integration / live-network)",
+    "energyplus: marks tests that require the EnergyPlus 23.1 binary",
+]

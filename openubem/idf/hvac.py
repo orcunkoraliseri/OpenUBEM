@@ -1,10 +1,8 @@
 """IdealLoads HVAC assignment (DESIGN §3H, fact #25).
 
-Deviation: eppy's bundled IDD (v8.0.0) only exposes Zone_Name and Template_Thermostat_Name
-for HVACTEMPLATE:ZONE:IDEALLOADSAIRSYSTEM. The remaining 11 fields from fact #25 are
-EnergyPlus 23.1 extensions absent from the v8.0.0 IDD. They resolve correctly when a
-real EnergyPlus 23.1 IDD is supplied via OPENUBEM_ENERGYPLUS_IDD_PATH at production time.
-CI validation (syntax check with bundled IDD) emits only the two universally available fields.
+T10.5 (W3.7 remediation): config now selects the EnergyPlus 23.1 IDD by default, so all
+extended HVACTEMPLATE:ZONE:IDEALLOADSAIRSYSTEM fields from fact #25 are applied on every run.
+The try/except guard is retained for environments where the 23.1 IDD is not available.
 """
 import pandas as pd
 from geomeppy import IDF as GeomIDF
