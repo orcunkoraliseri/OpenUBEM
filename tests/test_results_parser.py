@@ -152,27 +152,29 @@ class TestCsvFallback:
         assert math.isnan(result["total_eui_kwh_m2"])
 
 
-# ── T04: P10 missing-variable guard ──────────────────────────────────────────
+# ── C3: P10 missing-variable guard (C3-enforced: failed_parse, never 0.0) ────
 
 class TestP10MissingVariable:
-    def test_missing_lighting_gives_zero_and_flag(self):
-        """PLAN P10: absent lighting/equipment → 0.0 EUI + RESULTS_MISSING_VARIABLE token."""
+    def test_missing_lighting_gives_failed_parse(self):
+        """C3/P10: absent required EUI variable → failed_parse + variable named in error_summary."""
         from openubem.results.parser import parse_building
+        import math
         row = _manifest_row("way/R1", 196.0, 2, 1)
-        result = parse_building(GOLDEN_DIR / "r1_single_zone.sql", None, row)
-        # Golden SQLs have no lighting/equipment outputs (Step-3 variable drift)
-        assert result["lighting_eui_kwh_m2"] == 0.0
-        assert result["equipment_eui_kwh_m2"] == 0.0
-        dq = result["data_quality_flag"]
-        assert "RESULTS_MISSING_VARIABLE_Zone_Lights_Electric_Energy" in dq
-        assert "RESULTS_MISSING_VARIABLE_Zone_Electric_Equipment_Electric_Energy" in dq
+        # r1_missing_lighting.sql has Zone Lights Electricity Energy removed
+        result = parse_building(GOLDEN_DIR / "r1_missing_lighting.sql", None, row)
+        assert result["parse_status"] == "failed_parse"
+        assert "Zone Lights Electricity Energy" in result["error_summary"]
+        assert math.isnan(result["total_eui_kwh_m2"])
 
-    def test_missing_variable_parse_status_not_failed(self):
-        """P10: missing variables must NOT set parse_status to failed_parse."""
+    def test_missing_variable_all_metrics_nan(self):
+        """C3/P10: failed_parse → all five EUI columns NaN (no silent zeros)."""
         from openubem.results.parser import parse_building
+        import math
         row = _manifest_row("way/R1", 196.0, 2, 1)
-        result = parse_building(GOLDEN_DIR / "r1_single_zone.sql", None, row)
-        assert result["parse_status"] == "success"
+        result = parse_building(GOLDEN_DIR / "r1_missing_lighting.sql", None, row)
+        for col in ["heating_eui_kwh_m2", "cooling_eui_kwh_m2", "lighting_eui_kwh_m2",
+                    "equipment_eui_kwh_m2", "total_eui_kwh_m2"]:
+            assert math.isnan(result[col]), f"{col} should be NaN on failed_parse"
 
 
 # ── T06: EUI golden values ────────────────────────────────────────────────────
@@ -196,6 +198,11 @@ class TestEuiGolden:
         result = self._run("R1", "r1_single_zone.sql", 196.0, 2, 1)
         exp = expected["R1"]["eui"]["cooling_eui_kwh_m2"]
         assert math.isclose(result["cooling_eui_kwh_m2"], exp, rel_tol=self._REL_TOL)
+
+    def test_r1_lighting_eui(self, expected):
+        result = self._run("R1", "r1_single_zone.sql", 196.0, 2, 1)
+        exp = expected["R1"]["eui"]["lighting_eui_kwh_m2"]
+        assert math.isclose(result["lighting_eui_kwh_m2"], exp, rel_tol=self._REL_TOL)
 
     def test_r1_total_eui(self, expected):
         result = self._run("R1", "r1_single_zone.sql", 196.0, 2, 1)

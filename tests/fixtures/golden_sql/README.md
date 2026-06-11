@@ -23,12 +23,11 @@ Committed in `golden_expected.json`, computed by `tmp/compute_golden_expected.py
 **independent throwaway script** that does NOT import `openubem.results`. It uses raw
 `sqlite3` + `pandas` + `openubem.geometry.footprint.derive_num_floors` only.
 
-**Known limitation:** `Zone Lights Electric Energy` and `Zone Electric Equipment Electric
-Energy` are absent from these SQLs. EnergyPlus 23.1 does not output these variables under
-the current Step-3 IDF configuration (variable name drift). Step-5 parser handles this per
-PLAN P10 deviation: absent EUI variables → 0.0 + `RESULTS_MISSING_VARIABLE_<name>` token
-appended to `data_quality_flag`. Expected `lighting_eui` and `equipment_eui` are therefore
-0.0 in `golden_expected.json`.
+**C4 correction (2026-06-10):** EnergyPlus 9.4 renamed `Zone Lights Electric Energy` →
+`Zone Lights Electricity Energy` and `Zone Electric Equipment Electric Energy` →
+`Zone Electric Equipment Electricity Energy`. All golden SQLs updated via sqlite UPDATE on
+ReportDataDictionary.Name. Numeric values unchanged. Synthetic lighting/equipment data
+(10 kWh/m²/yr and 20 kWh/m²/yr) previously inserted for C3 are preserved under the new names.
 
 ## Adversarial fixtures
 
