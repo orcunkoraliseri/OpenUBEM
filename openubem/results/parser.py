@@ -47,8 +47,8 @@ def _strip_ideal_loads(key_value: str) -> str:
 _EUI_VARS: dict[str, str] = {
     "heating_eui_kwh_m2": "Zone Ideal Loads Zone Total Heating Energy",
     "cooling_eui_kwh_m2": "Zone Ideal Loads Zone Total Cooling Energy",
-    "lighting_eui_kwh_m2": "Zone Lights Electric Energy",
-    "equipment_eui_kwh_m2": "Zone Electric Equipment Electric Energy",
+    "lighting_eui_kwh_m2": "Zone Lights Electricity Energy",
+    "equipment_eui_kwh_m2": "Zone Electric Equipment Electricity Energy",
 }
 
 # ── F6 IOD variables ──────────────────────────────────────────────────────────
@@ -182,31 +182,29 @@ def _compute_eui(
     df: pd.DataFrame,
     row: "pd.Series",
     data_quality_flag: str,
-) -> tuple[dict[str, float], str]:
-    """Compute 5 EUI columns; return (eui_dict, updated_dq_flag).
+) -> tuple[dict[str, float] | None, str, str | None]:
+    """Compute 5 EUI columns; return (eui_dict, updated_dq_flag, missing_var_name).
 
-    Per PLAN P10 deviation: absent EUI variables → 0.0 + RESULTS_MISSING_VARIABLE_<name>
-    token appended to data_quality_flag (never a NaN or silent zero).
+    P10 (C3-enforced): if any required EUI variable has zero rows, return (None, flag, var_name)
+    — caller marks building failed_parse. Never fabricate 0.0 for absent variables.
     """
     num_floors = derive_num_floors(row)
     footprint_area = float(row["footprint_area_m2"])
     floor_area = footprint_area * num_floors
 
-    eui: dict[str, float] = {}
-    present_vars = df["variable_name"].unique()
+    present_vars = set(df["variable_name"].unique())
 
     for col, var_name in _EUI_VARS.items():
-        if var_name in present_vars:
-            kwh = float(df[df["variable_name"] == var_name]["value"].sum())
-        else:
-            # PLAN P10 deviation: treat as 0.0 + flag
-            kwh = 0.0
-            token = f"RESULTS_MISSING_VARIABLE_{var_name.replace(' ', '_')}"
-            data_quality_flag = _append_flag(data_quality_flag, token)
+        if var_name not in present_vars:
+            return None, data_quality_flag, var_name
+
+    eui: dict[str, float] = {}
+    for col, var_name in _EUI_VARS.items():
+        kwh = float(df[df["variable_name"] == var_name]["value"].sum())
         eui[col] = kwh / floor_area
 
     eui["total_eui_kwh_m2"] = sum(eui[k] for k in _EUI_VARS)
-    return eui, data_quality_flag
+    return eui, data_quality_flag, None
 
 
 def _append_flag(dq_flag: str, token: str) -> str:
@@ -320,7 +318,7 @@ def check_building_integrity(
         SELECT COALESCE(SUM(r.Value), 0.0) AS total_j
         FROM ReportData r
         JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
-        WHERE d.Name IN ('Zone Lights Electric Energy', 'Zone Electric Equipment Electric Energy')
+        WHERE d.Name IN ('Zone Lights Electricity Energy', 'Zone Electric Equipment Electricity Energy')
           AND d.ReportingFrequency = 'Hourly'
         """
         hourly_j = conn.execute(hourly_q).fetchone()[0] or 0.0
@@ -358,7 +356,7 @@ def check_building_integrity(
         SELECT COALESCE(SUM(r.Value), 0.0)
         FROM ReportData r
         JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
-        WHERE d.Name IN ('Zone Lights Electric Energy', 'Zone Electric Equipment Electric Energy')
+        WHERE d.Name IN ('Zone Lights Electricity Energy', 'Zone Electric Equipment Electricity Energy')
           AND d.ReportingFrequency = 'Hourly'
         """
         zone_elec_j = conn.execute(zone_elec_q).fetchone()[0] or 0.0
@@ -399,8 +397,9 @@ def parse_building(
     Keys: 5 EUI, 5 GWP placeholders (filled by carbon.py), iod, parse_status,
           error_summary, data_quality_flag (updated).
     """
-    sql_path = Path(sql_path) if sql_path else None
-    csv_path = Path(csv_path) if csv_path else None
+    import math as _math
+    sql_path = Path(sql_path) if (sql_path and not (isinstance(sql_path, float) and _math.isnan(sql_path))) else None
+    csv_path = Path(csv_path) if (csv_path and not (isinstance(csv_path, float) and _math.isnan(csv_path))) else None
 
     osm_id: str = str(manifest_row["osm_id"])
     num_zones: int = int(manifest_row.get("num_zones", 1))
@@ -441,8 +440,10 @@ def parse_building(
     if status is not None:
         return _failed_row(osm_id, status, msg or "", dq_flag)
 
-    # §3C: EUI
-    eui, dq_flag = _compute_eui(df, manifest_row, dq_flag)
+    # §3C: EUI (P10/C3: missing variable → failed_parse, never 0.0)
+    eui, dq_flag, missing_var = _compute_eui(df, manifest_row, dq_flag)
+    if eui is None:
+        return _failed_row(osm_id, "failed_parse", f"missing required EUI variable: {missing_var}", dq_flag)
 
     # §3D: IOD
     iod, dq_flag = _compute_iod(df, dq_flag)
