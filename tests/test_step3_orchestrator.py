@@ -9,7 +9,7 @@ from geomeppy import IDF
 from eppy.modeleditor import IDDAlreadySetError
 
 from openubem.config import ENERGYPLUS_IDD_PATH
-from openubem.idf.builder import run_step3
+from openubem.idf.builder import run_step3, _build_one
 
 _TEMPLATES_DIR = Path(__file__).parent.parent / "openubem" / "idf" / "templates"
 
@@ -165,3 +165,30 @@ class TestStep3Orchestrator:
             )
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
+
+
+class TestParallelByteIdentity:
+    """C10 / V09: n_jobs=1 and n_jobs=4 must produce byte-identical IDFs + identical manifests."""
+
+    def test_parallel_byte_identity(self, synthetic_10_gdf, synthetic_schedule_library):
+        tmpdir1 = tempfile.mkdtemp()
+        tmpdir2 = tempfile.mkdtemp()
+        try:
+            m1 = run_step3(synthetic_10_gdf, synthetic_schedule_library, Path(tmpdir1), n_jobs=1)
+            m2 = run_step3(synthetic_10_gdf, synthetic_schedule_library, Path(tmpdir2), n_jobs=4)
+
+            # Manifest identity (excluding path columns that encode tmpdir)
+            for col in ("osm_id", "archetype_id", "zoning_strategy", "num_zones",
+                        "num_context_buildings", "simplification_status",
+                        "data_quality_flag", "generation_status"):
+                assert list(m1[col]) == list(m2[col]), f"Column '{col}' differs n_jobs=1 vs 4"
+
+            # IDF byte-identity
+            idfs1 = {p.name: p.read_bytes() for p in (Path(tmpdir1) / "idfs").glob("*.idf")}
+            idfs2 = {p.name: p.read_bytes() for p in (Path(tmpdir2) / "idfs").glob("*.idf")}
+            assert set(idfs1) == set(idfs2), "IDF filename sets differ between n_jobs=1 and n_jobs=4"
+            for name in idfs1:
+                assert idfs1[name] == idfs2[name], f"IDF bytes differ for {name}"
+        finally:
+            shutil.rmtree(tmpdir1, ignore_errors=True)
+            shutil.rmtree(tmpdir2, ignore_errors=True)

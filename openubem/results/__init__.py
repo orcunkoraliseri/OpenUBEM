@@ -1,11 +1,13 @@
 """Step-5 results orchestrator: aggregate_results + compute_validation_gates."""
 from __future__ import annotations
 
+import json
 import warnings
 from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 
 from openubem import config
@@ -18,6 +20,43 @@ from openubem.results.aggregator import (
 )
 from openubem.results.carbon import attach_gwp
 from openubem.results.parser import parse_building
+
+# ── CBECS gate helpers ────────────────────────────────────────────────────────
+
+_PBA_MAP_PATH = Path(__file__).parent.parent / "data" / "cbecs_pba_map.json"
+
+# F2 thresholds (DESIGN lines 221–224)
+_CV_RMSE_THRESHOLD = 30.0
+_NMBE_THRESHOLD = 10.0
+_R2_THRESHOLD = 0.6
+_KS_THRESHOLD = 0.10
+
+
+def _load_pba_map() -> dict[str, Any]:
+    with open(_PBA_MAP_PATH, encoding="utf-8") as fh:
+        return json.load(fh)["pba_map"]
+
+
+def _weighted_quantiles(values: np.ndarray, weights: np.ndarray, quantiles: np.ndarray) -> np.ndarray:
+    """Weighted quantiles via sorted-CDF interpolation."""
+    order = np.argsort(values)
+    sv = values[order]
+    sw = weights[order]
+    cdf = np.cumsum(sw) / sw.sum()
+    return np.interp(quantiles, cdf, sv)
+
+
+def _weighted_mean(values: np.ndarray, weights: np.ndarray) -> float:
+    return float(np.average(values, weights=weights))
+
+
+def _weighted_cdf(values: np.ndarray, weights: np.ndarray, eval_points: np.ndarray) -> np.ndarray:
+    """Weighted empirical CDF evaluated at eval_points."""
+    order = np.argsort(values)
+    sv = values[order]
+    sw = weights[order]
+    cdf = np.cumsum(sw) / sw.sum()
+    return np.interp(eval_points, sv, cdf, left=0.0, right=1.0)
 
 
 def aggregate_results(
@@ -169,17 +208,123 @@ def aggregate_results(
 
 def compute_validation_gates(
     results_gdf: gpd.GeoDataFrame,
+    reference_path: "Path | str | None" = None,
     reference_table: "pd.DataFrame | None" = None,
 ) -> dict[str, Any]:
-    """Compute CBECS-style validation gates (P8: CBECS gates parked, OQ-1).
+    """Compute CBECS 2018 validation gates per DESIGN §5.1 and M-R2-3.
 
-    Returns gate results dict; CBECS gates return None pending OQ-1 resolution.
+    With reference_path=None (legacy): returns four None values (OQ-1 stub).
+    With a path or reference_table: computes real CV(RMSE), NMBE, R², KS_D.
+
+    Exclusions per M-R2-2 / M-R2-5:
+    - MidriseApartment, HighriseApartment: excluded from ALL four gates.
+    - DataCenters: excluded from ALL four gates.
+    - OpenUBEMUnknown: excluded from archetype R² only; included in distribution gates.
     """
-    # CBECS CV(RMSE)/NMBE/R²/KS gates blocked by OQ-1 — see PLAN §5 P8
+    # Legacy stub: no reference provided
+    if reference_path is None and reference_table is None:
+        return {
+            "cbecs_cv_rmse": None,
+            "cbecs_nmbe": None,
+            "cbecs_r2": None,
+            "cbecs_ks_d": None,
+            "note": "OQ-1: reference_path not provided; gates skipped",
+        }
+
+    # Load reference
+    if reference_table is not None:
+        ref = reference_table.copy()
+    else:
+        ref = pd.read_csv(reference_path)
+
+    pba_map = _load_pba_map()
+
+    # Columns expected in results_gdf: archetype_id, eui_kwh_m2 (or site_eui_kwh_m2)
+    eui_col = "eui_kwh_m2" if "eui_kwh_m2" in results_gdf.columns else "site_eui_kwh_m2"
+
+    # Drop rows without EUI
+    sim = results_gdf[[eui_col, "archetype_id"]].dropna(subset=[eui_col]).copy()
+    sim = sim.rename(columns={eui_col: "eui_kwh_m2"})
+
+    # Exclusions: apartments and data centers from ALL gates (M-R2-2, M-R2-5)
+    excluded_all = {
+        k for k, v in pba_map.items() if v is None
+    }
+    sim_dist = sim[~sim["archetype_id"].isin(excluded_all)].copy()
+
+    n_excluded = int((sim["archetype_id"].isin(excluded_all)).sum())
+
+    sim_eui = sim_dist["eui_kwh_m2"].values.astype(float)
+    ref_eui = ref["eui_kwh_m2"].values.astype(float)
+    ref_wt = ref["finalwt"].values.astype(float)
+
+    # ── (a) CV(RMSE) — M-R2-3a ──
+    percentiles = np.linspace(0, 1, len(sim_eui) + 2)[1:-1]
+    sim_sorted = np.sort(sim_eui)
+    cbecs_q = _weighted_quantiles(ref_eui, ref_wt, percentiles)
+    rmse = float(np.sqrt(np.mean((sim_sorted - cbecs_q) ** 2)))
+    cbecs_wmean = _weighted_mean(ref_eui, ref_wt)
+    cv_rmse = rmse / cbecs_wmean * 100.0
+
+    # ── (b) NMBE — M-R2-3b ──
+    sim_mean = float(np.mean(sim_eui))
+    nmbe = (sim_mean - cbecs_wmean) / cbecs_wmean * 100.0
+
+    # ── (c) R² archetype-level — M-R2-3c ──
+    # Excluded from R²: apartments, data centers, OpenUBEMUnknown
+    r2_excluded = excluded_all | {"OpenUBEMUnknown"}
+    sim_arch = sim[~sim["archetype_id"].isin(r2_excluded)].copy()
+
+    # Per-archetype simulation mean EUI
+    arch_sim_means = (
+        sim_arch.groupby("archetype_id")["eui_kwh_m2"].mean().reset_index()
+    )
+    arch_sim_means.columns = ["archetype_id", "sim_mean_eui"]
+    arch_sim_means["pba_code"] = arch_sim_means["archetype_id"].map(pba_map)
+
+    # Per-PBA CBECS weighted mean EUI; drop PBAs with unweighted n<10 in NE
+    ref["pba_code"] = ref["pba_code"].astype(int)
+    pba_stats = (
+        ref.groupby("pba_code")
+        .apply(lambda g: pd.Series({
+            "wmean_eui": _weighted_mean(g["eui_kwh_m2"].values, g["finalwt"].values),
+            "n_unweighted": len(g),
+        }))
+        .reset_index()
+    )
+    pba_stats_filtered = pba_stats[pba_stats["n_unweighted"] >= 10]
+    dropped_pba_n_lt10 = pba_stats[pba_stats["n_unweighted"] < 10]["pba_code"].tolist()
+
+    arch_sim_means["pba_code"] = arch_sim_means["pba_code"].astype(float).astype("Int64")
+    merged = arch_sim_means.merge(
+        pba_stats_filtered[["pba_code", "wmean_eui"]],
+        on="pba_code",
+        how="inner",
+    )
+
+    if len(merged) >= 2:
+        from scipy.stats import pearsonr
+        r, _ = pearsonr(merged["sim_mean_eui"].values, merged["wmean_eui"].values)
+        r2 = float(r ** 2)
+    else:
+        r2 = float("nan")
+
+    # ── (d) KS D — M-R2-3d ──
+    eval_pts = np.sort(np.concatenate([sim_eui, ref_eui]))
+    sim_cdf = np.searchsorted(np.sort(sim_eui), eval_pts, side="right") / len(sim_eui)
+    cbecs_cdf = _weighted_cdf(ref_eui, ref_wt, eval_pts)
+    ks_d = float(np.max(np.abs(sim_cdf - cbecs_cdf)))
+
     return {
-        "cbecs_cv_rmse": None,
-        "cbecs_nmbe": None,
-        "cbecs_r2": None,
-        "cbecs_ks_d": None,
-        "note": "OQ-1: CBECS 2018 reference not extracted; gates skipped per PLAN P8",
+        "cbecs_cv_rmse": round(cv_rmse, 3),
+        "cbecs_cv_rmse_pass": cv_rmse < _CV_RMSE_THRESHOLD,
+        "cbecs_nmbe": round(nmbe, 3),
+        "cbecs_nmbe_pass": abs(nmbe) < _NMBE_THRESHOLD,
+        "cbecs_r2": round(r2, 4) if not np.isnan(r2) else None,
+        "cbecs_r2_pass": (not np.isnan(r2)) and r2 > _R2_THRESHOLD,
+        "cbecs_ks_d": round(ks_d, 4),
+        "cbecs_ks_d_pass": ks_d < _KS_THRESHOLD,
+        "n_sim_buildings": len(sim_dist),
+        "n_excluded_all_gates": n_excluded,
+        "dropped_pba_n_lt10": dropped_pba_n_lt10,
     }

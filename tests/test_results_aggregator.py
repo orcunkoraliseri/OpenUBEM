@@ -427,9 +427,94 @@ class TestAggregateResults:
         assert gates["cbecs_ks_d"] is None
 
 
-# ── T08 (P8): skipped CBECS test ─────────────────────────────────────────────
+# ── T08 (Z07): CBECS validation gates ────────────────────────────────────────
 
-@pytest.mark.skip(reason="OQ-1: CBECS 2018 reference not extracted")
-def test_cbecs_validation_gates():
-    """Placeholder for CBECS CV(RMSE)/NMBE/R²/KS gates (OQ-1 owner: manager)."""
-    pass
+def _make_ref_table(eui_values, weights=None, pba_code=2):
+    """Minimal reference DataFrame matching the CBECS CSV schema."""
+    if weights is None:
+        weights = np.ones(len(eui_values))
+    return pd.DataFrame({
+        "pba_code": pba_code,
+        "pba_label": "Office",
+        "sqft": 10000.0,
+        "eui_kwh_m2": np.asarray(eui_values, dtype=float),
+        "finalwt": np.asarray(weights, dtype=float),
+    })
+
+
+def _make_multi_archetype_ref():
+    """Reference table covering PBA 2 (Office) and PBA 14 (Education), ≥10 rows each."""
+    rows = []
+    for pba, label, base_eui in [(2, "Office", 200.0), (14, "Education", 150.0)]:
+        for i in range(15):
+            rows.append({"pba_code": pba, "pba_label": label, "sqft": 10000.0,
+                         "eui_kwh_m2": base_eui + i * 2.0, "finalwt": 1.0})
+    return pd.DataFrame(rows)
+
+
+def _make_multi_archetype_sim():
+    """Sim GDF with SmallOffice (PBA 2) and PrimarySchool (PBA 14)."""
+    rows = []
+    for archetype, base_eui in [("SmallOffice", 200.0), ("PrimarySchool", 150.0)]:
+        for i in range(15):
+            rows.append({"archetype_id": archetype, "eui_kwh_m2": base_eui + i * 2.0})
+    return gpd.GeoDataFrame(rows, geometry=gpd.GeoSeries([None] * len(rows)))
+
+
+def _make_sim_gdf(eui_values, archetype_id="SmallOffice"):
+    rows = [{"archetype_id": archetype_id, "eui_kwh_m2": float(v)} for v in eui_values]
+    return gpd.GeoDataFrame(rows, geometry=gpd.GeoSeries([None] * len(rows)))
+
+
+class TestCbecsValidationGates:
+    def test_identical_distribution_all_pass(self):
+        """(a) Identical sim/reference → all _pass=True; NMBE ≈ 0.
+
+        Uses multi-archetype fixture so R² has ≥2 data points.
+        CV(RMSE) and KS_D may be non-zero due to quantile boundary effects at
+        finite n — all _pass booleans must be True.
+        """
+        from openubem.results import compute_validation_gates
+        ref = _make_multi_archetype_ref()
+        sim = _make_multi_archetype_sim()
+        gates = compute_validation_gates(sim, reference_table=ref)
+        assert gates["cbecs_nmbe"] == pytest.approx(0.0, abs=0.01), gates
+        assert gates["cbecs_cv_rmse_pass"] is True, gates
+        assert gates["cbecs_nmbe_pass"] is True, gates
+        assert gates["cbecs_r2_pass"] is True, gates
+        assert gates["cbecs_ks_d_pass"] is True, gates
+
+    def test_shifted_sim_nmbe_fails(self):
+        """(b) Sim shifted +20% → NMBE ≈ +20, nmbe_pass=False."""
+        from openubem.results import compute_validation_gates
+        eui = np.linspace(100, 300, 30)
+        ref = _make_ref_table(eui)
+        sim = _make_sim_gdf(eui * 1.20)
+        gates = compute_validation_gates(sim, reference_table=ref)
+        assert gates["cbecs_nmbe"] == pytest.approx(20.0, abs=1.0), gates
+        assert gates["cbecs_nmbe_pass"] is False
+
+    def test_pba_map_covers_all_archetypes(self):
+        """(c) cbecs_pba_map.json covers all 30 archetypes (mapped or explicitly excluded)."""
+        import json
+        from pathlib import Path
+        map_path = Path("openubem/data/cbecs_pba_map.json")
+        data = json.loads(map_path.read_text(encoding="utf-8"))
+        pba_map = data["pba_map"]
+        arch_path = Path("openubem/data/openstudio_archetypes.json")
+        archs = json.loads(arch_path.read_text(encoding="utf-8"))["archetypes"]
+        arch_ids = {a["archetype_id"] for a in archs}
+        missing = arch_ids - set(pba_map.keys())
+        assert not missing, f"Archetypes missing from pba_map: {missing}"
+        assert len(pba_map) == len(arch_ids), (
+            f"pba_map has {len(pba_map)} entries but there are {len(arch_ids)} archetypes"
+        )
+
+    def test_legacy_none_behaviour(self):
+        """(d) reference_path=None → legacy four-None behaviour."""
+        from openubem.results import compute_validation_gates
+        gates = compute_validation_gates(gpd.GeoDataFrame())
+        assert gates["cbecs_cv_rmse"] is None
+        assert gates["cbecs_nmbe"] is None
+        assert gates["cbecs_r2"] is None
+        assert gates["cbecs_ks_d"] is None

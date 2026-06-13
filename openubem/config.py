@@ -57,7 +57,7 @@ import sys as _sys
 
 ENERGYPLUS_PATH: Path = Path(os.environ.get("ENERGYPLUS_PATH", r"C:\EnergyPlusV23-1-0"))
 ENERGYPLUS_VERSION: str = "23.1"
-SIM_TIMEOUT_S: int = 900  # ASSUMPTION_DESIGN_DEFAULT (DESIGN line 127)
+SIM_TIMEOUT_S: int = 3600  # recalibrated per DESIGN line 127: 340-zone building exceeds 900s under 8-worker load
 SIM_RETAIN_FILES: frozenset = frozenset({
     "eplusout.sql",
     "eplusout.csv",

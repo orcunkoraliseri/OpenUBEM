@@ -32,69 +32,58 @@ class TestFootprint:
         assert _n_exterior_verts(result_poly) <= 120
 
     def test_simplify_dp15_path(self):
-        # Polygon with 500 vertices on a large circle perturbed by 0.8 m (> DP_TOLERANCE 0.5, < DP_COARSE 1.5).
-        # DP 0.5 cannot remove those bumps so output > 120 verts; DP 1.5 removes them → ≤ 120 verts.
-        n = 500
-        angles = np.linspace(0, 2 * math.pi, n + 1)[:-1]
-        coords = [
-            (50 * math.cos(a) + 0.8 * math.sin(20 * a), 50 * math.sin(a) + 0.8 * math.cos(20 * a))
-            for a in angles
-        ]
-        poly = Polygon(coords)
-        # Verify our fixture actually triggers the dp_15 path
+        # Toothed ring: 200 teeth (3 pts each = 600 total) on base radius 50 m,
+        # tooth height 1.0 m. Perpendicular deviation 1.0 m > DP_TOLERANCE 0.5
+        # → DP 0.5 keeps teeth → >120 verts. Deviation < DP_COARSE 1.5
+        # → DP 1.5 removes all teeth → ≤120 verts.
         import shapely as _shp
         from openubem.config import DP_TOLERANCE_M, MAX_VERTICES
+        n_teeth, R, tooth_h = 200, 50.0, 1.0
+        angles_base = np.linspace(0, 2 * math.pi, n_teeth + 1)[:-1]
+        da = angles_base[1] - angles_base[0]
+        coords = []
+        for a in angles_base:
+            coords.append((R * math.cos(a - da / 3), R * math.sin(a - da / 3)))
+            coords.append(((R + tooth_h) * math.cos(a), (R + tooth_h) * math.sin(a)))
+            coords.append((R * math.cos(a + da / 3), R * math.sin(a + da / 3)))
+        poly = Polygon(coords)
         t1 = _shp.simplify(poly, tolerance=DP_TOLERANCE_M, preserve_topology=True)
-        if _n_exterior_verts(t1) <= MAX_VERTICES:
-            pytest.skip("Fixture polygon is too simple — DP 0.5 already reduces below MAX_VERTICES on this shapely version")
+        assert _n_exterior_verts(t1) > MAX_VERTICES, (
+            f"Toothed-ring fixture must have >{MAX_VERTICES} verts after DP 0.5; got {_n_exterior_verts(t1)}"
+        )
         result_poly, flag, status = simplify_footprint(poly, "")
         assert status == "dp_15"
         assert "idf_dp_coarse" in flag
         assert _n_exterior_verts(result_poly) <= 120
 
     def test_simplify_bbox_path(self, monkeypatch):
-        # The bbox path is the 4th tier: shapely's convex_hull of any reasonable polygon
-        # typically has far fewer than 120 verts, so we cannot reach Tier 4 with geometry alone.
-        # Monkeypatch the Polygon class to force convex_hull to return a high-vertex polygon
-        # so Tier 3 also exceeds MAX_VERTICES, exercising Tier 4 (minimum_rotated_rectangle).
-        import shapely.geometry
+        # Same toothed-ring fixture as dp_15 test; monkeypatch _n_exterior_verts so
+        # all simplification tiers see >MAX_VERTICES → falls through to bbox (Tier 4).
+        # Shapely 2's convex_hull is C-level and cannot be overridden via subclassing.
         from openubem.geometry import footprint as fp_module
+        from openubem.config import MAX_VERTICES, DP_TOLERANCE_M
 
-        n = 500
-        angles = np.linspace(0, 2 * math.pi, n + 1)[:-1]
-        # Use a large circle with 0.8 m bumps to exceed DP 0.5 → same as dp_15 fixture
-        coords = [
-            (50 * math.cos(a) + 0.8 * math.sin(20 * a), 50 * math.sin(a) + 0.8 * math.cos(20 * a))
-            for a in angles
-        ]
-        poly = Polygon(coords)
         import shapely as _shp
-        from openubem.config import DP_TOLERANCE_M, MAX_VERTICES
+        n_teeth, R, tooth_h = 200, 50.0, 1.0
+        angles_base = np.linspace(0, 2 * math.pi, n_teeth + 1)[:-1]
+        da = angles_base[1] - angles_base[0]
+        coords = []
+        for a in angles_base:
+            coords.append((R * math.cos(a - da / 3), R * math.sin(a - da / 3)))
+            coords.append(((R + tooth_h) * math.cos(a), (R + tooth_h) * math.sin(a)))
+            coords.append((R * math.cos(a + da / 3), R * math.sin(a + da / 3)))
+        poly = Polygon(coords)
+
         t1 = _shp.simplify(poly, tolerance=DP_TOLERANCE_M, preserve_topology=True)
-        if _n_exterior_verts(t1) <= MAX_VERTICES:
-            pytest.skip("Fixture polygon is too simple for bbox monkeypatch test")
+        assert _n_exterior_verts(t1) > MAX_VERTICES, (
+            f"Toothed-ring fixture must have >{MAX_VERTICES} verts after DP 0.5; got {_n_exterior_verts(t1)}"
+        )
 
-        # Monkeypatch convex_hull on this specific polygon instance to return a > MAX_VERTICES polygon
-        fat_ring_coords = [(100 * math.cos(a), 100 * math.sin(a)) for a in np.linspace(0, 2*math.pi, 200+1)[:-1]]
-        fat_poly = Polygon(fat_ring_coords)
+        monkeypatch.setattr(fp_module, "_n_exterior_verts", lambda p: MAX_VERTICES + 1)
 
-        original_convex_hull = poly.__class__.convex_hull.fget
-
-        class _PatchedPoly(Polygon):
-            @property
-            def convex_hull(self):
-                return fat_poly
-
-        patched = _PatchedPoly(coords)
-
-        result_poly, flag, status = simplify_footprint(patched, "")
-        # If shapely's convex_hull on fat_poly still <= 120, test gracefully falls to hull path
-        hull_verts = _n_exterior_verts(fat_poly.convex_hull)
-        if hull_verts <= MAX_VERTICES:
-            assert status in ("hull", "bbox")
-        else:
-            assert status == "bbox"
-            assert "idf_bbox_simplification" in flag
+        result_poly, flag, status = simplify_footprint(poly, "")
+        assert status == "bbox"
+        assert "idf_bbox_simplification" in flag
 
     def test_validate_simplified_small_area(self):
         tiny = Polygon([(0, 0), (1, 0), (1, 0.1), (0, 0.1)])

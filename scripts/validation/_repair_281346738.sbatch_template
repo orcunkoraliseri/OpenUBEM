@@ -1,0 +1,29 @@
+#!/bin/bash
+#SBATCH --partition=ps
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=6G
+#SBATCH --time=01:30:00
+#SBATCH --job-name=openubem_nyc_urban_repair
+#SBATCH --output=FLEET_DIR_PLACEHOLDER/repair_way_281346738_%j.log
+
+set -e
+EP_DIR=$(ls -d /speed-scratch/o_iseri/openubem/tools/EnergyPlus-23.1.0-*Ubuntu20* 2>/dev/null | head -1)
+[ -z "$EP_DIR" ] && EP_DIR=$(ls -d /speed-scratch/o_iseri/openubem/tools/EnergyPlus-23.1.0-* | head -1)
+EPW=$(ls FLEET_DIR_PLACEHOLDER/weather/*.epw | head -1)
+IDF=FLEET_DIR_PLACEHOLDER/idfs/way_281346738.idf
+OUTDIR=FLEET_DIR_PLACEHOLDER/out/way_281346738
+mkdir -p "$OUTDIR"
+cd "$OUTDIR"
+echo "EnergyPlus: ${EP_DIR}/energyplus"
+echo "IDF: $IDF"
+echo "EPW: $EPW"
+cp "${EP_DIR}/Energy+.idd" "$OUTDIR/"
+cp "$IDF" "$OUTDIR/in.idf"
+"${EP_DIR}/ExpandObjects"
+if [ -f "$OUTDIR/expanded.idf" ]; then RUN_IDF="$OUTDIR/expanded.idf"; else RUN_IDF="$OUTDIR/in.idf"; fi
+echo "Running EnergyPlus on: $RUN_IDF"
+"${EP_DIR}/energyplus" -w "$EPW" -d "$OUTDIR" "$RUN_IDF"
+RC=$?
+echo $RC > "${OUTDIR}/task.rc"
+echo "Finished with rc=${RC}"
+exit $RC

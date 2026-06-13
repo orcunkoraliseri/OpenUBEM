@@ -391,31 +391,30 @@ def test_boston_integration_station_and_epw_distance(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# T13 — LIVE_SMOKE (opt-in, real network)
-# Gated by env var OPENUBEM_LIVE_SMOKE=1.  Skipped otherwise.
-# DESIGN: validates T03 real URLs; project memory feedback_synthetic_test_blind_spots.
+# T13 — always-on EPW smoke with persistent cache fallback (Z04)
+# Network is only touched on first run (cache miss). Seeded at suite setup
+# by copying the existing Boston EPW into %LOCALAPPDATA%\openubem\epw_cache.
 # ---------------------------------------------------------------------------
 
-@pytest.mark.slow
+_EPW_CACHE_DIR = Path(os.environ.get("LOCALAPPDATA", "")) / "openubem" / "epw_cache"
+
+
 def test_live_smoke_boston_epw_download(tmp_path):
-    """Real download of the nearest Boston EPW; gate passes; distance < 50 km (T13).
+    """Boston EPW resolves correctly; file exists and validates (T13, Z04).
 
-    Run with OPENUBEM_LIVE_SMOKE=1 to execute.  Skipped in normal CI.
+    Uses %LOCALAPPDATA%\\openubem\\epw_cache as persistent cache.
+    Network is only touched when the cache is cold (first run after clean install).
 
-    DESIGN §5.2 anticipated WMO 725090 (Boston Logan); the bundled epw_stations.csv
-    has a closer station 994971 ('Boston', 1 km from downtown coords 42.36/-71.06).
-    The geodesic argmin correctly resolves 994971.  Both stations are valid.
+    DESIGN §5.2 anticipated WMO 725090 (Boston Logan); bundled epw_stations.csv
+    has closer station 994971 ('Boston', 1 km from downtown). Both are valid.
     """
-    if not os.environ.get("OPENUBEM_LIVE_SMOKE"):
-        pytest.skip("Set OPENUBEM_LIVE_SMOKE=1 to run the live-network smoke test")
-
     from openubem.acquisition.epw_manager import fetch_epw, resolve_station, _validate_epw
 
+    _EPW_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
     stations = load_stations()
-    # Boston downtown coords — same as the fixture union representative point
     station, dist_km = resolve_station(42.36, -71.06, stations)
 
-    # Accept either 994971 (nearest Boston station) or 725090 (Logan, as DESIGN expected)
     assert station["station_id"] in ("994971", "725090"), (
         f"Unexpected station {station['station_id']} — expected a Boston MA station"
     )
@@ -424,13 +423,12 @@ def test_live_smoke_boston_epw_download(tmp_path):
 
     epw_path = fetch_epw(
         station,
-        cache_dir=tmp_path / "cache",
+        cache_dir=_EPW_CACHE_DIR,
         offline=False,
         output_dir=tmp_path / "out",
     )
 
-    assert epw_path.exists(), "EPW file does not exist after download"
+    assert epw_path.exists(), "EPW file does not exist after fetch"
     assert epw_path.stat().st_size > 0, "EPW file is empty"
 
-    # Validate the downloaded file passes the §3D gate (F11)
     _validate_epw(epw_path, station)  # raises on failure

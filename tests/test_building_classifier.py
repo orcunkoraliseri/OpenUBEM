@@ -13,6 +13,7 @@ from shapely.geometry import box
 from openubem.semantic.building_classifier import (
     BuildingClassifier,
     SchemaError,
+    _INPUT_SCHEMA_COLUMNS,
     _VALID_30,
     _apply_detailed_office,
     _apply_overrides,
@@ -259,8 +260,18 @@ class TestApplyRuleTable:
         aid, tok, _ = _apply_rule_table(r, 2, "institutional", 1.0)
         assert aid == "PrimarySchool" and tok == "RULE_FUNCTION_TAG"
 
-    def test_rule_17_openubem_unknown(self):
+    def test_rule_17a_building_yes_size_default(self):
+        # E-R3-2: building=yes → FALLBACK_SIZE_DEFAULT office (not OpenUBEMUnknown)
+        # default footprint=800, levels=2 → total=1600 → MediumOffice
         r = _row(building_tag="yes", function_tag="")
+        aid, tok, inh = _apply_rule_table(r, 2, "unknown", 0.0)
+        assert aid == "MediumOffice"
+        assert tok == "FALLBACK_SIZE_DEFAULT"
+        assert inh is None
+
+    def test_rule_17_fallback_unknown_non_yes(self):
+        # Rule 17 still fires for non-yes tags (e.g. building=service)
+        r = _row(building_tag="service", function_tag="")
         aid, tok, inh = _apply_rule_table(r, 2, "unknown", 0.0)
         assert aid == "OpenUBEMUnknown"
         assert tok == "FALLBACK_UNKNOWN"
@@ -303,9 +314,28 @@ class TestApplyRuleTable:
         assert aid == "SmallDataCenterHighITE"
 
     def test_rule_12b_medium_office(self):
+        # footprint=1000, levels=3 → total=3000 → MediumOffice (E-R3-1)
         r = _row(building_tag="office", footprint_area_m2=1000.0)
         aid, tok, _ = _apply_rule_table(r, 3, "commercial", 1.0)
         assert aid == "MediumOffice" and tok == "RULE_USE_CLASS_SIZE"
+
+    def test_rule_12c_tall_slim_tower(self):
+        # A01 E-R3-1: footprint=1000, levels=10 → total=10000 ≥ 4000 → LargeOffice
+        r = _row(building_tag="office", footprint_area_m2=1000.0)
+        aid, tok, _ = _apply_rule_table(r, 10, "commercial", 1.0)
+        assert aid == "LargeOffice" and tok == "RULE_USE_CLASS_SIZE"
+
+    def test_rule_17a_building_yes_small(self):
+        # A02 E-R3-2: building=yes, levels=3, footprint=120 → total=360 < 500 → SmallOffice/FALLBACK_SIZE_DEFAULT
+        r = _row(building_tag="yes", footprint_area_m2=120.0)
+        aid, tok, _ = _apply_rule_table(r, 3, "unknown", 0.0)
+        assert aid == "SmallOffice" and tok == "FALLBACK_SIZE_DEFAULT"
+
+    def test_rule_17a_building_roof_still_unknown(self):
+        # A02 E-R3-2: building=roof (not "yes") → still FALLBACK_UNKNOWN
+        r = _row(building_tag="roof", footprint_area_m2=200.0)
+        aid, tok, _ = _apply_rule_table(r, 1, "unknown", 0.0)
+        assert aid == "OpenUBEMUnknown" and tok == "FALLBACK_UNKNOWN"
 
 
 # ── TestAssignConfidence ──────────────────────────────────────────────────────
@@ -328,6 +358,11 @@ class TestAssignConfidence:
     def test_rule_17_fallback_unknown_low(self):
         r = _row(building_tag="yes")
         assert _assign_confidence(r, "FALLBACK_UNKNOWN", "OSM_OBSERVED", "unknown") == "LOW"
+
+    def test_rule_17a_fallback_size_default_low(self):
+        # A02 E-R3-2: FALLBACK_SIZE_DEFAULT confidence is LOW
+        r = _row(building_tag="yes")
+        assert _assign_confidence(r, "FALLBACK_SIZE_DEFAULT", "OSM_OBSERVED", "unknown") == "LOW"
 
     def test_osm_generic_low(self):
         r = _row(provenance_building_tag="OSM_GENERIC", function_tag="")
@@ -471,14 +506,15 @@ class TestClassifyBuildingRow:
         assert aid == "MidriseApartment"
         assert src == "RULE_RESIDENTIAL_TIER,HEURISTIC_DEFAULT"
 
-    def test_rule_17_openubem_unknown(self):
+    def test_rule_17a_building_yes_office_default(self):
+        # E-R3-2: building=yes, levels=2, footprint=800 → total=1600 → MediumOffice/LOW/FALLBACK_SIZE_DEFAULT
         r = _row(building_tag="yes", function_tag="", data_quality_flag="generic_tag",
                  provenance_building_tag="OSM_GENERIC", provenance_function_tag="OSM_MISSING",
                  levels=pd.array([2], dtype="Int64")[0], provenance_levels="OSM_OBSERVED")
         aid, conf, src = classify_building(r)
-        assert aid == "OpenUBEMUnknown"
+        assert aid == "MediumOffice"
         assert conf == "LOW"
-        assert src == "FALLBACK_UNKNOWN"
+        assert src == "FALLBACK_SIZE_DEFAULT"
 
     def test_rule_4b_cafe(self):
         r = _row(function_tag="cafe", provenance_function_tag="OSM_OBSERVED",
@@ -592,7 +628,8 @@ class TestBuildingClassifier:
 # ── TestAllFallbackNeighbourhood ──────────────────────────────────────────────
 
 class TestAllFallbackNeighbourhood:
-    def test_all_unknown_warning(self, caplog):
+    def test_all_fallback_warning(self, caplog):
+        # E-R3-2: building=yes now routes to FALLBACK_SIZE_DEFAULT offices (not OpenUBEMUnknown)
         import logging
         gdf = _make_min_gdf(
             3,
@@ -610,7 +647,10 @@ class TestAllFallbackNeighbourhood:
             out = BuildingClassifier().classify(gdf)
 
         assert len(out) == 3
-        assert (out["archetype_id"] == "OpenUBEMUnknown").all()
+        # all rows: FALLBACK_SIZE_DEFAULT, LOW, office archetype
+        assert (out["archetype_source"].str.startswith("FALLBACK_SIZE_DEFAULT")).all()
+        assert (out["archetype_confidence"] == "LOW").all()
+        assert out["archetype_id"].isin({"SmallOffice", "MediumOffice", "LargeOffice"}).all()
         warnings = [r for r in caplog.records if r.levelname == "WARNING"]
         assert len(warnings) == 1
         payload = json.loads(warnings[0].message)
@@ -802,7 +842,7 @@ def synthetic_30_gdf():
            provenance_levels="OSM_OBSERVED"),                 # TallBuilding (20<=levels<40)
         _r(23, "",           "office",      45,      800.0,
            provenance_levels="OSM_OBSERVED"),                 # SuperTallBuilding (levels>=40)
-        _r(24, "",           "yes",         2,       200.0,   # OpenUBEMUnknown (rule 17)
+        _r(24, "",           "yes",         2,       200.0,   # SmallOffice (rule 17a E-R3-2)
            data_quality_flag="generic_tag",
            provenance_building_tag="OSM_GENERIC",
            provenance_function_tag="OSM_MISSING",
@@ -824,6 +864,8 @@ def synthetic_30_gdf():
 class TestArchetypeCoverage30:
     """Exercises every default-reachable archetype via synthetic_30_gdf (plan T13)."""
 
+    # E-R3-2: building=yes now routes to FALLBACK_SIZE_DEFAULT offices; OpenUBEMUnknown
+    # is no longer reachable from the synthetic fixture (row 24 yields SmallOffice).
     _EXPECTED_DEFAULT = frozenset({
         "SmallOffice", "MediumOffice", "LargeOffice",
         "RetailStandalone", "RetailStripmall", "SuperMarket",
@@ -836,7 +878,6 @@ class TestArchetypeCoverage30:
         "SmallDataCenterHighITE", "LargeDataCenterHighITE",
         "Laboratory", "Warehouse",
         "TallBuilding", "SuperTallBuilding",
-        "OpenUBEMUnknown",
     })
 
     def test_default_mode_coverage(self, synthetic_30_gdf):
@@ -935,10 +976,67 @@ class TestEmptyGDFGuard:
         assert "archetype_source" in out.columns
 
 
-# ── TestLabelledTop1Accuracy ──────────────────────────────────────────────────
+# ── TestLabelledTop1Accuracy (OQ-7 L2) ───────────────────────────────────────
+
+# Coarse class map per F5 / OQ-7 plan §5.5
+_COARSE_CLASS_MAP: dict[str, str] = {
+    "MidriseApartment": "residential",
+    "HighriseApartment": "residential",
+    **{aid: "commercial" for aid in _VALID_30 - {"MidriseApartment", "HighriseApartment"}},
+}
+
+
+def _run_labelled_fixture():
+    """Classify both gpkg fixtures and merge with labelled CSV. Returns merged DataFrame."""
+    csv_path = Path("tests/fixtures/labelled_archetypes_50.csv")
+    if not csv_path.exists():
+        return None
+    lab = pd.read_csv(csv_path, comment="#")
+    bos = gpd.read_file("tests/fixtures/boston_downtown_500m.gpkg")
+    chi = gpd.read_file("tests/fixtures/chicago_loop_500m.gpkg")
+    for gdf in (bos, chi):
+        for col in ("levels", "year_built", "underground"):
+            if col in gdf.columns:
+                gdf[col] = gdf[col].astype("Int64")
+    def _reorder(gdf):
+        geom_col = gdf.geometry.name
+        cols = [geom_col] + [c for c in _INPUT_SCHEMA_COLUMNS if c != geom_col and c in gdf.columns]
+        return gdf[cols]
+    bos = _reorder(bos)
+    chi = _reorder(chi)
+    clf = BuildingClassifier()
+    bos_out = clf.classify(bos)
+    chi_out = clf.classify(chi)
+    results = pd.concat([
+        bos_out[["osm_id", "archetype_id"]],
+        chi_out[["osm_id", "archetype_id"]],
+    ])
+    results["osm_id"] = results["osm_id"].astype(str)
+    lab["osm_id"] = lab["osm_id"].astype(str)
+    return lab.merge(results, on="osm_id", how="left")
+
 
 class TestLabelledTop1Accuracy:
-    def test_skip_if_missing(self):
-        fixture = Path("tests/fixtures/labelled_archetypes_50.csv")
-        if not fixture.exists():
-            pytest.skip("labelled fixture not yet committed (OQ-7)")
+    """OQ-7 L2: live accuracy gate against ratified 50-label fixture (F5, F6)."""
+
+    def test_coarse_top1(self):
+        merged = _run_labelled_fixture()
+        if merged is None:
+            pytest.skip("labelled fixture not found")
+        pred_coarse = merged["archetype_id"].map(_COARSE_CLASS_MAP)
+        acc = (pred_coarse == merged["expected_coarse_class"]).mean()
+        assert acc >= 0.90, f"coarse top-1 {acc:.1%} < 90% gate"
+
+    def test_fine_top1(self):
+        merged = _run_labelled_fixture()
+        if merged is None:
+            pytest.skip("labelled fixture not found")
+        acc = (merged["archetype_id"] == merged["expected_archetype"]).mean()
+        assert acc >= 0.70, f"fine top-1 {acc:.1%} < 70% gate"
+
+    def test_archetype_coverage_min10(self):
+        merged = _run_labelled_fixture()
+        if merged is None:
+            pytest.skip("labelled fixture not found")
+        n_distinct = merged["expected_archetype"].nunique()
+        assert n_distinct >= 10, f"only {n_distinct} distinct archetypes in fixture (need ≥10)"
