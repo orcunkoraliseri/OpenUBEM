@@ -124,20 +124,16 @@ def _expand_core_perim_placeholder(
             perim_depth=perim_depth,
         )
     except Exception as e:
+        # Tier-1 fallback: true footprint per-floor zoning (DESIGN line 119).
         logger.warning(
-            "block %s core/perim extrusion failed (%s) — falling back to per-floor zoning",
-            osm_id, e,
+            "perimeter_core fallback to one_zone_per_floor: osm_id=%s, %s", osm_id, e,
         )
-        # Fallback: per-floor whole zones, inserted at same position.
-        fallback_zones = []
-        bbox_coords = list(
-            placeholder["floor_polygon"].minimum_rotated_rectangle.exterior.coords
-        )[:-1]
         block_name = f"{osm_id}_whole"
+        fallback_zones = []
         try:
             idf.add_block(
                 name=block_name,
-                coordinates=bbox_coords,
+                coordinates=coords,
                 height=total_height,
                 num_stories=n,
             )
@@ -148,16 +144,45 @@ def _expand_core_perim_placeholder(
                 z = {
                     "name": zone_name,
                     "floor_polygon": placeholder["floor_polygon"],
-                    "coords_m": bbox_coords,
+                    "coords_m": coords,
                     "height_m": floor_h,
                     "archetype_id": archetype_id,
                     "extruded": True,
-                    "fallback_to_bbox": True,
-                    "generation_status_note": "core_perim_fallback_to_per_floor",
+                    "narrow_fallback": True,
+                    "generation_status_note": "narrow_core_perim_fallback",
                 }
                 fallback_zones.append(z)
-        except Exception:
-            logger.warning("block %s fallback per-floor extrusion also failed — skipping", osm_id)
+        except Exception as e2:
+            # Tier-2 fallback: bbox (DESIGN lines 236–245 generic add_block exception).
+            logger.warning(
+                "block %s narrow fallback also failed (%s) — falling back to bbox", osm_id, e2,
+            )
+            bbox_coords = list(
+                placeholder["floor_polygon"].minimum_rotated_rectangle.exterior.coords
+            )[:-1]
+            try:
+                idf.add_block(
+                    name=block_name,
+                    coordinates=bbox_coords,
+                    height=total_height,
+                    num_stories=n,
+                )
+                for i in range(n):
+                    geomeppy_name = f"Block {block_name} Storey {i}"
+                    zone_name = f"{osm_id}_F{i}_whole"
+                    _rename_geomeppy_zone(idf, geomeppy_name, zone_name)
+                    fallback_zones.append({
+                        "name": zone_name,
+                        "floor_polygon": placeholder["floor_polygon"],
+                        "coords_m": bbox_coords,
+                        "height_m": floor_h,
+                        "archetype_id": archetype_id,
+                        "extruded": True,
+                        "fallback_to_bbox": True,
+                        "generation_status_note": "core_perim_fallback_to_per_floor",
+                    })
+            except Exception:
+                logger.warning("block %s bbox extrusion also failed — skipping", osm_id)
         for z in reversed(fallback_zones):
             zones.insert(idx, z)
         return
@@ -201,6 +226,128 @@ def _expand_core_perim_placeholder(
 
     for z in reversed(new_zone_dicts):
         zones.insert(idx, z)
+
+
+def _repair_roof_roof_pairs(idf: GeomIDF) -> None:
+    """Reset illegal Roof↔Roof interzone pairs produced by intersect_match.
+
+    geomeppy intersect_match can pair coplanar top-storey roof fragments of adjacent
+    perimeter wedges as interzone boundaries with mismatched vertex counts → E+ Fatal.
+    Two roofs in different zones can never share an interzone boundary; reset both to
+    exterior. Legitimate interfloor pairs (Ceiling↔Floor) are untouched.
+    """
+    bsds = idf.idfobjects["BUILDINGSURFACE:DETAILED"]
+    surf_by_name: dict[str, object] = {s.Name.upper(): s for s in bsds}
+
+    roof_types = {"ROOF", "ROOFCEILING"}
+    repaired = 0
+    for surf in bsds:
+        if surf.Surface_Type.upper() not in roof_types:
+            continue
+        partner_name = (surf.Outside_Boundary_Condition_Object or "").upper()
+        if not partner_name:
+            continue
+        partner = surf_by_name.get(partner_name)
+        if partner is None:
+            continue
+        if partner.Surface_Type.upper() not in roof_types:
+            continue
+        if surf.Zone_Name.upper() == partner.Zone_Name.upper():
+            continue
+        # Both surfaces are Roof/RoofCeiling in different zones — illegal pair.
+        for s in (surf, partner):
+            s.Outside_Boundary_Condition = "Outdoors"
+            s.Outside_Boundary_Condition_Object = ""
+            s.Sun_Exposure = "SunExposed"
+            s.Wind_Exposure = "WindExposed"
+        logger.warning(
+            "repaired illegal Roof↔Roof interzone pair: %s ↔ %s", surf.Name, partner.Name,
+        )
+        repaired += 1
+
+    if repaired:
+        logger.info("_repair_roof_roof_pairs: reset %d pair(s) to exterior", repaired)
+
+
+def _repair_mismatched_horizontal_pairs(idf: GeomIDF) -> None:
+    """Reset same-type horizontal interzone pairs with mismatched vertex counts.
+
+    geomeppy intersect_match can pair coplanar floor (or ceiling) fragments of
+    overlapping perimeter wedges as interzone boundaries with different vertex
+    counts → E+ Fatal (GetSurfaceData "Vertex size mismatch"). Two floors (or two
+    ceilings) in different zones can never legitimately share an interzone
+    boundary, so the reset is safe. Pairs with matching vertex counts are left
+    untouched — EnergyPlus accepts them, and touching them would break
+    byte-identity of previously valid IDFs.
+    """
+    bsds = idf.idfobjects["BUILDINGSURFACE:DETAILED"]
+    surf_by_name: dict[str, object] = {s.Name.upper(): s for s in bsds}
+
+    horizontal_types = {"FLOOR", "CEILING", "ROOFCEILING"}
+    repaired = 0
+    for surf in bsds:
+        stype = surf.Surface_Type.upper()
+        if stype not in horizontal_types:
+            continue
+        partner_name = (surf.Outside_Boundary_Condition_Object or "").upper()
+        if not partner_name:
+            continue
+        partner = surf_by_name.get(partner_name)
+        if partner is None:
+            continue
+        if partner.Surface_Type.upper() != stype:
+            continue
+        if surf.Zone_Name.upper() == partner.Zone_Name.upper():
+            continue
+        if len(surf.coords) == len(partner.coords):
+            continue
+        for s in (surf, partner):
+            if stype == "FLOOR" and max(abs(pt[2]) for pt in s.coords) < 1e-6:
+                s.Outside_Boundary_Condition = "ground"
+                s.Outside_Boundary_Condition_Object = ""
+                s.Sun_Exposure = "NoSun"
+                s.Wind_Exposure = "NoWind"
+            else:
+                s.Outside_Boundary_Condition = "Outdoors"
+                s.Outside_Boundary_Condition_Object = ""
+                s.Sun_Exposure = "SunExposed"
+                s.Wind_Exposure = "WindExposed"
+        logger.warning(
+            "repaired mismatched %s↔%s interzone pair: %s (%d verts) ↔ %s (%d verts)",
+            surf.Surface_Type, partner.Surface_Type,
+            surf.Name, len(surf.coords), partner.Name, len(partner.coords),
+        )
+        repaired += 1
+
+    if repaired:
+        logger.info("_repair_mismatched_horizontal_pairs: reset %d pair(s)", repaired)
+
+
+def find_mismatched_interzone_pairs(idf: GeomIDF) -> list[tuple[str, str]]:
+    """Return cross-referenced interzone surface pairs whose vertex counts differ.
+
+    Any pair returned here would be an EnergyPlus GetSurfaceData Fatal
+    ("Vertex size mismatch") — callers must mark generation as failed.
+    """
+    bsds = idf.idfobjects["BUILDINGSURFACE:DETAILED"]
+    surf_by_name: dict[str, object] = {s.Name.upper(): s for s in bsds}
+
+    mismatched = []
+    seen: set[tuple[str, str]] = set()
+    for surf in bsds:
+        partner_name = (surf.Outside_Boundary_Condition_Object or "").upper()
+        if not partner_name:
+            continue
+        partner = surf_by_name.get(partner_name)
+        if partner is None:
+            continue
+        key = tuple(sorted((surf.Name.upper(), partner_name)))
+        if key in seen:
+            continue
+        seen.add(key)
+        if len(surf.coords) != len(partner.coords):
+            mismatched.append((surf.Name, partner.Name))
+    return mismatched
 
 
 def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> None:
@@ -279,6 +426,10 @@ def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> No
                 z["fallback_to_bbox"] = True
 
     idf.intersect_match()
+    # Repair illegal Roof↔Roof interzone pairs (perim wedge coplanar roof fragments).
+    _repair_roof_roof_pairs(idf)
+    # Repair same-type horizontal pairs with mismatched vertex counts (E+ Fatal).
+    _repair_mismatched_horizontal_pairs(idf)
     # Pair inter-floor ceiling↔floor surfaces missed by geomeppy's almostequal (cyclic verts).
     _pair_interfloor_surfaces(idf)
 

@@ -1,0 +1,85 @@
+========================================================================
+V11 NYC CITY-CENTRE GATES REPORT — 2026-06-12
+  sim_manifest:   C:\Users\o_iseri\AppData\Local\Temp\ubem_validation\cases\nyc_centre\04_simulation_manifest.parquet
+  idf_manifest:   C:\Users\o_iseri\AppData\Local\Temp\ubem_validation\cases\nyc_centre\step3\03_idf_manifest.parquet
+========================================================================
+
+=== LIVE_SMOKE FUNNEL ===
+  fetched (Step 1):   738
+  enriched (Step 2):  738
+  generated (Step 3): 738  (100.0% of fetched) [target >=95%: PASS]
+  simulated success:  738  (100.0% of generated) [target >=99%: PASS]
+  Unknown archetype:  35  (4.7% of enriched) [target <20%: PASS]
+
+=== F12 GATE TABLE ===
+Gate                                                  Value  Result
+--------------------------------------------------------------------
+pct_parse_success >= 99%                            100.00%    PASS
+  n_parsed / n_sim_success                          738/738        
+EUI plausibility >= 99% in [25,1000]                 99.73%    PASS
+  n_in_range / n_valid_eui                          736/738        
+  EUI outliers: min / max                     19.6 / 1081.9        
+zone_count_integrity = 0 mismatches                       0    PASS
+
+  Overall (3 live gates): ALL PASS
+
+=== CBECS 2018 NORTHEAST VALIDATION GATES (report-only, V-R5-5) ===
+  n_sim_buildings (after exclusions): 734
+  n_excluded_all_gates: 4
+  REGION NOTE: CBECS NE includes NY state; NYC is within the reference region.
+  COMPOSITION CAVEAT: NYC fleet is 83% office+tall; CBECS NE diverse stock
+  (hospitals, food service) inflates reference mean — same bias as Boston R3.
+
+Metric          Threshold      R3 Boston Boston P/F   NYC Result  NYC P/F
+--------------------------------------------------------------------------
+CV(RMSE)%         < 30.0%         69.823       FAIL       89.508     FAIL
+NMBE%             < |10|%        -16.046       FAIL      -34.912     FAIL
+R2                  > 0.6         0.7312       PASS       0.7811     PASS
+KS_D               < 0.10         0.2730       FAIL       0.2870     FAIL
+
+  Note: CBECS gates are report-only per ruling V-R5-5/M-R2-4.
+
+=== HEADLINE NUMBERS (05_neighbourhood_summary.json) ===
+  heating_eui_kwh_m2: 25.5728 kWh/m2/yr
+  cooling_eui_kwh_m2: 62.4685 kWh/m2/yr
+  lighting_eui_kwh_m2: 30.6678 kWh/m2/yr
+  equipment_eui_kwh_m2: 36.1309 kWh/m2/yr
+  total_eui_kwh_m2: 154.8399 kWh/m2/yr
+  neighbourhood_gwp_total_kgco2: 332,809,487 kgCO2e
+  mean_iod_c: 0.0055 degC
+  p95_iod_c: 0.0186 degC
+  pct_floor_area_simulated: 100.0%
+
+=== AREA-WEIGHTED EUI (v11_results.csv direct, 738/738 success) ===
+  heating:   28.44 kWh/m2/yr
+  cooling:   69.47 kWh/m2/yr
+  lighting:  34.11 kWh/m2/yr
+  equipment: 40.18 kWh/m2/yr
+  total:     172.20 kWh/m2/yr
+  total_floor_area_m2: 8949642
+
+=== REPAIR SUMMARY (zero-fail interventions) ===
+  repair/  (3 buildings: way/265302023, way/266170758, way/266170788)
+    Action: Step-3 IDF regeneration with repair manifest
+    IDF content: hash-identical to originals — regeneration was the fix
+    (prior executor re-ran Step 3 generation; files byte-identical to step3/idfs/)
+  repair2/ (1 building: way/265302069)
+    Action: Step-3 IDF regeneration into repair2 manifest
+    IDF content: hash-identical to original
+  sim_out/way_265302069/
+    DEVIATION: EnergyPlus 23.1.0 run LOCALLY on 2026-06-12 00:59
+    (per eplusout.err header: 'YMD=2026.06.12 00:59')
+    This violates ruling V-R5-6 (all E+ runs via sbatch).
+    Result: 0 Severe, 174 Warnings, Completed Successfully, 3m36s elapsed
+    Prior backup identical to current output (same SQL size 136732672 bytes)
+    No anomalies in result; deviation recorded but not remediated (V-R5-5)
+
+=== CLUSTER JOB IDs ===
+  955857  (initial fleet submit, pre-Step-3 pipeline run)
+  956522  (738-sim array, main fleet)
+  957268_1 (repair array)
+  957302  (extract array)
+
+========================================================================
+END REPORT
+========================================================================

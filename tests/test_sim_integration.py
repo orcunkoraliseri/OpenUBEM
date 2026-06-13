@@ -88,10 +88,6 @@ def test_version_handshake_real_binary():
 
 # ── T09b: 10-building synthetic fleet, full annual ────────────────────────────
 
-@pytest.mark.skipif(
-    not os.environ.get("OPENUBEM_E2E"),
-    reason="Full-annual fleet run gated behind OPENUBEM_E2E=1 (P7: wall-time guard)",
-)
 def test_synthetic_fleet_full_annual(
     synthetic_10_gdf, synthetic_schedule_library, tmp_path
 ):
@@ -204,10 +200,6 @@ _fleet_manifest_cache: dict = {}
 
 # ── T09c: adversarial four cases (F12) ───────────────────────────────────────
 
-@pytest.mark.skipif(
-    not os.environ.get("OPENUBEM_E2E"),
-    reason="Adversarial integration runs gated behind OPENUBEM_E2E=1",
-)
 def test_adversarial_corrupted_idf_gives_failed_fatal(tmp_path):
     """Corrupted IDF → failed_fatal (or failed_crash); fleet survives (F12)."""
     sim_dir = tmp_path / "sim_corrupt"
@@ -240,10 +232,6 @@ def test_adversarial_corrupted_idf_gives_failed_fatal(tmp_path):
     print(f"\n[T09c corrupted] status={manifest.iloc[0]['status']!r}")
 
 
-@pytest.mark.skipif(
-    not os.environ.get("OPENUBEM_E2E"),
-    reason="Adversarial integration runs gated behind OPENUBEM_E2E=1",
-)
 def test_adversarial_missing_epw_gives_valueerror(tmp_path):
     """Missing EPW path → ValueError from build_task_list before any dispatch (F12, F2)."""
     sim_dir = tmp_path / "sim_no_epw"
@@ -266,10 +254,6 @@ def test_adversarial_missing_epw_gives_valueerror(tmp_path):
     print("\n[T09c missing_epw] ValueError raised as expected")
 
 
-@pytest.mark.skipif(
-    not os.environ.get("OPENUBEM_E2E"),
-    reason="Adversarial integration runs gated behind OPENUBEM_E2E=1",
-)
 def test_adversarial_precompleted_work_dir_gives_success_cached(tmp_path):
     """
     Pre-completed work_dir → success_cached, not re-executed (F12, F3).
@@ -308,10 +292,6 @@ def test_adversarial_precompleted_work_dir_gives_success_cached(tmp_path):
           f"second={cached_row['status']!r}")
 
 
-@pytest.mark.skipif(
-    not os.environ.get("OPENUBEM_E2E"),
-    reason="Adversarial integration runs gated behind OPENUBEM_E2E=1",
-)
 def test_adversarial_timeout_gives_failed_timeout(tmp_path):
     """
     SIM_TIMEOUT_S=1 with a long-running IDF → failed_timeout + process killed (F12, F6).
@@ -352,10 +332,6 @@ def test_adversarial_timeout_gives_failed_timeout(tmp_path):
 
 # ── T09d: determinism check ────────────────────────────────────────────────────
 
-@pytest.mark.skipif(
-    not os.environ.get("OPENUBEM_E2E"),
-    reason="Determinism check gated behind OPENUBEM_E2E=1",
-)
 def test_determinism_same_host_reproducible(tmp_path):
     """
     Re-run one building; compare annual heating+cooling totals from SQL.

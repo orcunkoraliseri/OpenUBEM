@@ -31,12 +31,12 @@ _VALID_30: frozenset[str] = frozenset(
     a["archetype_id"] for a in _RAW_ARCHETYPES["archetypes"]
 )
 
-# 14 emit-side tokens; FALLBACK_DEFAULT is deprecated read-side only (Pass-2 §11 line 468)
+# 15 emit-side tokens; FALLBACK_DEFAULT is deprecated read-side only (Pass-2 §11 line 468)
 _EMIT_TOKENS: frozenset[str] = frozenset({
     "RULE_HIGHRISE", "RULE_RESIDENTIAL_TIER", "RULE_LODGING_TIER",
     "RULE_FUNCTION_TAG", "RULE_FUNCTION_TAG_SIZE",
     "RULE_USE_CLASS", "RULE_USE_CLASS_SIZE",
-    "MIXED_USE_DOMINANT_TAG", "FALLBACK_UNKNOWN",
+    "MIXED_USE_DOMINANT_TAG", "FALLBACK_UNKNOWN", "FALLBACK_SIZE_DEFAULT",
     "HEURISTIC_HEIGHT", "HEURISTIC_DEFAULT",
     "ASSUMPTION_DOE_PROTOTYPE_DERIVED", "DETAILED_OFFICE",
     "OVERRIDE_USER",
@@ -149,6 +149,8 @@ def _apply_rule_table(
     ft = _to_str(row.get("function_tag", ""))
     bt = _to_str(row.get("building_tag", ""))
     area = float(_to_str(row.get("footprint_area_m2", 0)) or 0)
+    # E-R3-1: office size metric is total floor area (footprint × levels)
+    total_floor_area_m2 = area * max(levels_imputed, 1)
 
     # 1a — SuperTallBuilding
     if (
@@ -255,11 +257,11 @@ def _apply_rule_table(
     ):
         return "RetailStandalone", "RULE_FUNCTION_TAG", None
 
-    # 12a/12b/12c — Office by use_class + size
+    # 12a/12b/12c — Office by use_class + size (E-R3-1: total floor area)
     if use_class == "commercial":
-        if area < 500:
+        if total_floor_area_m2 < 500:
             return "SmallOffice", "RULE_USE_CLASS_SIZE", None
-        if area < 4000:
+        if total_floor_area_m2 < 4000:
             return "MediumOffice", "RULE_USE_CLASS_SIZE", None
         return "LargeOffice", "RULE_USE_CLASS_SIZE", None
 
@@ -292,6 +294,14 @@ def _apply_rule_table(
     if use_class == "mixed":
         return "MidriseApartment", "MIXED_USE_DOMINANT_TAG", None
 
+    # 17a — E-R3-2: untagged building=yes → size-bucketed office default (LOW confidence)
+    if use_class == "unknown" and bt == "yes":
+        if total_floor_area_m2 < 500:
+            return "SmallOffice", "FALLBACK_SIZE_DEFAULT", None
+        if total_floor_area_m2 < 4000:
+            return "MediumOffice", "FALLBACK_SIZE_DEFAULT", None
+        return "LargeOffice", "FALLBACK_SIZE_DEFAULT", None
+
     # 17 — FALLBACK_UNKNOWN (Pass-2: OpenUBEMUnknown, not MediumOffice)
     return "OpenUBEMUnknown", "FALLBACK_UNKNOWN", None
 
@@ -316,8 +326,8 @@ def _assign_confidence(
     if head == "MIXED_USE_DOMINANT_TAG":
         return "MEDIUM"
 
-    # Rule 17 → LOW (Pass-2)
-    if head == "FALLBACK_UNKNOWN":
+    # Rule 17 / 17a → LOW
+    if head in {"FALLBACK_UNKNOWN", "FALLBACK_SIZE_DEFAULT"}:
         return "LOW"
 
     ft = _to_str(row.get("function_tag", ""))
@@ -588,19 +598,19 @@ class BuildingClassifier:
 
         _validate_output_schema(out)
 
-        # all_fallback_archetype warning (Pass-2: payload uses OpenUBEMUnknown, §11 line 488)
-        if (
-            len(out) > 0
-            and (out["archetype_id"] == "OpenUBEMUnknown").all()
-            and (out["archetype_confidence"] == "LOW").all()
-        ):
-            logger.warning(
-                json.dumps({
-                    "event": "all_fallback_archetype",
-                    "n_rows": len(out),
-                    "archetype_id": "OpenUBEMUnknown",
-                })
+        # all_fallback_archetype warning: all rows on a FALLBACK-source path (E-R3-2)
+        if len(out) > 0:
+            fallback_mask = out["archetype_source"].str.startswith(
+                ("FALLBACK_UNKNOWN", "FALLBACK_SIZE_DEFAULT")
             )
+            if fallback_mask.all():
+                logger.warning(
+                    json.dumps({
+                        "event": "all_fallback_archetype",
+                        "n_rows": len(out),
+                        "archetype_id": "OpenUBEMUnknown",
+                    })
+                )
 
         if output_dir is not None:
             # Collect summary lines for the log file (D4/W2.3): rule-fire counts, tier counts, FALLBACKs.

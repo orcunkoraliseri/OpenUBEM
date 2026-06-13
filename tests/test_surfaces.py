@@ -8,7 +8,13 @@ from geomeppy import IDF
 from shapely.geometry import box
 
 from openubem.config import ENERGYPLUS_IDD_PATH
-from openubem.idf.surfaces import extrude_geometry, set_adiabatic_surfaces
+from openubem.idf.surfaces import (
+    extrude_geometry,
+    find_mismatched_interzone_pairs,
+    set_adiabatic_surfaces,
+    _repair_mismatched_horizontal_pairs,
+    _repair_roof_roof_pairs,
+)
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "openubem" / "idf" / "templates"
 _BASE_TPL = str(TEMPLATES_DIR / "commercial_base.idf")
@@ -90,20 +96,71 @@ class TestSurfaces:
         assert "bldg_F0_perim" not in zone_names  # skipped due to empty coords_m
 
     def test_bbox_fallback_marks_zone(self):
+        """add_block fails twice → tier-2 bbox fallback → fallback_to_bbox=True."""
+        from openubem.idf.surfaces import _expand_core_perim_placeholder
+        from shapely.geometry import box as _box
         idf = _fresh_idf()
-        zone = _square_zone("bldg_F0_whole")
+        poly = _box(0, 0, 10, 10)
+        placeholder = {
+            "name": "bldg_perimgroup",
+            "mode": "core/perim",
+            "floor_polygon": poly,
+            "coords_m": list(poly.exterior.coords)[:-1],
+            "num_floors": 1,
+            "height_m": 3.5,
+            "perim_depth_m": 4.57,
+            "archetype_id": "MediumOffice",
+        }
         call_count = [0]
         original_add_block = idf.add_block
 
         def patched_add_block(**kwargs):
             call_count[0] += 1
-            if call_count[0] == 1:
+            if call_count[0] <= 2:  # both core/perim and tier-1 fail
                 raise ValueError("simulated failure")
             return original_add_block(**kwargs)
 
         idf.add_block = patched_add_block
-        extrude_geometry(idf, [zone], [])
-        assert zone.get("fallback_to_bbox") is True
+        zones = [placeholder]
+        _expand_core_perim_placeholder(idf, placeholder, zones, (ValueError,))
+        assert any(z.get("fallback_to_bbox") is True for z in zones), (
+            f"expected fallback_to_bbox=True in zones; got {zones}"
+        )
+
+    def test_narrow_fallback_marks_zone(self):
+        """add_block fails once (core/perim) → tier-1 narrow fallback → narrow_fallback=True."""
+        from openubem.idf.surfaces import _expand_core_perim_placeholder
+        from shapely.geometry import box as _box
+        idf = _fresh_idf()
+        poly = _box(0, 0, 10, 10)
+        placeholder = {
+            "name": "bldg_perimgroup",
+            "mode": "core/perim",
+            "floor_polygon": poly,
+            "coords_m": list(poly.exterior.coords)[:-1],
+            "num_floors": 1,
+            "height_m": 3.5,
+            "perim_depth_m": 4.57,
+            "archetype_id": "MediumOffice",
+        }
+        call_count = [0]
+        original_add_block = idf.add_block
+
+        def patched_add_block(**kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:  # only core/perim call fails; tier-1 succeeds
+                raise ValueError("simulated perim depth failure")
+            return original_add_block(**kwargs)
+
+        idf.add_block = patched_add_block
+        zones = [placeholder]
+        _expand_core_perim_placeholder(idf, placeholder, zones, (ValueError,))
+        assert any(z.get("narrow_fallback") is True for z in zones), (
+            f"expected narrow_fallback=True in zones; got {zones}"
+        )
+        assert not any(z.get("fallback_to_bbox") for z in zones), (
+            "tier-2 bbox fallback must NOT be set when tier-1 narrow fallback succeeds"
+        )
 
     def test_ground_floor_slab_bc_is_ground(self):
         """C3/R3: z=0 ground floors keep geomeppy's 'ground' BC — no Adiabatic flip.
@@ -295,3 +352,162 @@ class TestMultiStoreyStacking:
         assert len(surface_bc_surfaces) >= 1, (
             "expected at least one Surface-BC inter-storey pair after intersect_match"
         )
+
+
+class TestRepairRoofRoofPairs:
+    """R02: _repair_roof_roof_pairs resets illegal Roof↔Roof interzone pairs to exterior."""
+
+    def _make_surf(self, idf, name, zone, stype, bc="Outdoors", bc_obj="",
+                   sun="SunExposed", wind="WindExposed"):
+        s = idf.newidfobject(
+            "BUILDINGSURFACE:DETAILED",
+            Name=name,
+            Surface_Type=stype,
+            Zone_Name=zone,
+            Outside_Boundary_Condition=bc,
+            Outside_Boundary_Condition_Object=bc_obj,
+            Sun_Exposure=sun,
+            Wind_Exposure=wind,
+        )
+        return s
+
+    def test_roof_roof_pair_reset_to_exterior(self):
+        """Two Roof surfaces in different zones referencing each other → both reset to Outdoors."""
+        idf = _fresh_idf()
+        self._make_surf(idf, "ROOF_A", "ZoneA", "Roof",
+                        bc="Surface", bc_obj="ROOF_B", sun="NoSun", wind="NoWind")
+        self._make_surf(idf, "ROOF_B", "ZoneB", "Roof",
+                        bc="Surface", bc_obj="ROOF_A", sun="NoSun", wind="NoWind")
+        _repair_roof_roof_pairs(idf)
+        bsds = {s.Name: s for s in idf.idfobjects["BUILDINGSURFACE:DETAILED"]}
+        for name in ("ROOF_A", "ROOF_B"):
+            s = bsds[name]
+            assert s.Outside_Boundary_Condition == "Outdoors", f"{name}: expected Outdoors, got {s.Outside_Boundary_Condition}"
+            assert s.Outside_Boundary_Condition_Object == "", f"{name}: expected empty bc_obj, got {s.Outside_Boundary_Condition_Object}"
+            assert s.Sun_Exposure == "SunExposed", f"{name}: expected SunExposed"
+            assert s.Wind_Exposure == "WindExposed", f"{name}: expected WindExposed"
+
+    def test_ceiling_floor_pair_untouched(self):
+        """Ceiling↔Floor interzone pair is NOT reset by _repair_roof_roof_pairs."""
+        idf = _fresh_idf()
+        self._make_surf(idf, "CEIL_A", "ZoneA", "Ceiling",
+                        bc="Surface", bc_obj="FLOOR_B", sun="NoSun", wind="NoWind")
+        self._make_surf(idf, "FLOOR_B", "ZoneB", "Floor",
+                        bc="Surface", bc_obj="CEIL_A", sun="NoSun", wind="NoWind")
+        _repair_roof_roof_pairs(idf)
+        bsds = {s.Name: s for s in idf.idfobjects["BUILDINGSURFACE:DETAILED"]}
+        assert bsds["CEIL_A"].Outside_Boundary_Condition == "Surface", "Ceiling pair must not be reset"
+        assert bsds["FLOOR_B"].Outside_Boundary_Condition == "Surface", "Floor pair must not be reset"
+
+    def test_same_zone_roof_pair_untouched(self):
+        """Two Roof surfaces in the SAME zone referencing each other are not reset."""
+        idf = _fresh_idf()
+        self._make_surf(idf, "ROOF_X", "ZoneA", "Roof",
+                        bc="Surface", bc_obj="ROOF_Y", sun="NoSun", wind="NoWind")
+        self._make_surf(idf, "ROOF_Y", "ZoneA", "Roof",
+                        bc="Surface", bc_obj="ROOF_X", sun="NoSun", wind="NoWind")
+        _repair_roof_roof_pairs(idf)
+        bsds = {s.Name: s for s in idf.idfobjects["BUILDINGSURFACE:DETAILED"]}
+        # Same-zone pairs are unusual but should not be touched by this repair.
+        assert bsds["ROOF_X"].Outside_Boundary_Condition == "Surface", "Same-zone pair must not be reset"
+
+
+def _make_coord_surf(idf, name, zone, stype, coords, bc="Surface", bc_obj="",
+                     sun="NoSun", wind="NoWind"):
+    s = idf.newidfobject(
+        "BUILDINGSURFACE:DETAILED",
+        Name=name,
+        Surface_Type=stype,
+        Zone_Name=zone,
+        Outside_Boundary_Condition=bc,
+        Outside_Boundary_Condition_Object=bc_obj,
+        Sun_Exposure=sun,
+        Wind_Exposure=wind,
+    )
+    s.setcoords(coords)
+    return s
+
+
+_PENTA_Z0 = [(0, 0, 0), (10, 0, 0), (12, 5, 0), (10, 10, 0), (0, 10, 0)]
+_TRI_Z0 = [(10, 0, 0), (12, 5, 0), (10, 10, 0)]
+_QUAD_Z0 = [(0, 0, 0), (10, 0, 0), (10, 10, 0), (0, 10, 0)]
+_TRI_Z3 = [(10, 0, 3.5), (12, 5, 3.5), (10, 10, 3.5)]
+_QUAD_Z3 = [(0, 0, 3.5), (10, 0, 3.5), (10, 10, 3.5), (0, 10, 3.5)]
+
+
+class TestRepairMismatchedHorizontalPairs:
+    """C11: same-type horizontal pairs with mismatched vertex counts are reset."""
+
+    def test_mismatched_floor_floor_reset_to_ground(self):
+        """5-vertex floor ↔ 3-vertex floor at z=0 in different zones → both reset to ground."""
+        idf = _fresh_idf()
+        _make_coord_surf(idf, "FLOOR_A", "ZoneA", "floor", _PENTA_Z0, bc_obj="FLOOR_B")
+        _make_coord_surf(idf, "FLOOR_B", "ZoneB", "floor", _TRI_Z0, bc_obj="FLOOR_A")
+        _repair_mismatched_horizontal_pairs(idf)
+        bsds = {s.Name: s for s in idf.idfobjects["BUILDINGSURFACE:DETAILED"]}
+        for name in ("FLOOR_A", "FLOOR_B"):
+            s = bsds[name]
+            assert s.Outside_Boundary_Condition == "ground", f"{name}: expected ground"
+            assert s.Outside_Boundary_Condition_Object == "", f"{name}: expected empty bc_obj"
+            assert s.Sun_Exposure == "NoSun"
+            assert s.Wind_Exposure == "NoWind"
+
+    def test_equal_count_floor_floor_untouched(self):
+        """Equal vertex counts → untouched (protects byte-identity of valid IDFs)."""
+        idf = _fresh_idf()
+        _make_coord_surf(idf, "FLOOR_A", "ZoneA", "floor", _TRI_Z0, bc_obj="FLOOR_B")
+        _make_coord_surf(idf, "FLOOR_B", "ZoneB", "floor", _TRI_Z0, bc_obj="FLOOR_A")
+        _repair_mismatched_horizontal_pairs(idf)
+        bsds = {s.Name: s for s in idf.idfobjects["BUILDINGSURFACE:DETAILED"]}
+        assert bsds["FLOOR_A"].Outside_Boundary_Condition == "Surface"
+        assert bsds["FLOOR_B"].Outside_Boundary_Condition == "Surface"
+
+    def test_mismatched_ceiling_floor_pair_untouched(self):
+        """Legitimate Ceiling↔Floor type combo is never repaired here (validation catches it)."""
+        idf = _fresh_idf()
+        _make_coord_surf(idf, "CEIL_A", "ZoneA", "ceiling", _QUAD_Z3, bc_obj="FLOOR_B")
+        _make_coord_surf(idf, "FLOOR_B", "ZoneB", "floor", _TRI_Z3, bc_obj="CEIL_A")
+        _repair_mismatched_horizontal_pairs(idf)
+        bsds = {s.Name: s for s in idf.idfobjects["BUILDINGSURFACE:DETAILED"]}
+        assert bsds["CEIL_A"].Outside_Boundary_Condition == "Surface"
+        assert bsds["FLOOR_B"].Outside_Boundary_Condition == "Surface"
+
+    def test_mismatched_ceiling_ceiling_reset_to_outdoors(self):
+        idf = _fresh_idf()
+        _make_coord_surf(idf, "CEIL_A", "ZoneA", "ceiling", _QUAD_Z3, bc_obj="CEIL_B")
+        _make_coord_surf(idf, "CEIL_B", "ZoneB", "ceiling", _TRI_Z3, bc_obj="CEIL_A")
+        _repair_mismatched_horizontal_pairs(idf)
+        bsds = {s.Name: s for s in idf.idfobjects["BUILDINGSURFACE:DETAILED"]}
+        for name in ("CEIL_A", "CEIL_B"):
+            s = bsds[name]
+            assert s.Outside_Boundary_Condition == "Outdoors", f"{name}: expected Outdoors"
+            assert s.Outside_Boundary_Condition_Object == ""
+            assert s.Sun_Exposure == "SunExposed"
+            assert s.Wind_Exposure == "WindExposed"
+
+
+class TestFindMismatchedInterzonePairs:
+    """C11: generation-time scan for vertex-count mismatches on interzone pairs."""
+
+    def test_detects_mismatched_pair_once(self):
+        idf = _fresh_idf()
+        _make_coord_surf(idf, "CEIL_A", "ZoneA", "ceiling", _QUAD_Z3, bc_obj="FLOOR_B")
+        _make_coord_surf(idf, "FLOOR_B", "ZoneB", "floor", _TRI_Z3, bc_obj="CEIL_A")
+        pairs = find_mismatched_interzone_pairs(idf)
+        assert len(pairs) == 1
+        assert set(pairs[0]) == {"CEIL_A", "FLOOR_B"}
+
+    def test_matching_counts_return_empty(self):
+        idf = _fresh_idf()
+        _make_coord_surf(idf, "CEIL_A", "ZoneA", "ceiling", _QUAD_Z3, bc_obj="FLOOR_B")
+        _make_coord_surf(idf, "FLOOR_B", "ZoneB", "floor", _QUAD_Z3, bc_obj="CEIL_A")
+        assert find_mismatched_interzone_pairs(idf) == []
+
+    def test_repair_then_scan_clean(self):
+        """The C11 defect shape: repair fires, then the scan reports clean."""
+        idf = _fresh_idf()
+        _make_coord_surf(idf, "FLOOR_A", "ZoneA", "floor", _PENTA_Z0, bc_obj="FLOOR_B")
+        _make_coord_surf(idf, "FLOOR_B", "ZoneB", "floor", _TRI_Z0, bc_obj="FLOOR_A")
+        assert len(find_mismatched_interzone_pairs(idf)) == 1
+        _repair_mismatched_horizontal_pairs(idf)
+        assert find_mismatched_interzone_pairs(idf) == []

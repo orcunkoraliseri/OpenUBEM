@@ -1,5 +1,6 @@
 """IDF builder orchestrator and per-building build() entry point (DESIGN §3D, §4)."""
 import logging
+import traceback
 from importlib.resources import files
 from pathlib import Path
 
@@ -7,6 +8,7 @@ import geopandas as gpd
 import pandas as pd
 from geomeppy import IDF as GeomIDF
 from eppy.modeleditor import IDDAlreadySetError
+from joblib import Parallel, delayed
 
 from openubem import config
 from openubem.config import SHADING_SPHERE_RADIUS
@@ -18,7 +20,11 @@ from openubem.geometry.footprint import (
 )
 from openubem.geometry.zoning import build_zones, decide_zoning_strategy
 from openubem.geometry.context import discover_context
-from openubem.idf.surfaces import extrude_geometry, set_adiabatic_surfaces
+from openubem.idf.surfaces import (
+    extrude_geometry,
+    find_mismatched_interzone_pairs,
+    set_adiabatic_surfaces,
+)
 from openubem.idf.hvac import assign_hvac
 from openubem.idf.outputs import write_outputs
 from openubem.semantic.schedules import write_schedules_to_idf
@@ -241,6 +247,22 @@ class BuildingIDF:
         # unique footprint with num_stories=N; Z_Origin patch removed — geomeppy stacks at true z)
         extrude_geometry(self.idf, zones, context)
 
+        # Generation-time gate: any surviving vertex-count mismatch on an interzone
+        # pair is an EnergyPlus GetSurfaceData Fatal — fail here, not at runtime.
+        mismatched = find_mismatched_interzone_pairs(self.idf)
+        if mismatched:
+            logger.error(
+                "osm_id=%s generation_status=failed_interzone_vertex_mismatch pairs=%s",
+                osm_id, mismatched,
+            )
+            return {
+                "osm_id": osm_id, "idf_path": "", "archetype_id": arch,
+                "zoning_strategy": strategy, "num_zones": 0,
+                "num_context_buildings": len(context),
+                "simplification_status": simp_status, "data_quality_flag": dq_flag,
+                "generation_status": "failed_interzone_vertex_mismatch",
+            }
+
         # 3E-10c: adiabatic party walls and ground-floor slab
         set_adiabatic_surfaces(self.idf, zones, strategy)
 
@@ -266,7 +288,10 @@ class BuildingIDF:
         self.idf.save(str(idf_path))
 
         has_bbox_fallback = any(z.get("fallback_to_bbox") for z in zones)
+        has_narrow = any(z.get("narrow_fallback") for z in zones)
         gen_status = "fallback_bbox" if (has_bbox_fallback or simp_status == "bbox") else "success"
+        if has_narrow and "narrow_perimeter_fallback" not in dq_flag:
+            dq_flag = (dq_flag + "|narrow_perimeter_fallback").lstrip("|")
         logger.info("osm_id=%s generation_status=%s", osm_id, gen_status)
 
         return {
@@ -282,20 +307,52 @@ class BuildingIDF:
         }
 
 
+def _build_one(row_dict: dict, gdf: gpd.GeoDataFrame, schedule_library: dict,
+               output_dir: Path) -> dict:
+    """Module-level worker: build one IDF in a loky subprocess (C10 — picklable, never raises)."""
+    try:
+        # Each loky worker process needs its own IDD lock (process-local state).
+        try:
+            GeomIDF.setiddname(str(config.ENERGYPLUS_IDD_PATH))
+        except IDDAlreadySetError:
+            pass
+        row = pd.Series(row_dict)
+        return BuildingIDF(row).build(gdf, schedule_library, output_dir)
+    except Exception:
+        osm_id = str(row_dict.get("osm_id", "unknown"))
+        logger.error("osm_id=%s worker exception: %s", osm_id, traceback.format_exc()[-300:])
+        return {
+            "osm_id": osm_id, "idf_path": "", "archetype_id": str(row_dict.get("archetype_id", "")),
+            "zoning_strategy": "", "num_zones": 0, "num_context_buildings": 0,
+            "simplification_status": "skip", "data_quality_flag": "",
+            "generation_status": "failed_worker_exception",
+        }
+
+
 def run_step3(
     gdf: gpd.GeoDataFrame,
     schedule_library: dict,
     output_dir: Path,
+    n_jobs: int = 1,
 ) -> pd.DataFrame:
-    """Iterate all buildings, call BuildingIDF.build(), write 03_idf_manifest.parquet (DESIGN §4)."""
+    """Iterate all buildings, call BuildingIDF.build(), write 03_idf_manifest.parquet (DESIGN §4).
+
+    n_jobs=1 (default): unchanged serial path. n_jobs>1: loky process pool (C10).
+    """
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "idfs").mkdir(exist_ok=True)
 
-    manifest_rows = []
-    for _, row in gdf.iterrows():
-        manifest_row = BuildingIDF(row).build(gdf, schedule_library, output_dir)
-        manifest_rows.append(manifest_row)
+    if n_jobs == 1:
+        manifest_rows = []
+        for _, row in gdf.iterrows():
+            manifest_row = BuildingIDF(row).build(gdf, schedule_library, output_dir)
+            manifest_rows.append(manifest_row)
+    else:
+        row_dicts = [row.to_dict() for _, row in gdf.iterrows()]
+        manifest_rows = Parallel(n_jobs=n_jobs, backend="loky")(
+            delayed(_build_one)(rd, gdf, schedule_library, output_dir) for rd in row_dicts
+        )
 
     manifest_df = pd.DataFrame(manifest_rows)
     manifest_df.to_parquet(output_dir / "03_idf_manifest.parquet", engine="pyarrow", index=False)
