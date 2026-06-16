@@ -1,8 +1,8 @@
-# CBECS 2018 New England EUI — Provenance
+# CBECS 2018 Middle Atlantic EUI — Provenance
 
 - **Source URL:** `https://www.eia.gov/consumption/commercial/data/2018/xls/cbecs2018_final_public.csv`
 - **Download date:** 2026-06-15
-- **Census division filter:** CENDIV == 1 (New England)
+- **Census division filter:** CENDIV == 2 (Middle Atlantic)
 - **Unit conversion:** kBtu/ft² × 3.15459 → kWh/m²·yr (M-R2-1)
 
 ## Row counts
@@ -10,13 +10,13 @@
 | Stage | Count |
 |---|---|
 | Total rows in national file | 6436 |
-| New England rows (CENDIV=1) | 285 |
-| Dropped (missing/zero SQFT or MFBTU or FINALWT) | 1 |
-| Clean rows used | 284 |
+| Middle Atlantic rows (CENDIV=2) | 851 |
+| Dropped (missing/zero SQFT or MFBTU or FINALWT) | 8 |
+| Clean rows used | 843 |
 
 ## Summary statistics
 
-- **Weighted mean site EUI (New England):** 220.9 kWh/m²·yr
+- **Weighted mean site EUI (Middle Atlantic):** 237.3 kWh/m²·yr
 
 ## Dropped-row reasons
 

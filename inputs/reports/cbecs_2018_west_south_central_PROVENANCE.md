@@ -1,8 +1,8 @@
-# CBECS 2018 New England EUI — Provenance
+# CBECS 2018 West South Central EUI — Provenance
 
 - **Source URL:** `https://www.eia.gov/consumption/commercial/data/2018/xls/cbecs2018_final_public.csv`
 - **Download date:** 2026-06-15
-- **Census division filter:** CENDIV == 1 (New England)
+- **Census division filter:** CENDIV == 7 (West South Central)
 - **Unit conversion:** kBtu/ft² × 3.15459 → kWh/m²·yr (M-R2-1)
 
 ## Row counts
@@ -10,13 +10,13 @@
 | Stage | Count |
 |---|---|
 | Total rows in national file | 6436 |
-| New England rows (CENDIV=1) | 285 |
-| Dropped (missing/zero SQFT or MFBTU or FINALWT) | 1 |
-| Clean rows used | 284 |
+| West South Central rows (CENDIV=7) | 768 |
+| Dropped (missing/zero SQFT or MFBTU or FINALWT) | 13 |
+| Clean rows used | 755 |
 
 ## Summary statistics
 
-- **Weighted mean site EUI (New England):** 220.9 kWh/m²·yr
+- **Weighted mean site EUI (West South Central):** 222.8 kWh/m²·yr
 
 ## Dropped-row reasons
 

@@ -76,6 +76,26 @@ CELL_CONFIGS: dict[str, dict] = {
         "state": "CA", "epsg": 32611,
         "probe_count": 143,
     },
+    "austin_centre": {
+        "lat": 30.2672, "lon": -97.7431, "radius_m": 500.0,
+        "state": "TX", "epsg": 32614,
+        "probe_count": 351,
+    },
+    "austin_urban": {
+        "lat": 30.3072, "lon": -97.7400, "radius_m": 500.0,
+        "state": "TX", "epsg": 32614,
+        "probe_count": 320,
+    },
+    "austin_suburban": {
+        "lat": 30.5085, "lon": -97.6789, "radius_m": 500.0,
+        "state": "TX", "epsg": 32614,
+        "probe_count": 410,
+    },
+    "austin_rural": {
+        "lat": 30.5788, "lon": -98.2700, "radius_m": 1000.0,
+        "state": "TX", "epsg": 32614,
+        "probe_count": 184,
+    },
 }
 
 _floor_rx = _re.compile(r"_F(\d+)_")
