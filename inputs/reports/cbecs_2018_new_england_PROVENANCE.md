@@ -1,7 +1,7 @@
 # CBECS 2018 New England EUI — Provenance
 
 - **Source URL:** `https://www.eia.gov/consumption/commercial/data/2018/xls/cbecs2018_final_public.csv`
-- **Download date:** 2026-06-11
+- **Download date:** 2026-06-15
 - **Census division filter:** CENDIV == 1 (New England)
 - **Unit conversion:** kBtu/ft² × 3.15459 → kWh/m²·yr (M-R2-1)
 

@@ -90,6 +90,15 @@ If any of those is missing, ask Sonnet to fix it before greenlighting the next r
 - Default to no comments. One short line max when the WHY is non-obvious.
 - Stop and ask on spec ambiguity; never invent.
 
+## Model cost discipline (t-hour usage limits)
+
+We have rolling t-hour token limits and have burned too much budget on trivial work. Match the model to the job:
+
+- **Use a cheap model (Sonnet, or Haiku) for low-reasoning work:** monitoring a simulation or training run, polling job status, loop/wait jobs, log tailing, simple file edits, and any easy mechanical task. Never spend Opus or Fable tokens babysitting a job.
+- **Reserve Opus/Fable for genuine manager reasoning:** writing/auditing plan docs, validation analysis, DESIGN-deviation decisions.
+- **Delegate monitoring loops to a Sonnet subagent** (or a background command) rather than keeping an Opus session spinning. When a task is "watch X until done," hand it off cheap.
+- **Minimum monitoring interval is 30 minutes.** Never poll a job/task more frequently than once every 30 min — no shorter. Prefer event-driven completion (background task notifies on exit) over polling; when you must poll, the gap between checks is ≥ 30 min.
+
 ## Memory
 
 Persistent memory at `C:\Users\o_iseri\.claude\projects\C--Users-o-iseri-Desktop-OpenUBEM\memory\`. Index in `MEMORY.md`. Update memory when the user sets new conventions; do not duplicate what is already in this CLAUDE.md.
