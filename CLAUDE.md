@@ -1,5 +1,9 @@
 # OpenUBEM — Project Conventions
 
+> # 🔴🔴 ABSOLUTE TOP RULE — READ FIRST, NO EXCEPTIONS 🔴🔴
+> **NEVER run a blocking/interactive `srun` (or any python/computation) on the Speed login node (`speed-submit2` / `speed.encs.concordia.ca`). ALWAYS use `sbatch` — fire-and-forget — and read the output file afterward.**
+> The login node may only do lightweight ops: `mkdir`, `scp`, `tar`, `squeue`, `sacct`. All compute goes through `sbatch --array`. Never `ssh … python …` or `ssh … srun …` for compute; if a remote step needs Python, wrap it in an sbatch script.
+
 Open-Source Urban Building Energy Modeling Platform. 5-stage pipeline: data acquisition → semantic enrichment → IDF generation → EnergyPlus simulation → results & carbon. Working directory: `C:\Users\o_iseri\Desktop\OpenUBEM` — stay here.
 
 ## Roles
@@ -89,6 +93,7 @@ If any of those is missing, ask Sonnet to fix it before greenlighting the next r
 - No live-network integration tests until §5.3 is unblocked.
 - Default to no comments. One short line max when the WHY is non-obvious.
 - Stop and ask on spec ambiguity; never invent.
+- **All `.png` / figure outputs go to `openubem/outputs/`** (flat, visible) — never bury plots under `docs/.../results/cases/<cell>/figures/`. One place the user can actually find.
 
 ## Model cost discipline (t-hour usage limits)
 

@@ -11,17 +11,13 @@ _ONE_PER_FLOOR = {"MidriseApartment", "HighriseApartment", "TallBuilding", "Supe
 def decide_zoning_strategy(
     archetype_id: str, footprint_area_m2: float, num_floors: int
 ) -> str:
-    if archetype_id == "OpenUBEMUnknown":
+    # single_zone only for genuine 1-floor buildings (DESIGN §262 restricted to num_floors==1;
+    # manager ruling 2026-06-17: resolves inconsistency with DESIGN §300 floor_area=footprint×n_floors)
+    if num_floors == 1:
         return "single_zone"
-    if footprint_area_m2 < 500 or num_floors == 1:
-        return "single_zone"
-    if archetype_id in {"MidriseApartment", "HighriseApartment"}:
-        return "one_zone_per_floor"
-    if archetype_id in {"TallBuilding", "SuperTallBuilding"}:
-        return "one_zone_per_floor"
-    if footprint_area_m2 >= 500 and num_floors >= 2 and archetype_id not in _ONE_PER_FLOOR:
+    if footprint_area_m2 >= 500 and archetype_id not in _ONE_PER_FLOOR and archetype_id != "OpenUBEMUnknown":
         return "perimeter_core"
-    return "single_zone"
+    return "one_zone_per_floor"
 
 
 def build_zones(
@@ -67,6 +63,17 @@ def build_zones(
         if core_poly.is_empty or core_poly.area < 10.0:
             logger.warning(
                 "osm_id=%s narrow building: perimeter_core → one_zone_per_floor", osm_id
+            )
+            return build_zones(
+                osm_id, footprint_poly, archetype_id, num_floors,
+                "one_zone_per_floor", floor_to_floor_m, perimeter_depth_m,
+            )
+        # Interior ring (courtyard hole): geomeppy core/perim produces a donut core whose
+        # inter-floor surfaces get mismatched vertex counts → E+ Fatal. Skip core/perim.
+        if list(footprint_poly.interiors):
+            logger.warning(
+                "osm_id=%s interior ring (courtyard): perimeter_core → one_zone_per_floor",
+                osm_id,
             )
             return build_zones(
                 osm_id, footprint_poly, archetype_id, num_floors,

@@ -4,6 +4,7 @@ import pytest
 
 from openubem.semantic.schedules import (
     _FAMILIES,
+    _compact_block,
     build_schedule_library,
     get_schedule_names,
     write_schedules_to_idf,
@@ -160,3 +161,41 @@ def test_write_schedules_dry_run():
     assert len(names) == 6
     for name in names:
         assert "MediumOffice" in name
+
+
+# ── T11-8: _compact_block never emits a bare For: header (empty day-type fix) ──
+
+def test_compact_block_no_empty_for_header():
+    """
+    Regression: _compact_block must skip empty day-type lists so EnergyPlus never
+    sees a For: line immediately followed by another For: (or end) with no Until: between.
+    Affected: MidriseApartment/Occupancy 'For: Saturday' = [] (and 5 other pairs).
+    """
+    lib = build_schedule_library("MidriseApartment")
+    occ_entry = lib["Occupancy"]
+    # Confirm the source data has the empty Saturday key (the pre-condition)
+    assert occ_entry.get("For: Saturday") == [], (
+        "Pre-condition: MidriseApartment/Occupancy should have empty Saturday list"
+    )
+    fields = _compact_block(occ_entry)
+    # No two consecutive "For:" lines (a bare header would look like consecutive For: lines)
+    for i in range(len(fields) - 1):
+        if fields[i].startswith("For:"):
+            assert not fields[i + 1].startswith("For:"), (
+                f"Empty For: header found at index {i}: '{fields[i]}' followed by '{fields[i+1]}'"
+            )
+    # Also verify "For: Saturday" does not appear at all in the output
+    assert not any(f == "For: Saturday" for f in fields), (
+        "Empty 'For: Saturday' clause must be omitted from compact block output"
+    )
+
+
+def test_midrise_apartment_write_dry_run_no_empty_clause():
+    """
+    write_schedules_to_idf dry-run for MidriseApartment must return 6 names
+    (not raise) — confirming the writer handles empty Saturday without crashing.
+    """
+    names = write_schedules_to_idf(idf=None, archetype_id="MidriseApartment")
+    assert len(names) == 6
+    for name in names:
+        assert "MidriseApartment" in name

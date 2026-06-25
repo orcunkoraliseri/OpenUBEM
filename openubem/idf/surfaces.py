@@ -11,6 +11,7 @@ the key name differs because eppy's bundled IDD v8.0.0 maps the shading block to
 SHADING:SITE:DETAILED. With a real EnergyPlus 23.1 IDD the object type may differ.
 """
 import logging
+import math
 from itertools import groupby
 
 from geomeppy import IDF as GeomIDF
@@ -92,6 +93,129 @@ def _pair_interfloor_surfaces(idf: GeomIDF) -> None:
         partner.Wind_Exposure = "NoWind"
 
 
+_COREPERIM_ZONE_PREFIXES = ("Block Core_Zone Storey", "Block Perimeter_Zone_")
+_COINCIDENT_VERTEX_TOL = 0.01  # m — match EnergyPlus 1 cm coincident-vertex tolerance
+
+
+def _surface_3d_area(coords: list) -> float:
+    """Compute 3D polygon area via cross-product accumulation."""
+    n = len(coords)
+    if n < 3:
+        return 0.0
+    ax = ay = az = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        ax += coords[i][1] * coords[j][2] - coords[i][2] * coords[j][1]
+        ay += coords[i][2] * coords[j][0] - coords[i][0] * coords[j][2]
+        az += coords[i][0] * coords[j][1] - coords[i][1] * coords[j][0]
+    return 0.5 * math.sqrt(ax * ax + ay * ay + az * az)
+
+
+def _distinct_vertices_after_collapse(coords: list, tol: float = _COINCIDENT_VERTEX_TOL) -> int:
+    """Count vertices that remain after removing each vertex coincident with its successor.
+
+    Checks wrap-around (last vertex vs first).  Mirrors EnergyPlus GetSurfaceData rule:
+    a surface is degenerate when fewer than 3 distinct vertices survive this pass.
+    """
+    n = len(coords)
+    count = 0
+    for i in range(n):
+        pt = coords[i]
+        nxt = coords[(i + 1) % n]
+        dx = pt[0] - nxt[0]
+        dy = pt[1] - nxt[1]
+        dz = pt[2] - nxt[2]
+        if math.sqrt(dx * dx + dy * dy + dz * dz) > tol:
+            count += 1
+    return count
+
+
+def _is_coreperim_zone(zone_name: str) -> bool:
+    """Return True if zone_name belongs to a core/perim block (pre- or post-rename)."""
+    return (
+        any(zone_name.startswith(p) for p in _COREPERIM_ZONE_PREFIXES)
+        or zone_name.endswith("_core")
+        or ("_perim" in zone_name and zone_name.rsplit("_perim", 1)[-1].isdigit())
+    )
+
+
+def _coreperim_has_degenerate_surfaces(idf: GeomIDF) -> bool:
+    """Return True if any core/perim surface has fewer than 3 distinct vertices.
+
+    Uses EnergyPlus's own criterion: collapse vertices coincident within 1 cm
+    (including the wrap-around between last and first vertex); if fewer than 3
+    distinct vertices remain the surface is degenerate.
+    Works both pre-rename (geomeppy names) and post-rename (osm_id names).
+    """
+    for surf in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
+        if not _is_coreperim_zone(surf.Zone_Name):
+            continue
+        coords = list(surf.coords)
+        if len(coords) < 3:
+            return True
+        if _distinct_vertices_after_collapse(coords) < 3:
+            return True
+    return False
+
+
+_TINY_ZONE_AREA_M2 = 0.5  # floor areas below this indicate a degenerate sliver zone
+
+
+def _signed_area_2d(coords: list) -> float:
+    """Shoelace formula on the XY plane. Positive = CCW, negative = CW."""
+    n = len(coords)
+    if n < 3:
+        return 0.0
+    total = 0.0
+    for i in range(n):
+        j = (i + 1) % n
+        total += coords[i][0] * coords[j][1] - coords[j][0] * coords[i][1]
+    return total / 2.0
+
+
+def _coreperim_has_tiny_zone_area(idf: GeomIDF, min_area: float = _TINY_ZONE_AREA_M2) -> bool:
+    """Return True if any core/perim floor surface has a polygon area < min_area m²."""
+    for surf in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
+        if not _is_coreperim_zone(surf.Zone_Name):
+            continue
+        if surf.Surface_Type.upper() not in ("FLOOR", "ROOFCEILING"):
+            continue
+        coords = list(surf.coords)
+        if len(coords) < 3:
+            continue
+        area = abs(_signed_area_2d(coords))
+        if area < min_area:
+            return True
+    return False
+
+
+def _coreperim_has_inverted_winding(idf: GeomIDF) -> bool:
+    """Return True if any core/perim floor surface has negative signed area (inverted winding)."""
+    for surf in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
+        if not _is_coreperim_zone(surf.Zone_Name):
+            continue
+        if surf.Surface_Type.upper() not in ("FLOOR", "ROOFCEILING"):
+            continue
+        coords = list(surf.coords)
+        if len(coords) < 3:
+            continue
+        if _signed_area_2d(coords) < 0.0:
+            return True
+    return False
+
+
+def _purge_idf_geometry(idf: GeomIDF) -> None:
+    """Remove ALL ZONE and BUILDINGSURFACE:DETAILED objects from the IDF.
+
+    Called before rebuilding a degenerate core/perim building with per-floor fallback.
+    Safe because each BuildingIDF uses a per-building IDF; no other buildings' geometry
+    exists at this point.
+    """
+    for obj_type in ("BUILDINGSURFACE:DETAILED", "ZONE"):
+        for obj in list(idf.idfobjects[obj_type]):
+            idf.removeidfobject(obj)
+
+
 def _expand_core_perim_placeholder(
     idf: GeomIDF, placeholder: dict, zones: list[dict], exc_types: tuple
 ) -> None:
@@ -129,7 +253,7 @@ def _expand_core_perim_placeholder(
             "perimeter_core fallback to one_zone_per_floor: osm_id=%s, %s", osm_id, e,
         )
         block_name = f"{osm_id}_whole"
-        fallback_zones = []
+        fallback_zones: list[dict] = []
         try:
             idf.add_block(
                 name=block_name,
@@ -141,7 +265,7 @@ def _expand_core_perim_placeholder(
                 geomeppy_name = f"Block {block_name} Storey {i}"
                 zone_name = f"{osm_id}_F{i}_whole"
                 _rename_geomeppy_zone(idf, geomeppy_name, zone_name)
-                z = {
+                fallback_zones.append({
                     "name": zone_name,
                     "floor_polygon": placeholder["floor_polygon"],
                     "coords_m": coords,
@@ -150,8 +274,7 @@ def _expand_core_perim_placeholder(
                     "extruded": True,
                     "narrow_fallback": True,
                     "generation_status_note": "narrow_core_perim_fallback",
-                }
-                fallback_zones.append(z)
+                })
         except Exception as e2:
             # Tier-2 fallback: bbox (DESIGN lines 236–245 generic add_block exception).
             logger.warning(
@@ -350,6 +473,96 @@ def find_mismatched_interzone_pairs(idf: GeomIDF) -> list[tuple[str, str]]:
     return mismatched
 
 
+def _force_reroute_coreperim_to_one_zone_per_floor(
+    idf: GeomIDF, zones: list[dict], reason: str
+) -> bool:
+    """Unconditionally rebuild a core/perim building as one_zone_per_floor.
+
+    Used by both the degenerate-surface check (T04) and the intersect_match
+    exception handler (T03).  Returns True if the rebuild succeeded.
+    """
+    coreperim_zones = [z for z in zones if _is_coreperim_zone(z.get("name", ""))]
+    if not coreperim_zones:
+        return False
+
+    sample = coreperim_zones[0]
+    raw_name = sample["name"]
+    osm_id = raw_name.rsplit("_F", 1)[0] if "_F" in raw_name else raw_name
+    coords = sample["coords_m"]
+    floor_h = sample["height_m"]
+    floor_polygon = sample["floor_polygon"]
+    archetype_id = sample.get("archetype_id", "")
+    floor_indices = {_get_floor_idx(z["name"]) for z in coreperim_zones if _get_floor_idx(z["name"]) is not None}
+    n = len(floor_indices) if floor_indices else max(1, len(coreperim_zones))
+    total_height = n * floor_h
+
+    logger.warning(
+        "rerouting to one_zone_per_floor (%s): osm_id=%s, n_floors=%d", reason, osm_id, n,
+    )
+
+    _purge_idf_geometry(idf)
+
+    for z in coreperim_zones:
+        if z in zones:
+            zones.remove(z)
+    insert_idx = 0
+
+    block_name = f"{osm_id}_whole"
+    fallback_zones: list[dict] = []
+    try:
+        idf.add_block(
+            name=block_name,
+            coordinates=coords,
+            height=total_height,
+            num_stories=n,
+        )
+        for i in range(n):
+            geomeppy_name = f"Block {block_name} Storey {i}"
+            zone_name = f"{osm_id}_F{i}_whole"
+            _rename_geomeppy_zone(idf, geomeppy_name, zone_name)
+            fallback_zones.append({
+                "name": zone_name,
+                "floor_polygon": floor_polygon,
+                "coords_m": coords,
+                "height_m": floor_h,
+                "archetype_id": archetype_id,
+                "extruded": True,
+                "narrow_fallback": True,
+                "generation_status_note": "coreperim_degenerate_fallback",
+            })
+    except Exception as e:
+        logger.warning("block %s reroute rebuild failed (%s) — skipping", osm_id, e)
+        return False
+
+    for z in reversed(fallback_zones):
+        zones.insert(insert_idx, z)
+    return True
+
+
+def _rebuild_degenerate_coreperim(idf: GeomIDF, zones: list[dict]) -> bool:
+    """After intersect_match: detect degenerate/tiny core/perim surfaces and reroute.
+
+    Checks: (1) fewer than 3 distinct vertices after collapse, (2) floor zone area < 0.5 m².
+    Note: _coreperim_has_inverted_winding is intentionally excluded — EnergyPlus convention
+    always uses negative signed-area (CW winding) for floor surfaces; checking sign would
+    produce false positives on healthy buildings.
+
+    Returns True if a rebuild was performed (caller must re-run intersect_match + repairs).
+    Per-building IDFs contain exactly one building, so _purge_idf_geometry clears only that
+    building's geometry — safe to call here.
+    """
+    needs_reroute = (
+        _coreperim_has_degenerate_surfaces(idf)
+        or _coreperim_has_tiny_zone_area(idf)
+    )
+    if not needs_reroute:
+        return False
+
+    return _force_reroute_coreperim_to_one_zone_per_floor(
+        idf, zones, "degenerate/tiny surface post-intersect"
+    )
+
+
 def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> None:
     """Extrude zones into IDF, call intersect_match once, then add shading blocks.
 
@@ -425,13 +638,42 @@ def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> No
             if fallback:
                 z["fallback_to_bbox"] = True
 
-    idf.intersect_match()
+    # T03: wrap intersect_match to catch geomeppy geometry exceptions (IndexError from
+    # break_polygons, etc.) that fire BEFORE the degenerate reroute check.
+    try:
+        idf.intersect_match()
+    except (IndexError, Exception) as _exc_im:
+        logger.warning(
+            "intersect_match raised %s — rerouting to one_zone_per_floor", type(_exc_im).__name__
+        )
+        did_reroute = _force_reroute_coreperim_to_one_zone_per_floor(
+            idf, zones, f"intersect_match exception: {type(_exc_im).__name__}"
+        )
+        if did_reroute:
+            try:
+                idf.intersect_match()
+            except Exception as _exc_im2:
+                # Second attempt also failed — re-raise so _build_one catches it.
+                raise RuntimeError(
+                    f"intersect_match failed after one_zone_per_floor reroute: {_exc_im2}"
+                ) from _exc_im2
+        else:
+            raise
+
     # Repair illegal Roof↔Roof interzone pairs (perim wedge coplanar roof fragments).
     _repair_roof_roof_pairs(idf)
     # Repair same-type horizontal pairs with mismatched vertex counts (E+ Fatal).
     _repair_mismatched_horizontal_pairs(idf)
     # Pair inter-floor ceiling↔floor surfaces missed by geomeppy's almostequal (cyclic verts).
     _pair_interfloor_surfaces(idf)
+
+    # Post-intersect degenerate check: sliver perimeter wedges can produce degenerate,
+    # tiny, or inverted surfaces after intersect_match. If found, rebuild with one_zone_per_floor.
+    if _rebuild_degenerate_coreperim(idf, zones):
+        idf.intersect_match()
+        _repair_roof_roof_pairs(idf)
+        _repair_mismatched_horizontal_pairs(idf)
+        _pair_interfloor_surfaces(idf)
 
     for ctx in context:
         idf.add_shading_block(

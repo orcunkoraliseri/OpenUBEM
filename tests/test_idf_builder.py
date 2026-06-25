@@ -375,7 +375,7 @@ class TestZoningAreaColumn:
     """B5: zoning decision uses footprint_area_m2 column, not simplified poly area (W3.8)."""
 
     def test_zoning_follows_column_not_poly_area(self, monkeypatch):
-        """footprint_area_m2 just under 500 → single_zone even if poly.area >> 500."""
+        """footprint_area_m2 passed to decide_zoning_strategy is from the column, not poly.area."""
         import tempfile
         import geopandas as gpd
         from shapely.geometry import box as _box
@@ -390,12 +390,14 @@ class TestZoningAreaColumn:
         monkeypatch.setattr("openubem.idf.builder.decide_zoning_strategy", recording_decide)
 
         arch = "MediumOffice"
-        poly = _box(0, 0, 50, 50)  # area = 2500 m² → would give perimeter_core if used
+        poly = _box(0, 0, 50, 50)  # area = 2500 m² → would give perimeter_core if used directly
         row = _make_row(arch, SYNTHETIC_EPW)
         row["osm_id"] = "way/555"
         row["levels"] = 3
         row["height_m"] = 10.5
-        row["footprint_area_m2"] = 499.0  # below 500 threshold → single_zone
+        # 499 m² < 500 threshold → one_zone_per_floor (multi-floor, post-fix);
+        # key assertion is that the column value 499.0 is what reaches the function, not poly.area
+        row["footprint_area_m2"] = 499.0
         row["geometry"] = poly
         row["data_quality_flag"] = ""
 
@@ -451,7 +453,7 @@ class TestDoubleExtrusionFailure:
         # Field renamed in EnergyPlus 23.1 IDD (W3.7): Zone_or_ZoneList_or_Space_or_SpaceList_Name
         people_zones = {p.Zone_or_ZoneList_or_Space_or_SpaceList_Name for p in bidf.idf.idfobjects["PEOPLE"]}
         lights_zones = {l.Zone_or_ZoneList_or_Space_or_SpaceList_Name for l in bidf.idf.idfobjects["LIGHTS"]}
-        hvac_zones = {h.Zone_Name for h in bidf.idf.idfobjects["HVACTEMPLATE:ZONE:IDEALLOADSAIRSYSTEM"]}
+        hvac_zones = {h.Zone_Name for h in bidf.idf.idfobjects["HVACTEMPLATE:ZONE:PTAC"]}
         assert people_zones == set(), f"PEOPLE references zones despite extrusion failure: {people_zones}"
         assert lights_zones == set(), f"LIGHTS references zones despite extrusion failure: {lights_zones}"
         assert hvac_zones == set(), f"HVAC references zones despite extrusion failure: {hvac_zones}"

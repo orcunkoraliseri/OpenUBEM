@@ -272,3 +272,96 @@ class TestIodGolden:
         result = parse_building(GOLDEN_DIR / "r1_zero_occupancy.sql", None, row)
         assert math.isnan(result["iod"])
         assert "IOD_NO_OCCUPIED_HOURS" in result["data_quality_flag"]
+
+
+# ── T03: multi-floor EUI regression (bug-catch) ──────────────────────────────
+
+class TestMultiFloorEuiRegression:
+    """lighting_eui must be INDEPENDENT of num_floors; only total energy scales.
+
+    This is the assertion that would have caught the single_zone multi-floor defect:
+    a 1-floor and a 4-floor building with the same LPD and footprint must yield
+    equal lighting_eui_kwh_m2 — if single_zone collapses all floors into one zone
+    carrying only one floor of lighting load, the EUI comes out ÷4 for 4 floors.
+    """
+
+    def _make_df(self, num_floors: int, footprint_m2: float, lpd_w_m2: float) -> pd.DataFrame:
+        """Synthetic hourly DataFrame mimicking one-zone-per-floor output.
+
+        Each floor zone contributes lighting kWh proportional to its floor area
+        (footprint × 1 floor × lpd × 8760 h). The parser sums all zones.
+        """
+        from openubem.results.parser import J_TO_KWH
+
+        # lighting kWh per floor-zone per year: area × W/m² × 8760 h / 1000
+        kwh_per_floor = footprint_m2 * lpd_w_m2 * 8760 / 1000.0
+        # equipment: half of lighting for simplicity
+        equip_per_floor = kwh_per_floor * 0.5
+        # heating/cooling: same per floor
+        heat_per_floor = kwh_per_floor * 0.3
+        cool_per_floor = kwh_per_floor * 0.2
+
+        rows = []
+        for f in range(num_floors):
+            zone = f"way/TEST_F{f}_WHOLE"
+            for var, kwh in [
+                ("Zone Lights Electricity Energy", kwh_per_floor),
+                ("Zone Electric Equipment Electricity Energy", equip_per_floor),
+                ("Zone Ideal Loads Zone Total Heating Energy", heat_per_floor),
+                ("Zone Ideal Loads Zone Total Cooling Energy", cool_per_floor),
+            ]:
+                rows.append({
+                    "key_value": zone,
+                    "variable_name": var,
+                    "units": "kWh",
+                    "Month": 1, "Day": 1, "Hour": 1,
+                    "value": kwh,
+                })
+        return pd.DataFrame(rows)
+
+    def _run_compute_eui(self, num_floors: int, footprint_m2: float, lpd_w_m2: float) -> dict:
+        from openubem.results.parser import _compute_eui
+        df = self._make_df(num_floors, footprint_m2, lpd_w_m2)
+        row = _manifest_row("way/TEST", footprint_m2, num_floors, num_floors)
+        eui, _, missing = _compute_eui(df, row, "")
+        assert missing is None, f"Missing variable: {missing}"
+        return eui
+
+    def test_lighting_eui_independent_of_num_floors(self):
+        """1-floor and 4-floor same-LPD buildings must yield equal lighting_eui_kwh_m2."""
+        eui_1 = self._run_compute_eui(num_floors=1, footprint_m2=200.0, lpd_w_m2=10.0)
+        eui_4 = self._run_compute_eui(num_floors=4, footprint_m2=200.0, lpd_w_m2=10.0)
+        assert math.isclose(eui_1["lighting_eui_kwh_m2"], eui_4["lighting_eui_kwh_m2"], rel_tol=1e-9), (
+            f"lighting_eui depends on num_floors: 1-floor={eui_1['lighting_eui_kwh_m2']:.4f}, "
+            f"4-floor={eui_4['lighting_eui_kwh_m2']:.4f} — defect still present?"
+        )
+
+    def test_total_energy_scales_with_floors(self):
+        """Total energy (kWh) must scale linearly with num_floors; EUI must not."""
+        footprint = 200.0
+        lpd = 10.0
+        eui_1 = self._run_compute_eui(num_floors=1, footprint_m2=footprint, lpd_w_m2=lpd)
+        eui_4 = self._run_compute_eui(num_floors=4, footprint_m2=footprint, lpd_w_m2=lpd)
+
+        # EUI must be equal (invariant to floor count)
+        assert math.isclose(eui_1["total_eui_kwh_m2"], eui_4["total_eui_kwh_m2"], rel_tol=1e-9), (
+            f"total_eui differs: 1-floor={eui_1['total_eui_kwh_m2']:.4f}, "
+            f"4-floor={eui_4['total_eui_kwh_m2']:.4f}"
+        )
+
+        # Total energy = EUI × floor_area; 4-floor has 4× the floor area → 4× total energy
+        total_kwh_1 = eui_1["total_eui_kwh_m2"] * footprint * 1
+        total_kwh_4 = eui_4["total_eui_kwh_m2"] * footprint * 4
+        assert math.isclose(total_kwh_4, 4.0 * total_kwh_1, rel_tol=1e-9), (
+            f"4-floor total energy should be 4× 1-floor: got {total_kwh_4:.1f} vs {4*total_kwh_1:.1f}"
+        )
+
+    def test_lighting_eui_value_matches_lpd(self):
+        """Spot-check: lighting_eui = lpd_w_m2 × 8760 h / 1000."""
+        lpd = 10.0
+        expected_eui = lpd * 8760 / 1000.0  # kWh/m²
+        for n in [1, 2, 4]:
+            eui = self._run_compute_eui(num_floors=n, footprint_m2=200.0, lpd_w_m2=lpd)
+            assert math.isclose(eui["lighting_eui_kwh_m2"], expected_eui, rel_tol=1e-9), (
+                f"num_floors={n}: lighting_eui={eui['lighting_eui_kwh_m2']:.4f}, expected={expected_eui:.4f}"
+            )

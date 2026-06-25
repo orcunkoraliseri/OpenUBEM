@@ -12,13 +12,14 @@ import pandas as pd
 
 from openubem import config
 
-# ── F9: the 13 columns appended by Step 5 (DESIGN line 166) ─────────────────
+# ── F9: the 14 columns appended by Step 5 (DESIGN line 166) ─────────────────
 _STEP5_COLS = [
     "heating_eui_kwh_m2",
     "cooling_eui_kwh_m2",
     "lighting_eui_kwh_m2",
     "equipment_eui_kwh_m2",
     "total_eui_kwh_m2",
+    "fans_eui_kwh_m2",
     "gwp_heating_kgco2_m2",
     "gwp_cooling_kgco2_m2",
     "gwp_lighting_kgco2_m2",
@@ -36,9 +37,9 @@ def join_results(
     enriched_gdf: gpd.GeoDataFrame,
     metrics_df: pd.DataFrame,
 ) -> gpd.GeoDataFrame:
-    """LEFT-join 13 Step-5 metric columns onto the 57-col enriched GDF (DESIGN line 166).
+    """LEFT-join 14 Step-5 metric columns onto the 57-col enriched GDF (DESIGN line 166).
 
-    Returns a 70-col GDF, one row per Step-1 building, with NaN metrics for
+    Returns a 71-col GDF, one row per Step-1 building, with NaN metrics for
     buildings that were not simulated or failed parsing. data_quality_flag from
     metrics_df is merged (append-only per P1) into the upstream flag column.
     """
@@ -49,7 +50,7 @@ def join_results(
     enriched["_osm_id_key"] = enriched["osm_id"].astype(str)
     metrics["_osm_id_key"] = metrics["osm_id"].astype(str)
 
-    # Columns to take from metrics_df (13 + data_quality_flag delta + osm_id key)
+    # Columns to take from metrics_df (14 + data_quality_flag delta + osm_id key)
     metric_cols = _STEP5_COLS + ["data_quality_flag", "_osm_id_key"]
     metrics_sub = metrics[[c for c in metric_cols if c in metrics.columns]].copy()
 
