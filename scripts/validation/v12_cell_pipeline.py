@@ -15,6 +15,7 @@ Remote fleet dir:
 """
 from __future__ import annotations
 
+import gzip
 import io
 import json
 import re as _re
@@ -95,6 +96,11 @@ CELL_CONFIGS: dict[str, dict] = {
         "lat": 30.5788, "lon": -98.2700, "radius_m": 1000.0,
         "state": "TX", "epsg": 32614,
         "probe_count": 184,
+    },
+    "nyc_centre": {
+        "lat": 40.7549, "lon": -73.9840, "radius_m": 500.0,
+        "state": "NY", "epsg": 32618,
+        "probe_count": 619,  # V10_matrix_proposal.md row 1 (approved 2026-06-11)
     },
 }
 
@@ -246,8 +252,7 @@ def ship_to_cluster(idf_manifest: pd.DataFrame, epw_path: Path,
     for _, row in success_rows.iterrows():
         src = Path(str(row["idf_path"]))
         dst = idfs_local / src.name
-        if not dst.exists():
-            shutil.copy2(src, dst)
+        shutil.copy2(src, dst)
 
     shutil.copy2(epw_path, weather_local / epw_path.name)
 
@@ -337,33 +342,69 @@ def fetch_results(osm_ids: list[str], remote_fleet_dir: str, sim_out_dir: Path) 
     print(f"  Fetching results from cluster for {len(osm_ids)} buildings ...")
     sim_out_dir.mkdir(parents=True, exist_ok=True)
 
-    # Single streamed find|tar pipe: avoids Windows 32k command-line limit
-    # (enumerating per-building paths truncated the ssh command on big fleets).
-    tgz_path = sim_out_dir.parent / "sim_out_fetch.tgz"
-    remote_cmd = (
-        f"cd {remote_fleet_dir}/out && "
-        f"find . -maxdepth 2 \\( -name eplusout.sql -o -name eplusout.err -o -name eplusout.end \\) -print0 "
-        f"| tar czf - --null -T -"
-    )
-    t0 = time.monotonic()
-    with open(tgz_path, "wb") as fh:
-        proc = subprocess.Popen(
-            ["ssh", REMOTE_HOST, f"bash -lc '{remote_cmd}'"],
-            stdout=fh, stderr=subprocess.PIPE,
+    batch_size = 50
+    batches = [osm_ids[i:i + batch_size] for i in range(0, len(osm_ids), batch_size)]
+    n_batches = len(batches)
+    print(f"  Splitting into {n_batches} batch(es) of up to {batch_size} buildings each.")
+
+    for i, batch in enumerate(batches):
+        tgz = sim_out_dir.parent / f"fetch_batch_{i:03d}.tgz"
+        paths = " ".join(
+            f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end"
+            for oid in batch
         )
-        _, stderr_data = proc.communicate(timeout=3600)
-    if proc.returncode != 0:
-        print(f"  fetch ssh rc={proc.returncode}: {stderr_data.decode(errors='replace')[:500]}", file=sys.stderr)
-        sys.exit(1)
-    print(f"  downloaded {tgz_path.stat().st_size/1e6:.1f} MB in {time.monotonic()-t0:.0f}s")
-    with tarfile.open(tgz_path, mode="r:gz") as tf:
-        tf.extractall(str(sim_out_dir))
-    tgz_path.unlink()
-    print(f"  extracted: {len(list(sim_out_dir.rglob('eplusout.end')))} .end files")
+        remote_cmd = f"cd {remote_fleet_dir}/out && tar czf - --ignore-failed-read {paths}"
+
+        max_attempts = 3
+        for attempt in range(1, max_attempts + 1):
+            t0 = time.monotonic()
+            with open(tgz, "wb") as fh:
+                proc = subprocess.Popen(
+                    ["ssh", REMOTE_HOST, f"bash -lc '{remote_cmd}'"],
+                    stdout=fh, stderr=subprocess.PIPE,
+                )
+                _, stderr_data = proc.communicate(timeout=3600)
+            elapsed = time.monotonic() - t0
+            mb = tgz.stat().st_size / 1e6
+
+            rc_ok = (proc.returncode == 0)
+            try:
+                with gzip.open(tgz, "rb") as fh:
+                    while fh.read(1 << 20):
+                        pass
+                gz_ok = True
+            except Exception:
+                gz_ok = False
+
+            if rc_ok and gz_ok:
+                break
+
+            diag = "truncated" if rc_ok else f"ssh rc={proc.returncode}"
+            print(
+                f"  batch {i:03d} attempt {attempt}/{max_attempts} FAILED: "
+                f"{diag}, {mb:.1f} MB, {elapsed:.0f}s"
+            )
+            if attempt == max_attempts:
+                print(
+                    f"  fetch_results: batch {i:03d} failed after {max_attempts} attempts. STOP.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+        with tarfile.open(tgz, "r:gz") as tf:
+            tf.extractall(str(sim_out_dir))
+        try:
+            tgz.unlink()
+        except PermissionError:
+            pass
+
+    print(f"  fetched: {len(list(sim_out_dir.rglob('eplusout.end')))} .end files in {n_batches} batches")
 
 
 def verify_and_repair(osm_ids: list[str], sim_out_dir: Path, step3_dir: Path,
-                      remote_fleet_dir: str, cell_name: str, epw_path: Path) -> list[str]:
+                      remote_fleet_dir: str, cell_name: str, epw_path: Path,
+                      gdf: "gpd.GeoDataFrame | None" = None,
+                      schedule_library: "dict | None" = None) -> list[str]:
     failed_ids = []
     for oid in osm_ids:
         end_path = sim_out_dir / oid / "eplusout.end"
@@ -445,7 +486,83 @@ def verify_and_repair(osm_ids: list[str], sim_out_dir: Path, step3_dir: Path,
         if not end_path.exists() or "EnergyPlus Completed Successfully" not in end_path.read_text(errors="replace"):
             still_failed.append(oid)
 
-    if still_failed:
+    if still_failed and gdf is not None and schedule_library is not None:
+        # Reroute-aware second pass: regenerate with forced one_zone_per_floor then re-ship+re-sim.
+        print(f"\n  Reroute-aware repair: {len(still_failed)} buildings rerouting to one_zone_per_floor ...")
+        from openubem.idf.builder import BuildingIDF
+        from geomeppy import IDF as GeomIDF
+        from eppy.modeleditor import IDDAlreadySetError as _IDDErr
+        import openubem.config as _cfg
+        try:
+            GeomIDF.setiddname(str(_cfg.ENERGYPLUS_IDD_PATH))
+        except _IDDErr:
+            pass
+        reroute_ids = []
+        for oid in still_failed:
+            # osm_id stored in gdf may use "/" while IDF stem uses "_": try both.
+            osm_id_slash = oid.replace("_", "/", 1) if not oid.startswith("way/") else oid
+            mask = (gdf["osm_id"].astype(str) == oid) | (gdf["osm_id"].astype(str) == osm_id_slash)
+            matches = gdf[mask]
+            if matches.empty:
+                print(f"    {oid}: not found in gdf — cannot reroute")
+                continue
+            row = matches.iloc[0].copy()
+            # Force one_zone_per_floor by monkey-patching decide_zoning_strategy on the row.
+            from openubem.geometry.zoning import decide_zoning_strategy as _dzs, build_zones as _bz
+            orig_dzs = _dzs.__module__
+            import openubem.idf.builder as _builder_mod
+            _orig = _builder_mod.decide_zoning_strategy
+            _builder_mod.decide_zoning_strategy = lambda arch, area, floors: "one_zone_per_floor"
+            try:
+                result = BuildingIDF(row).build(gdf, schedule_library, step3_dir)
+            finally:
+                _builder_mod.decide_zoning_strategy = _orig
+            if result.get("generation_status") in ("success", "fallback_bbox"):
+                idf_repair_path = Path(result["idf_path"])
+                dst = repair_dir / idf_repair_path.name
+                shutil.copy2(idf_repair_path, dst)
+                reroute_ids.append(oid)
+                print(f"    {oid}: rerouted to one_zone_per_floor -> {dst}")
+            else:
+                print(f"    {oid}: reroute failed with status={result.get('generation_status')}", file=sys.stderr)
+
+        if reroute_ids:
+            reroute_fleet_dir = remote_fleet_dir + "_reroute"
+            _ssh(f"mkdir -p {reroute_fleet_dir}/idfs {reroute_fleet_dir}/weather {reroute_fleet_dir}/out")
+            reroute_lst_local = step3_dir / "reroute_fleet.lst"
+            reroute_lst_local.write_bytes(("\n".join(reroute_ids) + "\n").encode("utf-8"))
+            subprocess.run(["scp", str(reroute_lst_local),
+                            f"{REMOTE_HOST}:{reroute_fleet_dir}/fleet.lst"], check=True, timeout=30)
+            subprocess.run(["scp", str(epw_path),
+                            f"{REMOTE_HOST}:{reroute_fleet_dir}/weather/"], check=True, timeout=60)
+            reroute_tar = io.BytesIO()
+            with tarfile.open(fileobj=reroute_tar, mode="w:gz") as tf:
+                for oid in reroute_ids:
+                    tf.add(str(repair_dir / f"{oid}.idf"), arcname=f"idfs/{oid}.idf")
+            reroute_tar.seek(0)
+            proc2 = subprocess.Popen(
+                ["ssh", REMOTE_HOST, f"bash -lc 'cd {reroute_fleet_dir} && tar xz'"],
+                stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            )
+            proc2.stdin.write(reroute_tar.read())
+            proc2.stdin.close()
+            proc2.wait(timeout=120)
+            reroute_job = submit_cluster_array(len(reroute_ids), reroute_fleet_dir, cell_name + "_reroute")
+            poll_cluster(reroute_job, cell_name + "_reroute", poll_interval_s=90)
+            fetch_results(reroute_ids, reroute_fleet_dir, sim_out_dir)
+            still_failed = [
+                oid for oid in reroute_ids
+                if not (sim_out_dir / oid / "eplusout.end").exists()
+                or "EnergyPlus Completed Successfully" not in (sim_out_dir / oid / "eplusout.end").read_text(errors="replace")
+            ]
+            if still_failed:
+                print(f"  {len(still_failed)} buildings still failed after reroute: {still_failed}", file=sys.stderr)
+                sys.exit(2)
+            repaired.extend(reroute_ids)
+        elif still_failed:
+            print(f"  No reroute candidates found. STOP — manual intervention needed.", file=sys.stderr)
+            sys.exit(2)
+    elif still_failed:
         print(f"  {len(still_failed)} buildings still failed after repair: {still_failed}", file=sys.stderr)
         sys.exit(2)
 
@@ -800,7 +917,7 @@ def copy_final_deliverables(results_dir: Path, final_dir: Path, work_base: Path)
     return copied
 
 
-def run_cell(cell_name: str) -> None:
+def run_cell(cell_name: str, output_subdir: str = "cases") -> None:
     cfg_cell = CELL_CONFIGS[cell_name]
     lat = cfg_cell["lat"]
     lon = cfg_cell["lon"]
@@ -808,12 +925,14 @@ def run_cell(cell_name: str) -> None:
     state = cfg_cell["state"]
     epsg = cfg_cell["epsg"]
 
-    work_base = Path(tempfile.gettempdir()) / "ubem_validation" / "cases" / cell_name
+    work_base = Path(tempfile.gettempdir()) / "ubem_validation" / output_subdir / cell_name
     step3_dir = work_base / "step3"
     sim_out_dir = work_base / "sim_out"
     results_dir = work_base / "results"
-    final_dir = REPO / "docs" / "validations" / "overAll" / "results" / "cases" / cell_name
-    remote_fleet_dir = f"/speed-scratch/o_iseri/fleets/{cell_name}"
+    final_dir = REPO / "docs" / "validations" / "overAll" / "results" / output_subdir / cell_name
+    # Use a distinct remote fleet dir per output_subdir to avoid collision with R5 fleet dirs.
+    fleet_tag = cell_name if output_subdir == "cases" else f"{output_subdir}_{cell_name}"
+    remote_fleet_dir = f"/speed-scratch/o_iseri/fleets/{fleet_tag}"
 
     work_base.mkdir(parents=True, exist_ok=True)
     print(f"\n{'='*72}")
@@ -830,6 +949,19 @@ def run_cell(cell_name: str) -> None:
     print(f"[{cell_name}] Fetched: {n_fetched} buildings (probe lower bound: {cfg_cell['probe_count']})")
 
     gdf_57, schedule_library = step2_classify_enrich(gdf_raw, epw_path, work_base, cell_name)
+
+    # Clear stale staging/sim dirs so re-runs never ship stale IDFs or collide with old sim output.
+    for _stale_dir in (work_base / "fleet_staging", sim_out_dir):
+        if _stale_dir.exists():
+            shutil.rmtree(_stale_dir)
+            print(f"[{cell_name}] Cleared {_stale_dir.name} for fresh run.")
+    print(f"[{cell_name}] cleared fleet_staging/sim_out (step1/step2/EPW caches preserved).")
+
+    # Mandatory fresh IDF regen: clear any stale manifest so IDFs rebuild from current code+data.
+    stale_manifest = step3_dir / "03_idf_manifest.parquet"
+    if stale_manifest.exists():
+        stale_manifest.unlink()
+        print(f"[{cell_name}] Cleared stale IDF manifest for fresh regen.")
 
     t3_start = time.monotonic()
     idf_manifest = step3_generate(gdf_57, schedule_library, step3_dir)
@@ -854,7 +986,8 @@ def run_cell(cell_name: str) -> None:
     fetch_results(osm_ids, remote_fleet_dir, sim_out_dir)
 
     repaired = verify_and_repair(osm_ids, sim_out_dir, step3_dir,
-                                  remote_fleet_dir, cell_name, epw_path)
+                                  remote_fleet_dir, cell_name, epw_path,
+                                  gdf=gdf_57, schedule_library=schedule_library)
     if repaired:
         print(f"[{cell_name}] Repaired and resimulated: {repaired}")
 
@@ -905,12 +1038,10 @@ def run_cell(cell_name: str) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2:
-        print(f"Usage: py -3 {__file__} <cell_name>")
-        print(f"  cell_name must be one of: {list(CELL_CONFIGS)}")
-        sys.exit(1)
-    cell = sys.argv[1]
-    if cell not in CELL_CONFIGS:
-        print(f"Unknown cell '{cell}'. Known cells: {list(CELL_CONFIGS)}", file=sys.stderr)
-        sys.exit(1)
-    run_cell(cell)
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("cell_name", choices=list(CELL_CONFIGS))
+    ap.add_argument("--output-subdir", default="cases",
+                    help="Sub-dir under results/ for final deliverables (default: cases)")
+    args = ap.parse_args()
+    run_cell(args.cell_name, output_subdir=args.output_subdir)

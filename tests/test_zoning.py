@@ -12,33 +12,55 @@ def _square(side: float) -> Polygon:
 class TestZoning:
     # --- decide_zoning_strategy: 6 rules ---
 
-    def test_rule1_unknown_archetype(self):
-        assert decide_zoning_strategy("OpenUBEMUnknown", 1000.0, 5) == "single_zone"
+    def test_rule1_one_floor_small_area(self):
+        # num_floors==1 always → single_zone regardless of footprint
+        assert decide_zoning_strategy("MediumOffice", 200.0, 1) == "single_zone"
 
-    def test_rule2_small_area(self):
-        assert decide_zoning_strategy("MediumOffice", 200.0, 3) == "single_zone"
-
-    def test_rule2_one_floor(self):
+    def test_rule1_one_floor_large_area(self):
         assert decide_zoning_strategy("MediumOffice", 2000.0, 1) == "single_zone"
 
-    def test_rule3_midrise_apartment(self):
+    def test_rule1_one_floor_unknown(self):
+        assert decide_zoning_strategy("OpenUBEMUnknown", 1000.0, 1) == "single_zone"
+
+    def test_multi_floor_small_area_office(self):
+        # footprint<500, multi-floor, non-residential → one_zone_per_floor (was single_zone before fix)
+        assert decide_zoning_strategy("MediumOffice", 300.0, 4) == "one_zone_per_floor"
+
+    def test_multi_floor_small_area_one_floor_still_single(self):
+        # same footprint, but 1 floor → single_zone
+        assert decide_zoning_strategy("MediumOffice", 300.0, 1) == "single_zone"
+
+    def test_midrise_apartment_multi_floor(self):
+        # MidriseApartment is in _ONE_PER_FLOOR → one_zone_per_floor
+        assert decide_zoning_strategy("MidriseApartment", 300.0, 3) == "one_zone_per_floor"
+
+    def test_midrise_apartment_large_footprint(self):
+        # even large footprint, MidriseApartment stays one_zone_per_floor
         assert decide_zoning_strategy("MidriseApartment", 800.0, 5) == "one_zone_per_floor"
 
-    def test_rule3_highrise_apartment(self):
+    def test_highrise_apartment(self):
         assert decide_zoning_strategy("HighriseApartment", 900.0, 8) == "one_zone_per_floor"
 
-    def test_rule4_tall_building(self):
+    def test_tall_building(self):
         assert decide_zoning_strategy("TallBuilding", 1000.0, 25) == "one_zone_per_floor"
 
-    def test_rule4_supertall_building(self):
+    def test_supertall_building(self):
         assert decide_zoning_strategy("SuperTallBuilding", 1500.0, 45) == "one_zone_per_floor"
 
-    def test_rule5_perimeter_core(self):
+    def test_perimeter_core_large_commercial(self):
+        # footprint>=500, non-residential, not in _ONE_PER_FLOOR → perimeter_core
         assert decide_zoning_strategy("MediumOffice", 1500.0, 5) == "perimeter_core"
 
-    def test_rule6_catch_all(self):
-        # archetype not in special sets, area < 500 → single_zone via rule 2
-        assert decide_zoning_strategy("SmallOffice", 300.0, 3) == "single_zone"
+    def test_perimeter_core_large_commercial_2_floors(self):
+        assert decide_zoning_strategy("LargeOffice", 800.0, 2) == "perimeter_core"
+
+    def test_unknown_archetype_multi_floor_routes_one_per_floor(self):
+        # OpenUBEMUnknown with multi-floor → one_zone_per_floor (excluded from perimeter_core)
+        assert decide_zoning_strategy("OpenUBEMUnknown", 1000.0, 5) == "one_zone_per_floor"
+
+    def test_small_office_multi_floor_small_area(self):
+        # was single_zone before fix; now one_zone_per_floor
+        assert decide_zoning_strategy("SmallOffice", 300.0, 3) == "one_zone_per_floor"
 
     # --- build_zones ---
 

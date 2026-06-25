@@ -69,7 +69,7 @@ def _compact_block(sched_entry: dict) -> list[str]:
     ]
     for idd_key, friendly in _DAY_KEY_MAP.items():
         day_vals = sched_entry.get(idd_key)
-        if day_vals is None:
+        if not day_vals:
             continue
         lines.append(idd_key)
         for entry in day_vals:

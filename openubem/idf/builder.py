@@ -24,6 +24,10 @@ from openubem.idf.surfaces import (
     extrude_geometry,
     find_mismatched_interzone_pairs,
     set_adiabatic_surfaces,
+    _force_reroute_coreperim_to_one_zone_per_floor,
+    _repair_roof_roof_pairs,
+    _repair_mismatched_horizontal_pairs,
+    _pair_interfloor_surfaces,
 )
 from openubem.idf.hvac import assign_hvac
 from openubem.idf.outputs import write_outputs
@@ -72,6 +76,27 @@ def _populate_site_location_from_epw(idf: GeomIDF, epw_path: Path) -> None:
     loc.Longitude = lon
     loc.Time_Zone = tz
     loc.Elevation = elev
+
+
+def _coerce_to_polygon(geom, dq_flag: str) -> tuple:
+    """Coerce MultiPolygon to its largest-area part; pass Polygon through.
+
+    Returns (geom_out, dq_flag_out).  Empty/None/other geometry types are
+    returned as-is so the existing validate_simplified path handles them.
+    """
+    if geom is None:
+        return geom, dq_flag
+    gtype = getattr(geom, "geom_type", None)
+    if gtype == "MultiPolygon":
+        parts = list(geom.geoms)
+        if not parts:
+            return geom, dq_flag
+        largest = max(parts, key=lambda g: g.area)
+        tag = "multipolygon_coerced_to_largest_part"
+        dq_flag = (dq_flag + "|" + tag).lstrip("|") if tag not in dq_flag else dq_flag
+        logger.warning("MultiPolygon footprint coerced to largest part (area=%.2f m²)", largest.area)
+        return largest, dq_flag
+    return geom, dq_flag
 
 
 class BuildingIDF:
@@ -215,6 +240,9 @@ class BuildingIDF:
             dq_flag = ""
         dq_flag = str(dq_flag)
 
+        # Coerce MultiPolygon to largest-area part before simplify (no MultiPolygon guard downstream).
+        geom, dq_flag = _coerce_to_polygon(geom, dq_flag)
+
         poly, dq_flag, simp_status = simplify_footprint(geom, dq_flag)
 
         if validate_simplified(poly):
@@ -247,21 +275,49 @@ class BuildingIDF:
         # unique footprint with num_stories=N; Z_Origin patch removed — geomeppy stacks at true z)
         extrude_geometry(self.idf, zones, context)
 
-        # Generation-time gate: any surviving vertex-count mismatch on an interzone
-        # pair is an EnergyPlus GetSurfaceData Fatal — fail here, not at runtime.
+        # Generation-time gate: any surviving vertex-count mismatch → reroute to
+        # one_zone_per_floor (comprehensive: must simulate, not drop).
         mismatched = find_mismatched_interzone_pairs(self.idf)
         if mismatched:
-            logger.error(
-                "osm_id=%s generation_status=failed_interzone_vertex_mismatch pairs=%s",
+            logger.warning(
+                "osm_id=%s interzone mismatch pairs=%s — rerouting to one_zone_per_floor",
                 osm_id, mismatched,
             )
-            return {
-                "osm_id": osm_id, "idf_path": "", "archetype_id": arch,
-                "zoning_strategy": strategy, "num_zones": 0,
-                "num_context_buildings": len(context),
-                "simplification_status": simp_status, "data_quality_flag": dq_flag,
-                "generation_status": "failed_interzone_vertex_mismatch",
-            }
+            did_reroute = _force_reroute_coreperim_to_one_zone_per_floor(
+                self.idf, zones, "interzone_vertex_mismatch"
+            )
+            if did_reroute:
+                self.idf.intersect_match()
+                _repair_roof_roof_pairs(self.idf)
+                _repair_mismatched_horizontal_pairs(self.idf)
+                _pair_interfloor_surfaces(self.idf)
+                strategy = "one_zone_per_floor"
+                # Re-check: one_zone_per_floor has no interzone perim pairs → should be empty.
+                mismatched2 = find_mismatched_interzone_pairs(self.idf)
+                if mismatched2:
+                    logger.error(
+                        "osm_id=%s still mismatched after reroute pairs=%s — dropping",
+                        osm_id, mismatched2,
+                    )
+                    return {
+                        "osm_id": osm_id, "idf_path": "", "archetype_id": arch,
+                        "zoning_strategy": strategy, "num_zones": 0,
+                        "num_context_buildings": len(context),
+                        "simplification_status": simp_status, "data_quality_flag": dq_flag,
+                        "generation_status": "failed_interzone_vertex_mismatch",
+                    }
+            else:
+                logger.error(
+                    "osm_id=%s reroute had no coreperim zones to rebuild — dropping",
+                    osm_id,
+                )
+                return {
+                    "osm_id": osm_id, "idf_path": "", "archetype_id": arch,
+                    "zoning_strategy": strategy, "num_zones": 0,
+                    "num_context_buildings": len(context),
+                    "simplification_status": simp_status, "data_quality_flag": dq_flag,
+                    "generation_status": "failed_interzone_vertex_mismatch",
+                }
 
         # 3E-10c: adiabatic party walls and ground-floor slab
         set_adiabatic_surfaces(self.idf, zones, strategy)

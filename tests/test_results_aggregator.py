@@ -58,6 +58,7 @@ def _make_metrics_df(n: int = 3, include_failed: bool = True) -> pd.DataFrame:
                 "lighting_eui_kwh_m2": float("nan"),
                 "equipment_eui_kwh_m2": float("nan"),
                 "total_eui_kwh_m2": float("nan"),
+                "fans_eui_kwh_m2": float("nan"),
                 "gwp_heating_kgco2_m2": float("nan"),
                 "gwp_cooling_kgco2_m2": float("nan"),
                 "gwp_lighting_kgco2_m2": float("nan"),
@@ -76,6 +77,7 @@ def _make_metrics_df(n: int = 3, include_failed: bool = True) -> pd.DataFrame:
                 "lighting_eui_kwh_m2": 10.0,
                 "equipment_eui_kwh_m2": 20.0,
                 "total_eui_kwh_m2": 170.0 + i * 10,
+                "fans_eui_kwh_m2": 5.0 + i * 0.5,
                 "gwp_heating_kgco2_m2": 11.0,
                 "gwp_cooling_kgco2_m2": 31.0,
                 "gwp_lighting_kgco2_m2": 3.9,
@@ -90,24 +92,24 @@ def _make_metrics_df(n: int = 3, include_failed: bool = True) -> pd.DataFrame:
 # ── T11: join_results ─────────────────────────────────────────────────────────
 
 class TestJoinResults:
-    def test_output_shape_70_cols(self):
-        """F9: join appends exactly 13 columns to the 57-col GDF → 70 cols."""
+    def test_output_shape_71_cols(self):
+        """F9: join appends exactly 14 columns to the 57-col GDF → 71 cols."""
         from openubem.results.aggregator import join_results
         gdf = _make_enriched_gdf(3)
         n_upstream = len(gdf.columns)  # includes geometry
         metrics = _make_metrics_df(3)
         result = join_results(gdf, metrics)
-        # 13 new non-geometry columns + upstream
+        # 14 new non-geometry columns + upstream
         step5_added = {"heating_eui_kwh_m2", "cooling_eui_kwh_m2", "lighting_eui_kwh_m2",
-                       "equipment_eui_kwh_m2", "total_eui_kwh_m2",
+                       "equipment_eui_kwh_m2", "total_eui_kwh_m2", "fans_eui_kwh_m2",
                        "gwp_heating_kgco2_m2", "gwp_cooling_kgco2_m2", "gwp_lighting_kgco2_m2",
                        "gwp_equipment_kgco2_m2", "gwp_total_kgco2_m2",
                        "iod", "simulation_status", "error_summary"}
         for col in step5_added:
             assert col in result.columns, f"Missing col: {col}"
 
-    def test_exactly_13_appended_columns(self):
-        """F9: exactly the 13 named columns are appended, no extras from metrics."""
+    def test_exactly_14_appended_columns(self):
+        """F9: exactly the 14 named columns are appended, no extras from metrics."""
         from openubem.results.aggregator import join_results, _STEP5_COLS
         gdf = _make_enriched_gdf(3)
         upstream_cols = set(gdf.columns)
@@ -248,7 +250,7 @@ class TestExportResults:
         assert loaded.crs.to_epsg() == 4326
 
     def test_csv_has_centroid_cols_and_no_geometry(self, tmp_path):
-        """F11: CSV drops geometry, adds centroid_lon/lat → N×71 columns."""
+        """F11: CSV drops geometry, adds centroid_lon/lat → N×72 columns."""
         from openubem.results.aggregator import export_results, compute_neighbourhood_summary
         result_gdf = self._make_results_gdf()
         summary = compute_neighbourhood_summary(result_gdf)
@@ -261,7 +263,7 @@ class TestExportResults:
         assert len(csv_df) == len(result_gdf)
 
     def test_schema_json_column_count(self, tmp_path):
-        """F11: schema.json has 70 entries (one per non-geometry column)."""
+        """F11: schema.json has 71 entries (one per non-geometry column)."""
         from openubem.results.aggregator import export_results, compute_neighbourhood_summary
         result_gdf = self._make_results_gdf()
         summary = compute_neighbourhood_summary(result_gdf)
@@ -382,8 +384,8 @@ class TestAggregateResults:
         )
         assert isinstance(result, gpd.GeoDataFrame)
 
-    def test_output_has_13_step5_cols(self, tmp_path):
-        """F9: output has all 13 Step-5 columns."""
+    def test_output_has_14_step5_cols(self, tmp_path):
+        """F9: output has all 14 Step-5 columns."""
         from openubem.results import aggregate_results
         from openubem.results.aggregator import _STEP5_COLS
         result = aggregate_results(

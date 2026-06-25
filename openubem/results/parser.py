@@ -1,4 +1,10 @@
-"""Step-5 Module 13: SQL extraction, zone resolution, EUI, and IOD (DESIGN §3A-§3D)."""
+"""Step-5 Module 13: SQL extraction, zone resolution, EUI, and IOD (DESIGN §3A-§3D).
+Phase-D (§0.1 authorized deviation): _EUI_VARS rewired to metered HVAC end-uses (T05).
+Authorized deviation: DESIGN_step-3...md:H3/§3I — cooling/heating now from RunPeriod meters
+(Cooling:Electricity, Heating:Electricity+NaturalGas) instead of ideal-loads thermal variables.
+fans_eui_kwh_m2 added as a separate visible column; NOT folded into total_eui_kwh_m2.
+Manager decision on fan allocation deferred to CP-4.
+"""
 from __future__ import annotations
 
 import re
@@ -25,6 +31,17 @@ JOIN   Time t                 ON r.TimeIndex = t.TimeIndex
 WHERE  d.ReportingFrequency = 'Hourly'
 """
 
+# T05: RunPeriod meter query for PTAC end-use meters.
+METER_QUERY = """
+SELECT d.Name AS meter_name,
+       r.Value AS value_j
+FROM   ReportData r
+JOIN   ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
+WHERE  d.ReportingFrequency = 'Run Period'
+  AND  d.Name IN ('Cooling:Electricity', 'Heating:Electricity',
+                  'Heating:NaturalGas', 'Fans:Electricity')
+"""
+
 J_TO_KWH = 1.0 / 3.6e6
 
 # ── §3B zone regex (DESIGN lines 78-81) ──────────────────────────────────────
@@ -43,13 +60,15 @@ def _strip_ideal_loads(key_value: str) -> str:
     """Remove EnergyPlus ' IDEAL LOADS AIR SYSTEM' suffix before zone-regex matching."""
     return _IDEAL_LOADS_SUFFIX.sub("", key_value)
 
-# ── F5 EUI variables ──────────────────────────────────────────────────────────
-_EUI_VARS: dict[str, str] = {
-    "heating_eui_kwh_m2": "Zone Ideal Loads Zone Total Heating Energy",
-    "cooling_eui_kwh_m2": "Zone Ideal Loads Zone Total Cooling Energy",
+# ── F5 EUI variables (Phase-D: metered HVAC end-uses) ────────────────────────
+# lighting and equipment remain hourly zone variables (unchanged from Phase-C).
+# cooling and heating are now RunPeriod meters read by _compute_eui_metered.
+_EUI_ZONE_VARS: dict[str, str] = {
     "lighting_eui_kwh_m2": "Zone Lights Electricity Energy",
     "equipment_eui_kwh_m2": "Zone Electric Equipment Electricity Energy",
 }
+# Legacy alias kept for zone-integrity check (still looks for Ideal Loads variables to parse zones).
+_EUI_VARS: dict[str, str] = _EUI_ZONE_VARS
 
 # ── F6 IOD variables ──────────────────────────────────────────────────────────
 _IOD_SITE_TEMP_VAR = "Site Outdoor Air Drybulb Temperature"
@@ -67,6 +86,28 @@ def parse_building_sql(sql_path: Path) -> pd.DataFrame:
     df.loc[is_energy, "value"] *= J_TO_KWH
     df.loc[is_energy, "units"] = "kWh"
     return df
+
+
+def _parse_meters_sql(sql_path: Path) -> dict[str, float]:
+    """Read RunPeriod HVAC end-use meters from SQL; return {meter_name: kWh}.
+    Missing meters (e.g. all-electric → no Heating:NaturalGas) return 0.0, not NaN.
+    T05: Phase-D metered EUI source.
+    """
+    meters: dict[str, float] = {
+        "Cooling:Electricity": 0.0,
+        "Heating:Electricity": 0.0,
+        "Heating:NaturalGas": 0.0,
+        "Fans:Electricity": 0.0,
+    }
+    try:
+        with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
+            rows = conn.execute(METER_QUERY).fetchall()
+        for name, value_j in rows:
+            if name in meters and value_j is not None:
+                meters[name] += float(value_j) * J_TO_KWH
+    except Exception:
+        pass
+    return meters
 
 
 def parse_building_csv(csv_path: Path) -> pd.DataFrame:
@@ -143,9 +184,15 @@ def _check_zone_integrity(
 
     Returns (None, None) if OK, or ("failed_zone_mismatch", msg) for local mismatch,
     or raises RuntimeError for I2 breach (foreign osm_id → caller aborts whole run).
+    Phase-D: uses Zone Lights Electricity Energy to find zone keys (PTAC has no Ideal Loads).
+    Falls back to Zone Ideal Loads if Lights variable absent (backward-compat).
     """
-    ideal_loads_mask = df["variable_name"].str.startswith("Zone Ideal Loads")
-    zone_keys = df.loc[ideal_loads_mask, "key_value"].str.upper().unique()
+    lights_mask = df["variable_name"] == "Zone Lights Electricity Energy"
+    if lights_mask.any():
+        zone_keys = df.loc[lights_mask, "key_value"].str.upper().unique()
+    else:
+        ideal_loads_mask = df["variable_name"].str.startswith("Zone Ideal Loads")
+        zone_keys = df.loc[ideal_loads_mask, "key_value"].str.upper().unique()
 
     # Resolve and check for foreign osm_id (I2 breach)
     foreign: list[str] = []
@@ -176,34 +223,64 @@ def _check_zone_integrity(
     return None, None
 
 
-# ── §3C: EUI computation (DESIGN lines 96-111) ───────────────────────────────
+# ── §3C: EUI computation (Phase-D: metered HVAC + zone lighting/equipment) ───
+# Authorized deviation per §0.1: cooling/heating from RunPeriod meters, not ideal-loads vars.
+# fans_eui_kwh_m2 is separate and NOT in total_eui_kwh_m2 (manager decision at CP-4).
 
 def _compute_eui(
     df: pd.DataFrame,
     row: "pd.Series",
     data_quality_flag: str,
+    meters: dict[str, float] | None = None,
 ) -> tuple[dict[str, float] | None, str, str | None]:
-    """Compute 5 EUI columns; return (eui_dict, updated_dq_flag, missing_var_name).
+    """Compute EUI columns using metered HVAC + hourly zone lighting/equipment.
 
-    P10 (C3-enforced): if any required EUI variable has zero rows, return (None, flag, var_name)
-    — caller marks building failed_parse. Never fabricate 0.0 for absent variables.
+    cooling_eui_kwh_m2  ← Cooling:Electricity meter
+    heating_eui_kwh_m2  ← Heating:Electricity + Heating:NaturalGas meters (all-fuels site)
+    lighting_eui_kwh_m2 ← Zone Lights Electricity Energy (hourly)
+    equipment_eui_kwh_m2← Zone Electric Equipment Electricity Energy (hourly)
+    fans_eui_kwh_m2     ← Fans:Electricity meter (separate, NOT in total)
+    total_eui_kwh_m2    ← heating + cooling + lighting + equipment (fans excluded, flagged for CP-4)
+
+    P10 (C3-enforced): missing lighting or equipment variable → failed_parse.
+    Missing meters (all-electric → no NaturalGas) → 0.0 (not failed_parse).
     """
     num_floors = derive_num_floors(row)
     footprint_area = float(row["footprint_area_m2"])
     floor_area = footprint_area * num_floors
 
+    # Zone-level lighting + equipment (must be present)
     present_vars = set(df["variable_name"].unique())
-
-    for col, var_name in _EUI_VARS.items():
+    for col, var_name in _EUI_ZONE_VARS.items():
         if var_name not in present_vars:
             return None, data_quality_flag, var_name
 
     eui: dict[str, float] = {}
-    for col, var_name in _EUI_VARS.items():
+    for col, var_name in _EUI_ZONE_VARS.items():
         kwh = float(df[df["variable_name"] == var_name]["value"].sum())
         eui[col] = kwh / floor_area
 
-    eui["total_eui_kwh_m2"] = sum(eui[k] for k in _EUI_VARS)
+    # Metered HVAC (0.0 if meter absent — valid for all-electric or no-cooling buildings)
+    if meters is None:
+        meters = {}
+    cooling_kwh = meters.get("Cooling:Electricity", 0.0)
+    heating_kwh = (
+        meters.get("Heating:Electricity", 0.0)
+        + meters.get("Heating:NaturalGas", 0.0)
+    )
+    fans_kwh = meters.get("Fans:Electricity", 0.0)
+
+    eui["cooling_eui_kwh_m2"] = cooling_kwh / floor_area
+    eui["heating_eui_kwh_m2"] = heating_kwh / floor_area
+    eui["fans_eui_kwh_m2"] = fans_kwh / floor_area
+
+    # total = heating + cooling + lighting + equipment; fans separate (manager defers to CP-4)
+    eui["total_eui_kwh_m2"] = (
+        eui["cooling_eui_kwh_m2"]
+        + eui["heating_eui_kwh_m2"]
+        + eui["lighting_eui_kwh_m2"]
+        + eui["equipment_eui_kwh_m2"]
+    )
     return eui, data_quality_flag, None
 
 
@@ -367,7 +444,7 @@ def check_building_integrity(
         else:
             result["meter_ok"] = zone_elec_j == 0.0
 
-        # Gas-zero check (IdealAir IDFs have no gas equipment)
+        # Gas-zero check (Phase-D PTAC: gas heating is expected; check is informational)
         gas_q = """
         SELECT COALESCE(SUM(r.Value), 0.0)
         FROM ReportData r
@@ -376,7 +453,7 @@ def check_building_integrity(
           AND d.ReportingFrequency = 'Run Period'
         """
         gas_j = conn.execute(gas_q).fetchone()[0] or 0.0
-        result["gas_zero"] = gas_j == 0.0
+        result["gas_zero"] = gas_j == 0.0  # False is expected for gas-heat archetypes in Phase-D
 
         conn.close()
     except Exception as exc:
@@ -440,8 +517,12 @@ def parse_building(
     if status is not None:
         return _failed_row(osm_id, status, msg or "", dq_flag)
 
-    # §3C: EUI (P10/C3: missing variable → failed_parse, never 0.0)
-    eui, dq_flag, missing_var = _compute_eui(df, manifest_row, dq_flag)
+    # §3C: EUI — read RunPeriod HVAC meters from SQL, then compute (T05 Phase-D)
+    meters: dict[str, float] = {}
+    if sql_path and sql_path.exists():
+        meters = _parse_meters_sql(sql_path)
+
+    eui, dq_flag, missing_var = _compute_eui(df, manifest_row, dq_flag, meters=meters)
     if eui is None:
         return _failed_row(osm_id, "failed_parse", f"missing required EUI variable: {missing_var}", dq_flag)
 
@@ -461,11 +542,10 @@ def parse_building(
         "gwp_lighting_kgco2_m2": None,
         "gwp_equipment_kgco2_m2": None,
         "gwp_total_kgco2_m2": None,
-    }
+    }  # fans_eui_kwh_m2 is in **eui (not in total; flagged for CP-4)
 
 
 def _failed_row(osm_id: str, status: str, error: str, dq_flag: str) -> dict[str, Any]:
-    import math
     return {
         "osm_id": osm_id,
         "parse_status": status,
@@ -475,6 +555,7 @@ def _failed_row(osm_id: str, status: str, error: str, dq_flag: str) -> dict[str,
         "cooling_eui_kwh_m2": float("nan"),
         "lighting_eui_kwh_m2": float("nan"),
         "equipment_eui_kwh_m2": float("nan"),
+        "fans_eui_kwh_m2": float("nan"),
         "total_eui_kwh_m2": float("nan"),
         "iod": float("nan"),
         "gwp_heating_kgco2_m2": None,
