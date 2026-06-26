@@ -24,12 +24,20 @@ _RECON_KEYS = ("vent_fans", "pumps", "swh_dhw", "refrig", "cooking_other")
 
 _RUNTIME_BASE = Path(__file__).resolve().parents[2] / "runtime" / "ubem_validation" / "cases"
 
+# City → census-division region (PLAN F5); used to derive per-row region in reconstruct_frame.
+_CITY_TO_REGION = {
+    "nyc": "middle_atlantic",
+    "la": "pacific",
+    "austin": "west_south_central",
+}
+
 
 def load_coefficients(path: "Path | None" = None) -> dict:
-    """Load and validate enduse_fractions_table4.json.
+    """Load and validate enduse_fractions_table4.json (or the regional JSON).
 
-    Asserts every archetype's fractions sum to 1.0 ± 1e-3.
-    Returns {"fractions": ..., "archetype_map": ...}.
+    Asserts every archetype's national fractions sum to 1.0 ± 1e-3.  If the file
+    carries a `fractions_by_region` block, asserts every region×group also sums
+    to 1.0 ± 1e-3.  Returns the parsed dict unchanged.
     """
     p = Path(path) if path is not None else _DATA
     with open(p, encoding="utf-8") as fh:
@@ -38,14 +46,27 @@ def load_coefficients(path: "Path | None" = None) -> dict:
         total = sum(fracs.values())
         if abs(total - 1.0) >= 1e-3:
             raise ValueError(f"Fractions for '{key}' sum to {total:.6f}, expected 1.0 ± 1e-3")
+    for region, groups in data.get("fractions_by_region", {}).items():
+        for key, fracs in groups.items():
+            total = sum(fracs.values())
+            if abs(total - 1.0) >= 1e-3:
+                raise ValueError(
+                    f"Regional fractions for '{region}/{key}' sum to {total:.6f}, expected 1.0 ± 1e-3"
+                )
     return data
 
 
-def reconstruct_building(row: "pd.Series | dict[str, Any]", coeffs: dict) -> dict:
+def reconstruct_building(
+    row: "pd.Series | dict[str, Any]", coeffs: dict, region: "str | None" = None
+) -> dict:
     """Reconstruct the 5 missing end-uses for a single building row.
 
     Returns the 9 new provenance + reconstruction columns.
     Passthrough (zeros) when archetype unmapped, status non-success, or modeled_frac==0.
+
+    When ``region`` is given AND ``coeffs`` carries a ``fractions_by_region`` block
+    AND that region+group exists, the regional fraction set is used; otherwise the
+    national ``coeffs["fractions"][group]`` path runs unchanged (region defaults None).
     """
     _passthrough = {
         "reconstruction_applied": False,
@@ -76,6 +97,13 @@ def reconstruct_building(row: "pd.Series | dict[str, Any]", coeffs: dict) -> dic
         return result
 
     fracs = coeffs["fractions"][table4_key]
+    basis = "table4_fraction_split"
+    if region is not None:
+        regional = coeffs.get("fractions_by_region", {}).get(region, {}).get(table4_key)
+        if regional is not None:
+            fracs = regional
+            basis = "regional_fraction_split"
+
     modeled_frac = sum(fracs[k] for k in _MODELED_FRAC_KEYS)
     if modeled_frac <= 0:
         return _passthrough
@@ -94,7 +122,7 @@ def reconstruct_building(row: "pd.Series | dict[str, Any]", coeffs: dict) -> dic
     return {
         "reconstruction_applied": True,
         "archetype_mapped_to": table4_key,
-        "reconstruction_basis": "table4_fraction_split",
+        "reconstruction_basis": basis,
         "vent_fans_eui_recon_kwh_m2": recon["vent_fans"],
         "pumps_eui_recon_kwh_m2": recon["pumps"],
         "swh_dhw_eui_recon_kwh_m2": recon["swh_dhw"],
@@ -104,16 +132,42 @@ def reconstruct_building(row: "pd.Series | dict[str, Any]", coeffs: dict) -> dic
     }
 
 
-def reconstruct_frame(df: pd.DataFrame, coeffs: dict | None = None) -> pd.DataFrame:
+def reconstruct_frame(
+    df: pd.DataFrame,
+    coeffs: dict | None = None,
+    region_col: str = "city",
+    city_to_region: "dict[str, str] | None" = None,
+) -> pd.DataFrame:
     """Apply reconstruct_building across a DataFrame; adds reconstruction columns.
+
+    Region-aware (backward-compatible): when ``coeffs`` carries a
+    ``fractions_by_region`` block and ``region_col`` resolves a row's city to a
+    region (via ``city_to_region``, default the F5 NYC/LA/Austin map), that row
+    uses the regional fractions; rows with no resolvable region take the national
+    path unchanged.  If ``coeffs`` has no regional block, every row is national
+    (byte-identical to the pre-region behaviour).
 
     Logs distinct unmapped archetype_ids once.  Input df is not mutated.
     """
     if coeffs is None:
         coeffs = load_coefficients()
+    if city_to_region is None:
+        city_to_region = _CITY_TO_REGION
     df = df.copy()
 
-    results = df.apply(lambda r: pd.Series(reconstruct_building(r, coeffs)), axis=1)
+    has_regional = bool(coeffs.get("fractions_by_region"))
+
+    def _row_region(r) -> "str | None":
+        if not has_regional or region_col not in df.columns:
+            return None
+        city = r[region_col]
+        if not isinstance(city, str):
+            return None
+        return city_to_region.get(city)
+
+    results = df.apply(
+        lambda r: pd.Series(reconstruct_building(r, coeffs, region=_row_region(r))), axis=1
+    )
     for col in results.columns:
         df[col] = results[col]
 

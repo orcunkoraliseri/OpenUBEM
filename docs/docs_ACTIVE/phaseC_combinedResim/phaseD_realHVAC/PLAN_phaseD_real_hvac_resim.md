@@ -296,6 +296,7 @@ Post-CP-6, scoping the NYC office +11.3% over-prediction (a heating over-predict
 - **S3. Resim to a NEW subdir `phaseD2`.** Do NOT overwrite the adopted `phaseD` until CP-8 adopts the fix. `--output-subdir phaseD2`.
 - **S4. Cooling setpoint schedules: spot-check for the analogous bug, REPORT ONLY** — no fix/resim expansion without a new manager ruling.
 - **S5. Manager audits the edit at CP-7 (vs prototypes) + a local single-building NYC SmallOffice smoke (heating must drop, stay sane) BEFORE any cluster trip.**
+- **S6. Subdir override = single env-gated point, no per-driver edits.** All three re-score drivers funnel through `load_all_cells_phaseD()` → `_BASE_D` (`phaseD_city_rescore.py:22`). Make ONLY that line read an env var: `_BASE_D = ROOT/"docs"/"validations"/"overAll"/"results"/ os.environ.get("OPENUBEM_PHASED_SUBDIR", "phaseD")` (add `import os` if absent). Default stays `phaseD` (adopted baseline unchanged); set `OPENUBEM_PHASED_SUBDIR=phaseD2` to re-score the fix. Do NOT add CLI args or touch the national/reconstruct drivers — they inherit via the shared loader (X4). Drivers print to stdout only (no file clobber), so running against either tree is side-effect-free.
 
 **T15 — Comprehensive heating-setpoint-schedule audit.** Audit ALL archetype `Heating_Setpoint_*` weekday blocks in `doe_schedules.json` vs their DOE prototypes; list every non-residential archetype missing the prototype's weekday setback (archetype | current weekday block | prototype block | fix). Spot-check `Cooling_Setpoint_*` for the analogous flattening (report only). *Test:* defect list complete; every office archetype flagged.
 
@@ -305,7 +306,22 @@ Post-CP-6, scoping the NYC office +11.3% over-prediction (a heating over-predict
 
 **T17 — Resim 12 cells → `phaseD2`.** One sbatch array at a time, `--output-subdir phaseD2`, `squeue` empty before each; monitoring delegated cheap. *Test:* each cell closes n/n; adopted `phaseD` untouched.
 
+**T17-H — Harden the resim driver against the joblib/loky hang (manager-authored 2026-06-25).**
+Root cause of the 2026-06-25 T17 attempts-1&2 freeze: `v12_cell_pipeline.py:step3_generate` calls `run_step3(..., n_jobs=4)` → joblib **`loky`** process pool, which deadlocks intermittently on Python 3.14/Windows (same flaky component as the known `test_parallel_byte_identity` crash noted in the T06 log). The frozen tree was 4 nested pythons at ~0 % CPU = an IPC deadlock, NOT a geomeppy compute loop. nyc_centre's 738 results were already fully simulated on the cluster (`/speed-scratch/o_iseri/fleets/phaseD2_nyc_centre/out` = 738 `eplusout.sql`) before the freeze; the other 11 cells were never simulated. Two guards, both authorized by the user 2026-06-25 ("Harden, then relaunch"):
+
+- **T17-H1 — Serial IDF prep (Sonnet).** In `v12_cell_pipeline.py:step3_generate`, change the `run_step3(...)` call from `n_jobs=4` to `n_jobs=1`. Removes the loky pool entirely (the deadlocking component); `openubem/idf/builder.py` unchanged. *Test:* a cell's step3 completes without spawning a nested python pool; manifest row count == fetched success count.
+- **T17-H2 — Skip-if-remote-done / resumable fetch (Sonnet).** In `run_cell`, after `live_smoke_check` and before `ship_to_cluster`: probe the remote fleet dir; if EVERY one of this run's `n_generated` success oids already has BOTH `out/<oid>/eplusout.sql` AND an `out/<oid>/eplusout.end` containing "EnergyPlus Completed Successfully", SKIP ship+submit+poll, set `job_id="REUSED_REMOTE"`, and go straight to `fetch_results`. If ANY oid is missing/incomplete remotely, fall through to the normal ship+submit+poll path. Probe with a single `_ssh` one-liner (no download). *Test:* nyc_centre (738 sql already remote) takes the skip path (no new sbatch array); a cell with no remote dir takes the full ship path. Also makes the whole sweep resumable if it dies partway.
+- **T17-H3 — Orchestrator backstop (manager-owned scratchpad `.ps1`, not repo code).** Per-cell wall-clock timeout: kill the driver + its python tree if a cell exceeds budget, retry the cell once, then record FAILED and CONTINUE to the next cell (never freeze the whole sweep). Final `.status` lists DONE + FAILED cells for manager retry. nyc_centre runs first (reused via T17-H2).
+
+Both Python guards are scripts-only (`scripts/validation/`); no `openubem/` feature-code change, no DESIGN deviation.
+
 **T18 — Re-score `phaseD2` + side-by-side.** Run the 3 re-scoring drivers on `phaseD2`; produce adopted-`phaseD` vs fixed-`phaseD2` city deltas + national gates + the NYC office heating delta. *Test:* tables joined; office heating change quantified.
+
+T18 mechanics (manager-pinned 2026-06-26 — execute, do not re-debate):
+- **T18-A — Env override (S6).** Apply the one-line `_BASE_D` env-gate from S6 to `phaseD_city_rescore.py:22` only. No other code changes.
+- **T18-B — Run both trees, capture stdout.** For each of the 3 drivers (`phaseD_city_rescore`, `phaseD_national_cbecs_rescore`, `phaseD_reconstruct_rescore`) run ONCE with `OPENUBEM_PHASED_SUBDIR=phaseD` (adopted baseline) and ONCE with `=phaseD2` (setback fix). Six runs total. Both trees have all 12 gpkgs present; expect identical row counts (≈8,160 success). Run from repo root as modules so the package imports resolve.
+- **T18-C — Headline NYC office heating delta.** From the loaded frames, compute the NYC Office (SmallOffice/MediumOffice/LargeOffice) **median heating_eui_kwh_m2** under phaseD vs phaseD2 and the absolute + % change. This is the direct readout of whether the evening-setback fix lowered office heating (REPORT Limitation #1). Quote the nyc_centre per-cell heating headline too (phaseD vs phaseD2) since the canary already showed 28.19 under the fix.
+- **T18-D — Memo.** Write `docs/docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/RESULT_phaseD2_setback_rescore.md` (DATA ONLY, no interpretation prose): (1) city-anchor table phaseD vs phaseD2 vs `CITY_ANCHORS` (6 anchors, both fans-in/out), (2) national CBECS gates per region (NMBE/CV(RMSE)/KS_D + pass flags) phaseD vs phaseD2, (3) the NYC-office heating delta from T18-C, (4) reconstruct-rescore city+national phaseD vs phaseD2. Adopted `phaseD` tree is NOT modified; no resim. *Manager renders the CP-8 verdict from this memo.*
 
 **CP-8 — after T18.** Manager verdict: did the setback fix improve NYC office without harming other cities/segments? Adopt `phaseD2` as the new baseline (supersede `phaseD`) or keep `phaseD`? STOP.
 
@@ -475,3 +491,222 @@ _(Sonnet appends one entry per completed task: `#### TXX — <title> — complet
 - Artifact: `REPORT_phaseD_final.md` (consolidated arc CP-1…CP-6, adopted-model spec, city + national tables, limitations, reproducibility).
 - Disposition: **Phase-D + V16 service-loads reconstruction = adopted OpenUBEM physical baseline.** Scalar-COP basis retired. Two scoped future options (neither blocking, neither started): NYC HVAC/envelope re-calibration resim (the only fix for the office base over-prediction); regional CBECS end-use fractions (needs new EIA microdata extraction).
 - Deviations: none. Manager synthesis; no `openubem/` edit.
+
+#### T15 — Comprehensive heating-setpoint-schedule audit — completed 2026-06-25
+- Artifacts: defect list embedded below (no new files written).
+- Deviations: none. §0.1 core-code authorization NOT exercised (data audit only; `doe_schedules.json` read but not edited in T15). Read all 30 `Heating_Setpoint_*` weekday blocks from `openubem/data/schedules/doe_schedules.json`; cross-referenced against DOE prototype IDF files in `docs/validations/Level 2 DOE round-trip/00.BaselineBuildings_NUs/`.
+- Test status: all 30 archetypes audited; every office archetype correctly flagged; exempt archetypes confirmed NOT bugs per S2.
+- Notes: §0.1 authorization used in T16 for the `doe_schedules.json` edit (guarded-file, explicitly authorized in Phase 6 preamble).
+
+**T15 defect list (archetype | OpenUBEM weekday evening | prototype weekday evening | bug?):**
+
+| Archetype | OpenUBEM weekday (after 17:00) | Prototype weekday (evening) | Bug? |
+|---|---|---|---|
+| SmallOffice | 21.1 flat to 24:00 (no setback) | HTGSETP_SCH_NO_OPTIMUM → 15.56 at 19:00 | YES |
+| MediumOffice | 21.1 flat to 24:00 (no setback) | HTGSETP_SCH_NO_OPTIMUM → 15.56 at 19:00 | YES |
+| LargeOffice | 21.1 flat to 24:00 (no setback) | HTGSETP_SCH_YES_OPTIMUM → 15.56 at 22:00 | YES |
+| SmallOfficeDetailed | 21.1 flat to 24:00 (no setback) | same family as SmallOffice | YES |
+| MediumOfficeDetailed | 21.1 flat to 24:00 (no setback) | same family as MediumOffice | YES |
+| LargeOfficeDetailed | 21.1 flat to 24:00 (no setback) | same family as LargeOffice | YES |
+| College | 21.1 flat to 24:00 (no setback) | College HTGSETP Wkdy → 15.56 at 21:00 | YES |
+| Courthouse | 21.1 flat to 24:00 (no setback) | no prototype IDF (fallback = Office family with setback) | YES |
+| TallBuilding | 21.1 flat to 24:00 (no setback) | LargeOffice proxy → 15.56 at 22:00 | YES |
+| SuperTallBuilding | 21.1 flat to 24:00 (no setback) | LargeOffice proxy → 15.56 at 22:00 | YES |
+| OpenUBEMUnknown | 21.1 flat to 24:00 (no setback) | default fallback, setback consistent | YES |
+| RetailStandalone | 21.1 until 21:00 → 15.6 | already has setback (at 21:00) | NO |
+| RetailStripmall | 21.1 until 21:00 → 15.6 | already has setback | NO |
+| PrimarySchool | 21.1 until 15:00 → 15.6 | already has setback (early out) | NO |
+| SecondarySchool | 21.1 until 15:00 → 15.6 | already has setback (early out) | NO |
+| Outpatient | 21.1 until 19:00 → 15.6 | already has setback | NO |
+| Hospital | constant 22.2 all day | Lab_HTGSETP 24h constant 22.22 — genuinely 24h | NOT BUG (S2) |
+| SmallHotel | 22.0 flat to 24:00 | residential/hotel extended hours | NOT BUG (S2) |
+| LargeHotel | 22.0 flat to 24:00 | hotel extended hours | NOT BUG (S2) |
+| Warehouse | 15.6 flat (no heating in use) | consistent with low-temp storage | NO |
+| QuickServiceRestaurant | 21.0 flat to 24:00 | prototype HTGSETP YES_OPTIMUM: 21.11 from 05:00→24:00 (essentially 24h) | NOT BUG (S2) |
+| FullServiceRestaurant | 21.0 flat to 24:00 | prototype HTGSETP NO_OPTIMUM: 21.0 from 05:00→24:00 (essentially 24h) | NOT BUG (S2) |
+| MidriseApartment | holds setpoint, constant | residential | NOT BUG (S2) |
+| HighriseApartment | holds setpoint, constant | residential | NOT BUG (S2) |
+| SuperMarket | 21.0 until 22:00 → 15.6 | already has setback | NO |
+| Laboratory | 22.2 flat to 24:00 | Lab_HTGSETP: constant 22.22 — genuinely 24h continuous | NOT BUG (S2) |
+| SmallDataCenterHighITE | 22.0 flat / cooling-dominated | data centers genuinely 24h continuous | NOT BUG (S2) |
+| SmallDataCenterLowITE | 22.0 flat / cooling-dominated | data centers genuinely 24h continuous | NOT BUG (S2) |
+| LargeDataCenterHighITE | 22.0 flat / cooling-dominated | data centers genuinely 24h continuous | NOT BUG (S2) |
+| LargeDataCenterLowITE | 22.0 flat / cooling-dominated | data centers genuinely 24h continuous | NOT BUG (S2) |
+
+**Cooling setpoint spot-check (S4 — report only):**
+All `Cooling_Setpoint_*` weekday blocks for office archetypes hold 23.9°C from 07:00 through 24:00 with no evening setback to a higher unoccupied setpoint. DOE prototype `CLGSETP_SCH_NO_OPTIMUM` raises cooling setpoint to 29.4°C (unoccupied) from 19:00 weekdays — analogous bug exists in cooling. However, per S4, this is REPORT ONLY; no fix applied in this task. The cooling setpoint evening-flattening (holding 23.9 when it should rise to ~29°C) causes modest over-cooling energy during unoccupied hours — the direction is toward over-predicting cooling EUI, not heating.
+
+#### T16 — Correct defective heating schedules + local smoke — completed 2026-06-25
+- Artifacts: `openubem/data/schedules/doe_schedules.json` (EDITED — the ONLY file changed).
+- Deviations: §0.1 core-code authorization NOT exercised (data schedules file only). `doe_schedules.json` edit is explicitly authorized in Phase 6 preamble ("Guarded-file edit (`doe_schedules.json`) authorized for this fix"). No other files touched.
+- Test status: 11 archetypes corrected; Python verification confirmed all 11 have `Until: 19:00 → 21.1, Until: 24:00 → 15.6` weekday evening pattern. Local smoke PASSED (see below).
+- Notes: Fix applied per S1 (mirror own weekend setback: drop to 15.6°C from 19:00 on weekdays). Only the 11 bug-confirmed archetypes were edited. Residential, 24h, and archetypes already having setbacks were NOT touched (S2).
+
+**Exact before/after for all 11 corrected weekday blocks (entries after Until: 17:00, 21.1):**
+
+| Archetype | Before (after 17:00) | After (after 17:00) |
+|---|---|---|
+| SmallOffice | Until: 18:00, 21.1 / Until: 22:00, 21.1 / Until: 24:00, 21.1 | Until: 19:00, 21.1 / Until: 24:00, 15.6 |
+| MediumOffice | Until: 18:00, 21.1 / Until: 22:00, 21.1 / Until: 24:00, 21.1 | Until: 19:00, 21.1 / Until: 24:00, 15.6 |
+| LargeOffice | Until: 18:00, 21.1 / Until: 22:00, 21.1 / Until: 24:00, 21.1 | Until: 19:00, 21.1 / Until: 24:00, 15.6 |
+| SmallOfficeDetailed | Until: 18:00, 21.1 / Until: 22:00, 21.1 / Until: 24:00, 21.1 | Until: 19:00, 21.1 / Until: 24:00, 15.6 |
+| MediumOfficeDetailed | Until: 18:00, 21.1 / Until: 22:00, 21.1 / Until: 24:00, 21.1 | Until: 19:00, 21.1 / Until: 24:00, 15.6 |
+| LargeOfficeDetailed | Until: 18:00, 21.1 / Until: 22:00, 21.1 / Until: 24:00, 21.1 | Until: 19:00, 21.1 / Until: 24:00, 15.6 |
+| College | Until: 18:00, 21.1 / Until: 22:00, 21.1 / Until: 24:00, 21.1 | Until: 19:00, 21.1 / Until: 24:00, 15.6 |
+| Courthouse | Until: 18:00, 21.1 / Until: 22:00, 21.1 / Until: 24:00, 21.1 | Until: 19:00, 21.1 / Until: 24:00, 15.6 |
+| TallBuilding | Until: 18:00, 21.1 / Until: 22:00, 21.1 / Until: 24:00, 21.1 | Until: 19:00, 21.1 / Until: 24:00, 15.6 |
+| SuperTallBuilding | Until: 18:00, 21.1 / Until: 22:00, 21.1 / Until: 24:00, 21.1 | Until: 19:00, 21.1 / Until: 24:00, 15.6 |
+| OpenUBEMUnknown | Until: 18:00, 21.1 / Until: 22:00, 21.1 / Until: 24:00, 21.1 | Until: 19:00, 21.1 / Until: 24:00, 15.6 |
+
+**Local smoke test result (NYC SmallOffice building `way/258619240`, nyc_centre cell):**
+
+EnergyPlus exit code: 0 (no severe errors, both runs). Inline ExpandObjects (`-x`). NYC EPW: `USA_NY_New.York-Central.Park.Obs-Belvedere.Castle.725053_TMYx.2011-2025.epw`.
+
+| Run | cooling_eui (kWh/m²) | heating_eui (kWh/m²) | fans_eui (kWh/m²) | total_eui (kWh/m²) |
+|---|---|---|---|---|
+| BUGGY (original IDF) | 12.38 | 91.30 | 0.96 | 103.68 |
+| FIXED (corrected weekday setback) | 12.38 | 79.96 | 0.90 | 92.34 |
+| Delta | 0.00 | −11.35 (−12.4%) | −0.06 | −11.34 |
+
+Buggy heating EUI (91.30) matches `phaseD/nyc_centre/05_results.gpkg` exactly — confirms IDF copy was faithful. Heating drops by 12.4%; fixed heating (79.96 kWh/m²) is physically sane (∈ [5, 120]). Cooling unchanged (setpoint-independent of weekday heating change). **SMOKE PASSED.**
+
+**Only `openubem/data/schedules/doe_schedules.json` was edited. No other file was touched.**
+
+#### CP-7 — STOP — manager audits before cluster trip — 2026-06-25
+- STOPPING per S5 and T16 plan. All T15/T16 work complete. Manager must review:
+  1. T15 defect list above (11 bugs confirmed, 19 archetypes correctly exempt).
+  2. Cooling spot-check finding (analogous evening-flattening exists; S4 report-only).
+  3. All 11 exact before/after weekday block edits (table above).
+  4. Local smoke: heating −12.4%, cooling unchanged, no fatal, EUI physically sane.
+  5. Only `doe_schedules.json` was edited; no phaseD results touched; no cluster work done.
+- Next step (after manager green-lights): T17 — resim 12 cells → `phaseD2` (one sbatch array at a time).
+
+#### CP-7 — MANAGER VERDICT — PASS, green-light T17 — 2026-06-25
+Independently re-audited the executor's work (did not take the report on faith):
+1. **Defect list verified complete & correct.** Parsed all 30 archetypes' weekday vs weekend
+   `HeatingSetpoint`. The 11 flagged (SmallOffice, MediumOffice, LargeOffice + their 3 `*Detailed`
+   variants, College, Courthouse, TallBuilding, SuperTallBuilding, OpenUBEMUnknown) each held the
+   weekday block flat at 21.1 °C to 24:00 while their OWN Saturday/AllOtherDays blocks already dropped
+   to 15.6 °C at 19:00 — the OQ-2 digitization smoking gun. The 19 exempt are correctly classified:
+   retail/schools/outpatient/hospital/supermarket already had setbacks; hotels/restaurants/labs/
+   data-centers are genuinely 24 h; Warehouse has its own low-setpoint setback; residential
+   Midrise/Highrise apartments correctly hold the evening setpoint (S2 exclusion honored).
+2. **Scope expansion 3→11 justified.** My scoping named only the 3 base offices; the same bug is
+   present in 8 more archetypes that share the office schedule. Fixing all 11 is correct, not creep.
+3. **Edits S1-compliant.** Every edited weekday block now mirrors that archetype's OWN Saturday/
+   AllOtherDays setback (21.1 to 19:00, then 15.6 to 24:00). No pattern invented; College/Courthouse/
+   Tall/SuperTall/Unknown all carry the office schedule and are now internally consistent.
+4. **Isolation verified.** Only `doe_schedules.json` changed; resim driver `v12_cell_pipeline.py`
+   supports `--output-subdir phaseD2`, which isolates both the local results dir AND the remote fleet
+   dir (`fleet_tag = phaseD2_<cell>`) → cannot clobber adopted `phaseD`. S3 enforceable.
+5. **Smoke sane + no OQ-2 confound.** Pre-fix NYC SmallOffice heating 91.30 reproduces the committed
+   phaseD reference EXACTLY → the file the executor edited is the same schedule phaseD ran on (OQ-2
+   digitization did not alter office heating-setpoint behavior). Post-fix 79.96 (−12.4%), cooling
+   unchanged (heating-only edit), E+ exit 0, physically sane.
+- **S4 cooling ruling — DO NOT fix cooling in this trip; leave report-only.** The analogous cooling
+  setpoint flattening (offices hold 23.9 °C to 24:00 vs DOE prototype 29.4 °C unoccupied) would
+  *reduce* cooling EUI — which helps the over-predicted, heating-dominated NYC only negligibly but
+  worsens the already-COLD cooling-dominated LA/Austin (Office −6 % / −22 % at the metered base). Net
+  not indicated. Keep the resim heating-only.
+- **Expected payoff:** SmallOffice is 67 % of the NYC office base (n≈1809) and heating-driven; a 12.4 %
+  heating cut on the dominant office archetype should pull NYC Office from +11.3 % toward measured and
+  shrink the reconstructed +31.5 % overshoot — directly attacking REPORT Limitation #1 (the single
+  residual the V16 reconstruction cannot fix).
+- **Caveat (non-blocking, logged):** TallBuilding/SuperTallBuilding/OpenUBEMUnknown carry the office
+  schedule as an OQ-2 proxy; the fix makes them internally consistent but does NOT validate that
+  "office" is the right archetype for those buckets — pre-existing OQ-2 assignment, out of Phase-6
+  scope. OpenUBEMUnknown is excluded from city anchors regardless.
+- **VERDICT: CP-7 PASS.** Authorize T17 — resim all 12 cells → `phaseD2`, one `sbatch --array` at a
+  time, `squeue -u o_iseri` empty before each submit, monitoring delegated to a cheap model (≥30 min).
+
+#### T17 — Resim 12 cells → phaseD2 — attempt-1 FAILED + REMEDIATED, attempt-2 IN FLIGHT — 2026-06-25
+- **Attempt-1 failure:** the executor launched the nyc_centre driver + the orchestrator as *agent-managed background tasks*; both were KILLED when the agent stopped (documented behavior — background children die on agent stop). The nyc_centre driver had already submitted cluster array `995718` before dying → ORPHANED (still computing, no local poller to fetch/aggregate). Orchestrator froze at "waiting for PID 29232". No `phaseD2/` output written; adopted `phaseD` untouched; GSSCanada `987039` untouched.
+- **Manager remediation (cluster-ops, within the durably-authorized resim):** (1) `scancel 995718` — confirmed queue back to only `987039`; (2) `rm -rf /speed-scratch/o_iseri/fleets/phaseD2_nyc_centre` (stale orphaned outputs); (3) rewrote orchestrator → `scratchpad/run_phaseD2_v2.ps1`: all 12 cells **nyc_centre-first**, no dead-PID wait, explicit `.venv\Scripts\python.exe` (PATH-independent), per-cell stop-on-error + gpkg-verify, `.status` artifact; (4) launched it **OS-decoupled via `Start-Process` (PID 10664)** so it survives agent/session lifecycle — root-cause fix for the kill fragility.
+- **Verification:** PID 10664 confirmed alive *across the tool-call boundary* (launching shell exited, orchestrator persisted); progress log shows `STARTING cell: nyc_centre`; v12 driver python workers spawned (local Steps 1-3). Background watcher `bbintln7c` exits→notifies on `.status` (ALL_DONE / ABORTED_AT) or orchestrator death; ≥30-min poll, token-free.
+- **Artifacts:** `scratchpad/run_phaseD2_v2.ps1`, `scratchpad/phaseD2_v2_progress.log`(+`.status`), per-cell `scratchpad/phaseD2_<cell>.out`.
+- **Next:** event-driven wake on watcher → if ALL_DONE proceed to T18 (re-score phaseD2); if ABORTED read the failing cell's `.out` and report before deciding.
+
+#### T17 — attempt-2 (v2/PID 10664) FROZE on loky deadlock → HARDENED (T17-H) → attempt-3 IN FLIGHT — 2026-06-25
+- **Attempt-2 froze.** The v2 orchestrator (PID 10664, started 15:43) re-ran nyc_centre from scratch and hung at 15:50 inside `step3_generate` → `run_step3(n_jobs=4)` (joblib **loky** pool). Diagnosis: 4 nested python workers at ~0 % CPU = an IPC **deadlock**, NOT a geomeppy compute loop (a real loop pegs CPU at 100 %). Same flaky component as the known `test_parallel_byte_identity` joblib/CPython-3.14/Windows crash logged in T06. Frozen ~2.5 h; **never submitted a cluster job** (user correctly observed an empty `squeue`). nyc_centre's 738 results were ALREADY complete on the cluster from a prior attempt (`fleets/phaseD2_nyc_centre/out` = 738 `eplusout.sql`) → the freeze was redundant re-work; the other 11 cells were never simulated. Killed PID 10664 + its python tree.
+- **Remediation = T17-H hardening** (two Sonnet code guards, manager-audited + a manager-authored orchestrator backstop; see the three task entries below).
+- **Attempt-3 IN FLIGHT.** `scratchpad/run_phaseD2_v3.ps1` launched OS-detached (PID 19856). Canary = nyc_centre first; validated LIVE: serial step3 built **738/738 IDFs in ~28 min with only 2 python procs** (no loky nest → H1 confirmed); **H2 reuse path triggered** (no new sbatch array; fetched the 738 existing results 738/738); then aggregated. First NEW cluster array expected at cell 2 (nyc_urban) after its local build (~1.5–2 h out). GSSCanada 987039 untouched throughout.
+- **Artifacts:** `scratchpad/run_phaseD2_v3.ps1`, `scratchpad/phaseD2_v3_progress.log`(+`.status`), per-cell `.out`/`.err`; watcher `b7idyvjfs` (token-free; exits on first-cell-done / terminal-status / orchestrator-death).
+
+#### T17-H1 — Serial IDF prep (n_jobs=1) — completed 2026-06-25
+- Artifacts: `scripts/validation/v12_cell_pipeline.py:step3_generate` — `run_step3(..., n_jobs=4)` → `n_jobs=1` (+ print label). Sonnet executor; manager-audited against the file.
+- Deviations: none to `openubem/` (scripts-only; `builder.py` untouched). Removes the loky pool = the deadlocking component. Cost: serial build is slower (~28 min for nyc_centre's 738 buildings) but reliable.
+- Test status: `py_compile` clean; validated LIVE on the nyc_centre canary (738/738 IDFs, only 2 python procs, zero freeze).
+
+#### T17-H2 — Skip-if-remote-done / resumable fetch — completed 2026-06-25
+- Artifacts: `scripts/validation/v12_cell_pipeline.py` — new `_remote_results_complete()` helper + skip/else block in `run_cell`: probe remote `out/<oid>/eplusout.sql` + a "Completed Successfully" `eplusout.end` for ALL success oids; if complete, set `job_id="REUSED_REMOTE"` and skip ship+submit+poll → straight to `fetch_results`; else the normal ship path. Sonnet executor; manager-audited.
+- Deviations: none to `openubem/` (scripts-only). `verify_and_repair` downstream re-sims any genuinely-missing oid, so the skip path is safe even if the count predicate is imperfect. Also makes the whole 12-cell sweep resumable if it dies partway.
+- Test status: `py_compile` clean; validated LIVE — nyc_centre took the REUSE path (no new array; 738/738 fetched).
+
+#### T17-H3 — Orchestrator backstop (manager-owned scratchpad ps1) — completed 2026-06-25
+- Artifacts: `scratchpad/run_phaseD2_v3.ps1` (manager-authored ops tooling, NOT repo code). Per-cell 8 h wall-clock timeout → kill driver+tree, retry the cell once, then record FAILED and CONTINUE (one bad cell can never freeze the whole sweep). Final `.status` = `ALL_DONE` or `FINISHED_WITH_FAILURES` + DONE/FAILED cell lists. nyc_centre-first; ASCII-only + Start-Process splatting (PS 5.1-safe — a first em-dash/backtick draft failed `Parser::ParseFile` and was caught before launch).
+- Deviations: none. Launched OS-detached (PID 19856) per the attempt-1 lesson (agent-managed background tasks die when the agent stops).
+- Test status: parse-checked clean; confirmed alive across the tool-call boundary, log writing, canary progressing.
+
+#### T17 — CANARY LANDED + orchestrator null-ExitCode bug FIXED (v3→v4) → sweep rolling — 2026-06-25 22:30
+- **Canary nyc_centre SUCCEEDED** (attempt-3, v3 driver). Driver printed `DONE.` with `Job ID: REUSED_REMOTE`, 738/738 generated + 738/738 simulated, F12 gates all PASS (parse 100 %, EUI plausibility 100 %, zone_mismatch 0), gpkg written (`docs/validations/overAll/results/phaseD2/nyc_centre/05_results.gpkg`, 352 KB). Headline under the setback fix: **heating 28.19**, cooling 12.04, lighting 26.87, equipment 49.27, total 116.37 kWh/m²/yr. H1 (serial n_jobs=1, ~44 min, 2 procs no loky) + H2 (REUSE, no new sbatch) both confirmed LIVE. The T16 setpoint-fix data is now on disk for nyc_centre.
+- **v3 orchestrator bug (cosmetic, wasteful):** `Start-Process -PassThru` + `-RedirectStandardOutput` + timed `WaitForExit(ms)` returns `$p.ExitCode = $null`. The v3 success gate `$rc -eq 0 -and $hasGpkg` therefore never passed even though `gpkg=True` → every cell got mislabeled FAILED and **double-run** (~2× wall-clock; nyc_centre ran twice, 18:26→20:04 then 20:04→22:05). The watcher's "FAILED=nyc_centre" alert was this false alarm, NOT a real failure — gpkg was present both attempts.
+- **Manager fix = run_phaseD2_v4.ps1** (manager-owned ops tooling): (1) **cell-level skip** — if the cell's `05_results.gpkg` already exists, mark DONE and skip (nyc_centre now skips instantly; sweep is fully resumable at cell granularity); (2) **success gated on gpkg presence**, the authoritative artifact the driver writes last — `$p.ExitCode` is logged best-effort only, never gates. Killed v3 (PID 19856) tree mid-nyc_urban-build (only ~25 min of rebuildable LOCAL work lost; nothing shipped to cluster, no data loss); launched v4 OS-detached (PID 37032). Verified LIVE: log shows `nyc_centre already has gpkg -> SKIP` then `nyc_urban attempt 1` with 2 python procs. Saves ~18 h of redundant double-runs across the 11 remaining cells. GSSCanada 987039 untouched.
+- **Artifacts:** `scratchpad/run_phaseD2_v4.ps1`, `scratchpad/phaseD2_v4_progress.log`(+`.status`); watcher `bk5tutm53` (token-free, ≥30-min poll; exits on first-cluster-cell-done / terminal / orchestrator-death).
+- **Next:** event-driven wake → first cluster cell (nyc_urban) lands proves the full ship→sbatch→fetch path under v4; then sweep rolls cells 3–12. On ALL_DONE → T18 (re-score phaseD2).
+
+#### T17 — Resim 12 cells → phaseD2 — COMPLETE (ALL_DONE) — 2026-06-26
+- **Sweep landed clean.** v4 orchestrator (PID 37032) finished 07:03:58. `.status = ALL_DONE`; all 12 `phaseD2/<cell>/05_results.gpkg` verified on disk (147 KB–721 KB each). **Every cell passed on the FIRST attempt — 0 failures, 0 retries** across the full sweep; the v4 cell-skip + gpkg-gate fix held all night (no false-FAILED, no double-runs). Adopted `phaseD` tree untouched; GSSCanada `987039` untouched.
+- **Per-cell DONE timestamps (from `phaseD2_v4_progress.log`):** nyc_centre (REUSED, instant skip) → nyc_urban → nyc_suburban → nyc_rural → la_centre 01:58 → la_urban 04:10 → la_suburban 04:56 → la_rural 05:07 → austin_centre 05:59 → austin_urban 06:40 → austin_suburban 07:00 → austin_rural 07:04. Each `exit=` (null, advisory) `gpkg=True`.
+- **Both Python hardening guards confirmed in production end-to-end:** H1 (serial `n_jobs=1` step3, no loky nest — sweep never deadlocked) + H2 (REUSE path on nyc_centre, real `sbatch --array` on the other 11).
+- **Verified headlines under the T16 setback fix:** nyc_centre heating 28.19 / total 116.37; nyc_urban heating 79.99 / total 157.70 kWh/m²/yr (vs the phaseD baseline — T18 quantifies the office-heating delta).
+- **Artifacts:** 12 × `docs/validations/overAll/results/phaseD2/<cell>/05_results.gpkg`; `scratchpad/run_phaseD2_v4.ps1` + `phaseD2_v4_progress.log`(+`.status`); watcher `b18xlksg4` (fired on ALL_DONE).
+- **Next:** T18 — re-score phaseD2 (mechanics pinned above: S6 env override + 6 runs + RESULT_phaseD2_setback_rescore.md). Dispatched to a fresh Sonnet executor 2026-06-26.
+
+#### T18 — Re-score phaseD2 + side-by-side — completed 2026-06-26
+- **Artifacts:**
+  - `scripts/validation/phaseD_city_rescore.py` — ONE-LINE EDIT: `import os` added; `_BASE_D` now reads `os.environ.get("OPENUBEM_PHASED_SUBDIR", "phaseD")` (S6, T18-A). No other file touched.
+  - `docs/docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/RESULT_phaseD2_setback_rescore.md` (NEW — T18-D).
+  - Scratchpad analysis: `t18c_nyc_office_heating.py` (ephemeral, NOT committed).
+- **Deviations:** none. S6 pinned a single env-gate in `phaseD_city_rescore.py` only; national and reconstruct drivers inherit unchanged. No CLI args added. No other source file touched. No DESIGN/OVERVIEW doc edited. No gpkgs modified.
+- **Test status:** 6 runs all completed clean. Both trees: 8,160 / 8,160 success rows, 12 cells.
+- **Key numbers:**
+  - **NYC Office city delta (fans-excl):** phaseD +11.3% → phaseD2 +4.1% (−7.2 pct-pt toward measured).
+  - **LA Office city delta (fans-excl):** phaseD −6.0% → phaseD2 −13.0% (cooled further, expected — office heating setback reduces total, no cooling change).
+  - **Austin Office city delta (fans-excl):** phaseD −22.1% → phaseD2 −26.2% (also cooled, same direction).
+  - **NYC/LA/Austin Overall delta movement (fans-excl):** NYC −13.4%→−16.5%; LA −33.0%→−33.0% (unchanged, non-office archetypes); Austin −21.4%→−25.5%.
+  - **National gate pass counts — fans-excl raw:** phaseD NMBE 1/3 CV 0/3 KS 0/3 R² 1/3; phaseD2 identical (NMBE 1/3 CV 0/3 KS 0/3 R² 1/3). No gate flip in either direction.
+  - **National gate pass counts — reconstructed:** phaseD NMBE 1/3 R² 3/3; phaseD2 NMBE 0/3 R² 3/3 (Austin NMBE slips from PASS −9.21% to FAIL −12.64%).
+  - **NYC Office heating delta (T18-C):** phaseD median 135.37 → phaseD2 122.02 kWh/m²; abs Δ = −13.35; **% Δ = −9.86%**. nyc_centre cell: 92.18 → 83.05 (−9.91%). Both match T16 single-building smoke (−12.4%) at expected fleet-median scale.
+- **Notes:** Stopping at CP-8. Manager writes verdict on whether phaseD2 improves NYC office sufficiently to adopt.
+
+#### CP-8 — Manager verdict on phaseD2 adoption — 2026-06-26
+**Q1 — Did the setback fix improve NYC office?** YES, decisively. Raw city anchor +11.3% → **+4.1%** (now within ±5% of measured 183.9); reconstructed +31.5% → **+23.3%**; fleet office heating −9.86% (135.37→122.02). **REPORT Limitation #1 (NYC office over-heating) is resolved.**
+
+**Q2 — Did it harm other cities/segments?** Basis-dependent (this is the crux):
+- **Raw metered basis (fans-excl):** mild harm. Every non-NYC-office anchor was *already under-predicting*, so removing ~10% office heating moved them 3–7 pct-pt more under: NYC Overall −13.4→−16.5, LA Office −6.0→−13.0, Austin Office −22.1→−26.2. MF/Warehouse unchanged in all cities (fix correctly office-scoped). National raw gates: **no flip either way** (KS_D and R² shape actually improve slightly for NYC: 0.336→0.294, 0.547→0.571).
+- **Reconstructed basis (V16 service-loads — the fuller model):** net **favorable**. NYC Overall +10.8→**+5.6**, LA Office +13.0→**+4.5** both improve substantially; LA Overall ~flat (−4.2→−4.8); only Austin worsens (Office −7.8→−12.6). National reconstructed loses **Austin NMBE PASS→FAIL** (−9.21→−12.64), while NYC NMBE improves +19.1→+12.2; R² holds 3/3.
+
+**VERDICT: ADOPT phaseD2 as the new baseline (supersede phaseD)** — *pending user ratification (baseline supersession is the user's call).* Rationale:
+1. The flat 21.1 °C-to-midnight setpoint was a **confirmed digitization bug** (X1, vs DOE prototype + the archetype's own weekend blocks). phaseD2 is strictly more physically faithful. Keeping phaseD = knowingly shipping a known bug because it *masks* an under-prediction elsewhere (compensating errors) — indefensible in a validation paper.
+2. It resolves the single most-cited limitation (#1).
+3. The raw-basis "harm" is the model **exposing its pre-existing LA/Austin cold bias** that office over-heating had been partly masking — a separate, already-known open item (climate/COP/service-loads basis, the V19 basis-diagnostic backlog), NOT something phaseD legitimately solved.
+4. On the fuller reconstructed basis the net is favorable.
+5. **Only genuine cost:** Austin reconstructed NMBE slips PASS→FAIL — acceptable; Austin already failed CV+KS and is the known under-predicting city; one of 12 gates.
+
+**Caveat carried forward:** adopting phaseD2 *sharpens* (does not create) the LA/Austin under-prediction; that cold bias is now the top remaining-gap item. **STOP — user to ratify adoption before phaseD is superseded in the REPORT.**
+
+**RATIFIED by user 2026-06-26 — "Adopt, then tackle LA/Austin."**
+- **`phaseD2` is the adopted Phase-D validation baseline**, superseding `phaseD`. The 12 `phaseD2` gpkgs are canonical; the setback fix (`doe_schedules.json` T16) is in the adopted model. Any REPORT regeneration / re-score reads `phaseD2` (run the drivers with `OPENUBEM_PHASED_SUBDIR=phaseD2`, or whatever supersession mechanic is chosen). The `phaseD` tree is retained as the pre-fix reference only.
+- **REPORT Limitation #1 (NYC office over-heating) → RESOLVED** by the evening-setback fix; update the limitation list when the REPORT is next regenerated.
+- **Next work arc authorized: LA/Austin cold-bias investigation** — now the dominant remaining gap. Raw metered Overall is −33% (LA) / −25.5% (Austin); the V16 service-loads reconstruction already pulls these to −4.8% / −11.7%, so the arc centers on the reporting/service-loads basis and the COP/unit question (V19 basis-diagnostic: root cause is unit/basis, not climate), NOT on more HVAC resim. Manager to scope before authoring the PLAN.
+
+#### Post-CP-8 evidence-first scoping (manager, 2026-06-26 — user chose "evidence-first, then decide")
+Two cheap diagnostics, no new data, before committing to regional-fractions vs accept-and-document:
+
+**D1 — Austin anchor has NO independent ground truth.** `CITY_ANCHORS["austin"]` (Office 162.3 / Overall 162.0) is itself **derived from CBECS-2018 West-South-Central microdata** (`RESULT_3_austin_texas_measured.md`; V17 labels it "ESTIMATED proxy — treat Austin deltas as indicative only" because Austin ECAD does not disclose building-level EUI). So Austin's *city anchor* AND its *national WSC gate* both trace to the same CBECS source → Austin's −12% is **not cleanly attributable to model error** (CBECS-vs-CBECS, confounded by the documented office/MF-heavy fleet vs all-building-types CBECS composition mismatch, V13/V14). NYC (LL84) and LA (EBEWE) DO have independent measured ground truth.
+
+**D2 — Regional-fraction prize sizing (analytic, from the V16 formula + national NMBEs).** V16 uplift = modeled-energy ÷ `modeled_frac` where `modeled_frac` (national Table-4) is heating-share-dominated (`f_space_heat` 0.28–0.51). Climate-blindness sign is EXACT: cold NE has higher real heat-share → real `modeled_frac` higher → V16 (national, lower) over-restores → **NYC national +12.2% (over)** ✓; mild Pacific/WSC have lower real heat-share → V16 under-restores → **LA −16.8% / Austin −12.6% (under)** ✓. Required shift to zero each ≈ ±0.10 in `f_space_heat` share — within plausible CBECS regional variation. So regional fractions ARE the mechanistically-correct lever **for the NMBE mean** — BUT (a) data not in repo (regional CSVs are total-EUI only; needs published CBECS regional end-use tables transcribed à la V16 Table-4, or PUMS), (b) cannot touch CV(RMSE)/KS (structural) or the composition mismatch that dominates the national gate, (c) must be sourced independently (never fitted to anchors) to stay principled.
+
+**Decisive reframe:** under adopted phaseD2 + V16, **every city with independent measured ground truth already PASSES its city anchor** — NYC Overall **+5.6%** (LL84), LA Overall **−4.8%** (EBEWE). The remaining failures are the **national CBECS gates**, which are dominated by the documented **fleet-composition mismatch** (not model error) + structural CV/KS, and Austin (proxy-confounded). NYC Office's +23% reconstructed is now a **pure V16 fraction-layer artifact** (raw is +4.1% post-setback), not an HVAC base error → no resim indicated.
+
+**Manager recommendation → B (accept + document), regional-fractions held as bounded optional future work.** Rationale: the model validates where it CAN be independently validated; the residual national-NMBE/CV/KS failures are reference-side artifacts (composition + structural), and the one principled improvement (regional fractions) has payoff bounded to the NMBE mean, needs new data, and risks anchor-fitting. Highest-integrity next step = regenerate `REPORT_phaseD_final.md` for phaseD2 with these sharpened attributions + close. **Presented to user for A-vs-B decision.**

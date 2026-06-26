@@ -1,5 +1,16 @@
 # REPORT_R5_final — OpenUBEM R5 Validation Close-Out (CP-V3)
 
+> ## ⚠ SUPERSEDED — current adopted baseline is Phase-D (2026-06-26)
+> This is the **frozen R5 close-out** (2026-06-15). It is preserved as the historical R5 record; its model and validation numbers are **no longer current**. Since R5 the model advanced through Phase-C (combined geometry + multi-floor zoning + DOE-schedule resim), Phase-D (real metered PTAC + per-archetype COP — the thermal-vs-metered basis fix at source), phaseD2 (heating-setback schedule fix), and regional CBECS service-load fractions.
+>
+> **Current authoritative report → [`../../../docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/REPORT_phaseD_final.md`](../../../docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/REPORT_phaseD_final.md).**
+>
+> **Adopted model:** phaseD2 metered PTAC HVAC + V16 reconstruction on **regional** CBECS fractions — **zero fitted parameters**.
+> - **City-Overall within ±9% in all three cities:** NYC **+2.1%**, LA **−3.7%**, Austin **−8.6%** (vs R5's report-only CBECS-distribution gates).
+> - **National CBECS NMBE + R² passing in all three regions** (NYC +7.7 / LA −6.1 / Austin −9.9); CV(RMSE)/KS remain structurally unclearable for an archetype UBEM (reported, not gated — same finding as R5 §8).
+> - V17 restaurant/multifamily reconstruction overshoots **resolved** (NYC MF +33.5→+8.8%, LA MF +32.4→−9.2%, FSR/QSR +110/+160% → −27/−22%).
+> - The R5 Level-2 single-building structural-gap finding (§8 / R6-4B) **still stands** — re-attributed across Phase-D to the now-metered HVAC basis + service loads, not closed.
+
 **Date:** 2026-06-15
 **Checkpoint:** CP-V3 (final R5 close-out)
 **Author:** Phase-C manager session

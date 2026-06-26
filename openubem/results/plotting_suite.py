@@ -4,6 +4,7 @@ Additive module — does not import from visualization.py.
 from __future__ import annotations
 
 import logging
+import os
 import warnings
 from pathlib import Path
 
@@ -27,6 +28,14 @@ SIM_DIR = _BASE / "openubem" / "outputs" / "simulationResults"
 VAL_DIR = _BASE / "openubem" / "outputs" / "validaitonResults"
 COMPARE_DIR = _BASE / "openubem" / "outputs" / "comparisons"
 
+_REGIONAL_COEFFS_PATH = _BASE / "openubem" / "data" / "service_loads" / "enduse_fractions_regional.json"
+_PHASED_BASE = _BASE / "docs" / "validations" / "overAll" / "results"
+
+
+def _phased_subdir() -> "str | None":
+    """Return OPENUBEM_PHASED_SUBDIR env value, or None when unset/empty."""
+    return os.environ.get("OPENUBEM_PHASED_SUBDIR") or None
+
 # ---------------------------------------------------------------------------
 # Status sets (mirror visualization.py; do not import from it)
 # ---------------------------------------------------------------------------
@@ -46,20 +55,50 @@ def _save(fig: plt.Figure, path: Path) -> Path:
 
 
 def _load_cell_gdf(cell: str) -> gpd.GeoDataFrame:
-    """Load 05_results.gpkg for a cell; raises FileNotFoundError if absent."""
-    p = _BASE / "runtime" / "ubem_validation" / "cases" / cell / "results" / "05_results.gpkg"
+    """Load 05_results.gpkg for a cell; raises FileNotFoundError if absent.
+
+    When OPENUBEM_PHASED_SUBDIR is set (e.g. 'phaseD2'), reads from
+    docs/validations/overAll/results/{subdir}/{cell}/05_results.gpkg and applies
+    regional service-load reconstruction so total_eui_reconstructed_kwh_m2 is present.
+    Default (no env var) reads from runtime/ubem_validation/cases/{cell}/results/
+    unchanged.
+    """
+    phased = _phased_subdir()
+    if phased:
+        p = _PHASED_BASE / phased / cell / "05_results.gpkg"
+    else:
+        p = _BASE / "runtime" / "ubem_validation" / "cases" / cell / "results" / "05_results.gpkg"
     if not p.exists():
         raise FileNotFoundError(f"05_results.gpkg not found for cell {cell!r}: {p}")
-    return gpd.read_file(str(p))
+    gdf = gpd.read_file(str(p))
+    if phased:
+        if "city" not in gdf.columns:
+            gdf = gdf.copy()
+            gdf["city"] = cell.rsplit("_", 1)[0]
+        from openubem.results.service_loads import load_coefficients, reconstruct_frame  # noqa: PLC0415
+        _coeffs = load_coefficients(_REGIONAL_COEFFS_PATH)
+        _df = pd.DataFrame(gdf.drop(columns=["geometry"], errors="ignore"))
+        _df_recon = reconstruct_frame(_df, _coeffs, region_col="city")
+        for col in _df_recon.columns:
+            gdf[col] = _df_recon[col].values
+    return gdf
 
 
 def _load_cell_footprints(cell: str) -> gpd.GeoDataFrame:
     """Load 01_buildings.gpkg polygons, left-merging EUI/status attrs from 05_results.gpkg on osm_id.
     Overlapping cols (levels, height_m, footprint_area_m2, data_quality_flag) prefer results values.
     Raises FileNotFoundError if either file is missing.
+
+    When OPENUBEM_PHASED_SUBDIR is set, geometry always comes from the runtime tree
+    (unchanged) but EUI/status attributes come from the phased results tree; regional
+    reconstruction is applied to those attributes before the merge.
     """
+    phased = _phased_subdir()
     p_fp = _BASE / "runtime" / "ubem_validation" / "cases" / cell / "01_buildings.gpkg"
-    p_res = _BASE / "runtime" / "ubem_validation" / "cases" / cell / "results" / "05_results.gpkg"
+    if phased:
+        p_res = _PHASED_BASE / phased / cell / "05_results.gpkg"
+    else:
+        p_res = _BASE / "runtime" / "ubem_validation" / "cases" / cell / "results" / "05_results.gpkg"
     if not p_fp.exists():
         raise FileNotFoundError(f"01_buildings.gpkg not found for cell {cell!r}: {p_fp}")
     if not p_res.exists():
@@ -67,6 +106,18 @@ def _load_cell_footprints(cell: str) -> gpd.GeoDataFrame:
 
     fp = gpd.read_file(str(p_fp))
     res = gpd.read_file(str(p_res))
+
+    # When phased, apply regional reconstruction to results before merging
+    if phased:
+        if "city" not in res.columns:
+            res = res.copy()
+            res["city"] = cell.rsplit("_", 1)[0]
+        from openubem.results.service_loads import load_coefficients, reconstruct_frame  # noqa: PLC0415
+        _coeffs = load_coefficients(_REGIONAL_COEFFS_PATH)
+        _df = pd.DataFrame(res.drop(columns=["geometry"], errors="ignore"))
+        _df_recon = reconstruct_frame(_df, _coeffs, region_col="city")
+        for col in _df_recon.columns:
+            res[col] = _df_recon[col].values
 
     # Columns to bring from results (drop geometry; overlapping attrs handled via suffix then prefer)
     _OVERLAP = {"levels", "height_m", "footprint_area_m2", "data_quality_flag"}
@@ -593,6 +644,44 @@ _CITY_TO_REGION = {"nyc": "middle_atlantic", "la": "pacific", "austin": "west_so
 _R7_CSV = _BASE / "docs" / "validations" / "overAll" / "results" / "r7_service_loads.csv"
 
 
+def _build_comparison_df() -> pd.DataFrame:
+    """Load per-building data for comparison plots A/B/C.
+
+    Default (no OPENUBEM_PHASED_SUBDIR): reads _R7_CSV unchanged.
+    With env var set: reads all 12 cells from the phased tree, derives the city
+    column from the cell name, and applies regional reconstruction so
+    total_eui_reconstructed_kwh_m2 / reconstruction_applied are present.
+    """
+    phased = _phased_subdir()
+    if not phased:
+        return pd.read_csv(_R7_CSV)
+
+    from openubem.results.service_loads import load_coefficients, reconstruct_frame  # noqa: PLC0415
+    import geopandas as gpd  # already imported at top; re-import inside for clarity  # noqa: PLC0415
+
+    _coeffs = load_coefficients(_REGIONAL_COEFFS_PATH)
+    phased_base = _PHASED_BASE / phased
+    frames = []
+    for city in _CITIES:
+        for ring in _RINGS:
+            cell = f"{city}_{ring}"
+            gpkg = phased_base / cell / "05_results.gpkg"
+            if not gpkg.exists():
+                logger.warning("phased gpkg absent for %s: %s", cell, gpkg)
+                continue
+            gdf = gpd.read_file(str(gpkg))
+            df = pd.DataFrame(gdf.drop(columns=["geometry"], errors="ignore"))
+            df["cell"] = cell
+            if "city" not in df.columns:
+                df["city"] = city
+            df = reconstruct_frame(df, _coeffs, region_col="city")
+            frames.append(df)
+
+    if not frames:
+        raise FileNotFoundError(f"No phased cells found under {phased_base}")
+    return pd.concat(frames, ignore_index=True)
+
+
 def _cbecs_region_mean(region: str) -> float:
     """Weighted-mean site EUI (kWh/m²·yr) from CBECS-2018 region CSV."""
     p = _CBECS_DIR / f"cbecs_2018_{region}_eui.csv"
@@ -609,7 +698,7 @@ def plot_eui_vs_reference(output_path: Path | None = None) -> Path:
         output_path = COMPARE_DIR / "eui_vs_cbecs_reference.png"
     output_path = Path(output_path)
 
-    df = pd.read_csv(_R7_CSV)
+    df = _build_comparison_df()
     df = df[df["simulation_status"].isin(_SUCCESS_STATUSES)].copy()
 
     cell_order = [f"{c}_{r}" for c in _CITIES for r in _RINGS]
@@ -658,7 +747,7 @@ def plot_sim_vs_reconstructed(output_path: Path | None = None) -> Path:
         output_path = COMPARE_DIR / "eui_sim_vs_reconstructed.png"
     output_path = Path(output_path)
 
-    df = pd.read_csv(_R7_CSV)
+    df = _build_comparison_df()
     df = df[df["reconstruction_applied"] == True].copy()  # noqa: E712
 
     cell_order = [f"{c}_{r}" for c in _CITIES for r in _RINGS]
@@ -699,7 +788,7 @@ def plot_cross_cell_eui(output_path: Path | None = None) -> Path:
         output_path = COMPARE_DIR / "eui_cross_cell_summary.png"
     output_path = Path(output_path)
 
-    df = pd.read_csv(_R7_CSV)
+    df = _build_comparison_df()
     df = df[df["simulation_status"].isin(_SUCCESS_STATUSES)].copy()
 
     cell_order = [f"{c}_{r}" for c in _CITIES for r in _RINGS]

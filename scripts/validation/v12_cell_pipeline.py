@@ -206,9 +206,9 @@ def step3_generate(gdf_57: gpd.GeoDataFrame, schedule_library: object,
     if manifest_path.exists():
         print(f"  Step 3: loading cached manifest from {manifest_path}")
         return pd.read_parquet(manifest_path)
-    print(f"  Step 3: IDF generation (n_jobs=4) for {len(gdf_57)} buildings ...")
+    print(f"  Step 3: IDF generation (n_jobs=1 serial) for {len(gdf_57)} buildings ...")
     t0 = time.monotonic()
-    idf_manifest = run_step3(gdf_57, schedule_library, step3_dir, n_jobs=4)
+    idf_manifest = run_step3(gdf_57, schedule_library, step3_dir, n_jobs=1)
     elapsed = time.monotonic() - t0
     status_counts = idf_manifest["generation_status"].value_counts().to_dict()
     n_success = status_counts.get("success", 0)
@@ -917,6 +917,25 @@ def copy_final_deliverables(results_dir: Path, final_dir: Path, work_base: Path)
     return copied
 
 
+def _remote_results_complete(osm_ids: list[str], remote_fleet_dir: str) -> bool:
+    """True iff every oid already has a non-empty eplusout.sql AND a 'Completed Successfully'
+    eplusout.end in {remote_fleet_dir}/out — i.e. the cluster already simulated this fleet."""
+    if not osm_ids:
+        return False
+    oid_list = " ".join(osm_ids)
+    probe = (
+        f"cd {remote_fleet_dir}/out 2>/dev/null || exit 0; "
+        f"n=0; for o in {oid_list}; do "
+        f'if [ -s "$o/eplusout.sql" ] && grep -q "EnergyPlus Completed Successfully" "$o/eplusout.end" 2>/dev/null; '
+        f"then n=$((n+1)); fi; done; echo COMPLETE=$n"
+    )
+    out = _ssh(probe, timeout=600)
+    m = _re.search(r"COMPLETE=(\d+)", out)
+    n_complete = int(m.group(1)) if m else 0
+    print(f"  [{remote_fleet_dir.rsplit('/',1)[-1]}] remote completeness probe: {n_complete}/{len(osm_ids)} complete")
+    return n_complete == len(osm_ids)
+
+
 def run_cell(cell_name: str, output_subdir: str = "cases") -> None:
     cfg_cell = CELL_CONFIGS[cell_name]
     lat = cfg_cell["lat"]
@@ -972,16 +991,21 @@ def run_cell(cell_name: str, output_subdir: str = "cases") -> None:
 
     live_smoke_check(idf_manifest, cell_name)
 
-    print(f"\n[{cell_name}] Shipping fleet to {remote_fleet_dir} ...")
-    ship_to_cluster(idf_manifest, epw_path, remote_fleet_dir, work_base)
-
-    job_id = submit_cluster_array(n_generated, remote_fleet_dir, cell_name)
-
-    poll_cluster(job_id, cell_name, poll_interval_s=90)
-
     success_rows = idf_manifest[idf_manifest["generation_status"] == "success"]
     # Use IDF stem (underscore format) for cluster dir names
     osm_ids = [Path(str(r["idf_path"])).stem for _, r in success_rows.iterrows()]
+
+    # T17-H2: if the cluster already holds complete results for every oid, skip
+    # ship+submit+poll (resumable / avoids redundant re-simulation).
+    if _remote_results_complete(osm_ids, remote_fleet_dir):
+        print(f"[{cell_name}] REUSE: all {len(osm_ids)} results already complete on cluster — skipping ship/submit/poll.")
+        job_id = "REUSED_REMOTE"
+    else:
+        print(f"\n[{cell_name}] Shipping fleet to {remote_fleet_dir} ...")
+        ship_to_cluster(idf_manifest, epw_path, remote_fleet_dir, work_base)
+        job_id = submit_cluster_array(n_generated, remote_fleet_dir, cell_name)
+        poll_cluster(job_id, cell_name, poll_interval_s=90)
+
     print(f"\n[{cell_name}] Fetching results ...")
     fetch_results(osm_ids, remote_fleet_dir, sim_out_dir)
 

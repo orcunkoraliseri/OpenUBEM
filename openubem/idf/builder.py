@@ -363,6 +363,17 @@ class BuildingIDF:
         }
 
 
+def _worker_exception_row(row_like: dict, osm_id: str) -> dict:
+    """Manifest row recorded when a build raises (shared by serial + loky paths)."""
+    logger.error("osm_id=%s worker exception: %s", osm_id, traceback.format_exc()[-300:])
+    return {
+        "osm_id": osm_id, "idf_path": "", "archetype_id": str(row_like.get("archetype_id", "")),
+        "zoning_strategy": "", "num_zones": 0, "num_context_buildings": 0,
+        "simplification_status": "skip", "data_quality_flag": "",
+        "generation_status": "failed_worker_exception",
+    }
+
+
 def _build_one(row_dict: dict, gdf: gpd.GeoDataFrame, schedule_library: dict,
                output_dir: Path) -> dict:
     """Module-level worker: build one IDF in a loky subprocess (C10 — picklable, never raises)."""
@@ -375,14 +386,7 @@ def _build_one(row_dict: dict, gdf: gpd.GeoDataFrame, schedule_library: dict,
         row = pd.Series(row_dict)
         return BuildingIDF(row).build(gdf, schedule_library, output_dir)
     except Exception:
-        osm_id = str(row_dict.get("osm_id", "unknown"))
-        logger.error("osm_id=%s worker exception: %s", osm_id, traceback.format_exc()[-300:])
-        return {
-            "osm_id": osm_id, "idf_path": "", "archetype_id": str(row_dict.get("archetype_id", "")),
-            "zoning_strategy": "", "num_zones": 0, "num_context_buildings": 0,
-            "simplification_status": "skip", "data_quality_flag": "",
-            "generation_status": "failed_worker_exception",
-        }
+        return _worker_exception_row(row_dict, str(row_dict.get("osm_id", "unknown")))
 
 
 def run_step3(
@@ -402,7 +406,10 @@ def run_step3(
     if n_jobs == 1:
         manifest_rows = []
         for _, row in gdf.iterrows():
-            manifest_row = BuildingIDF(row).build(gdf, schedule_library, output_dir)
+            try:
+                manifest_row = BuildingIDF(row).build(gdf, schedule_library, output_dir)
+            except Exception:
+                manifest_row = _worker_exception_row(row.to_dict(), str(row.get("osm_id", "unknown")))
             manifest_rows.append(manifest_row)
     else:
         row_dicts = [row.to_dict() for _, row in gdf.iterrows()]

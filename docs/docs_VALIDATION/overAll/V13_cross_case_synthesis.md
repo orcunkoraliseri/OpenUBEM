@@ -1,5 +1,8 @@
 # V13 — R5 Cross-Case Validation Synthesis (12 cells)
 
+> ## ⚠ SUPERSEDED — R5-era synthesis (frozen 2026-06-15)
+> The per-cell EUI/GWP/gate tables below reflect the **R5 IdealLoads model** and are no longer the current numbers. The model has since advanced to the adopted **phaseD2 metered PTAC + V16 reconstruction on regional CBECS fractions** baseline (city-Overall ±9% all 3 cities; national CBECS NMBE + R² passing all 3 regions). Current authoritative report → [`REPORT_phaseD_final.md`](../../docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/REPORT_phaseD_final.md); adopted-model re-score data → `RESULT_phaseD2_regional_fractions.md`. The R5 **climate-physics signal and structural Level-2 gap findings still hold**; the absolute EUI levels and gate values do not.
+
 **Date:** 2026-06-15
 **Scope:** All 12 cells of the R5 validation matrix — {city-centre, urban, suburban, rural} × {New York City, Los Angeles, Austin}.
 **Binding contract:** `PLAN_overall-validation-R5.md` §8 progress log; rulings in `OPEN_QUESTIONS_R5.md` (V-R5-5 report-only gates, OQ-R5-8 basis correction, OQ-R5-11 plausibility band).
