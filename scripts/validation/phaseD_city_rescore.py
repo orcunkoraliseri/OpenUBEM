@@ -7,6 +7,7 @@ D4: report TWICE — total_eui_kwh_m2 (fans-excluded) AND total_eui_kwh_m2 + fan
 """
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -18,8 +19,8 @@ sys.path.insert(0, str(ROOT))
 
 from scripts.v19_rescore import CITY_ANCHORS, SEGMENT_ARCHETYPES, build_city_table, _df_to_md_table
 
-# V6: all 12 Phase-D cells in a single base dir
-_BASE_D = ROOT / "docs" / "validations" / "overAll" / "results" / "phaseD"
+# V6: all 12 Phase-D cells in a single base dir; S6: env-gate for phaseD2 re-score
+_BASE_D = ROOT / "docs" / "validations" / "overAll" / "results" / os.environ.get("OPENUBEM_PHASED_SUBDIR", "phaseD")
 
 _CELLS = [
     "austin_centre", "austin_rural", "austin_suburban", "austin_urban",

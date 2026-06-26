@@ -96,6 +96,37 @@ def _pair_interfloor_surfaces(idf: GeomIDF) -> None:
 _COREPERIM_ZONE_PREFIXES = ("Block Core_Zone Storey", "Block Perimeter_Zone_")
 _COINCIDENT_VERTEX_TOL = 0.01  # m — match EnergyPlus 1 cm coincident-vertex tolerance
 
+# Pre-intersect_match complexity gate: core/perim intersect_match is O(surface_pairs²)
+# and never returns on very complex footprints. M = simplified_vertex_count × n_floors.
+# T=800 sits in the empirical gap: max M over all currently-succeeding perimeter_core
+# buildings is 465 (fleet-wide, 12 cells), the one hang is M=1455. Above T, skip core/perim
+# and route directly to one_zone_per_floor (intersect_match then runs on a far simpler
+# whole-floor footprint). Only the perimeter_core path is gated; one_zone_per_floor never hangs.
+COREPERIM_COMPLEXITY_THRESHOLD = 800
+
+
+def _coreperim_placeholder_to_one_zone_per_floor(placeholder: dict) -> list[dict]:
+    """Convert a core/perim placeholder into one_zone_per_floor zone dicts (complexity gate)."""
+    osm_id = placeholder["name"].replace("_perimgroup", "")
+    coords = placeholder["coords_m"]
+    n = placeholder["num_floors"]
+    floor_h = placeholder["height_m"]
+    floor_polygon = placeholder["floor_polygon"]
+    archetype_id = placeholder.get("archetype_id", "")
+    return [
+        {
+            "name": f"{osm_id}_F{i}_whole",
+            "floor_polygon": floor_polygon,
+            "coords_m": coords,
+            "z_floor": i * floor_h,
+            "z_ceiling": (i + 1) * floor_h,
+            "height_m": floor_h,
+            "archetype_id": archetype_id,
+            "generation_status_note": "coreperim_complexity_gate",
+        }
+        for i in range(n)
+    ]
+
 
 def _surface_3d_area(coords: list) -> float:
     """Compute 3D polygon area via cross-product accumulation."""
@@ -577,7 +608,21 @@ def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> No
 
     # Process core/perim placeholders first (they must be renamed before next add_block).
     for z in list(zones):  # iterate a snapshot; zones mutated in place
-        if z.get("mode") == "core/perim":
+        if z.get("mode") != "core/perim":
+            continue
+        # Complexity gate: skip core/perim (its intersect_match hangs) above the threshold,
+        # routing directly to one_zone_per_floor on the same footprint.
+        M = len(z["coords_m"]) * z["num_floors"]
+        if M > COREPERIM_COMPLEXITY_THRESHOLD:
+            logger.warning(
+                "osm_id=%s core/perim complexity M=%d > %d — routing to one_zone_per_floor",
+                z["name"].replace("_perimgroup", ""), M, COREPERIM_COMPLEXITY_THRESHOLD,
+            )
+            idx = zones.index(z)
+            zones.pop(idx)
+            for new_z in reversed(_coreperim_placeholder_to_one_zone_per_floor(z)):
+                zones.insert(idx, new_z)
+        else:
             _expand_core_perim_placeholder(idf, z, zones, _exc)
 
     # Filter zones with empty coords; they are never extruded.
