@@ -85,7 +85,7 @@ def score_combo(
         lighting_scale=params["lighting_scale"],
         equipment_scale=params["equipment_scale"],
     )
-    reconstructed = reconstruct_frame(transformed, coeffs)
+    reconstructed = reconstruct_frame(transformed, coeffs, force=True)
     city_tbl = build_city_table(reconstructed)
 
     result: dict[str, Any] = dict(params)
@@ -126,7 +126,7 @@ _GRID = {
 
 _PARAM_KEYS = ["cooling_cop", "heating_factor", "lighting_scale", "equipment_scale"]
 
-_OUT_DIR = ROOT / "docs" / "docs_ACTIVE" / "phaseC_combinedResim" / "v19_validation"
+_OUT_DIR = ROOT / "docs" / "docs_DONE" / "phaseC_combinedResim" / "v19_validation"
 
 _DELTA_KEYS = [
     "nyc_office_delta", "nyc_overall_delta",
@@ -356,7 +356,7 @@ if __name__ == "__main__":
     base_df, coeffs = _load_base()
 
     # --- identity self-check (CP-1) ---
-    reconstructed = reconstruct_frame(base_df.copy(), coeffs)
+    reconstructed = reconstruct_frame(base_df.copy(), coeffs, force=True)
     city_tbl = build_city_table(reconstructed)
 
     print("=== Identity reproduction (CP-1 check) ===")

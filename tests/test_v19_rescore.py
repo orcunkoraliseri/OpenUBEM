@@ -23,7 +23,7 @@ def test_loader_finds_all_12():
 def _get_reconstructed():
     combined = load_all_cells()
     coeffs = load_coefficients()
-    return reconstruct_frame(combined, coeffs)
+    return reconstruct_frame(combined, coeffs, force=True)
 
 
 def test_city_table_has_required_columns():

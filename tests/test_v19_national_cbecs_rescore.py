@@ -369,7 +369,7 @@ class TestScoreComboNationalRecon:
         for city, region in _CITY_REGION.items():
             # City-sweep pipeline (identity)
             transformed = apply_basis_to_frame(base_df, 1.0, 1.0, 1.0, 1.0)
-            reconstructed = reconstruct_frame(transformed, coeffs)
+            reconstructed = reconstruct_frame(transformed, coeffs, force=True)
             city_recon = reconstructed[reconstructed["city"] == city].copy()
             city_recon["eui_kwh_m2"] = city_recon[_RECON_TOTAL_COL]
             city_gates = compute_validation_gates(city_recon, reference_table=region_refs[region])

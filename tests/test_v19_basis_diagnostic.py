@@ -45,7 +45,7 @@ def coeffs():
 @pytest.fixture(scope="session")
 def identity_result(base_df, coeffs):
     params = {"cooling_cop": 1.0, "heating_factor": 1.0, "lighting_scale": 1.0, "equipment_scale": 1.0}
-    reconstructed = reconstruct_frame(base_df.copy(), coeffs)
+    reconstructed = reconstruct_frame(base_df.copy(), coeffs, force=True)
     city_tbl = build_city_table(reconstructed)
     success_n = reconstructed[
         reconstructed["simulation_status"].str.startswith("success", na=False)

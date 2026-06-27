@@ -27,7 +27,7 @@ _RECON_TOTAL_COL = "total_eui_reconstructed_kwh_m2"
 # Constants
 # ---------------------------------------------------------------------------
 
-_OUT_DIR = ROOT / "docs" / "docs_ACTIVE" / "phaseC_combinedResim" / "v19_validation"
+_OUT_DIR = ROOT / "docs" / "docs_DONE" / "phaseC_combinedResim" / "v19_validation"
 _REPORTS_DIR = ROOT / "inputs" / "reports"
 
 # City → census division mapping (G6)
@@ -414,7 +414,7 @@ def score_combo_national_recon(
         lighting_scale=params["lighting_scale"],
         equipment_scale=params["equipment_scale"],
     )
-    reconstructed = reconstruct_frame(transformed, coeffs)
+    reconstructed = reconstruct_frame(transformed, coeffs, force=True)
 
     result: dict[str, Any] = dict(params)
     result["recon"] = True
