@@ -215,6 +215,8 @@ def _emit_supermarket(idf, zone_name, floor_area):
 
 def assign_refrigeration(idf, row, zones):
     """Emit refrigeration loads (D5): physical cases for SuperMarket, lumped elec for others."""
+    if not zones:  # degenerate geometry: no zone to host cases/equipment (D4a defensive guard)
+        return
     arch = str(row["archetype_id"])
     zone_name = zones[0]["name"]
     total_area = _total_floor_area(row, zones)

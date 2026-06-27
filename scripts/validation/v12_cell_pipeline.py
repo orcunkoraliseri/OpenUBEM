@@ -18,6 +18,7 @@ from __future__ import annotations
 import gzip
 import io
 import json
+import math
 import re as _re
 import shutil
 import sqlite3
@@ -445,8 +446,12 @@ def verify_and_repair(osm_ids: list[str], sim_out_dir: Path, step3_dir: Path,
         print(f"    {oid}: zero-area surfaces stripped -> {idf_repair}")
 
     if not repaired:
-        print(f"  No IDFs could be repaired. STOP — manual intervention needed.", file=sys.stderr)
-        sys.exit(2)
+        # B2: defer to run_cell's drop-tolerance gate rather than hard-exit. The still-failed
+        # buildings keep their fatal .end → build_sim_manifest marks them failed → the single
+        # max(5,1%) tolerance in run_cell either drops (≤tol) or stops (>tol).
+        print(f"  No IDFs could be zero-area-repaired; deferring {len(failed_ids)} "
+              f"building(s) to B2 drop tolerance.", file=sys.stderr)
+        return []
 
     repair_fleet_dir = remote_fleet_dir + "_repair"
     _ssh(f"mkdir -p {repair_fleet_dir}/idfs {repair_fleet_dir}/weather {repair_fleet_dir}/out")
@@ -555,18 +560,20 @@ def verify_and_repair(osm_ids: list[str], sim_out_dir: Path, step3_dir: Path,
                 if not (sim_out_dir / oid / "eplusout.end").exists()
                 or "EnergyPlus Completed Successfully" not in (sim_out_dir / oid / "eplusout.end").read_text(errors="replace")
             ]
+            # B2: any building still unrepairable after reroute keeps its fatal .end and is
+            # deferred to run_cell's drop-tolerance gate (the single fail-tolerance authority).
             if still_failed:
-                print(f"  {len(still_failed)} buildings still failed after reroute: {still_failed}", file=sys.stderr)
-                sys.exit(2)
-            repaired.extend(reroute_ids)
+                print(f"  {len(still_failed)} building(s) still failed after reroute "
+                      f"(deferred to B2 drop tolerance): {still_failed}", file=sys.stderr)
+            repaired.extend([oid for oid in reroute_ids if oid not in still_failed])
         elif still_failed:
-            print(f"  No reroute candidates found. STOP — manual intervention needed.", file=sys.stderr)
-            sys.exit(2)
+            print(f"  No reroute candidates for {len(still_failed)} building(s) "
+                  f"(deferred to B2 drop tolerance): {still_failed}", file=sys.stderr)
     elif still_failed:
-        print(f"  {len(still_failed)} buildings still failed after repair: {still_failed}", file=sys.stderr)
-        sys.exit(2)
+        print(f"  {len(still_failed)} building(s) still failed after repair "
+              f"(deferred to B2 drop tolerance): {still_failed}", file=sys.stderr)
 
-    print(f"  Repair successful: {len(repaired)} buildings now complete.")
+    print(f"  Repair pass complete: {len(repaired)} building(s) recovered.")
     return repaired
 
 
@@ -1025,9 +1032,18 @@ def run_cell(cell_name: str, output_subdir: str = "cases") -> None:
     if n_sim_fail > 0:
         failed_rows = sim_mf[sim_mf["status"] != "success"]
         for _, row in failed_rows.iterrows():
-            print(f"  osm_id={row['osm_id']}, error={row['error_summary'][:200]}")
-        print(f"[{cell_name}] ZERO-FAIL: still {n_sim_fail} unresolved. STOP.", file=sys.stderr)
-        sys.exit(2)
+            print(f"  osm_id={row['osm_id']}, error={row.get('error_summary', '')[:200]}")
+        # R-B2: tolerate up to max(5, 1%) failures — log them, do not halt (B2)
+        max_tolerated = max(5, math.ceil(0.01 * n_sim_total))
+        if n_sim_fail <= max_tolerated:
+            results_dir.mkdir(parents=True, exist_ok=True)  # Step 5 makes this later; B2 writes first
+            drop_path = results_dir / "dropped_buildings.csv"
+            failed_rows.to_csv(drop_path, index=False)
+            print(f"[{cell_name}] DROPPED {n_sim_fail} buildings (≤ tolerance {max_tolerated}) → {drop_path}")
+            sim_mf = sim_mf[sim_mf["status"] == "success"].copy()
+        else:
+            print(f"[{cell_name}] ZERO-FAIL: {n_sim_fail} failures exceed tolerance {max_tolerated}. STOP.", file=sys.stderr)
+            sys.exit(2)
 
     print(f"\n[{cell_name}] Running Step 5 ...")
     results_gdf, cbecs_gates = step5_results(

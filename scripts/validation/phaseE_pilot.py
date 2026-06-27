@@ -153,7 +153,9 @@ def s0_wiring_proof() -> dict:
     # --- LargeOffice: must have central VAV + DHW ---
     arch_lo = "LargeOffice"
     print(f"\n[S0] Building {arch_lo} fixture ...")
-    lo_path = _build_s0_idf(arch_lo, "commercial_base.idf", 1, 400.0, s0_dir)
+    # 2 storeys → ≥2 zones so the Option-C single-zone guard does not downgrade the
+    # central-VAV proof fixture to PSZ (a real LargeOffice is always multi-zone).
+    lo_path = _build_s0_idf(arch_lo, "commercial_base.idf", 2, 400.0, s0_dir)
     lo_hits = _grep_idf(lo_path, [
         "HVACTemplate:Zone:VAV",
         "HVACTemplate:System:VAV",
@@ -284,11 +286,52 @@ def s4_rescore() -> dict:
     for col, val in eui_medians.items():
         print(f"    {col:35s}: {val:7.2f} kWh/m²/yr")
 
-    # ── fans+pumps band check
-    fans_pumps = eui_medians.get("fans_eui_kwh_m2", 0.0) + eui_medians.get("pumps_eui_kwh_m2", 0.0)
-    band_ok = _FANS_PUMPS_LO <= fans_pumps <= _FANS_PUMPS_HI
-    print(f"\n  Fans+pumps EUI (median): {fans_pumps:.2f} kWh/m²/yr  "
-          f"[{_FANS_PUMPS_LO}–{_FANS_PUMPS_HI} band: {'PASS' if band_ok else 'OUTSIDE'}]")
+    # ── fans+pumps gate: per-archetype physics check (RD6 — replaces whole-cell median band)
+    from openubem.idf.hvac import _load_sys_table as _hvac_sys_table
+    sys_table = _hvac_sys_table()
+
+    arch_fp_rows: list[dict] = []
+    gate_a_fails: list[str] = []  # central-plant arch with pumps == 0
+    gate_b_fails: list[str] = []  # packaged arch with pumps >= 1
+    lo_fans_pumps: float | None = None
+
+    for arch, grp in known_e.groupby("archetype_id"):
+        entry = sys_table.get(arch, {})
+        is_central = bool(entry.get("central_plant", False))
+        # PVAV+HW archetypes have central_plant=false but DO have an HW boiler plant → pumps>0 expected
+        has_hw_plant = "hot water" in entry.get("system_family", "").lower()
+        fans_m  = float(grp["fans_eui_kwh_m2"].median()) if "fans_eui_kwh_m2" in grp.columns else float("nan")
+        pumps_m = float(grp["pumps_eui_kwh_m2"].median()) if "pumps_eui_kwh_m2" in grp.columns else float("nan")
+        fp_m = (fans_m if fans_m == fans_m else 0.0) + (pumps_m if pumps_m == pumps_m else 0.0)
+        arch_fp_rows.append({"archetype": arch, "central": is_central,
+                              "fans_med": fans_m, "pumps_med": pumps_m, "fp_med": fp_m, "n": len(grp)})
+        if arch == "LargeOffice":
+            lo_fans_pumps = fp_m
+        # gate (a): central CHW/HW plant archetypes must have pumps > 0
+        if is_central and (pumps_m != pumps_m or pumps_m <= 0):
+            gate_a_fails.append(arch)
+        # gate (b): ONLY pure-packaged (no water loop) must have pumps < 1; PVAV+HW is exempt
+        if not is_central and not has_hw_plant and (pumps_m == pumps_m and pumps_m >= 1.0):
+            gate_b_fails.append(arch)
+
+    gate_a_ok = len(gate_a_fails) == 0
+    gate_b_ok = len(gate_b_fails) == 0
+    # D3 (coordinator ruling): composite = gates (a) AND (b) ONLY. Gate (c) (LargeOffice
+    # fans+pumps band) is computed + printed for visibility but NO LONGER gates pass/fail —
+    # the [12,16] band was a stale LargeOffice prior; re-anchor from the re-pilot distribution.
+    gate_c_ok = (_FANS_PUMPS_LO <= lo_fans_pumps <= _FANS_PUMPS_HI) if lo_fans_pumps is not None else True
+    band_ok = gate_a_ok and gate_b_ok
+
+    print("\n  Fans+pumps per-archetype (RD6 gate):")
+    print(f"    {'Archetype':<28} {'Plant':>7} {'fans':>6} {'pumps':>6} {'f+p':>6}  n")
+    for r in sorted(arch_fp_rows, key=lambda x: x["archetype"]):
+        p_tag = "CENTRAL" if r["central"] else "packaged"
+        print(f"    {r['archetype']:<28} {p_tag:>7} {r['fans_med']:>6.1f} {r['pumps_med']:>6.1f} {r['fp_med']:>6.1f}  {r['n']}")
+    lo_str = f"{lo_fans_pumps:.2f} kWh/m²" if lo_fans_pumps is not None else "n/a"
+    print(f"\n  Gate (a) central-plant archetypes pumps>0: {'PASS' if gate_a_ok else 'FAIL ' + str(gate_a_fails)}")
+    print(f"  Gate (b) packaged archetypes pumps<1:    {'PASS' if gate_b_ok else 'FAIL ' + str(gate_b_fails)}")
+    print(f"  Gate (c) LargeOffice fans+pumps in [{_FANS_PUMPS_LO}-{_FANS_PUMPS_HI}] (REPORT-ONLY, not gating): {lo_str}  {'in-band' if gate_c_ok else 'out-of-band'}")
+    print(f"  G2 composite (gates a AND b): {'PASS' if band_ok else 'FAIL'}")
 
     # ── cell-Overall vs EBEWE anchor
     e_overall_median = eui_medians.get("total_eui_kwh_m2", float("nan"))
@@ -355,8 +398,8 @@ def s4_rescore() -> dict:
         "n_success": n_success,
         "sim_pct": sim_pct,
         "eui_medians": eui_medians,
-        "fans_pumps_eui": fans_pumps,
         "fans_pumps_band_ok": band_ok,
+        "arch_fans_pumps_rows": arch_fp_rows,
         "e_overall_median": e_overall_median,
         "delta_ebewe_pct": delta_ebewe,
         "d2_total_median": d2_total_median,
@@ -404,7 +447,12 @@ def s5_write_report(proof: dict, run_result: dict | None, rescore: dict) -> None
 
     bands_label = f"{_FANS_PUMPS_LO}–{_FANS_PUMPS_HI} kWh/m²"
     fp_ok = rescore["fans_pumps_band_ok"]
-    fp_val = rescore["fans_pumps_eui"]
+    arch_fp_rows = rescore.get("arch_fans_pumps_rows", [])
+    arch_fp_md = "\n".join(
+        f"| {r['archetype']} | {'CENTRAL' if r['central'] else 'packaged'} "
+        f"| {r['fans_med']:.1f} | {r['pumps_med']:.1f} | {r['fp_med']:.1f} | {r['n']} |"
+        for r in sorted(arch_fp_rows, key=lambda x: x["archetype"])
+    ) or "| (no data) | — | — | — | — | — |"
 
     sm_rows_md = ""
     if sm_refrig:
@@ -491,9 +539,16 @@ Central-plant commercial archetypes confirmed present (LargeOffice, TallBuilding
 | **Refrigeration (elec)** | **{_g(eui_m.get('refrigeration_eui_kwh_m2', float('nan')), 2)}** |
 | **Total (all 9 end-uses, D9)** | **{_g(eui_m.get('total_eui_kwh_m2', float('nan')), 2)}** |
 
-### 4.1 Fans + pumps band check (RESULT_02 Part C: 12–16 kWh/m²)
+### 4.1 Fans + pumps gate (RD6 per-archetype physics check)
 
-Fans + pumps median EUI: **{fp_val:.2f} kWh/m²/yr** vs acceptance band {bands_label} → **{"PASS" if fp_ok else "OUTSIDE BAND — flag for manager"}**
+| Archetype | Plant type | fans kWh/m² | pumps kWh/m² | f+p kWh/m² | n |
+|---|---|---|---|---|---|
+{arch_fp_md}
+
+**G2 composite = gates (a) AND (b)** → **{"PASS" if fp_ok else "FAIL — flag for manager"}**
+- Gate (a) central-plant archetypes pumps > 0
+- Gate (b) packaged archetypes (PVAV+HW exempt) pumps < 1
+- Gate (c) LargeOffice f+p ∈ {bands_label} — REPORT-ONLY (D3: no longer gates; re-anchor band from this distribution)
 
 ---
 

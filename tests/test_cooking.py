@@ -230,5 +230,53 @@ class TestCookingEmitter:
         assign_cooking(idf, row, [z])
         vents = idf.idfobjects["ZONEVENTILATION:DESIGNFLOWRATE"]
         assert len(vents) == 1
-        # RESULT_04 Table 3: QSR exhaust_m3_s=1.557
+        # RESULT_04 Table 3: QSR exhaust_m3_s=1.557; 400 m² ≥ QSR prototype 232 → capped at full
         assert abs(float(vents[0].Design_Flow_Rate) - 1.557) < 0.01
+
+    # --- CP-R1 cooking-exhaust fix: area-scaling + operating schedule ---
+
+    def test_exhaust_scaled_down_on_small_building(self):
+        """Tiny PrimarySchool (56.6 m² « 6871 m² prototype) → exhaust scaled far below full.
+
+        This is the CP-R1 root-cause fix: an unscaled 2.124 m³/s drove a ~36 kW make-up
+        conditioning runaway on these single-zone schools.
+        """
+        idf = _fresh_idf()
+        z = _simple_zone(idf)
+        row = pd.Series({"archetype_id": "PrimarySchool", "footprint_area_m2": 56.6})
+        assign_cooking(idf, row, [z])
+        flow = float(idf.idfobjects["ZONEVENTILATION:DESIGNFLOWRATE"][0].Design_Flow_Rate)
+        # 2.124 × 56.6/6871 ≈ 0.0175 m³/s — negligible, not the full 2.124
+        assert flow < 0.05, f"expected scaled-down exhaust, got {flow}"
+
+    def test_exhaust_capped_at_prototype_on_large_building(self):
+        """FSR larger than its prototype is capped at the prototype exhaust (fan-out safety)."""
+        idf = _fresh_idf()
+        z = _simple_zone(idf)
+        row = pd.Series({"archetype_id": "FullServiceRestaurant", "footprint_area_m2": 4000.0})
+        assign_cooking(idf, row, [z])
+        flow = float(idf.idfobjects["ZONEVENTILATION:DESIGNFLOWRATE"][0].Design_Flow_Rate)
+        assert abs(flow - 2.549) < 0.01, f"expected cap at prototype 2.549, got {flow}"
+
+    def test_exhaust_scales_linearly_below_prototype(self):
+        """Below prototype size, exhaust scales linearly with floor area."""
+        idf = _fresh_idf()
+        z = _simple_zone(idf)
+        row = pd.Series({"archetype_id": "FullServiceRestaurant", "footprint_area_m2": 100.0})
+        assign_cooking(idf, row, [z])
+        flow = float(idf.idfobjects["ZONEVENTILATION:DESIGNFLOWRATE"][0].Design_Flow_Rate)
+        # 2.549 × 100/511 ≈ 0.499 m³/s
+        assert abs(flow - 2.549 * 100.0 / 511.0) < 0.01, f"expected linear scaling, got {flow}"
+
+    def test_exhaust_schedule_is_operating_window_not_constant(self):
+        """Exhaust runs on a SCHEDULE:COMPACT operating window, not a 24/7 SCHEDULE:CONSTANT."""
+        idf = _fresh_idf()
+        z = _simple_zone(idf)
+        row = pd.Series({"archetype_id": "FullServiceRestaurant", "footprint_area_m2": 400.0})
+        assign_cooking(idf, row, [z])
+        compact = [s for s in idf.idfobjects["SCHEDULE:COMPACT"]
+                   if s.Name == "OpenUBEM_Cook_ExhaustSched"]
+        constant = [s for s in idf.idfobjects.get("SCHEDULE:CONSTANT", [])
+                    if s.Name == "OpenUBEM_Cook_ExhaustSched"]
+        assert len(compact) == 1, "exhaust must use a SCHEDULE:COMPACT operating window"
+        assert not constant, "exhaust must no longer use a constant 24/7 schedule"

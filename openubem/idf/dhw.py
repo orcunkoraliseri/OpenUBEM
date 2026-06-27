@@ -33,6 +33,8 @@ def _sched_constant_once(idf, name, value):
 
 def assign_dhw(idf, row, zones):
     """Emit standalone WaterHeater:Mixed + WaterUse:Equipment/Connections (D7)."""
+    if not zones:  # degenerate geometry: no zone to host the heater (D4a defensive guard)
+        return
     arch = str(row["archetype_id"])
     data = _DHW_DATA.get(arch, {})
     if data.get("no_dhw") or not data.get("peak_flow_l_h_m2"):

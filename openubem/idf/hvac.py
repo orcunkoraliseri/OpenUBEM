@@ -5,15 +5,33 @@ appropriate HVACTemplate objects per RESULT_01 Part C + RESULT_02 Tables A/C/D/E
 Phase-D PTAC kept for SmallHotel; all other archetypes get real systems (T06-T08).
 """
 import json
+import logging
 from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
 from geomeppy import IDF as GeomIDF
 
+logger = logging.getLogger(__name__)
+
 _DATA = Path(__file__).resolve().parent.parent / "data" / "loads"
 _COP_JSON = _DATA / "hvac_cop_by_archetype.json"
 _SYS_JSON = _DATA / "hvac_systems_by_archetype.json"
+
+# Option-C single-zone guard (user ruling 2026-06-27): central / multi-zone-VAV / PVAV-reheat
+# families that must be downgraded to a packaged single-zone RTU when a building resolves to
+# exactly one thermal zone. (Data Center CRAC/CRAH is only central when central_plant=True.)
+_CENTRAL_OR_VAV_FAMILIES = frozenset({
+    "Packaged VAV w/ Electric Reheat",
+    "Packaged VAV w/ Hot Water Reheat",
+    "Built-up VAV w/ Chilled Water & Hot Water Reheat",
+    "Four-Pipe Fan Coil Units",
+    "Water-Loop Heat Pump",
+    "Data Center CRAC / CRAH",
+})
+# Residential apartments are exempt — a dwelling unit must never be downgraded to a gas-furnace
+# RTU; they keep their packaged/loop systems (MidriseApartment=PSZ-AC, HighriseApartment=WLHP).
+_RESIDENTIAL_ARCHETYPES = frozenset({"MidriseApartment", "HighriseApartment"})
 
 
 @lru_cache(maxsize=1)
@@ -244,6 +262,11 @@ def _emit_pvav(
     if reheat_type == "Gas":
         sys_obj.Gas_Heating_Coil_Efficiency = htg_eff
     sys_obj.Economizer_Type = "DifferentialDryBulb"
+    # SAT reset (RD2): raises supply-air temp at low cooling load → collapses HW-reheat penalty
+    try:
+        sys_obj.Cooling_Coil_Setpoint_Reset_Type = "Warmest"
+    except Exception:
+        pass
 
     for z in zones:
         zname = z["name"]
@@ -288,6 +311,11 @@ def _emit_buildup_vav(
     sys_obj.Cooling_Coil_Design_Setpoint = 12.8
     sys_obj.Heating_Coil_Type = "HotWater"
     sys_obj.Economizer_Type = "DifferentialDryBulb"
+    # SAT reset (RD2): DOE-prototype-standard; reduces reheat for already-passing archetypes
+    try:
+        sys_obj.Cooling_Coil_Setpoint_Reset_Type = "Warmest"
+    except Exception:
+        pass
 
     for z in zones:
         zname = z["name"]
@@ -444,6 +472,11 @@ def _emit_crah_proxy(
     sys_obj.Cooling_Coil_Design_Setpoint = 12.8
     sys_obj.Heating_Coil_Type = "None"
     sys_obj.Economizer_Type = "DifferentialDryBulb"
+    # SAT reset (RD2): consistency with other VAV families; CRAH is cooling-only so effect is minimal
+    try:
+        sys_obj.Cooling_Coil_Setpoint_Reset_Type = "Warmest"
+    except Exception:
+        pass
 
     for z in zones:
         zname = z["name"]
@@ -521,6 +554,39 @@ def assign_hvac(idf: GeomIDF, row: pd.Series, zones: list[dict]) -> None:
         return
 
     bld = zones[0]["name"].rsplit("_F", 1)[0]
+
+    # ── Option-C single-zone guard (user ruling 2026-06-27) ──────────────────────
+    # A building that resolves to exactly ONE thermal zone must not carry a central /
+    # multi-zone-VAV / PVAV-reheat system (those model multi-zone load diversity, and on
+    # degenerate single-zone geometry they drive a reheat runaway). Downgrade to a packaged
+    # single-zone RTU — physically correct for a 1-zone building regardless of size
+    # (Phase-D ran these exact schools fine on blanket packaged single-zone units).
+    # Residential apartments and already-packaged single-zone systems are left untouched.
+    if (
+        len(zones) == 1
+        and archetype_id not in _RESIDENTIAL_ARCHETYPES
+        and family in _CENTRAL_OR_VAV_FAMILIES
+        and not (family == "Data Center CRAC / CRAH" and not central)
+    ):
+        orig_family = family
+        if family == "Data Center CRAC / CRAH":
+            # closest single-zone packaged path for a cooling-only DC: CRAC proxy (PSZ-DX);
+            # never a gas furnace on a data center
+            central = False  # routes to _emit_crac_proxy below
+            new_family = "Data Center CRAC (single-zone PSZ-DX)"
+        else:
+            family = "PSZ-AC w/ Gas Furnace"  # → _emit_psz_ac
+            # PSZ uses its own RESULT_02 fan static (622.5 Pa default), not the VAV 1389 Pa:
+            # drop the VAV fan fields so _emit_psz_ac falls back to PSZ defaults.
+            sys_entry = {k: v for k, v in sys_entry.items()
+                         if k not in ("fan_static_pa", "fan_total_efficiency")}
+            new_family = family
+        logger.warning(
+            "single-zone HVAC downgrade: bld=%s archetype=%s %r -> %r",
+            bld, archetype_id, orig_family, new_family,
+        )
+        print(f"[hvac] single-zone downgrade: {bld} archetype={archetype_id} "
+              f"{orig_family!r} -> {new_family!r}")
 
     if family == "PTAC w/ Electric Reheat":
         _emit_ptac(idf, zones, cop_entry)

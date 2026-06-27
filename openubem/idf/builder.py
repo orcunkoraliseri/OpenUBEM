@@ -328,6 +328,20 @@ class BuildingIDF:
         # Only pass zones that were actually extruded into the IDF (B4: use extruded flag)
         extruded_zones = [z for z in zones if z.get("extruded")]
 
+        # D4(a): no extrudable zones → degenerate geometry. Skip loads/HVAC/service emitters
+        # (which require zones[0]) and drop the building gracefully rather than crashing.
+        if not extruded_zones:
+            logger.warning(
+                "osm_id=%s no extruded zones — dropping as degenerate geometry", osm_id
+            )
+            return {
+                "osm_id": osm_id, "idf_path": "", "archetype_id": arch,
+                "zoning_strategy": strategy, "num_zones": 0,
+                "num_context_buildings": len(context),
+                "simplification_status": simp_status, "data_quality_flag": dq_flag,
+                "generation_status": "failed_no_extruded_zones",
+            }
+
         # 3F: constructions (needs extruded surfaces for set_wwr)
         self.assign_constructions()
         self.assign_infiltration(extruded_zones)
