@@ -128,8 +128,10 @@ class TestComputeEuiMetered:
         assert abs(eui["heating_eui_kwh_m2"] - 20.0) < 1e-6   # 4000/200
         assert abs(eui["fans_eui_kwh_m2"] - 5.0) < 1e-6       # 1000/200
 
-    def test_fans_not_in_total(self):
-        """fans_eui_kwh_m2 must NOT be included in total_eui_kwh_m2 (CP-4 decision pending)."""
+    def test_fans_in_total_phaseE(self):
+        """Phase-E D9: total_eui INCLUDES fans (+pumps/dhw/cooking/refrig) exactly once.
+        Supersedes the Phase-D 'fans-excluded' expectation — CP-4 resolved to the D9
+        whole-building site-energy total (parser.py:256, _compute_eui sums all 9 end-uses)."""
         row = _make_row(footprint=100.0, num_floors=2)
         df = _make_hourly_df()
         meters = {
@@ -139,15 +141,25 @@ class TestComputeEuiMetered:
             "Fans:Electricity": 1000.0,
         }
         eui, _, _ = _compute_eui(df, row, "", meters=meters)
-        # total = cooling + heating + lighting + equipment (no fans)
+        # Phase-E total = all 9 end-uses; only nonzero terms here are
+        # cooling+heating+lighting+equipment+fans (pumps/dhw/cooking/refrig meters absent → 0).
         expected_total = (
             eui["cooling_eui_kwh_m2"]
             + eui["heating_eui_kwh_m2"]
             + eui["lighting_eui_kwh_m2"]
             + eui["equipment_eui_kwh_m2"]
+            + eui["fans_eui_kwh_m2"]
         )
         assert abs(eui["total_eui_kwh_m2"] - expected_total) < 1e-9
-        assert abs(eui["fans_eui_kwh_m2"] - 5.0) < 1e-6  # fans separate
+        # fans counted exactly ONCE (P1 guard): total minus the four non-fans terms == fans
+        non_fans = (
+            eui["cooling_eui_kwh_m2"]
+            + eui["heating_eui_kwh_m2"]
+            + eui["lighting_eui_kwh_m2"]
+            + eui["equipment_eui_kwh_m2"]
+        )
+        assert abs((eui["total_eui_kwh_m2"] - non_fans) - eui["fans_eui_kwh_m2"]) < 1e-9
+        assert abs(eui["fans_eui_kwh_m2"] - 5.0) < 1e-6
 
     def test_missing_meter_is_zero_not_nan(self):
         """Absent meter (e.g. no gas) → 0.0 in EUI, not NaN, not failed_parse."""

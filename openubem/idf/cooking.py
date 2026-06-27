@@ -33,8 +33,26 @@ def _sched_constant_once(idf, name, value):
         s.Hourly_Value = value
 
 
+def _sched_cook_exhaust_once(idf, name):
+    """Kitchen exhaust operating window: 5am-1am (RESULT_04 Table 3), not 24/7."""
+    if any(s.Name == name for s in idf.idfobjects.get("SCHEDULE:COMPACT", [])):
+        return
+    s = idf.newidfobject("SCHEDULE:COMPACT")
+    s.Name = name
+    s.Field_1 = "Through: 12/31"
+    s.Field_2 = "For: AllDays"
+    s.Field_3 = "Until: 01:00"
+    s.Field_4 = "1.0"
+    s.Field_5 = "Until: 05:00"
+    s.Field_6 = "0.0"
+    s.Field_7 = "Until: 24:00"
+    s.Field_8 = "1.0"
+
+
 def assign_cooking(idf, row, zones):
     """Emit cooking process loads + kitchen exhaust ventilation (D6)."""
+    if not zones:  # degenerate geometry: no zone to host equipment (D4a defensive guard)
+        return
     arch = str(row["archetype_id"])
     data = _COOK_DATA.get(arch, {})
     if data.get("no_cooking"):
@@ -89,14 +107,21 @@ def assign_cooking(idf, row, zones):
         elec_eq.Fraction_Lost = hgf["lost"]
         elec_eq.EndUse_Subcategory = "Cooking"
 
-    # Kitchen exhaust ventilation (where specified; D6 "zone exhaust/OA")
+    # Kitchen exhaust ventilation (RESULT_04 Table 3). The tabulated exhaust_m3_s is the
+    # whole-prototype-kitchen design flow; scale it by the building's floor area vs the
+    # archetype prototype so a small building gets a proportional (not full) hood exhaust,
+    # capped at the prototype value. Unscaled flow on a tiny single-zone building drove a
+    # ~36 kW make-up-air conditioning runaway (CP-R1 root cause). Run on the prototype
+    # 5am-1am operating window, not 24/7. Make-up air stays fully conditioned (prototype).
     exhaust_m3_s = data.get("exhaust_m3_s")
     if exhaust_m3_s:
-        _sched_constant_once(idf, "OpenUBEM_Cook_ExhaustSched", 1.0)
+        proto_area = data.get("prototype_floor_area_m2")
+        scale = min(1.0, total_area / proto_area) if proto_area else 1.0
+        _sched_cook_exhaust_once(idf, "OpenUBEM_Cook_ExhaustSched")
         vent = idf.newidfobject("ZONEVENTILATION:DESIGNFLOWRATE")
         vent.Name = f"KitchenExhaust_{arch}"
         vent.Zone_or_ZoneList_or_Space_or_SpaceList_Name = zone_name
         vent.Schedule_Name = "OpenUBEM_Cook_ExhaustSched"
         vent.Design_Flow_Rate_Calculation_Method = "Flow/Zone"
-        vent.Design_Flow_Rate = float(exhaust_m3_s)
+        vent.Design_Flow_Rate = round(float(exhaust_m3_s) * scale, 4)
         vent.Ventilation_Type = "Exhaust"

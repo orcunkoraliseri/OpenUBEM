@@ -281,7 +281,8 @@ class TestPhaseEDispatcher:
     def test_pvav_hw_no_chw_plant(self):
         """Packaged VAV w/ HW Reheat must NOT add a CHW plant (DX cooling)."""
         idf = _fresh_idf()
-        assign_hvac(idf, _make_row("SecondarySchool"), _make_zones(1))
+        # 2 zones so the Option-C single-zone guard does not downgrade to PSZ-AC
+        assign_hvac(idf, _make_row("SecondarySchool"), _make_zones(2))
         assert len(idf.idfobjects["HVACTEMPLATE:PLANT:CHILLEDWATERLOOP"]) == 0
         assert len(idf.idfobjects["HVACTEMPLATE:PLANT:CHILLER"]) == 0
 
@@ -301,7 +302,8 @@ class TestPhaseEDispatcher:
     def test_buildup_vav_chiller_cop_phaseE(self):
         """LargeOffice chiller COP must equal chiller_cop_phaseE (D2, no plant_factor)."""
         idf = _fresh_idf()
-        assign_hvac(idf, _make_row("LargeOffice"), _make_zones(1, "lo"))
+        # ≥2 zones: the Option-C single-zone guard downgrades 1-zone buildings to PSZ (no plant)
+        assign_hvac(idf, _make_row("LargeOffice"), _make_zones(2, "lo"))
         chiller = idf.idfobjects["HVACTEMPLATE:PLANT:CHILLER"][0]
         expected = json.loads(COP_JSON.read_text())["LargeOffice"]["chiller_cop_phaseE"]
         assert abs(float(chiller.Nominal_COP) - expected) < 1e-9
@@ -316,14 +318,16 @@ class TestPhaseEDispatcher:
     def test_hw_setpoint_60c(self):
         """HW loop setpoint = 60 °C per RESULT_02 Table C (140 °F)."""
         idf = _fresh_idf()
-        assign_hvac(idf, _make_row("LargeOffice"), _make_zones(1, "lo"))
+        # ≥2 zones: the Option-C single-zone guard downgrades 1-zone buildings to PSZ (no plant)
+        assign_hvac(idf, _make_row("LargeOffice"), _make_zones(2, "lo"))
         hw_loop = idf.idfobjects["HVACTEMPLATE:PLANT:HOTWATERLOOP"][0]
         assert abs(float(hw_loop.Hot_Water_Design_Setpoint) - 60.0) < 1e-9
 
     def test_chw_setpoint_6_67c(self):
         """CHW loop setpoint = 6.67 °C per RESULT_02 Table C (44 °F)."""
         idf = _fresh_idf()
-        assign_hvac(idf, _make_row("LargeOffice"), _make_zones(1, "lo"))
+        # ≥2 zones: the Option-C single-zone guard downgrades 1-zone buildings to PSZ (no plant)
+        assign_hvac(idf, _make_row("LargeOffice"), _make_zones(2, "lo"))
         chw_loop = idf.idfobjects["HVACTEMPLATE:PLANT:CHILLEDWATERLOOP"][0]
         assert abs(float(chw_loop.Chilled_Water_Design_Setpoint) - 6.67) < 1e-9
 
@@ -343,7 +347,8 @@ class TestPhaseEDispatcher:
     def test_fcu_chiller_cop_phaseE(self):
         """LargeHotel chiller COP = chiller_cop_phaseE (D2)."""
         idf = _fresh_idf()
-        assign_hvac(idf, _make_row("LargeHotel"), _make_zones(1, "lh"))
+        # ≥2 zones: the Option-C single-zone guard downgrades 1-zone buildings to PSZ (no plant)
+        assign_hvac(idf, _make_row("LargeHotel"), _make_zones(2, "lh"))
         chiller = idf.idfobjects["HVACTEMPLATE:PLANT:CHILLER"][0]
         expected = json.loads(COP_JSON.read_text())["LargeHotel"]["chiller_cop_phaseE"]
         assert abs(float(chiller.Nominal_COP) - expected) < 1e-9
@@ -455,3 +460,103 @@ class TestPhaseEDispatcher:
         assign_hvac(idf, _make_row("LargeOffice"), zones)
         vav_sys = idf.idfobjects["HVACTEMPLATE:SYSTEM:VAV"][0]
         assert "123456789" in vav_sys.Name
+
+
+class TestSATReset:
+    """R-B1.2: SAT reset (Warmest) is set on all VAV/PVAV/CRAH systems (RD2)."""
+
+    def test_pvav_hw_sat_reset_warmest(self):
+        """PrimarySchool (PVAV+HW) system carries Cooling_Coil_Setpoint_Reset_Type=Warmest."""
+        idf = _fresh_idf()
+        assign_hvac(idf, _make_row("PrimarySchool"), _make_zones(2, "ps"))
+        pvav = idf.idfobjects["HVACTEMPLATE:SYSTEM:PACKAGEDVAV"][0]
+        assert pvav.Cooling_Coil_Setpoint_Reset_Type == "Warmest", (
+            f"Expected Warmest SAT reset on PVAV, got {pvav.Cooling_Coil_Setpoint_Reset_Type!r}"
+        )
+
+    def test_buildup_vav_sat_reset_warmest(self):
+        """LargeOffice (built-up VAV) system carries Cooling_Coil_Setpoint_Reset_Type=Warmest."""
+        idf = _fresh_idf()
+        assign_hvac(idf, _make_row("LargeOffice"), _make_zones(2, "lo"))
+        vav = idf.idfobjects["HVACTEMPLATE:SYSTEM:VAV"][0]
+        assert vav.Cooling_Coil_Setpoint_Reset_Type == "Warmest", (
+            f"Expected Warmest SAT reset on built-up VAV, got {vav.Cooling_Coil_Setpoint_Reset_Type!r}"
+        )
+
+    def test_pvav_electric_sat_reset_warmest(self):
+        """MediumOffice (PVAV+Electric Reheat) system carries SAT reset (reduces elec reheat too)."""
+        idf = _fresh_idf()
+        assign_hvac(idf, _make_row("MediumOffice"), _make_zones(2, "mo"))
+        pvav = idf.idfobjects["HVACTEMPLATE:SYSTEM:PACKAGEDVAV"][0]
+        assert pvav.Cooling_Coil_Setpoint_Reset_Type == "Warmest"
+
+    def test_crah_vav_sat_reset_warmest(self):
+        """LargeDataCenter (CRAH-proxy VAV) system carries SAT reset (consistency, RD2)."""
+        idf = _fresh_idf()
+        assign_hvac(idf, _make_row("LargeDataCenterHighITE"), _make_zones(2, "ldc"))
+        vav = idf.idfobjects["HVACTEMPLATE:SYSTEM:VAV"][0]
+        assert vav.Cooling_Coil_Setpoint_Reset_Type == "Warmest"
+
+    def test_ptac_no_sat_reset_field(self):
+        """SmallHotel (PTAC) has no VAV system — reset field not applicable; no crash."""
+        idf = _fresh_idf()
+        assign_hvac(idf, _make_row("SmallHotel"), _make_zones(1))
+        # No PVAV or VAV system objects — PTAC only
+        assert len(idf.idfobjects["HVACTEMPLATE:SYSTEM:PACKAGEDVAV"]) == 0
+        assert len(idf.idfobjects["HVACTEMPLATE:SYSTEM:VAV"]) == 0
+
+    def test_turndown_0_30_unchanged(self):
+        """PrimarySchool cooling minimum turndown stays 0.30 — locked RESULT_02 param (RD3)."""
+        idf = _fresh_idf()
+        assign_hvac(idf, _make_row("PrimarySchool"), _make_zones(2, "ps"))
+        for z in idf.idfobjects["HVACTEMPLATE:ZONE:VAV"]:
+            assert abs(float(z.Constant_Minimum_Air_Flow_Fraction) - 0.30) < 1e-9
+
+
+class TestSingleZoneGuard:
+    """Option C (user ruling 2026-06-27): a building that resolves to ONE thermal zone
+    must not carry a central / multi-zone-VAV / PVAV-reheat system — downgrade to a
+    packaged single-zone RTU (PSZ-AC). Multi-zone buildings and residential dwelling
+    units are untouched. Fixes the single-zone PrimarySchool reheat runaway."""
+
+    def test_single_zone_school_downgraded_to_psz(self):
+        """1-zone PrimarySchool (PVAV+HW) → PSZ-AC unitary, no PVAV, no HW boiler plant."""
+        idf = _fresh_idf()
+        assign_hvac(idf, _make_row("PrimarySchool"), _make_zones(1, "ps"))
+        assert len(idf.idfobjects["HVACTEMPLATE:SYSTEM:PACKAGEDVAV"]) == 0
+        unitary = idf.idfobjects["HVACTEMPLATE:SYSTEM:UNITARY"]
+        assert len(unitary) == 1
+        assert unitary[0].Cooling_Coil_Type == "SingleSpeedDX"  # PSZ-AC signature
+        assert len(idf.idfobjects["HVACTEMPLATE:PLANT:BOILER"]) == 0
+        assert len(idf.idfobjects["HVACTEMPLATE:PLANT:HOTWATERLOOP"]) == 0
+
+    def test_multi_zone_school_keeps_pvav(self):
+        """2-zone PrimarySchool keeps PVAV+HW — the guard must not over-trigger."""
+        idf = _fresh_idf()
+        assign_hvac(idf, _make_row("PrimarySchool"), _make_zones(2, "ps"))
+        assert len(idf.idfobjects["HVACTEMPLATE:SYSTEM:PACKAGEDVAV"]) == 1
+        assert len(idf.idfobjects["HVACTEMPLATE:PLANT:BOILER"]) == 1
+
+    def test_single_zone_largeoffice_downgraded(self):
+        """1-zone LargeOffice (built-up VAV) → PSZ-AC, no chiller / CHW loop."""
+        idf = _fresh_idf()
+        assign_hvac(idf, _make_row("LargeOffice"), _make_zones(1, "lo"))
+        assert len(idf.idfobjects["HVACTEMPLATE:SYSTEM:VAV"]) == 0
+        assert len(idf.idfobjects["HVACTEMPLATE:PLANT:CHILLER"]) == 0
+        assert len(idf.idfobjects["HVACTEMPLATE:PLANT:CHILLEDWATERLOOP"]) == 0
+        assert len(idf.idfobjects["HVACTEMPLATE:SYSTEM:UNITARY"]) == 1
+
+    def test_single_zone_residential_not_downgraded(self):
+        """1-zone HighriseApartment (WLHP) is exempt — stays a water-to-air heat pump."""
+        idf = _fresh_idf()
+        assign_hvac(idf, _make_row("HighriseApartment"), _make_zones(1, "ha"))
+        assert len(idf.idfobjects["HVACTEMPLATE:ZONE:WATERTOAIRHEATPUMP"]) == 1
+        assert len(idf.idfobjects["HVACTEMPLATE:SYSTEM:UNITARY"]) == 0  # not downgraded to PSZ
+
+    def test_single_zone_native_psz_unchanged(self):
+        """1-zone RetailStandalone is already PSZ-AC — guard is a no-op, exactly one system."""
+        idf = _fresh_idf()
+        assign_hvac(idf, _make_row("RetailStandalone"), _make_zones(1, "ret"))
+        unitary = idf.idfobjects["HVACTEMPLATE:SYSTEM:UNITARY"]
+        assert len(unitary) == 1
+        assert unitary[0].Cooling_Coil_Type == "SingleSpeedDX"

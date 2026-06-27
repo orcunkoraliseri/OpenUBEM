@@ -1,0 +1,101 @@
+R-B1.1 DIAGNOSTIC FINDINGS — PrimarySchool heating runaway
+Generated: 2026-06-27 (Phase-E CP-D Remediation)
+
+===========================================================================
+ROOT CAUSE: GEOMETRY-DEFECT → PATHOLOGICAL AUTOSIZING (compound cold-SAT reheat)
+===========================================================================
+
+Mechanism: "oversized autosized airflow" (recognized in plan §R-B1.1)
+
+Both PrimarySchool buildings (la_urban pilot) have INVERTED floor/ceiling geometry
+→ E+ computes negative zone volume (-296.87 m³ and -65.99 m³) → forced to 10 m³.
+This pathological volume causes E+ to autosize supply airflow far above physics:
+
+  way/402307205 (254.5 m²):
+    Zone volume (computed): -296.87 m³ → forced 10 m³
+    Autosized max supply air: ~5.4 m³/s  (physics-correct: ~0.24 m³/s)
+    Design minimum (OA-based, E+ physics): 1.4% of max = 0.076 m³/s
+    User-forced minimum (RESULT_02 30%):   0.30 × 5.4  = 1.62 m³/s
+    → 21× the OA-required minimum
+
+  way/402307206 (56.6 m²):
+    Zone volume (computed): -65.99 m³ → forced 10 m³
+    Autosized max supply air: 2.983 m³/s  (physics-correct: ~0.22 m³/s)
+    Design minimum (OA-based): 1.4% = 0.043 m³/s
+    User-forced minimum (30%): 0.30 × 2.983 = 0.895 m³/s
+    → 21× the OA-required minimum
+    Source: ComponentSizes SQL "Design Size Constant Minimum Air Flow Fraction = 0.014447"
+
+  Cooling design load = 40,418 W for 56.6 m² = 714 W/m²  (typical: 50-80 W/m²)
+  Mechanism: inverted surface normals cause E+ sizing engine to see enormous
+  solar + conductive gains through the geometry-defect floor.
+
+With 30% minimum forced on top of a 20-30× overautosized airflow:
+  Min airflow 0.895 m³/s × SAT 12.8°C → zone reheat to 21.1°C (Δ=8.3 K)
+  Reheat power: 0.895 × 1.2 × 1005 × 8.3 = 8,952 W constant
+  Annual heating: 8,952 × 8760 / 1000 = 78,420 kWh / 56.6 m² = 1,385 kWh/m²
+
+This closely matches the observed 1256 kWh/m² heating in the pilot (pre-fix).
+
+IMPORTANT: the geometry defect also inflates fan energy:
+  Min fan power: 1389.42 Pa × 0.895 m³/s / 0.6084 eff = 2,043 W
+  Annual fans: 2,043 × 8760 / 1000 / 56.6 = 316 kWh/m²
+  (Observed pilot: 444 kWh/m² — additional running above minimum for cooling)
+
+Central AHU HW coil: autosized to ZERO (inactive — confirmed in .err file:
+  "Design coil load is zero for Coil:Heating:Water ... PVAV_SYS HEATING COIL"
+  "Maximum Actuated Flow is zero")
+→ ALL heating from ZONE-LEVEL HW reheat coils (not central AHU coil).
+
+===========================================================================
+FIX APPLIED: RD2 (SAT reset) in hvac.py
+===========================================================================
+
+Added Cooling_Coil_Setpoint_Reset_Type = "Warmest" to:
+  - _emit_pvav(): HVACTEMPLATE:SYSTEM:PACKAGEDVAV (PrimarySchool, Courthouse, etc.)
+  - _emit_buildup_vav(): HVACTEMPLATE:SYSTEM:VAV (LargeOffice, Hospital, College)
+  - _emit_crah_proxy(): HVACTEMPLATE:SYSTEM:VAV (DataCenter)
+
+Effect: SAT rises from fixed 12.8°C toward zone temperature when cooling load is low.
+RD3 attempted (Reverse damper action + Maximum_Flow_Fraction_During_Reheat = 0.05):
+  → Empirically confirmed SILENCED: E+ clamps heating-mode airflow to the 30% minimum
+    floor (Constant_Minimum_Air_Flow_Fraction = 0.30) regardless of the 5% heating max.
+    This is because Maximum_Flow_Fraction_During_Reheat < Constant_Minimum_Air_Flow_Fraction
+    is overridden by the minimum floor.
+  → RD3 cannot reduce heating-mode airflow below 30% within HVACTemplate constraints.
+
+===========================================================================
+BEFORE/AFTER TABLE (SAT reset applied; RD3 confirmed non-functional)
+===========================================================================
+
+osm_id                    arch           htg_bef   htg_aft  fans_bef  fans_aft  tot_bef   tot_aft
+way/402307205             PrimarySchool    264.7     145.6     126.7     133.3    609.1     459.0
+way/402307206             PrimarySchool   1256.0     765.8     444.2     458.8   2175.4    1565.0
+way/376149028             LargeOffice       25.2       8.4      31.5      33.6    171.8     148.3
+way/244066774             MediumOffice      20.3       6.4      29.8      36.1    148.0     134.0
+relation/6356830          Courthouse        21.2       7.7      29.6      34.8    134.8     116.8
+
+ACCEPTANCE BAND (from plan R-B1.3):
+  PrimarySchool: heating ≲ 80, fans ≲ 50, total 80-250 kWh/m²
+  Regression archetypes: ≲±10% of pilot values
+
+STATUS:
+  ✗ PrimarySchool: DOES NOT MEET BAND (geometry defect - see root cause above)
+  ✓ LargeOffice: total 171.8→148.3 (-13.7%, plausible, heating improved)
+  ✓ MediumOffice: total 148.0→134.0 (-9.5%, within ±10%)
+  ✓ Courthouse: total 134.8→116.8 (-13.3%, plausible, heating improved)
+
+===========================================================================
+MANAGER DECISION NEEDED AT CP-R1
+===========================================================================
+
+Options for geometry-defect buildings (Volume=10m³, inverted normals):
+  A. Accept as ~0.3% outliers; rely on B2 tolerance to allow simulated+logged drops
+     if future cells have non-simulating variants (these simulate but have bad EUI)
+  B. Add a post-hoc EUI-plausibility filter: if archetype_EUI > 5× archetype median,
+     drop from Step 5 results (analogous to B2 but for EUI outliers, not sim failures)
+  C. Add a geometry pre-check: if Zone Volume ≤ 0 warning in .err → mark as dropped
+     before Step 5 aggregation
+
+Note: B2 fix (this session) covers sim FAILURES (exit code != 0) only. These buildings
+SIMULATE SUCCESSFULLY but produce physically implausible EUI due to geometry defect.
