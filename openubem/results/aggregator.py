@@ -12,19 +12,36 @@ import pandas as pd
 
 from openubem import config
 
-# ── F9: the 14 columns appended by Step 5 (DESIGN line 166) ─────────────────
+# ── F9: Step-5 output columns (Phase-E: 25 EUI/GWP + 3 meta) ─────────────────
+# Phase-E T14: expanded from 14 to 28 columns (9 EUI + 9 GWP + iod + parse_status + error_summary +
+# simulation_status + dhw_gas_eui + dhw_elec_eui).
 _STEP5_COLS = [
+    # Core EUI (4, always populated when simulation succeeds)
     "heating_eui_kwh_m2",
     "cooling_eui_kwh_m2",
     "lighting_eui_kwh_m2",
     "equipment_eui_kwh_m2",
-    "total_eui_kwh_m2",
+    # Phase-E service-load EUI (7 new)
     "fans_eui_kwh_m2",
+    "pumps_eui_kwh_m2",
+    "dhw_gas_eui_kwh_m2",
+    "dhw_elec_eui_kwh_m2",
+    "dhw_eui_kwh_m2",
+    "cooking_eui_kwh_m2",
+    "refrigeration_eui_kwh_m2",
+    "total_eui_kwh_m2",
+    # GWP columns (9)
     "gwp_heating_kgco2_m2",
     "gwp_cooling_kgco2_m2",
     "gwp_lighting_kgco2_m2",
     "gwp_equipment_kgco2_m2",
+    "gwp_fans_kgco2_m2",
+    "gwp_pumps_kgco2_m2",
+    "gwp_dhw_kgco2_m2",
+    "gwp_cooking_kgco2_m2",
+    "gwp_refrigeration_kgco2_m2",
     "gwp_total_kgco2_m2",
+    # meta
     "iod",
     "simulation_status",
     "error_summary",
@@ -37,11 +54,11 @@ def join_results(
     enriched_gdf: gpd.GeoDataFrame,
     metrics_df: pd.DataFrame,
 ) -> gpd.GeoDataFrame:
-    """LEFT-join 14 Step-5 metric columns onto the 57-col enriched GDF (DESIGN line 166).
+    """LEFT-join Phase-E Step-5 metric columns onto the enriched GDF (DESIGN line 166).
 
-    Returns a 71-col GDF, one row per Step-1 building, with NaN metrics for
-    buildings that were not simulated or failed parsing. data_quality_flag from
-    metrics_df is merged (append-only per P1) into the upstream flag column.
+    Phase-E (T14): 28 columns (9 EUI + 9 GWP + dhw_gas/elec + iod + 3 meta).
+    Returns a GDF with NaN metrics for buildings not simulated or with failed parsing.
+    data_quality_flag merged append-only per P1.
     """
     # Normalize osm_id for join
     enriched = enriched_gdf.copy()

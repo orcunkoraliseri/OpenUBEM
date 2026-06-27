@@ -30,6 +30,9 @@ from openubem.idf.surfaces import (
     _pair_interfloor_surfaces,
 )
 from openubem.idf.hvac import assign_hvac
+from openubem.idf.dhw import assign_dhw
+from openubem.idf.cooking import assign_cooking
+from openubem.idf.refrigeration import assign_refrigeration
 from openubem.idf.outputs import write_outputs
 from openubem.semantic.schedules import write_schedules_to_idf
 
@@ -334,6 +337,11 @@ class BuildingIDF:
 
         # 3H: HVAC
         assign_hvac(self.idf, row, extruded_zones)
+
+        # 3H-svc: Phase-E physical service loads
+        assign_dhw(self.idf, row, extruded_zones)
+        assign_cooking(self.idf, row, extruded_zones)
+        assign_refrigeration(self.idf, row, extruded_zones)
 
         # 3I: outputs
         write_outputs(self.idf)

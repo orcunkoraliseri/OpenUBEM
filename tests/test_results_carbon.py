@@ -179,3 +179,131 @@ class TestGwpGolden:
         result = self._run_and_attach("R6", "r6_perimeter_core.sql", 1500.0, 3, 15)
         exp = expected["R6"]["gwp"]["gwp_total_kgco2_m2"]
         assert math.isclose(result["gwp_total_kgco2_m2"], exp, rel_tol=self._REL_TOL)
+
+
+# ── Phase-E GWP columns (T14, D10) ───────────────────────────────────────────
+
+class TestPhaseEGwpColumns:
+    """D10: gas end-uses × 0.181; electric end-uses × eGRID factor."""
+
+    _GAS_FACTOR = 0.181
+
+    def _row(self, **kwargs):
+        base = {
+            "heating_eui_kwh_m2": 0.0,
+            "cooling_eui_kwh_m2": 0.0,
+            "lighting_eui_kwh_m2": 0.0,
+            "equipment_eui_kwh_m2": 0.0,
+        }
+        base.update(kwargs)
+        return base
+
+    def test_all_nine_gwp_columns_present(self):
+        """compute_gwp returns all 9 GWP columns."""
+        from openubem.results.carbon import compute_gwp
+        result = compute_gwp(self._row(), "MA")
+        for col in ("gwp_heating_kgco2_m2", "gwp_cooling_kgco2_m2",
+                    "gwp_lighting_kgco2_m2", "gwp_equipment_kgco2_m2",
+                    "gwp_fans_kgco2_m2", "gwp_pumps_kgco2_m2",
+                    "gwp_dhw_kgco2_m2", "gwp_cooking_kgco2_m2",
+                    "gwp_refrigeration_kgco2_m2", "gwp_total_kgco2_m2"):
+            assert col in result, f"Missing column: {col}"
+
+    def test_fans_uses_elec_factor(self):
+        """Fans GWP = fans_eui × eGRID[MA] (electric end-use)."""
+        from openubem.results.carbon import compute_gwp, get_elec_factor
+        f_elec = get_elec_factor("MA")
+        result = compute_gwp(self._row(fans_eui_kwh_m2=10.0), "MA")
+        assert math.isclose(result["gwp_fans_kgco2_m2"], 10.0 * f_elec, rel_tol=1e-9)
+
+    def test_pumps_uses_elec_factor(self):
+        """Pumps GWP = pumps_eui × eGRID[MA] (electric end-use)."""
+        from openubem.results.carbon import compute_gwp, get_elec_factor
+        f_elec = get_elec_factor("MA")
+        result = compute_gwp(self._row(pumps_eui_kwh_m2=5.0), "MA")
+        assert math.isclose(result["gwp_pumps_kgco2_m2"], 5.0 * f_elec, rel_tol=1e-9)
+
+    def test_dhw_gas_uses_gas_factor(self):
+        """DHW gas portion GWP = dhw_gas_eui × 0.181."""
+        from openubem.results.carbon import compute_gwp
+        result = compute_gwp(self._row(dhw_gas_eui_kwh_m2=20.0, dhw_elec_eui_kwh_m2=0.0), "MA")
+        assert math.isclose(result["gwp_dhw_kgco2_m2"], 20.0 * self._GAS_FACTOR, rel_tol=1e-9)
+
+    def test_dhw_elec_uses_elec_factor(self):
+        """DHW electric portion GWP = dhw_elec_eui × eGRID[MA]."""
+        from openubem.results.carbon import compute_gwp, get_elec_factor
+        f_elec = get_elec_factor("MA")
+        result = compute_gwp(self._row(dhw_gas_eui_kwh_m2=0.0, dhw_elec_eui_kwh_m2=8.0), "MA")
+        assert math.isclose(result["gwp_dhw_kgco2_m2"], 8.0 * f_elec, rel_tol=1e-9)
+
+    def test_dhw_combined_splits_by_fuel(self):
+        """gwp_dhw = gas_part × f_gas + elec_part × f_elec (D10 split)."""
+        from openubem.results.carbon import compute_gwp, get_elec_factor
+        f_elec = get_elec_factor("MA")
+        result = compute_gwp(self._row(dhw_gas_eui_kwh_m2=15.0, dhw_elec_eui_kwh_m2=5.0), "MA")
+        expected = 15.0 * self._GAS_FACTOR + 5.0 * f_elec
+        assert math.isclose(result["gwp_dhw_kgco2_m2"], expected, rel_tol=1e-9)
+
+    def test_cooking_uses_gas_factor(self):
+        """Cooking GWP = cooking_eui × 0.181 (gas cooking, D10)."""
+        from openubem.results.carbon import compute_gwp
+        result = compute_gwp(self._row(cooking_eui_kwh_m2=30.0), "MA")
+        assert math.isclose(result["gwp_cooking_kgco2_m2"], 30.0 * self._GAS_FACTOR, rel_tol=1e-9)
+
+    def test_refrigeration_uses_elec_factor(self):
+        """Refrigeration GWP = refrigeration_eui × eGRID[MA] (electric compressor rack)."""
+        from openubem.results.carbon import compute_gwp, get_elec_factor
+        f_elec = get_elec_factor("MA")
+        result = compute_gwp(self._row(refrigeration_eui_kwh_m2=50.0), "MA")
+        assert math.isclose(result["gwp_refrigeration_kgco2_m2"], 50.0 * f_elec, rel_tol=1e-9)
+
+    def test_total_includes_all_nine_enduses(self):
+        """gwp_total = sum of all 9 component GWP values."""
+        from openubem.results.carbon import compute_gwp
+        result = compute_gwp(self._row(
+            heating_eui_kwh_m2=10.0, cooling_eui_kwh_m2=20.0,
+            lighting_eui_kwh_m2=5.0, equipment_eui_kwh_m2=3.0,
+            fans_eui_kwh_m2=4.0, pumps_eui_kwh_m2=2.0,
+            dhw_gas_eui_kwh_m2=8.0, dhw_elec_eui_kwh_m2=2.0,
+            cooking_eui_kwh_m2=6.0, refrigeration_eui_kwh_m2=12.0,
+        ), "MA")
+        expected = sum(result[k] for k in (
+            "gwp_heating_kgco2_m2", "gwp_cooling_kgco2_m2",
+            "gwp_lighting_kgco2_m2", "gwp_equipment_kgco2_m2",
+            "gwp_fans_kgco2_m2", "gwp_pumps_kgco2_m2",
+            "gwp_dhw_kgco2_m2", "gwp_cooking_kgco2_m2",
+            "gwp_refrigeration_kgco2_m2",
+        ))
+        assert math.isclose(result["gwp_total_kgco2_m2"], expected, rel_tol=1e-12)
+
+    def test_pre_phasee_row_defaults_to_zero(self):
+        """Pre-Phase-E row (missing Phase-E cols) → 0.0 for all new GWP columns."""
+        from openubem.results.carbon import compute_gwp
+        row = {
+            "heating_eui_kwh_m2": 10.0,
+            "cooling_eui_kwh_m2": 5.0,
+            "lighting_eui_kwh_m2": 3.0,
+            "equipment_eui_kwh_m2": 2.0,
+        }
+        result = compute_gwp(row, "MA")
+        for col in ("gwp_fans_kgco2_m2", "gwp_pumps_kgco2_m2",
+                    "gwp_dhw_kgco2_m2", "gwp_cooking_kgco2_m2",
+                    "gwp_refrigeration_kgco2_m2"):
+            assert result[col] == 0.0, f"{col} should be 0.0 for pre-Phase-E row"
+
+    def test_nan_propagates_to_all_phasee_columns(self):
+        """NaN in core EUI → NaN in all 9 GWP columns (flag-don't-drop)."""
+        from openubem.results.carbon import compute_gwp
+        row = {
+            "heating_eui_kwh_m2": float("nan"),
+            "cooling_eui_kwh_m2": 0.0,
+            "lighting_eui_kwh_m2": 0.0,
+            "equipment_eui_kwh_m2": 0.0,
+            "fans_eui_kwh_m2": 5.0,
+            "pumps_eui_kwh_m2": 2.0,
+        }
+        result = compute_gwp(row, "MA")
+        for col in ("gwp_fans_kgco2_m2", "gwp_pumps_kgco2_m2",
+                    "gwp_dhw_kgco2_m2", "gwp_cooking_kgco2_m2",
+                    "gwp_refrigeration_kgco2_m2", "gwp_total_kgco2_m2"):
+            assert math.isnan(result[col]), f"{col} should be NaN when core EUI is NaN"

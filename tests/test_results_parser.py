@@ -365,3 +365,138 @@ class TestMultiFloorEuiRegression:
             assert math.isclose(eui["lighting_eui_kwh_m2"], expected_eui, rel_tol=1e-9), (
                 f"num_floors={n}: lighting_eui={eui['lighting_eui_kwh_m2']:.4f}, expected={expected_eui:.4f}"
             )
+
+
+# ── T13 (Phase-E): new EUI columns + D9 total ────────────────────────────────
+
+class TestPhaseEEuiColumns:
+    """Verify _compute_eui returns pumps/dhw/cooking/refrigeration EUIs and D9 total."""
+
+    def _make_df(self, footprint_m2: float = 400.0, num_floors: int = 1) -> pd.DataFrame:
+        """Minimal zone df with lighting + equipment only."""
+        rows = []
+        zone = f"way/PHSE_F0_WHOLE"
+        kwh = 1000.0  # arbitrary
+        for var in ["Zone Lights Electricity Energy",
+                    "Zone Electric Equipment Electricity Energy"]:
+            rows.append({
+                "key_value": zone,
+                "variable_name": var,
+                "units": "kWh",
+                "Month": 1, "Day": 1, "Hour": 1,
+                "value": kwh,
+            })
+        return pd.DataFrame(rows)
+
+    def _manifest(self, footprint: float = 400.0, floors: int = 1) -> pd.Series:
+        return pd.Series({
+            "osm_id": "way/PHSE",
+            "footprint_area_m2": footprint,
+            "levels": float(floors),
+            "height_m": float("nan"),
+            "num_zones": floors,
+            "data_quality_flag": "",
+        })
+
+    def test_new_columns_present(self):
+        from openubem.results.parser import _compute_eui
+        df = self._make_df()
+        row = self._manifest()
+        meters = {  # values in kWh (already converted — _parse_meters_sql does J→kWh)
+            "Pumps:Electricity": 1.0,
+            "WaterSystems:NaturalGas": 2.0,
+            "WaterSystems:Electricity": 1.0,
+            "InteriorEquipment:NaturalGas": 1.0,
+            "Refrigeration:Electricity": 1.0,
+        }
+        eui, _, missing = _compute_eui(df, row, "", meters)
+        assert missing is None
+        for col in ["pumps_eui_kwh_m2", "dhw_eui_kwh_m2",
+                    "cooking_eui_kwh_m2", "refrigeration_eui_kwh_m2"]:
+            assert col in eui, f"Missing column: {col}"
+
+    def test_pumps_eui_correct(self):
+        from openubem.results.parser import _compute_eui
+        df = self._make_df(footprint_m2=400.0)
+        row = self._manifest(footprint=400.0, floors=1)
+        meters = {"Pumps:Electricity": 400.0}  # kWh; EUI = 400/400 = 1.0 kWh/m²
+        eui, _, _ = _compute_eui(df, row, "", meters)
+        assert math.isclose(eui["pumps_eui_kwh_m2"], 1.0, rel_tol=1e-9)
+
+    def test_dhw_eui_combines_gas_and_elec(self):
+        from openubem.results.parser import _compute_eui
+        df = self._make_df(footprint_m2=200.0)
+        row = self._manifest(footprint=200.0, floors=1)
+        meters = {
+            "WaterSystems:NaturalGas": 100.0,   # kWh gas
+            "WaterSystems:Electricity": 50.0,   # kWh elec
+        }
+        eui, _, _ = _compute_eui(df, row, "", meters)
+        assert math.isclose(eui["dhw_eui_kwh_m2"], 150.0 / 200.0, rel_tol=1e-9)
+
+    def test_cooking_eui_is_gas_only(self):
+        from openubem.results.parser import _compute_eui
+        df = self._make_df(footprint_m2=200.0)
+        row = self._manifest(footprint=200.0, floors=1)
+        meters = {"InteriorEquipment:NaturalGas": 80.0}  # kWh gas cooking
+        eui, _, _ = _compute_eui(df, row, "", meters)
+        assert math.isclose(eui["cooking_eui_kwh_m2"], 80.0 / 200.0, rel_tol=1e-9)
+
+    def test_refrigeration_eui_from_compressor_rack(self):
+        from openubem.results.parser import _compute_eui
+        df = self._make_df(footprint_m2=4000.0)
+        row = self._manifest(footprint=4000.0, floors=1)
+        meters = {"Refrigeration:Electricity": 500_000.0}  # kWh compressor rack
+        eui, _, _ = _compute_eui(df, row, "", meters)
+        assert math.isclose(eui["refrigeration_eui_kwh_m2"], 500_000.0 / 4000.0, rel_tol=1e-9)
+
+    def test_d9_total_equals_sum_of_all_nine(self):
+        """D9: total_eui = sum of all 9 end-use EUIs."""
+        from openubem.results.parser import _compute_eui
+        df = self._make_df(footprint_m2=400.0, num_floors=2)
+        row = self._manifest(footprint=400.0, floors=2)
+        meters = {  # all in kWh
+            "Cooling:Electricity":          200.0,
+            "Heating:Electricity":           50.0,
+            "Heating:NaturalGas":           100.0,
+            "Fans:Electricity":              80.0,
+            "Pumps:Electricity":             40.0,
+            "WaterSystems:NaturalGas":       30.0,
+            "WaterSystems:Electricity":      10.0,
+            "InteriorEquipment:NaturalGas":  60.0,
+            "Refrigeration:Electricity":     20.0,
+        }
+        eui, _, _ = _compute_eui(df, row, "", meters)
+        floor_area = 400.0 * 2
+        # lighting=1kWh/400m²  equipment=1kWh/400m² (from df), plus meters above
+        expected_total = (
+            eui["cooling_eui_kwh_m2"]
+            + eui["heating_eui_kwh_m2"]
+            + eui["lighting_eui_kwh_m2"]
+            + eui["equipment_eui_kwh_m2"]
+            + eui["fans_eui_kwh_m2"]
+            + eui["pumps_eui_kwh_m2"]
+            + eui["dhw_eui_kwh_m2"]
+            + eui["cooking_eui_kwh_m2"]
+            + eui["refrigeration_eui_kwh_m2"]
+        )
+        assert math.isclose(eui["total_eui_kwh_m2"], expected_total, rel_tol=1e-12)
+
+    def test_missing_meters_default_to_zero(self):
+        """Phase-E meters absent from SQL return 0.0, not NaN (not failed_parse)."""
+        from openubem.results.parser import _compute_eui
+        df = self._make_df()
+        row = self._manifest()
+        eui, _, missing = _compute_eui(df, row, "", meters={})
+        assert missing is None
+        for col in ["pumps_eui_kwh_m2", "dhw_eui_kwh_m2",
+                    "cooking_eui_kwh_m2", "refrigeration_eui_kwh_m2"]:
+            assert eui[col] == 0.0, f"{col} should be 0.0 when meter absent"
+
+    def test_meter_query_includes_new_meters(self):
+        """METER_QUERY must include all 9 Phase-E meter names."""
+        from openubem.results.parser import METER_QUERY
+        for name in ["Pumps:Electricity", "WaterSystems:NaturalGas",
+                     "WaterSystems:Electricity", "InteriorEquipment:NaturalGas",
+                     "Refrigeration:Electricity"]:
+            assert name in METER_QUERY, f"Missing from METER_QUERY: {name}"

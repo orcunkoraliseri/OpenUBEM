@@ -53,6 +53,8 @@ OpenUBEM is a **5-stage pipeline** where each stage writes versioned artifacts (
 - **Per-building simulation.** Every building gets its own EnergyPlus IDF with true footprint geometry (not a shoe-box proxy), extruded to actual height, with neighbourhood context shading.
 - **Deterministic & reproducible.** Seeded RNG for all stochastic operations; versioned artifact schemas with provenance columns.
 - **Resume-capable.** The simulation step writes a manifest so partially-completed runs can be resumed without re-simulating successful buildings.
+- **Metered-energy basis.** HVAC is modelled with packaged equipment (PTAC) carrying per-archetype efficiencies, so heating/cooling energy come from EnergyPlus end-use meters — directly comparable to metered utility data, not raw thermal loads.
+- **Measured-data validated.** Results are scored against independent measured benchmarks (NYC Local Law 84, LA EBEWE, national CBECS 2018) with all gates evaluated report-only, never tuned to pass.
 
 ---
 
@@ -216,7 +218,7 @@ Footprint polygons extruded via geomeppy's `add_block()` to actual building heig
 `People`, `Lights`, `ElectricEquipment`, and `HVACTemplate:Thermostat` objects created for every thermal zone.
 
 **3H — HVAC:**
-Ideal loads air system (`HVACTemplate:Zone:IdealLoadsAirSystem`) — all-electric, no gas equipment. This HVAC abstraction reports heating/cooling loads directly without modelling specific equipment.
+Packaged Terminal Air Conditioner (`HVACTemplate:Zone:PTAC`) per thermal zone, parameterised by a per-archetype rated cooling COP and heating-coil type (gas or electric) from `data/loads/hvac_cop_by_archetype.json` (30/30 archetypes). This emits **metered** HVAC electricity and gas, so reported heating/cooling energy reflect real equipment efficiency rather than ideal thermal loads. (Supersedes the earlier `IdealLoadsAirSystem` abstraction, which remains the documented Phase-1 baseline.)
 
 **3I — Output variables:**
 Hourly reporting of zone-level energy, operative temperature, and occupant count.
@@ -293,15 +295,16 @@ Parses simulation outputs, computes energy metrics, converts to emissions, and v
 - Zone count verification against the IDF manifest
 
 **5C — EUI computation:**
-Five Energy Use Intensity metrics (kWh/m²/yr) computed per building:
+Energy Use Intensity metrics (kWh/m²/yr) computed per building from **metered** EnergyPlus end-use sources:
 
-| Metric | EnergyPlus variable |
+| Metric | EnergyPlus source |
 |---|---|
-| `heating_eui_kwh_m2` | Zone Ideal Loads Zone Total Heating Energy |
-| `cooling_eui_kwh_m2` | Zone Ideal Loads Zone Total Cooling Energy |
+| `heating_eui_kwh_m2` | `Heating:Electricity` + `Heating:NaturalGas` meters (all-fuel site energy) |
+| `cooling_eui_kwh_m2` | `Cooling:Electricity` meter |
 | `lighting_eui_kwh_m2` | Zone Lights Electricity Energy |
 | `equipment_eui_kwh_m2` | Zone Electric Equipment Electricity Energy |
-| `total_eui_kwh_m2` | Sum of the above four |
+| `fans_eui_kwh_m2` | `Fans:Electricity` meter (reported separately) |
+| `total_eui_kwh_m2` | heating + cooling + lighting + equipment (fans reported but not folded into the total) |
 
 Floor area denominator = `footprint_area_m2 × num_floors`.
 
@@ -312,12 +315,12 @@ Adaptive thermal comfort metric computed over summer months (June–September):
 - Flags `IOD_NO_OCCUPIED_HOURS` when no occupied summer hours exist
 
 **5E — Carbon emissions (`carbon.py`):**
-Five GWP (Global Warming Potential) columns (kg CO₂e/m²) computed per building using the **load-referenced v1 convention** (no equipment efficiency factors):
+Five GWP (Global Warming Potential) columns (kg CO₂e/m²) computed per building under the **`load_referenced_v1`** convention:
 - **Heating:** EUI × 0.181 kg CO₂e/kWh (natural gas emission factor)
 - **Cooling, Lighting, Equipment:** EUI × state-specific eGRID 2022 electricity emission factor
 
 **5F — Spatial join & aggregation (`aggregator.py`):**
-- 13 Step-5 columns LEFT-joined onto the 57-column enriched GeoDataFrame → 70-column results GeoDataFrame
+- 14 Step-5 columns LEFT-joined onto the 57-column enriched GeoDataFrame → 71-column results GeoDataFrame
 - Neighbourhood summary statistics: fleet-wide mean EUI, total emissions, simulation success rate, etc.
 
 **5G — Validation gates (`__init__.py`):**
@@ -334,6 +337,9 @@ Exclusions: residential apartments, data centres excluded from all gates; `OpenU
 
 **5H — Visualisation (`visualization.py`, `plotting_suite.py`):**
 Automated figure generation: spatial EUI maps with basemap tiles, ordered archetype charts, validation comparison plots. All outputs saved to `openubem/outputs/`.
+
+**5I — Service-loads reconstruction (`service_loads.py`, reporting layer):**
+EnergyPlus simulates four end-uses (heating, cooling, lighting, plug equipment); metered building energy also carries service loads the archetype models omit (DHW, pumps, process, and other "Other" loads). The reporting layer reconstructs a measured-comparable `total_eui_reconstructed_kwh_m2` by dividing the modelled total by the modelled-energy fraction drawn from CBECS 2018 end-use splits. Fractions are **region-aware** — per-census-division (mid-Atlantic / Pacific / West-South-Central) where available, with national fallback — so the uplift tracks regional end-use mix without any anchor fitting. This is post-processing: it appends columns and never mutates the simulated EUIs.
 
 **Output:** `05_results.gpkg` + `05_summary.json` + `figures/` directory.
 
@@ -364,7 +370,7 @@ openubem/                          # Core pipeline source code
 ├── idf/                           # Step 3
 │   ├── builder.py                 #   Per-building IDF orchestrator + run_step3
 │   ├── surfaces.py                #   3D extrusion, interzone matching, adiabatic
-│   ├── hvac.py                    #   Ideal-loads HVAC assignment
+│   ├── hvac.py                    #   PTAC HVAC assignment (per-archetype COP)
 │   ├── outputs.py                 #   EnergyPlus output variable injection
 │   └── templates/                 #   Base IDF templates (4 variants)
 ├── simulation/                    # Step 4
@@ -375,7 +381,7 @@ openubem/                          # Core pipeline source code
 │   ├── parser.py                  #   SQL/CSV hourly-data extraction + EUI + IOD
 │   ├── carbon.py                  #   GWP computation via eGRID factors
 │   ├── aggregator.py              #   Spatial join + neighbourhood summary
-│   ├── service_loads.py           #   End-use fraction analysis
+│   ├── service_loads.py           #   Service-loads reconstruction (regional CBECS fractions)
 │   ├── visualization.py           #   Basic map/chart rendering
 │   └── plotting_suite.py          #   Advanced multi-figure plotting
 ├── data/                          # Bundled reference data
@@ -385,10 +391,10 @@ openubem/                          # Core pipeline source code
 │   ├── epw_stations.csv           #   Global EPW station catalogue
 │   ├── climate_zones/             #   ASHRAE CZ shapefile (GeoPackage)
 │   ├── construction/              #   ASHRAE 90.1-2019 envelope tables
-│   ├── loads/                     #   DOE prototype load densities
+│   ├── loads/                     #   DOE load densities + per-archetype HVAC COP
 │   ├── schedules/                 #   DOE prototype hourly schedules
 │   ├── carbon/                    #   eGRID 2022 emission factors
-│   └── service_loads/             #   End-use fraction tables
+│   └── service_loads/             #   End-use fraction tables (national + regional)
 └── outputs/                       # Generated figures and results
     ├── simulationResults/
     ├── validaitonResults/
@@ -463,7 +469,8 @@ Data Imputation/                   # ML-based data imputation (experimental)
 ├── Datasets/                      #   Training data
 └── Models/                        #   Saved model artefacts
 
-IP1_UBEMOccDataGenerate.ipynb      # Occupancy data generation notebook
+notebooks/                         # Standalone analysis notebooks
+└── IP1_UBEMOccDataGenerate.ipynb  #   Occupancy data generation notebook
 ```
 
 ---
@@ -481,9 +488,10 @@ All bundled reference data lives under `openubem/data/`:
 | Climate zones | `climate_zones/*.gpkg` | ASHRAE Standard 169 climate zone polygons |
 | Envelope tables | `construction/ashrae_90_1_2019.json` | U-values, SHGC, infiltration rates keyed by (archetype, climate zone, vintage) — 7 vintage eras × 16 climate zones × 30 archetypes |
 | Internal loads | `loads/doe_prototype_loads.json` + `openstudio_loads.json` | Lighting, equipment, occupant densities and setpoints per archetype |
+| HVAC COP | `loads/hvac_cop_by_archetype.json` | Per-archetype rated cooling COP + heating-coil type/efficiency for the PTAC HVAC template (30/30 archetypes) |
 | Schedules | `schedules/doe_schedules.json` | 8760-hourly fractional schedules per archetype (occupancy, lighting, equipment, heating, cooling) |
 | Carbon factors | `carbon/egrid_2022.json` | EPA eGRID 2022 electricity emission factors by U.S. state (kg CO₂e/kWh) |
-| Service loads | `service_loads/enduse_fractions_table4.json` | CBECS end-use fraction breakdowns |
+| Service loads | `service_loads/enduse_fractions_table4.json` + `enduse_fractions_regional.json` | CBECS 2018 end-use fraction splits — national and per-census-division |
 
 ---
 
@@ -550,7 +558,7 @@ The `scripts/` directory contains ready-to-use pipeline runners:
 
 ## Test Suite
 
-34 test files covering all pipeline stages, run with `pytest`:
+37 test files covering all pipeline stages and validation analyses, run with `pytest`:
 
 ```bash
 pytest                                    # All tests
@@ -655,14 +663,22 @@ results = aggregate_results(sim_manifest, manifest, gdf, output / "results", sta
 
 ## Status & Validation
 
-**Boston test neighbourhood:** 483 buildings, 483 successful full-year simulations (100% success rate), all CBECS validation gates passing.
+OpenUBEM has been validated at neighbourhood scale across **three U.S. cities** against independent measured-energy benchmarks. All gates are evaluated report-only — never tuned to pass.
 
-| Metric | Value |
+**Validation matrix — 12 cells, 8,160 buildings.** Four density cells (centre / urban / suburban / rural) in each of **New York City, Los Angeles, and Austin** were simulated end-to-end with 100% EnergyPlus success and zero exclusions.
+
+**Adopted baseline:** metered PTAC HVAC + service-loads reconstruction on **regional CBECS end-use fractions** — a **zero-fitted-parameter** model.
+
+| Benchmark | Result |
 |---|---|
-| Mean EUI | ≈ 148.7 kWh/m²/yr |
-| Total fleet emissions | ≈ 359.2 million kg CO₂e |
-| Mean indoor overheating degree | ≈ 0.03 °C |
-| Simulation success rate | 100% |
+| City-Overall vs. measured (NYC LL84, LA EBEWE, Austin proxy) | within **±9%** all three cities (NYC +2.1% / LA −3.7% / Austin −8.6%) |
+| National CBECS 2018 NMBE | **passing** all three census regions |
+| National CBECS 2018 R² | **passing** all three census regions |
+| EnergyPlus simulation success | 8,160 / 8,160 (100%) |
+
+Earlier single-city milestones: a 483-building Boston neighbourhood reached 100% simulation success with CBECS gates passing, and a 12-cell matrix (8,152 buildings) confirmed climate-correct city ordering (LA < Austin < NYC total EUI). Distribution-shape gates (CV(RMSE), KS) are structural for an archetype-deterministic UBEM — reported for transparency rather than used as pass/fail.
+
+> Detailed validation methodology, per-cell results, and the full calibration record live under `docs/`.
 
 ---
 

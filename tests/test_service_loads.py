@@ -216,12 +216,12 @@ class TestReconstructFrameAddsColumnsAndPreservesRows:
     def test_row_count_preserved(self):
         from openubem.results.service_loads import reconstruct_frame
         df = self._make_df()
-        out = reconstruct_frame(df)
+        out = reconstruct_frame(df, force=True)
         assert len(out) == 2
 
     def test_new_columns_present(self):
         from openubem.results.service_loads import reconstruct_frame
-        out = reconstruct_frame(self._make_df())
+        out = reconstruct_frame(self._make_df(), force=True)
         expected_cols = {
             "reconstruction_applied", "archetype_mapped_to", "reconstruction_basis",
             "vent_fans_eui_recon_kwh_m2", "pumps_eui_recon_kwh_m2",
@@ -232,34 +232,88 @@ class TestReconstructFrameAddsColumnsAndPreservesRows:
 
     def test_osm_id_preserved(self):
         from openubem.results.service_loads import reconstruct_frame
-        out = reconstruct_frame(self._make_df())
+        out = reconstruct_frame(self._make_df(), force=True)
         assert set(out["osm_id"]) == {"way/1", "way/2"}
 
     def test_input_not_mutated(self):
         from openubem.results.service_loads import reconstruct_frame
         df = self._make_df()
         cols_before = set(df.columns)
-        reconstruct_frame(df)
+        reconstruct_frame(df, force=True)
         assert set(df.columns) == cols_before
 
     def test_large_office_row_reconstructed(self):
         from openubem.results.service_loads import reconstruct_frame
-        out = reconstruct_frame(self._make_df())
+        out = reconstruct_frame(self._make_df(), force=True)
         lo = out[out["osm_id"] == "way/1"].iloc[0]
         assert bool(lo["reconstruction_applied"]) is True
 
     def test_datacenter_row_passthrough(self):
         from openubem.results.service_loads import reconstruct_frame
-        out = reconstruct_frame(self._make_df())
+        out = reconstruct_frame(self._make_df(), force=True)
         dc = out[out["osm_id"] == "way/2"].iloc[0]
         assert bool(dc["reconstruction_applied"]) is False
 
     def test_reconstructed_ge_simulated_for_success_rows(self):
         from openubem.results.service_loads import reconstruct_frame
-        out = reconstruct_frame(self._make_df())
+        out = reconstruct_frame(self._make_df(), force=True)
         success = out[out["reconstruction_applied"] == True]
         for _, row in success.iterrows():
             assert row["total_eui_reconstructed_kwh_m2"] >= row["total_eui_kwh_m2"]
+
+
+# ---------------------------------------------------------------------------
+# T15: Phase-E pass-through (RECONSTRUCT_SERVICE_LOADS=False by default)
+# ---------------------------------------------------------------------------
+
+class TestPhaseEPassthrough:
+    def _make_df(self):
+        return pd.DataFrame([dict(_LO_ROW)])
+
+    def test_passthrough_adds_columns(self):
+        """Phase-E default: reconstruct_frame adds columns with zeros, no uplift."""
+        from openubem.results.service_loads import reconstruct_frame
+        out = reconstruct_frame(self._make_df())  # force=False, flag is False by default
+        assert "reconstruction_applied" in out.columns
+        assert "total_eui_reconstructed_kwh_m2" in out.columns
+
+    def test_passthrough_reconstruction_applied_false(self):
+        """Phase-E: no row has reconstruction_applied=True when flag is off."""
+        from openubem.results.service_loads import reconstruct_frame
+        out = reconstruct_frame(self._make_df())
+        assert not out["reconstruction_applied"].any()
+
+    def test_passthrough_service_loads_zero(self):
+        """Phase-E: all uplift columns are 0.0 (service loads physically modelled)."""
+        from openubem.results.service_loads import reconstruct_frame
+        out = reconstruct_frame(self._make_df())
+        for col in ("vent_fans_eui_recon_kwh_m2", "pumps_eui_recon_kwh_m2",
+                    "swh_dhw_eui_recon_kwh_m2", "refrig_eui_recon_kwh_m2",
+                    "cooking_other_eui_recon_kwh_m2"):
+            assert out.iloc[0][col] == 0.0, f"{col} not zero in Phase-E pass-through"
+
+    def test_passthrough_total_equals_simulated(self):
+        """Phase-E: total_eui_reconstructed_kwh_m2 == total_eui_kwh_m2."""
+        from openubem.results.service_loads import reconstruct_frame
+        out = reconstruct_frame(self._make_df())
+        import math
+        assert math.isclose(
+            out.iloc[0]["total_eui_reconstructed_kwh_m2"],
+            _LO_ROW["total_eui_kwh_m2"],
+            rel_tol=1e-9,
+        )
+
+    def test_passthrough_basis_label(self):
+        """Phase-E pass-through sets reconstruction_basis='disabled_phase_e'."""
+        from openubem.results.service_loads import reconstruct_frame
+        out = reconstruct_frame(self._make_df())
+        assert out.iloc[0]["reconstruction_basis"] == "disabled_phase_e"
+
+    def test_force_true_still_reconstructs(self):
+        """force=True overrides the flag and applies reconstruction (test-mode escape hatch)."""
+        from openubem.results.service_loads import reconstruct_frame
+        out = reconstruct_frame(self._make_df(), force=True)
+        assert bool(out.iloc[0]["reconstruction_applied"]) is True
 
 
 # ---------------------------------------------------------------------------
