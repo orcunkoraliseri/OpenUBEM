@@ -3,6 +3,9 @@
 Adds the 5 un-modeled end-uses (vent_fans, pumps, swh_dhw, refrig, cooking_other)
 back as a deterministic post-processing layer.  The simulated 05_results are never
 modified; reconstruction writes only new columns.
+
+Phase-E (T15): when config.RECONSTRUCT_SERVICE_LOADS is False (default), reconstruct_frame
+is a pass-through — service loads are physically modelled and need no uplift.
 """
 from __future__ import annotations
 
@@ -13,6 +16,8 @@ from typing import Any
 
 import geopandas as gpd
 import pandas as pd
+
+from openubem import config
 
 logger = logging.getLogger(__name__)
 
@@ -132,13 +137,32 @@ def reconstruct_building(
     }
 
 
+_PASSTHROUGH_RECON_COLS = (
+    "reconstruction_applied",
+    "archetype_mapped_to",
+    "reconstruction_basis",
+    "vent_fans_eui_recon_kwh_m2",
+    "pumps_eui_recon_kwh_m2",
+    "swh_dhw_eui_recon_kwh_m2",
+    "refrig_eui_recon_kwh_m2",
+    "cooking_other_eui_recon_kwh_m2",
+    "total_eui_reconstructed_kwh_m2",
+)
+
+
 def reconstruct_frame(
     df: pd.DataFrame,
     coeffs: dict | None = None,
     region_col: str = "city",
     city_to_region: "dict[str, str] | None" = None,
+    *,
+    force: bool = False,
 ) -> pd.DataFrame:
     """Apply reconstruct_building across a DataFrame; adds reconstruction columns.
+
+    Phase-E (T15): when ``config.RECONSTRUCT_SERVICE_LOADS`` is False and ``force`` is
+    not set, returns df with zero-value reconstruction columns (pass-through) — service
+    loads are physically modelled in Phase-E and need no reporting-layer uplift.
 
     Region-aware (backward-compatible): when ``coeffs`` carries a
     ``fractions_by_region`` block and ``region_col`` resolves a row's city to a
@@ -149,6 +173,19 @@ def reconstruct_frame(
 
     Logs distinct unmapped archetype_ids once.  Input df is not mutated.
     """
+    if not force and not config.RECONSTRUCT_SERVICE_LOADS:
+        # Phase-E: add zero-value columns so downstream schema is stable
+        df = df.copy()
+        df["reconstruction_applied"] = False
+        df["archetype_mapped_to"] = "passthrough"
+        df["reconstruction_basis"] = "disabled_phase_e"
+        for col in ("vent_fans_eui_recon_kwh_m2", "pumps_eui_recon_kwh_m2",
+                    "swh_dhw_eui_recon_kwh_m2", "refrig_eui_recon_kwh_m2",
+                    "cooking_other_eui_recon_kwh_m2"):
+            df[col] = 0.0
+        df["total_eui_reconstructed_kwh_m2"] = df.get("total_eui_kwh_m2", 0.0)
+        return df
+
     if coeffs is None:
         coeffs = load_coefficients()
     if city_to_region is None:

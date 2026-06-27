@@ -45,27 +45,30 @@ def _make_enriched_gdf(n: int = 3) -> gpd.GeoDataFrame:
 
 
 def _make_metrics_df(n: int = 3, include_failed: bool = True) -> pd.DataFrame:
-    """Synthetic metrics rows (T11 tests): 2 success + 1 failed."""
+    """Synthetic metrics rows (T11 tests): 2 success + 1 failed.
+
+    Phase-E (T14): includes all 28 _STEP5_COLS columns.
+    """
     rows = []
     for i in range(n):
         if include_failed and i == n - 1:
+            nan = float("nan")
             rows.append({
                 "osm_id": f"way/TEST{i}",
                 "simulation_status": "failed_parse",
                 "error_summary": "missing required EUI variable: Zone Lights Electricity Energy",
-                "heating_eui_kwh_m2": float("nan"),
-                "cooling_eui_kwh_m2": float("nan"),
-                "lighting_eui_kwh_m2": float("nan"),
-                "equipment_eui_kwh_m2": float("nan"),
-                "total_eui_kwh_m2": float("nan"),
-                "fans_eui_kwh_m2": float("nan"),
-                "gwp_heating_kgco2_m2": float("nan"),
-                "gwp_cooling_kgco2_m2": float("nan"),
-                "gwp_lighting_kgco2_m2": float("nan"),
-                "gwp_equipment_kgco2_m2": float("nan"),
-                "gwp_total_kgco2_m2": float("nan"),
-                "iod": float("nan"),
-                "data_quality_flag": "",
+                "heating_eui_kwh_m2": nan, "cooling_eui_kwh_m2": nan,
+                "lighting_eui_kwh_m2": nan, "equipment_eui_kwh_m2": nan,
+                "fans_eui_kwh_m2": nan, "pumps_eui_kwh_m2": nan,
+                "dhw_gas_eui_kwh_m2": nan, "dhw_elec_eui_kwh_m2": nan, "dhw_eui_kwh_m2": nan,
+                "cooking_eui_kwh_m2": nan, "refrigeration_eui_kwh_m2": nan,
+                "total_eui_kwh_m2": nan,
+                "gwp_heating_kgco2_m2": nan, "gwp_cooling_kgco2_m2": nan,
+                "gwp_lighting_kgco2_m2": nan, "gwp_equipment_kgco2_m2": nan,
+                "gwp_fans_kgco2_m2": nan, "gwp_pumps_kgco2_m2": nan,
+                "gwp_dhw_kgco2_m2": nan, "gwp_cooking_kgco2_m2": nan,
+                "gwp_refrigeration_kgco2_m2": nan, "gwp_total_kgco2_m2": nan,
+                "iod": nan, "data_quality_flag": "",
             })
         else:
             rows.append({
@@ -76,13 +79,24 @@ def _make_metrics_df(n: int = 3, include_failed: bool = True) -> pd.DataFrame:
                 "cooling_eui_kwh_m2": 80.0 + i * 5,
                 "lighting_eui_kwh_m2": 10.0,
                 "equipment_eui_kwh_m2": 20.0,
-                "total_eui_kwh_m2": 170.0 + i * 10,
                 "fans_eui_kwh_m2": 5.0 + i * 0.5,
+                "pumps_eui_kwh_m2": 2.0,
+                "dhw_gas_eui_kwh_m2": 8.0,
+                "dhw_elec_eui_kwh_m2": 1.0,
+                "dhw_eui_kwh_m2": 9.0,
+                "cooking_eui_kwh_m2": 3.0,
+                "refrigeration_eui_kwh_m2": 0.0,
+                "total_eui_kwh_m2": 170.0 + i * 10,
                 "gwp_heating_kgco2_m2": 11.0,
                 "gwp_cooling_kgco2_m2": 31.0,
                 "gwp_lighting_kgco2_m2": 3.9,
                 "gwp_equipment_kgco2_m2": 7.8,
-                "gwp_total_kgco2_m2": 53.7,
+                "gwp_fans_kgco2_m2": 1.9,
+                "gwp_pumps_kgco2_m2": 0.8,
+                "gwp_dhw_kgco2_m2": 1.9,
+                "gwp_cooking_kgco2_m2": 0.5,
+                "gwp_refrigeration_kgco2_m2": 0.0,
+                "gwp_total_kgco2_m2": 59.8,
                 "iod": 0.3 + i * 0.1,
                 "data_quality_flag": "",
             })
@@ -92,24 +106,23 @@ def _make_metrics_df(n: int = 3, include_failed: bool = True) -> pd.DataFrame:
 # ── T11: join_results ─────────────────────────────────────────────────────────
 
 class TestJoinResults:
-    def test_output_shape_71_cols(self):
-        """F9: join appends exactly 14 columns to the 57-col GDF → 71 cols."""
+    def test_output_shape_core_cols_present(self):
+        """F9: join appends _STEP5_COLS to the enriched GDF; spot-check key columns present."""
         from openubem.results.aggregator import join_results
         gdf = _make_enriched_gdf(3)
-        n_upstream = len(gdf.columns)  # includes geometry
         metrics = _make_metrics_df(3)
         result = join_results(gdf, metrics)
-        # 14 new non-geometry columns + upstream
-        step5_added = {"heating_eui_kwh_m2", "cooling_eui_kwh_m2", "lighting_eui_kwh_m2",
-                       "equipment_eui_kwh_m2", "total_eui_kwh_m2", "fans_eui_kwh_m2",
-                       "gwp_heating_kgco2_m2", "gwp_cooling_kgco2_m2", "gwp_lighting_kgco2_m2",
-                       "gwp_equipment_kgco2_m2", "gwp_total_kgco2_m2",
-                       "iod", "simulation_status", "error_summary"}
-        for col in step5_added:
+        # Phase-E spot-check: core + new service-load columns
+        spot_check = {"heating_eui_kwh_m2", "cooling_eui_kwh_m2", "lighting_eui_kwh_m2",
+                      "equipment_eui_kwh_m2", "fans_eui_kwh_m2", "pumps_eui_kwh_m2",
+                      "dhw_eui_kwh_m2", "cooking_eui_kwh_m2", "refrigeration_eui_kwh_m2",
+                      "total_eui_kwh_m2", "gwp_total_kgco2_m2",
+                      "iod", "simulation_status", "error_summary"}
+        for col in spot_check:
             assert col in result.columns, f"Missing col: {col}"
 
-    def test_exactly_14_appended_columns(self):
-        """F9: exactly the 14 named columns are appended, no extras from metrics."""
+    def test_step5_cols_appended(self):
+        """F9: exactly the _STEP5_COLS columns are appended, no extras from metrics."""
         from openubem.results.aggregator import join_results, _STEP5_COLS
         gdf = _make_enriched_gdf(3)
         upstream_cols = set(gdf.columns)
@@ -186,8 +199,8 @@ class TestNeighbourhoodSummary:
         from openubem.results.aggregator import compute_neighbourhood_summary
         result_gdf = self._make_results_gdf()
         summary = compute_neighbourhood_summary(result_gdf)
-        # 2 success rows: gwp_total=53.7 each, floor_area=392 each
-        exp_gwp = 53.7 * 392.0 + 53.7 * 392.0
+        # 2 success rows: gwp_total=59.8 each (Phase-E fixture), floor_area=392 each
+        exp_gwp = 59.8 * 392.0 + 59.8 * 392.0
         got = summary["neighbourhood_gwp_total_kgco2"]
         assert math.isclose(got, exp_gwp, rel_tol=1e-5), f"Got {got}, expected {exp_gwp}"
 
@@ -384,8 +397,8 @@ class TestAggregateResults:
         )
         assert isinstance(result, gpd.GeoDataFrame)
 
-    def test_output_has_14_step5_cols(self, tmp_path):
-        """F9: output has all 14 Step-5 columns."""
+    def test_output_has_all_step5_cols(self, tmp_path):
+        """F9: output has all _STEP5_COLS columns (Phase-E: 28)."""
         from openubem.results import aggregate_results
         from openubem.results.aggregator import _STEP5_COLS
         result = aggregate_results(

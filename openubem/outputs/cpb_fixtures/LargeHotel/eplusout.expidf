@@ -1,0 +1,1789 @@
+!- Windows Line endings
+
+Version,
+    23.1;                     !- Version Identifier
+
+SimulationControl,
+    Yes,                      !- Do Zone Sizing Calculation
+    Yes,                      !- Do System Sizing Calculation
+    Yes,                      !- Do Plant Sizing Calculation
+    No,                       !- Run Simulation for Sizing Periods
+    Yes,                      !- Run Simulation for Weather File Run Periods
+    No,                       !- Do HVAC Sizing Simulation for Sizing Periods
+    1;                        !- Maximum Number of HVAC Sizing Simulation Passes
+
+Building,
+    OpenUBEM_Building,        !- Name
+    0,                        !- North Axis
+    City,                     !- Terrain
+    ,                         !- Loads Convergence Tolerance Value
+    ,                         !- Temperature Convergence Tolerance Value
+    FullExterior,             !- Solar Distribution
+    ,                         !- Maximum Number of Warmup Days
+    ;                         !- Minimum Number of Warmup Days
+
+Timestep,
+    6;                        !- Number of Timesteps per Hour
+
+Site:Location,
+    PLACEHOLDER,              !- Name
+    0,                        !- Latitude
+    0,                        !- Longitude
+    0,                        !- Time Zone
+    0;                        !- Elevation
+
+SizingPeriod:WeatherFileDays,
+    AnnualSizingPeriod,       !- Name
+    1,                        !- Begin Month
+    1,                        !- Begin Day of Month
+    12,                       !- End Month
+    31,                       !- End Day of Month
+    Monday,                   !- Day of Week for Start Day
+    No,                       !- Use Weather File Daylight Saving Period
+    No;                       !- Use Weather File Rain and Snow Indicators
+
+RunPeriod,
+    RunPeriod1,               !- Name
+    1,                        !- Begin Month
+    1,                        !- Begin Day of Month
+    ,                         !- Begin Year
+    12,                       !- End Month
+    31,                       !- End Day of Month
+    ,                         !- End Year
+    Sunday,                   !- Day of Week for Start Day
+    No,                       !- Use Weather File Holidays and Special Days
+    No,                       !- Use Weather File Daylight Saving Period
+    No,                       !- Apply Weekend Holiday Rule
+    Yes,                      !- Use Weather File Rain Indicators
+    Yes;                      !- Use Weather File Snow Indicators
+
+SITE:WATERMAINSTEMPERATURE,
+    CorrelationFromWeatherFile;    !- Calculation Method
+
+Schedule:Constant,
+    Activity_Level,           !- Name
+    ,                         !- Schedule Type Limits Name
+    120;                      !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    CPB_Heating_SP,           !- Name
+    ,                         !- Schedule Type Limits Name
+    21;                       !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    CPB_Cooling_SP,           !- Name
+    ,                         !- Schedule Type Limits Name
+    24;                       !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    CPB_OccLoad,              !- Name
+    ,                         !- Schedule Type Limits Name
+    1;                        !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    OpenUBEM_DHW_Setpoint,    !- Name
+    ,                         !- Schedule Type Limits Name
+    60;                       !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    OpenUBEM_DHW_FlowFrac_LargeHotel,    !- Name
+    ,                         !- Schedule Type Limits Name
+    0.330953;                 !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    OpenUBEM_DHW_SensibleFrac,    !- Name
+    ,                         !- Schedule Type Limits Name
+    0.2;                      !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    OpenUBEM_DHW_LatentFrac,    !- Name
+    ,                         !- Schedule Type Limits Name
+    0.05;                     !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    OpenUBEM_Cook_Gas_LargeHotel,    !- Name
+    ,                         !- Schedule Type Limits Name
+    0.3;                      !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    OpenUBEM_Cook_Elec_LargeHotel,    !- Name
+    ,                         !- Schedule Type Limits Name
+    0.3;                      !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    OpenUBEM_Cook_ExhaustSched,    !- Name
+    ,                         !- Schedule Type Limits Name
+    1;                        !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    OpenUBEM_Refrig_ConstantSched,    !- Name
+    ,                         !- Schedule Type Limits Name
+    1;                        !- Hourly Value
+
+MATERIAL,
+    DefaultMaterial,          !- Name
+    Rough,                    !- Roughness
+    0.1,                      !- Thickness
+    0.1,                      !- Conductivity
+    1000,                     !- Density
+    1000,                     !- Specific Heat
+    0.9,                      !- Thermal Absorptance
+    0.7,                      !- Solar Absorptance
+    0.7;                      !- Visible Absorptance
+
+WINDOWMATERIAL:SIMPLEGLAZINGSYSTEM,
+    DefaultGlazing,           !- Name
+    2.7,                      !- UFactor
+    0.763,                    !- Solar Heat Gain Coefficient
+    0.8;                      !- Visible Transmittance
+
+CONSTRUCTION,
+    Project Wall,             !- Name
+    DefaultMaterial;          !- Outside Layer
+
+CONSTRUCTION,
+    Project Partition,        !- Name
+    DefaultMaterial;          !- Outside Layer
+
+CONSTRUCTION,
+    Project Floor,            !- Name
+    DefaultMaterial;          !- Outside Layer
+
+CONSTRUCTION,
+    Project Flat Roof,        !- Name
+    DefaultMaterial;          !- Outside Layer
+
+CONSTRUCTION,
+    Project Ceiling,          !- Name
+    DefaultMaterial;          !- Outside Layer
+
+CONSTRUCTION,
+    Project Door,             !- Name
+    DefaultMaterial;          !- Outside Layer
+
+CONSTRUCTION,
+    Project External Window,    !- Name
+    DefaultGlazing;           !- Outside Layer
+
+GlobalGeometryRules,
+    UpperLeftCorner,          !- Starting Vertex Position
+    Counterclockwise,         !- Vertex Entry Direction
+    Relative;                 !- Coordinate System
+
+ZONE,
+    Block LargeHotel Storey 0,    !- Name
+    0,                        !- Direction of Relative North
+    0,                        !- X Origin
+    0,                        !- Y Origin
+    0,                        !- Z Origin
+    1,                        !- Type
+    1,                        !- Multiplier
+    autocalculate,            !- Ceiling Height
+    autocalculate,            !- Volume
+    autocalculate,            !- Floor Area
+    ,                         !- Zone Inside Convection Algorithm
+    ,                         !- Zone Outside Convection Algorithm
+    Yes;                      !- Part of Total Floor Area
+
+BUILDINGSURFACE:DETAILED,
+    Block LargeHotel Storey 0 Wall 0001,    !- Name
+    wall,                     !- Surface Type
+    Project Wall,             !- Construction Name
+    Block LargeHotel Storey 0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    0,                        !- Vertex 1 Xcoordinate
+    0,                        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    0,                        !- Vertex 2 Xcoordinate
+    0,                        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    20,                       !- Vertex 3 Xcoordinate
+    0,                        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    20,                       !- Vertex 4 Xcoordinate
+    0,                        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block LargeHotel Storey 0 Wall 0002,    !- Name
+    wall,                     !- Surface Type
+    Project Wall,             !- Construction Name
+    Block LargeHotel Storey 0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    20,                       !- Vertex 1 Xcoordinate
+    0,                        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    20,                       !- Vertex 2 Xcoordinate
+    0,                        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    20,                       !- Vertex 3 Xcoordinate
+    20,                       !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    20,                       !- Vertex 4 Xcoordinate
+    20,                       !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block LargeHotel Storey 0 Wall 0003,    !- Name
+    wall,                     !- Surface Type
+    Project Wall,             !- Construction Name
+    Block LargeHotel Storey 0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    20,                       !- Vertex 1 Xcoordinate
+    20,                       !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    20,                       !- Vertex 2 Xcoordinate
+    20,                       !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    0,                        !- Vertex 3 Xcoordinate
+    20,                       !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    0,                        !- Vertex 4 Xcoordinate
+    20,                       !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block LargeHotel Storey 0 Wall 0004,    !- Name
+    wall,                     !- Surface Type
+    Project Wall,             !- Construction Name
+    Block LargeHotel Storey 0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    0,                        !- Vertex 1 Xcoordinate
+    20,                       !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    0,                        !- Vertex 2 Xcoordinate
+    20,                       !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    0,                        !- Vertex 3 Xcoordinate
+    0,                        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    0,                        !- Vertex 4 Xcoordinate
+    0,                        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block LargeHotel Storey 0 Floor 0001,    !- Name
+    floor,                    !- Surface Type
+    Project Floor,            !- Construction Name
+    Block LargeHotel Storey 0,    !- Zone Name
+    ,                         !- Space Name
+    ground,                   !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    NoSun,                    !- Sun Exposure
+    NoWind,                   !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    20,                       !- Vertex 1 Xcoordinate
+    20,                       !- Vertex 1 Ycoordinate
+    0,                        !- Vertex 1 Zcoordinate
+    20,                       !- Vertex 2 Xcoordinate
+    0,                        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    0,                        !- Vertex 3 Xcoordinate
+    0,                        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    0,                        !- Vertex 4 Xcoordinate
+    20,                       !- Vertex 4 Ycoordinate
+    0;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block LargeHotel Storey 0 Roof 0001,    !- Name
+    roof,                     !- Surface Type
+    Project Flat Roof,        !- Construction Name
+    Block LargeHotel Storey 0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    20,                       !- Vertex 1 Xcoordinate
+    0,                        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    20,                       !- Vertex 2 Xcoordinate
+    20,                       !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    0,                        !- Vertex 3 Xcoordinate
+    20,                       !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    0,                        !- Vertex 4 Xcoordinate
+    0,                        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+PEOPLE,
+    People_Block LargeHotel Storey 0,    !- Name
+    Block LargeHotel Storey 0,    !- Zone or ZoneList or Space or SpaceList Name
+    CPB_OccLoad,              !- Number of People Schedule Name
+    People/Area,              !- Number of People Calculation Method
+    ,                         !- Number of People
+    0.05,                     !- People per Floor Area
+    ,                         !- Floor Area per Person
+    0.3,                      !- Fraction Radiant
+    autocalculate,            !- Sensible Heat Fraction
+    Activity_Level,           !- Activity Level Schedule Name
+    3.82e-08,                 !- Carbon Dioxide Generation Rate
+    No,                       !- Enable ASHRAE 55 Comfort Warnings
+    ZoneAveraged,             !- Mean Radiant Temperature Calculation Type
+    ,                         !- Surface NameAngle Factor List Name
+    ,                         !- Work Efficiency Schedule Name
+    ClothingInsulationSchedule,    !- Clothing Insulation Calculation Method
+    ,                         !- Clothing Insulation Calculation Method Schedule Name
+    ,                         !- Clothing Insulation Schedule Name
+    ,                         !- Air Velocity Schedule Name
+    ,                         !- Thermal Comfort Model 1 Type
+    ,                         !- Thermal Comfort Model 2 Type
+    ,                         !- Thermal Comfort Model 3 Type
+    ,                         !- Thermal Comfort Model 4 Type
+    ,                         !- Thermal Comfort Model 5 Type
+    ,                         !- Thermal Comfort Model 6 Type
+    ,                         !- Thermal Comfort Model 7 Type
+    ,                         !- Ankle Level Air Velocity Schedule Name
+    15.56,                    !- Cold Stress Temperature Threshold
+    30;                       !- Heat Stress Temperature Threshold
+
+LIGHTS,
+    Lights_Block LargeHotel Storey 0,    !- Name
+    Block LargeHotel Storey 0,    !- Zone or ZoneList or Space or SpaceList Name
+    CPB_OccLoad,              !- Schedule Name
+    Watts/Area,               !- Design Level Calculation Method
+    ,                         !- Lighting Level
+    10,                       !- Watts per Zone Floor Area
+    ,                         !- Watts per Person
+    0,                        !- Return Air Fraction
+    0.42,                     !- Fraction Radiant
+    0,                        !- Fraction Visible
+    1,                        !- Fraction Replaceable
+    General,                  !- EndUse Subcategory
+    No,                       !- Return Air Fraction Calculated from Plenum Temperature
+    0,                        !- Return Air Fraction Function of Plenum Temperature Coefficient 1
+    0;                        !- Return Air Fraction Function of Plenum Temperature Coefficient 2
+
+ELECTRICEQUIPMENT,
+    Equip_Block LargeHotel Storey 0,    !- Name
+    Block LargeHotel Storey 0,    !- Zone or ZoneList or Space or SpaceList Name
+    CPB_OccLoad,              !- Schedule Name
+    Watts/Area,               !- Design Level Calculation Method
+    ,                         !- Design Level
+    8,                        !- Watts per Zone Floor Area
+    ,                         !- Watts per Person
+    0,                        !- Fraction Latent
+    0.5,                      !- Fraction Radiant
+    0,                        !- Fraction Lost
+    General;                  !- EndUse Subcategory
+
+ELECTRICEQUIPMENT,
+    Cooking_Elec_LargeHotel,    !- Name
+    Block LargeHotel Storey 0,    !- Zone or ZoneList or Space or SpaceList Name
+    OpenUBEM_Cook_Elec_LargeHotel,    !- Schedule Name
+    EquipmentLevel,           !- Design Level Calculation Method
+    6752,                     !- Design Level
+    ,                         !- Watts per Zone Floor Area
+    ,                         !- Watts per Person
+    0.1,                      !- Fraction Latent
+    0.4,                      !- Fraction Radiant
+    0,                        !- Fraction Lost
+    Cooking;                  !- EndUse Subcategory
+
+ELECTRICEQUIPMENT,
+    Refrig_Lumped_LargeHotel,    !- Name
+    Block LargeHotel Storey 0,    !- Zone or ZoneList or Space or SpaceList Name
+    OpenUBEM_Refrig_ConstantSched,    !- Schedule Name
+    EquipmentLevel,           !- Design Level Calculation Method
+    181.74,                   !- Design Level
+    ,                         !- Watts per Zone Floor Area
+    ,                         !- Watts per Person
+    0,                        !- Fraction Latent
+    0,                        !- Fraction Radiant
+    1,                        !- Fraction Lost
+    Refrigeration;            !- EndUse Subcategory
+
+GASEQUIPMENT,
+    Cooking_Gas_LargeHotel,    !- Name
+    Block LargeHotel Storey 0,    !- Zone or ZoneList or Space or SpaceList Name
+    OpenUBEM_Cook_Gas_LargeHotel,    !- Schedule Name
+    EquipmentLevel,           !- Design Level Calculation Method
+    17136,                    !- Design Level
+    ,                         !- Power per Zone Floor Area
+    ,                         !- Power per Person
+    0.1,                      !- Fraction Latent
+    0.2,                      !- Fraction Radiant
+    0.7,                      !- Fraction Lost
+    0,                        !- Carbon Dioxide Generation Rate
+    Cooking;                  !- EndUse Subcategory
+
+ZONEVENTILATION:DESIGNFLOWRATE,
+    KitchenExhaust_LargeHotel,    !- Name
+    Block LargeHotel Storey 0,    !- Zone or ZoneList or Space or SpaceList Name
+    OpenUBEM_Cook_ExhaustSched,    !- Schedule Name
+    Flow/Zone,                !- Design Flow Rate Calculation Method
+    1.888,                    !- Design Flow Rate
+    ,                         !- Flow Rate per Floor Area
+    ,                         !- Flow Rate per Person
+    ,                         !- Air Changes per Hour
+    Exhaust,                  !- Ventilation Type
+    0,                        !- Fan Pressure Rise
+    1,                        !- Fan Total Efficiency
+    1,                        !- Constant Term Coefficient
+    0,                        !- Temperature Term Coefficient
+    0,                        !- Velocity Term Coefficient
+    0,                        !- Velocity Squared Term Coefficient
+    -100,                     !- Minimum Indoor Temperature
+    ,                         !- Minimum Indoor Temperature Schedule Name
+    100,                      !- Maximum Indoor Temperature
+    ,                         !- Maximum Indoor Temperature Schedule Name
+    -100,                     !- Delta Temperature
+    ,                         !- Delta Temperature Schedule Name
+    -100,                     !- Minimum Outdoor Temperature
+    ,                         !- Minimum Outdoor Temperature Schedule Name
+    100,                      !- Maximum Outdoor Temperature
+    ,                         !- Maximum Outdoor Temperature Schedule Name
+    40;                       !- Maximum Wind Speed
+! 
+! HVACTEMPLATE:THERMOSTAT,
+!     Block LargeHotel Storey 0_Thermostat,    !- Name
+!     CPB_Heating_SP,           !- Heating Setpoint Schedule Name
+!     ,                         !- Constant Heating Setpoint
+!     CPB_Cooling_SP;           !- Cooling Setpoint Schedule Name
+! 
+! HVACTEMPLATE:ZONE:FANCOIL,
+!     Block LargeHotel Storey 0,    !- Zone Name
+!     Block LargeHotel Storey 0_Thermostat,    !- Template Thermostat Name
+!     autosize,                 !- Supply Air Maximum Flow Rate
+!     ,                         !- Zone Heating Sizing Factor
+!     ,                         !- Zone Cooling Sizing Factor
+!     Flow/Person,              !- Outdoor Air Method
+!     0.01,                     !- Outdoor Air Flow Rate per Person
+!     0.0,                      !- Outdoor Air Flow Rate per Zone Floor Area
+!     0,                        !- Outdoor Air Flow Rate per Zone
+!     ,                         !- System Availability Schedule Name
+!     0.52,                     !- Supply Fan Total Efficiency
+!     331.17,                   !- Supply Fan Delta Pressure
+!     0.9,                      !- Supply Fan Motor Efficiency
+!     1.0,                      !- Supply Fan Motor in Air Stream Fraction
+!     ChilledWater,             !- Cooling Coil Type
+!     ,                         !- Cooling Coil Availability Schedule Name
+!     14.0,                     !- Cooling Coil Design Setpoint
+!     HotWater,                 !- Heating Coil Type
+!     ,                         !- Heating Coil Availability Schedule Name
+!     50.0,                     !- Heating Coil Design Setpoint
+!     ,                         !- Dedicated Outdoor Air System Name
+!     SupplyAirTemperature,     !- Zone Cooling Design Supply Air Temperature Input Method
+!     11.11,                    !- Zone Cooling Design Supply Air Temperature Difference
+!     SupplyAirTemperature,     !- Zone Heating Design Supply Air Temperature Input Method
+!     30,                       !- Zone Heating Design Supply Air Temperature Difference
+!     ,                         !- Design Specification Outdoor Air Object Name
+!     ,                         !- Design Specification Zone Air Distribution Object Name
+!     ,                         !- Capacity Control Method
+!     0.33,                     !- Low Speed Supply Air Flow Ratio
+!     0.66,                     !- Medium Speed Supply Air Flow Ratio
+!     ,                         !- Outdoor Air Schedule Name
+!     None,                     !- Baseboard Heating Type
+!     ,                         !- Baseboard Heating Availability Schedule Name
+!     autosize;                 !- Baseboard Heating Capacity
+! 
+! HVACTEMPLATE:PLANT:CHILLEDWATERLOOP,
+!     OpenUBEM_CHW_Loop,        !- Name
+!     ,                         !- Pump Schedule Name
+!     Intermittent,             !- Pump Control Type
+!     Default,                  !- Chiller Plant Operation Scheme Type
+!     ,                         !- Chiller Plant Equipment Operation Schemes Name
+!     ,                         !- Chilled Water Setpoint Schedule Name
+!     6.67,                     !- Chilled Water Design Setpoint
+!     ConstantPrimaryNoSecondary,    !- Chilled Water Pump Configuration
+!     179352,                   !- Primary Chilled Water Pump Rated Head
+!     179352,                   !- Secondary Chilled Water Pump Rated Head
+!     Default,                  !- Condenser Plant Operation Scheme Type
+!     ,                         !- Condenser Equipment Operation Schemes Name
+!     ,                         !- Condenser Water Temperature Control Type
+!     ,                         !- Condenser Water Setpoint Schedule Name
+!     29.4,                     !- Condenser Water Design Setpoint
+!     179352,                   !- Condenser Water Pump Rated Head
+!     None,                     !- Chilled Water Setpoint Reset Type
+!     12.2,                     !- Chilled Water Setpoint at Outdoor DryBulb Low
+!     15.6,                     !- Chilled Water Reset Outdoor DryBulb Low
+!     6.7,                      !- Chilled Water Setpoint at Outdoor DryBulb High
+!     26.7,                     !- Chilled Water Reset Outdoor DryBulb High
+!     SinglePump,               !- Chilled Water Primary Pump Type
+!     SinglePump,               !- Chilled Water Secondary Pump Type
+!     SinglePump,               !- Condenser Water Pump Type
+!     Yes,                      !- Chilled Water Supply Side Bypass Pipe
+!     Yes,                      !- Chilled Water Demand Side Bypass Pipe
+!     Yes,                      !- Condenser Water Supply Side Bypass Pipe
+!     Yes,                      !- Condenser Water Demand Side Bypass Pipe
+!     Water,                    !- Fluid Type
+!     8.33,                     !- Loop Design Delta Temperature
+!     ,                         !- Minimum Outdoor Dry Bulb Temperature
+!     SequentialLoad,           !- Chilled Water Load Distribution Scheme
+!     SequentialLoad;           !- Condenser Water Load Distribution Scheme
+! 
+! HVACTEMPLATE:PLANT:CHILLER,
+!     OpenUBEM_Chiller,         !- Name
+!     ElectricCentrifugalChiller,    !- Chiller Type
+!     autosize,                 !- Capacity
+!     3.108,                    !- Nominal COP
+!     WaterCooled,              !- Condenser Type
+!     1,                        !- Priority
+!     1,                        !- Sizing Factor
+!     0,                        !- Minimum Part Load Ratio
+!     1,                        !- Maximum Part Load Ratio
+!     1,                        !- Optimum Part Load Ratio
+!     0.25,                     !- Minimum Unloading Ratio
+!     5;                        !- Leaving Chilled Water Lower Temperature Limit
+! 
+! HVACTEMPLATE:PLANT:TOWER,
+!     OpenUBEM_Tower,           !- Name
+!     TwoSpeed,                 !- Tower Type
+!     autosize,                 !- High Speed Nominal Capacity
+!     autosize,                 !- High Speed Fan Power
+!     autosize,                 !- Low Speed Nominal Capacity
+!     autosize,                 !- Low Speed Fan Power
+!     autosize,                 !- Free Convection Capacity
+!     1,                        !- Priority
+!     1,                        !- Sizing Factor
+!     ChilledWater;             !- Template Plant Loop Type
+! 
+! HVACTEMPLATE:PLANT:HOTWATERLOOP,
+!     OpenUBEM_HW_Loop,         !- Name
+!     ,                         !- Pump Schedule Name
+!     Intermittent,             !- Pump Control Type
+!     Default,                  !- Hot Water Plant Operation Scheme Type
+!     ,                         !- Hot Water Plant Equipment Operation Schemes Name
+!     ,                         !- Hot Water Setpoint Schedule Name
+!     60,                       !- Hot Water Design Setpoint
+!     ConstantFlow,             !- Hot Water Pump Configuration
+!     179352,                   !- Hot Water Pump Rated Head
+!     None,                     !- Hot Water Setpoint Reset Type
+!     82.2,                     !- Hot Water Setpoint at Outdoor DryBulb Low
+!     -6.7,                     !- Hot Water Reset Outdoor DryBulb Low
+!     65.6,                     !- Hot Water Setpoint at Outdoor DryBulb High
+!     10.0,                     !- Hot Water Reset Outdoor DryBulb High
+!     SinglePump,               !- Hot Water Pump Type
+!     Yes,                      !- Supply Side Bypass Pipe
+!     Yes,                      !- Demand Side Bypass Pipe
+!     Water,                    !- Fluid Type
+!     11.0,                     !- Loop Design Delta Temperature
+!     ,                         !- Maximum Outdoor Dry Bulb Temperature
+!     SequentialLoad;           !- Load Distribution Scheme
+! 
+! HVACTEMPLATE:PLANT:BOILER,
+!     OpenUBEM_HW_Boiler,       !- Name
+!     CondensingHotWaterBoiler,    !- Boiler Type
+!     autosize,                 !- Capacity
+!     0.945,                    !- Efficiency
+!     NaturalGas,               !- Fuel Type
+!     1,                        !- Priority
+!     1,                        !- Sizing Factor
+!     0,                        !- Minimum Part Load Ratio
+!     1.1,                      !- Maximum Part Load Ratio
+!     1,                        !- Optimum Part Load Ratio
+!     100,                      !- Water Outlet Upper Temperature Limit
+!     HotWater;                 !- Template Plant Loop Type
+
+WATERHEATER:MIXED,
+    DHW_Heater_LargeHotel,    !- Name
+    0.3785,                   !- Tank Volume
+    OpenUBEM_DHW_Setpoint,    !- Setpoint Temperature Schedule Name
+    0,                        !- Deadband Temperature Difference
+    ,                         !- Maximum Temperature Limit
+    Cycle,                    !- Heater Control Type
+    14206,                    !- Heater Maximum Capacity
+    ,                         !- Heater Minimum Capacity
+    0,                        !- Heater Ignition Minimum Flow Rate
+    0,                        !- Heater Ignition Delay
+    NaturalGas,               !- Heater Fuel Type
+    0.95,                     !- Heater Thermal Efficiency
+    ,                         !- Part Load Factor Curve Name
+    0,                        !- Off Cycle Parasitic Fuel Consumption Rate
+    NaturalGas,               !- Off Cycle Parasitic Fuel Type
+    0,                        !- Off Cycle Parasitic Heat Fraction to Tank
+    0,                        !- On Cycle Parasitic Fuel Consumption Rate
+    ,                         !- On Cycle Parasitic Fuel Type
+    0,                        !- On Cycle Parasitic Heat Fraction to Tank
+    Zone,                     !- Ambient Temperature Indicator
+    ,                         !- Ambient Temperature Schedule Name
+    Block LargeHotel Storey 0,    !- Ambient Temperature Zone Name
+    ,                         !- Ambient Temperature Outdoor Air Node Name
+    7.56,                     !- Off Cycle Loss Coefficient to Ambient Temperature
+    1,                        !- Off Cycle Loss Fraction to Zone
+    7.56,                     !- On Cycle Loss Coefficient to Ambient Temperature
+    1,                        !- On Cycle Loss Fraction to Zone
+    4.113544e-05,             !- Peak Use Flow Rate
+    OpenUBEM_DHW_FlowFrac_LargeHotel,    !- Use Flow Rate Fraction Schedule Name
+    ,                         !- Cold Water Supply Temperature Schedule Name
+    ,                         !- Use Side Inlet Node Name
+    ,                         !- Use Side Outlet Node Name
+    1,                        !- Use Side Effectiveness
+    ,                         !- Source Side Inlet Node Name
+    ,                         !- Source Side Outlet Node Name
+    1,                        !- Source Side Effectiveness
+    autosize,                 !- Use Side Design Flow Rate
+    autosize,                 !- Source Side Design Flow Rate
+    1.5,                      !- Indirect Water Heating Recovery Time
+    IndirectHeatPrimarySetpoint,    !- Source Side Flow Control Mode
+    ,                         !- Indirect Alternate Setpoint Temperature Schedule Name
+    DHW;                      !- EndUse Subcategory
+
+WATERUSE:EQUIPMENT,
+    DHW_WaterUse_LargeHotel,    !- Name
+    DHW,                      !- EndUse Subcategory
+    4.113544e-05,             !- Peak Flow Rate
+    OpenUBEM_DHW_FlowFrac_LargeHotel,    !- Flow Rate Fraction Schedule Name
+    OpenUBEM_DHW_Setpoint,    !- Target Temperature Schedule Name
+    ,                         !- Hot Water Supply Temperature Schedule Name
+    ,                         !- Cold Water Supply Temperature Schedule Name
+    Block LargeHotel Storey 0,    !- Zone Name
+    OpenUBEM_DHW_SensibleFrac,    !- Sensible Fraction Schedule Name
+    OpenUBEM_DHW_LatentFrac;    !- Latent Fraction Schedule Name
+
+WATERUSE:CONNECTIONS,
+    DHW_WaterConn_LargeHotel,    !- Name
+    ,                         !- Inlet Node Name
+    ,                         !- Outlet Node Name
+    ,                         !- Supply Water Storage Tank Name
+    ,                         !- Reclamation Water Storage Tank Name
+    OpenUBEM_DHW_Setpoint,    !- Hot Water Supply Temperature Schedule Name
+    ,                         !- Cold Water Supply Temperature Schedule Name
+    None,                     !- Drain Water Heat Exchanger Type
+    Plant,                    !- Drain Water Heat Exchanger Destination
+    ,                         !- Drain Water Heat Exchanger UFactor Times Area
+    DHW_WaterUse_LargeHotel;    !- Water Use Equipment 1 Name
+
+OUTPUT:TABLE:SUMMARYREPORTS,
+    AllSummary;               !- Report 1 Name
+
+OUTPUTCONTROL:TABLE:STYLE,
+    HTML,                     !- Column Separator
+    None;                     !- Unit Conversion
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Ideal Loads Zone Total Heating Energy,    !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Ideal Loads Zone Total Cooling Energy,    !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone People Occupant Count,    !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Lights Electricity Energy,    !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Electric Equipment Electricity Energy,    !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Infiltration Sensible Heat Loss Energy,    !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Mechanical Ventilation Mass Flow Rate,    !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Mean Air Temperature,    !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Operative Temperature,    !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Site Outdoor Air Drybulb Temperature,    !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Site Wind Speed,          !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:METER,
+    Cooling:Electricity,      !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER,
+    Heating:Electricity,      !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER,
+    Heating:NaturalGas,       !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER,
+    Fans:Electricity,         !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER,
+    Pumps:Electricity,        !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER,
+    WaterSystems:NaturalGas,    !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER,
+    WaterSystems:Electricity,    !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER,
+    Refrigeration:Electricity,    !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER,
+    InteriorEquipment:NaturalGas,    !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER,
+    Cooking:InteriorEquipment:Electricity,    !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER,
+    Refrigeration:InteriorEquipment:Electricity,    !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER:METERFILEONLY,
+    Electricity:Facility,     !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:METER:METERFILEONLY,
+    NaturalGas:Facility,      !- Key Name
+    RunPeriod;                !- Reporting Frequency
+
+OUTPUT:SQLITE,
+    SimpleAndTabular,         !- Option Type
+    UseOutputControlTableStyle;    !- Unit Conversion for Tabular Data
+! 
+! -------------------------------------------------------------
+! New objects created from ExpandObjects
+! -------------------------------------------------------------
+! 
+
+ThermostatSetpoint:DualSetpoint,
+  Block LargeHotel Storey 0_Thermostat Dual SP Control,    !- Name
+  CPB_Heating_SP,                                          !- Heating Setpoint Temperature Schedule Name
+  CPB_Cooling_SP;                                          !- Cooling Setpoint Temperature Schedule Name
+
+ScheduleTypeLimits,
+  HVACTemplate Any Number;                                 !- Name
+
+Schedule:Compact,
+  HVACTemplate-Always 4,                                   !- Name
+  HVACTemplate Any Number,                                 !- Schedule Type Limits Name
+  Through: 12/31,                                          !- Field 1
+  For: AllDays,                                            !- Field 2
+  Until: 24:00,                                            !- Field 3
+  4;                                                       !- Field 4
+
+ZoneControl:Thermostat,
+  Block LargeHotel Storey 0 Thermostat,                    !- Name
+  Block LargeHotel Storey 0,                               !- Zone or ZoneList Name
+  HVACTemplate-Always 4,                                   !- Control Type Schedule Name
+  ThermostatSetpoint:DualSetpoint,                         !- Control Object Type
+  Block LargeHotel Storey 0_Thermostat Dual SP Control;    !- Control Name
+
+DesignSpecification:OutdoorAir,
+  SZ DSOA Block LargeHotel Storey 0,                       !- Name
+  Flow/Person,                                             !- Outdoor Air Method
+  0.01,                                                    !- Outdoor Air Flow per Person {m3/s}
+  0.0,                                                     !- Outdoor Air Flow per Zone Floor Area {m3/s-m2}
+  0;                                                       !- Outdoor Air Flow per Zone {m3/s}
+
+Sizing:Zone,
+  Block LargeHotel Storey 0,                               !- Zone or ZoneList Name
+  SupplyAirTemperature,                                    !- Zone Cooling Design Supply Air Temperature Input Method
+  14.0,                                                    !- Zone Cooling Design Supply Air Temperature {C}
+  11.11,                                                   !- Zone Cooling Design Supply Air Temperature Difference {delta C}
+  SupplyAirTemperature,                                    !- Zone Heating Design Supply Air Temperature Input Method
+  50.0,                                                    !- Zone Heating Design Supply Air Temperature {C}
+  30,                                                      !- Zone Heating Design Supply Air Temperature Difference {delta C}
+  0.008,                                                   !- Zone Cooling Design Supply Air Humidity Ratio {kg-H20/kg-air}
+  0.008,                                                   !- Zone Heating Design Supply Air Humidity Ratio {kg-H2O/kg-air}
+  SZ DSOA Block LargeHotel Storey 0,                       !- Design Specification Outdoor Air Object Name
+  ,                                                        !- Zone Heating Sizing Factor
+  ,                                                        !- Zone Cooling Sizing Factor
+  DesignDay,                                               !- Cooling Design Air Flow Method
+  0,                                                       !- Cooling Design Air Flow Rate {m3/s}
+  ,                                                        !- Cooling Minimum Air Flow per Zone Floor Area {m3/s-m2}
+  ,                                                        !- Cooling Minimum Air Flow {m3/s}
+  0,                                                       !- Cooling Minimum Air Flow Fraction {}
+  DesignDay,                                               !- Heating Design Air Flow Method
+  0,                                                       !- Heating Design Air Flow Rate {m3/s}
+  ,                                                        !- Heating Maximum Air Flow per Zone Floor Area {m3/s-m2}
+  ,                                                        !- Heating Maximum Air Flow {m3/s}
+  0,                                                       !- Heating Maximum Air Flow Fraction {}
+  SZ DSZAD Block LargeHotel Storey 0;                      !- Design Specification Zone Air Distribution Object Name
+
+DesignSpecification:ZoneAirDistribution,
+  SZ DSZAD Block LargeHotel Storey 0,                      !- Name
+  1,                                                       !- Zone Air Distribution Effectiveness in Cooling Mode {}
+  1;                                                       !- Zone Air Distribution Effectiveness in Heating Mode {}
+
+ZoneHVAC:EquipmentConnections,
+  Block LargeHotel Storey 0,                               !- Zone Name
+  Block LargeHotel Storey 0 Equipment,                     !- Zone Conditioning Equipment List Name
+  Block LargeHotel Storey 0 Supply Inlet,                  !- Zone Air Inlet Node or NodeList Name
+  Block LargeHotel Storey 0 Fan Coil Return,               !- Zone Air Exhaust Node or NodeList Name
+  Block LargeHotel Storey 0 Zone Air Node,                 !- Zone Air Node Name
+  Block LargeHotel Storey 0 Return Outlet;                 !- Zone Return Air Node Name
+
+ZoneHVAC:EquipmentList,
+  Block LargeHotel Storey 0 Equipment,                     !- Name
+  SequentialLoad,                                          !- Load Distribution Scheme
+  ZoneHVAC:FourPipeFanCoil,                                !- Zone Equipment Object Type
+  Block LargeHotel Storey 0 Fan Coil,                      !- Zone Equipment Name
+  1,                                                       !- Zone Equipment Cooling Sequence
+  1,                                                       !- Zone Equipment Heating or No-Load Sequence
+  ,                                                        !- Zone Equipment Sequential Cooling Fraction Schedule Name
+  ;                                                        !- Zone Equipment Sequential Heating Fraction Schedule Name
+! Capacity Control Method was blank, defaulted to ConstantFanVariableFlow
+
+ZoneHVAC:FourPipeFanCoil,
+  Block LargeHotel Storey 0 Fan Coil,                      !- Name
+  ,                                                        !- Availability Schedule Name
+  ConstantFanVariableFlow,                                 !- Capacity Control Method
+  autosize,                                                !- Maximum Supply Air Flow Rate {m3/s}
+  0.33,                                                    !- Low Speed Supply Air Flow Ratio
+  0.66,                                                    !- Medium Speed Supply Air Flow Ratio
+  autosize,                                                !- Maximum Outdoor Air Flow Rate {m3/s}
+  ,                                                        !- Outdoor Air Schedule Name
+  Block LargeHotel Storey 0 Fan Coil Return,               !- Air Inlet Node Name
+  Block LargeHotel Storey 0 Supply Inlet,                  !- Air Outlet Node Name
+  OutdoorAir:Mixer,                                        !- Outdoor Air Mixer Object Type
+  Block LargeHotel Storey 0 OA Mixing Box,                 !- Outdoor Air Mixer Name
+  Fan:SystemModel,                                         !- Supply Air Fan Object Type
+  Block LargeHotel Storey 0 Supply Fan,                    !- Fan Name
+  Coil:Cooling:Water,                                      !- Cooling Coil Object Type
+  Block LargeHotel Storey 0 Cooling Coil,                  !- Cooling Coil Name
+  autosize,                                                !- Maximum Cold Water Flow Rate {m3/s}
+  0,                                                       !- Minimum Cold Water Flow Rate {m3/s}
+  0.001,                                                   !- Cooling Convergence Tolerance
+  Coil:Heating:Water,                                      !- Heating Coil Object Type
+  Block LargeHotel Storey 0 Heating Coil,                  !- Heating Coil Name
+  autosize,                                                !- Maximum Hot Water Flow Rate {m3/s}
+  0,                                                       !- Minimum Hot Water Flow Rate{m3/s}
+  0.001;                                                   !- Heating Convergence Tolerance
+
+Fan:SystemModel,
+  Block LargeHotel Storey 0 Supply Fan,                    !- Name
+  ,                                                        !- Availability Schedule Name
+  Block LargeHotel Storey 0 Mixed Air Outlet,              !- Air Inlet Node Name
+  Block LargeHotel Storey 0 Supply Fan Outlet,             !- Air Outlet Node Name
+  autosize,                                                !- Design Maximum Air Flow Rate {m3/s}
+  Discrete,                                                !- Speed Control Method
+  0.0,                                                     !- Electric Power Minimum Flow Rate Fraction
+  331.17,                                                  !- Design Pressure Rise {Pa}
+  0.9,                                                     !- Motor Efficiency
+  1.0,                                                     !- Motor in Airstream Fraction
+  autosize,                                                !- Design Electric Power Consumption {W}
+  TotalEfficiencyAndPressure,                              !- Design Power Sizing Method
+  ,                                                        !- Electric Power Per Unit Flow Rate {W/(m3/s)}
+  ,                                                        !- Electric Power Per Unit Flow Rate Per Unit Pressure {W/((m3/s)-Pa)}
+  0.52,                                                    !- Fan Total Efficiency
+  ,                                                        !- Electric Power Function of Flow Fraction Curve Name
+  ,                                                        !- Night Ventilation Mode Pressure Rise {Pa}
+  ,                                                        !- Night Ventilation Mode Flow Fraction
+  ,                                                        !- Motor Loss Zone Name
+  ,                                                        !- Motor Loss Radiative Fraction
+  General,                                                 !- End-Use Subcategory
+  1,                                                       !- Number of Speeds
+  1.0,                                                     !- Speed 1 Flow Fraction
+  1.0;                                                     !- Speed 1 Electric Power Fraction
+
+OutdoorAir:Mixer,
+  Block LargeHotel Storey 0 OA Mixing Box,                 !- Name
+  Block LargeHotel Storey 0 Mixed Air Outlet,              !- Mixed Air Node Name
+  Block LargeHotel Storey 0 Outside Air Inlet,             !- Outside Air Stream Node Name
+  Block LargeHotel Storey 0 Relief Air Outlet,             !- Relief Air Stream Node Name
+  Block LargeHotel Storey 0 Fan Coil Return;               !- Return Air Stream Node Name
+
+OutdoorAir:NodeList,
+  Block LargeHotel Storey 0 Outside Air Inlet;             !- Node or NodeList Name 1
+
+Coil:Cooling:Water,
+  Block LargeHotel Storey 0 Cooling Coil,                  !- Name
+  ,                                                        !- Availability Schedule Name
+  autosize,                                                !- Design Water Flow Rate {m3/s}
+  autosize,                                                !- Design Air Flow Rate {m3/s}
+  autosize,                                                !- Design Inlet Water Temperature {C}
+  autosize,                                                !- Design Inlet Air Temperature {C}
+  autosize,                                                !- Design Outlet Air Temperature {C}
+  autosize,                                                !- Design Inlet Air Humidity Ratio {kg-H2O/kg-air}
+  autosize,                                                !- Design Outlet Air Humidity Ratio {kg-H2O/kg-air}
+  Block LargeHotel Storey 0 Cooling Coil ChW Inlet,        !- Water Inlet Node Name
+  Block LargeHotel Storey 0 Cooling Coil ChW Outlet,       !- Water Outlet Node Name
+  Block LargeHotel Storey 0 Supply Fan Outlet,             !- Air Inlet Node Name
+  Block LargeHotel Storey 0 Cooling Coil Outlet,           !- Air Outlet Node Name
+  DetailedAnalysis,                                        !- Type of Analysis
+  CrossFlow;                                               !- Heat Exchanger Configuration
+
+Branch,
+  Block LargeHotel Storey 0 Cooling Coil ChW Branch,       !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Coil:Cooling:Water,                                      !- Cooling Coil Object Type
+  Block LargeHotel Storey 0 Cooling Coil,                  !- Component Name
+  Block LargeHotel Storey 0 Cooling Coil ChW Inlet,        !- Component Inlet Node Name
+  Block LargeHotel Storey 0 Cooling Coil ChW Outlet;       !- Component Outlet Node Name
+
+Coil:Heating:Water,
+  Block LargeHotel Storey 0 Heating Coil,                  !- Name
+  ,                                                        !- Availability Schedule Name
+  autosize,                                                !- U-Factor Times Area Value {W/K}
+  autosize,                                                !- Maximum Water Flow Rate {m3/s}
+  Block LargeHotel Storey 0 Heating Coil HW Inlet,         !- Water Inlet Node Name
+  Block LargeHotel Storey 0 Heating Coil HW Outlet,        !- Water Outlet Node Name
+  Block LargeHotel Storey 0 Cooling Coil Outlet,           !- Air Inlet Node Name
+  Block LargeHotel Storey 0 Supply Inlet,                  !- Air Outlet Node Name
+  UFactorTimesAreaAndDesignWaterFlowRate,                  !- Performance Input Method
+  autosize,                                                !- Rated Capacity
+  82.2,                                                    !- Rated Inlet Water Temperature
+  16.6,                                                    !- Rated Inlet Air Temperature
+  71.1,                                                    !- Rated Outlet Water Temperature
+  32.2,                                                    !- Rated Outlet Air Temperature
+  0.5;                                                     !- Rated Ratio for Air and Water Convection
+
+Branch,
+  Block LargeHotel Storey 0 Heating Coil HW Branch,        !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Coil:Heating:Water,                                      !- Component Object Type
+  Block LargeHotel Storey 0 Heating Coil,                  !- Component Name
+  Block LargeHotel Storey 0 Heating Coil HW Inlet,         !- Component Inlet Node Name
+  Block LargeHotel Storey 0 Heating Coil HW Outlet;        !- Component Outlet Node Name
+
+Boiler:HotWater,
+  OpenUBEM_HW_Boiler,                                      !- Name
+  NaturalGas,                                              !- Fuel Type
+  autosize,                                                !- Nominal Capacity {W}
+  0.945,                                                   !- Nominal Thermal Efficiency
+  EnteringBoiler,                                          !- Efficiency Curve Temperature Evaluation Variable
+  OpenUBEM_HW_Boiler Condensing Boiler Efficiency Curve,   !- Normalized Boiler Efficiency Curve Name
+  autosize,                                                !- Max Design Boiler Water Flow Rate {m3/s}
+  0,                                                       !- Minimum Part Load Ratio
+  1.1,                                                     !- Maximum Part Load Ratio
+  1,                                                       !- Optimum Part Load Ratio
+  OpenUBEM_HW_Boiler HW Inlet,                             !- Water Inlet Node Name
+  OpenUBEM_HW_Boiler HW Outlet,                            !- Water Outlet Node Name
+  100,                                                     !- Temp Upper Limit Water Outlet {C}
+  ConstantFlow,                                            !- Boiler Flow Mode
+  0,                                                       !- Parasitic Electric Load {W}
+  1;                                                       !- Sizing Factor
+
+Curve:BiQuadratic,
+  OpenUBEM_HW_Boiler Condensing Boiler Efficiency Curve,   !- Name
+  1.124970374,                                             !- Coefficient1 Constant
+  0.014963852,                                             !- Coefficient2 x
+  -0.02599835,                                             !- Coefficient3 x**2
+  0.0,                                                     !- Coefficient4 y
+  -1.40464E-6,                                             !- Coefficient5 y**2
+  -0.00153624,                                             !- Coefficient6 x*y
+  0.1,                                                     !- Minimum Value of x
+  1.0,                                                     !- Maximum Value of x
+  30.0,                                                    !- Minimum Value of y
+  85.0;                                                    !- Maximum Value of y
+
+Branch,
+  OpenUBEM_HW_Boiler HW Branch,                            !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Boiler:HotWater,                                         !- Component Object Type
+  OpenUBEM_HW_Boiler,                                      !- Component Name
+  OpenUBEM_HW_Boiler HW Inlet,                             !- Component Inlet Node Name
+  OpenUBEM_HW_Boiler HW Outlet;                            !- Component Outlet Node Name
+
+Chiller:Electric:EIR,
+  OpenUBEM_Chiller,                                        !- Name
+  autosize,                                                !- Reference Capacity {W}
+  3.108,                                                   !- Reference COP {W/W}
+  6.67,                                                    !- Reference Leaving Chilled Water Temperature {C}
+  29.4,                                                    !- Reference Entering Condenser Fluid Temperature {C}
+  autosize,                                                !- Reference Evaporator Volumetric Water Flow Rate {m3/s}
+  autosize,                                                !- Reference Condenser Volumetric Water Flow Rate {m3/s}
+  OpenUBEM_Chiller CentCapFT,                              !- Cooling Capacity Function of Temperature Curve Name
+  OpenUBEM_Chiller CentEIRFT,                              !- Electric Input to Cooling Output Ratio Function of Temperature Curve Name
+  OpenUBEM_Chiller CentEIRFPLR,                            !- Electric Input to Cooling Output Ratio Function of Part Load Ratio Curve Name
+  0,                                                       !- Minimum Part Load Ratio
+  1,                                                       !- Maximum Part Load Ratio
+  1,                                                       !- Optimum Part Load Ratio
+  0.25,                                                    !- Minimum Unloading Ratio
+  OpenUBEM_Chiller ChW Inlet,                              !- Chilled Water Inlet Node Name
+  OpenUBEM_Chiller ChW Outlet,                             !- Chilled Water Outlet Node Name
+  OpenUBEM_Chiller Cnd Inlet,                              !- Condenser Inlet Node Name
+  OpenUBEM_Chiller Cnd Outlet,                             !- Condenser Outlet Node Name
+  WaterCooled,                                             !- Condenser Type
+  0,                                                       !- Condenser Fan Power Ratio {W/W}
+  1,                                                       !- Compressor Motor Efficiency
+  5,                                                       !- Leaving Chilled Water Lower Temperature Limit {C}
+  ConstantFlow,                                            !- Chiller Flow Mode
+  0,                                                       !- Design Heat Recovery Water Flow Rate {m3/s}
+  ,                                                        !- Heat Recovery Inlet Node Name
+  ,                                                        !- Heat Recovery Outlet Node Name
+  1;                                                       !- Sizing Factor
+
+Branch,
+  OpenUBEM_Chiller ChW Branch,                             !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Chiller:Electric:EIR,                                    !- Component Object Type
+  OpenUBEM_Chiller,                                        !- Component Name
+  OpenUBEM_Chiller ChW Inlet,                              !- Component Inlet Node Name
+  OpenUBEM_Chiller ChW Outlet;                             !- Component Outlet Node Name
+
+Branch,
+  OpenUBEM_Chiller CndW Branch,                            !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Chiller:Electric:EIR,                                    !- Component Object Type
+  OpenUBEM_Chiller,                                        !- Component Name
+  OpenUBEM_Chiller Cnd Inlet,                              !- Component Inlet Node Name
+  OpenUBEM_Chiller Cnd Outlet;                             !- Component Outlet Node Name
+
+Curve:Biquadratic,
+! Cooling Capacity Function of Temperature Curve for open or hermetic water-cooled centrifugal chillers
+! Same as DOE-2.1E HERM-CENT-CAP-FT (CCAPT3) and OPEN-CENT-CAP-FT (CCAPT1)
+  OpenUBEM_Chiller CentCapFT,                              !- Name
+  0.257896,                                                !- Coefficient1 Constant
+  0.0389016,                                               !- Coefficient2 x
+  -0.00021708,                                             !- Coefficient3 x**2
+  0.0468684,                                               !- Coefficient4 y
+  -0.00094284,                                             !- Coefficient5 y**2
+  -0.00034344,                                             !- Coefficient6 x*y
+  5,                                                       !- Minimum Value of x
+  10,                                                      !- Maximum Value of x
+  24,                                                      !- Minimum Value of y
+  35;                                                      !- Maximum Value of y
+
+Curve:Biquadratic,
+! Energy Input to Cooling Output Ratio Function of Temperature Curve for open or hermetic water-cooled centrifugal chillers
+! Same as DOE-2.1E HERM-CENT-EIR-FT (EIRT3) and OPEN-CENT-EIR-FT (EIRT1)
+  OpenUBEM_Chiller CentEIRFT,                              !- Name
+  0.933884,                                                !- Coefficient1 Constant
+  -0.058212,                                               !- Coefficient2 x
+  0.00450036,                                              !- Coefficient3 x**2
+  0.00243,                                                 !- Coefficient4 y
+  0.000486,                                                !- Coefficient5 y**2
+  -0.001215,                                               !- Coefficient6 x*y
+  5,                                                       !- Minimum Value of x
+  10,                                                      !- Maximum Value of x
+  24,                                                      !- Minimum Value of y
+  35;                                                      !- Maximum Value of y
+
+Curve:Quadratic,
+! Energy Input to Cooling Output Ratio Function of Part Load Ratio Curve for open or hermetic water-cooled centrifugal chillers
+! Same as DOE-2.1E HERM-CENT-EIR-FPLR (EIRPLR3) and OPEN-CENT-EIR-FPLR (EIRPLR1)
+  OpenUBEM_Chiller CentEIRFPLR,                            !- Name
+  0.222903,                                                !- Coefficient1 Constant
+  0.313387,                                                !- Coefficient2 x
+  0.46371,                                                 !- Coefficient3 x**2
+  0,                                                       !- Minimum Value of x
+  1;                                                       !- Maximum Value of x
+
+CoolingTower:TwoSpeed,
+  OpenUBEM_Tower,                                          !- Name
+  OpenUBEM_Tower CndW Inlet,                               !- Water Inlet Node Name
+  OpenUBEM_Tower CndW Outlet,                              !- Water Outlet Node Name
+  autosize,                                                !- Design Water Flow Rate {m3/s}
+  autosize,                                                !- High Fan Speed Air Flow Rate {m3/s}
+  autosize,                                                !- High Fan Speed Fan Power {W}
+  autosize,                                                !- High Fan Speed U-Factor Times Area Value {W/K}
+  autocalculate,                                           !- Low Fan Speed Air Flow Rate {m3/s}
+  ,                                                        !- Low Fan Speed Air Flow Rate Sizing Factor {m3/s}
+  autosize,                                                !- Low Fan Speed Fan Power {W}
+  ,                                                        !- Low Fan Speed Fan Power Sizing Factor {m3/s}
+  autocalculate,                                           !- Low Fan Speed U-Factor Times Area Value {W/K}
+  ,                                                        !- Low Fan Speed U-Factor Times Area Value Sizing Factor {m3/s}
+  autocalculate,                                           !- Free Convection Regime Air Flow Rate {m3/s}
+  ,                                                        !- Free Convection Regime Air Flow Rate Sizing Factor {m3/s}
+  autocalculate,                                           !- Free Convection Regime U-Factor Times Area Value {W/K}
+  ,                                                        !- Free Convection Regime U-Factor Times Area Value Sizing Factor {m3/s}
+  UFactorTimesAreaAndDesignWaterFlowRate,                  !- Performance Input Method
+  ,                                                        !- Heat Rejection Capacity and Nominal Capacity Sizing Ratio {m3/s}
+  ,                                                        !- High Speed Nominal Capacity {W}
+  autocalculate,                                           !- Low Speed Nominal Capacity {W}
+  ,                                                        !- Low Speed Nominal Capacity Sizing Factor {m3/s}
+  autocalculate,                                           !- Free Convection Capacity {W}
+  ,                                                        !- Free Convection Capacity Sizing Factor {m3/s}
+  ,                                                        !- Design Inlet Air Dry-Bulb Temperature {C}
+  ,                                                        !- Design Inlet Air Wet-Bulb Temperature {C}
+  ,                                                        !- Design Approach Temperature {deltaT}
+  ,                                                        !- Design Range Temperature {deltaT}
+  ,                                                        !- Basin Heater Capacity {W/K}
+  ,                                                        !- Basin Heater Setpoint Temperature {C}
+  ,                                                        !- Basin Heater Operating Schedule Name
+  SaturatedExit,                                           !- Evaporation Loss Mode
+  ,                                                        !- Evaporation Loss Factor {percent/K}
+  0.008,                                                   !- Drift Loss Percent {percent}
+  ConcentrationRatio,                                      !- Blowdown Calculation Mode
+  3,                                                       !- Blowdown Concentration Ratio
+  ,                                                        !- Blowdown Makeup Water Usage Schedule Name
+  ,                                                        !- Supply Water Storage Tank Name
+  OpenUBEM_Tower Cooling Tower Outdoor Air Inlet Node,     !- Outdoor Air Inlet Node Name
+  ,                                                        !- Number of Cells
+  ,                                                        !- Cell Control
+  ,                                                        !- Cell Minimum  Water Flow Rate Fraction
+  ,                                                        !- Cell Maximum Water Flow Rate Fraction
+  1;                                                       !- Sizing Factor
+
+OutdoorAir:Node,
+  OpenUBEM_Tower Cooling Tower Outdoor Air Inlet Node,     !- Name
+  -1;                                                      !- Height Above Ground
+
+Branch,
+  OpenUBEM_Tower CndW Branch,                              !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  CoolingTower:TwoSpeed,                                   !- Component Object Type
+  OpenUBEM_Tower,                                          !- Component Name
+  OpenUBEM_Tower CndW Inlet,                               !- Component Inlet Node Name
+  OpenUBEM_Tower CndW Outlet;                              !- Component Outlet Node Name
+
+Sizing:Plant,
+  OpenUBEM_HW_Loop Hot Water Loop,                         !- Plant or Condenser Loop Name
+  Heating,                                                 !- Loop Type
+  60,                                                      !- Design loop exit temperature {C}
+  11.0;                                                    !- Design loop delta T {deltaC}
+
+PlantLoop,
+  OpenUBEM_HW_Loop Hot Water Loop,                         !- Name
+  Water,                                                   !- Fluid Type
+  ,                                                        !- User Defined Fluid Type
+  OpenUBEM_HW_Loop Operation,                              !- PlantEquipmentOperationSchemes Name
+  OpenUBEM_HW_Loop HW Supply Outlet,                       !- Loop Temperature Setpoint Node Name
+  100,                                                     !- Maximum Loop Temperature {C}
+  10,                                                      !- Minimum Loop Temperature {C}
+  autosize,                                                !- Maximum Loop Volumetric Flow Rate {m3/s}
+  0,                                                       !- Minimum Loop Volumetric Flow Rate {m3/s}
+  autosize,                                                !- volume of the plant loop {m3}
+  OpenUBEM_HW_Loop HW Supply Inlet,                        !- Plant Side Inlet Node Name
+  OpenUBEM_HW_Loop HW Supply Outlet,                       !- Plant Side Outlet Node Name
+  OpenUBEM_HW_Loop HW Supply Side Branches,                !- Plant Side Branch List Name
+  OpenUBEM_HW_Loop HW Supply Side Connectors,              !- Plant Side Connector List Name
+  OpenUBEM_HW_Loop HW Demand Inlet,                        !- Demand Side Inlet Node Name
+  OpenUBEM_HW_Loop HW Demand Outlet,                       !- Demand Side Outlet Node Name
+  OpenUBEM_HW_Loop HW Demand Side Branches,                !- Demand Side Branch List Name
+  OpenUBEM_HW_Loop HW Demand Side Connectors,              !- Demand Side Connector List Name
+  SequentialLoad,                                          !- Load Distribution Scheme
+  ,                                                        !- AvailabilityManagerAssignmentList
+  SingleSetpoint;                                          !- Plant Loop Demand Calculation Scheme
+
+PlantEquipmentOperationSchemes,
+  OpenUBEM_HW_Loop Operation,                              !- Name
+  PlantEquipmentOperation:HeatingLoad,                     !- Control Scheme Object Type
+  OpenUBEM_HW_Loop Operation All Hours,                    !- Control Scheme Name
+  HVACTemplate-Always 1;                                   !- Control Scheme Schedule Name
+
+Schedule:Compact,
+  HVACTemplate-Always 1,                                   !- Name
+  HVACTemplate Any Number,                                 !- Schedule Type Limits Name
+  Through: 12/31,                                          !- Field 1
+  For: AllDays,                                            !- Field 2
+  Until: 24:00,                                            !- Field 3
+  1;                                                       !- Field 4
+
+PlantEquipmentOperation:HeatingLoad,
+  OpenUBEM_HW_Loop Operation All Hours,                    !- Name
+  0,                                                       !- Load Range Lower Limit 1 {W}
+  1000000000000000,                                        !- Load Range Upper Limit 1 {W}
+  OpenUBEM_HW_Loop All Equipment;                          !- Priority Control 1 Equipment List Name
+
+PlantEquipmentList,
+  OpenUBEM_HW_Loop All Equipment,                          !- Name
+  Boiler:HotWater,                                         !- Equipment Object Type
+  OpenUBEM_HW_Boiler;                                      !- Equipment Name
+
+NodeList,
+  OpenUBEM_HW_Loop HW Supply Setpoint Nodes,               !- Name
+  OpenUBEM_HW_Boiler HW Outlet,                            !- Node Name
+  OpenUBEM_HW_Loop HW Supply Outlet;                       !- Node Name
+
+Schedule:Compact,
+  HVACTemplate-Always 60,                                  !- Name
+  HVACTemplate Any Number,                                 !- Schedule Type Limits Name
+  Through: 12/31,                                          !- Field 1
+  For: AllDays,                                            !- Field 2
+  Until: 24:00,                                            !- Field 3
+  60;                                                      !- Field 4
+
+SetpointManager:Scheduled,
+  OpenUBEM_HW_Loop HW Temp Manager,                        !- Name
+  Temperature,                                             !- Control Variable
+  HVACTemplate-Always 60,                                  !- Schedule Name
+  OpenUBEM_HW_Loop HW Supply Setpoint Nodes;               !- Setpoint Node or NodeList Name
+
+BranchList,
+  OpenUBEM_HW_Loop HW Supply Side Branches,                !- Name
+  OpenUBEM_HW_Loop HW Supply Inlet Branch,                 !- Name
+  OpenUBEM_HW_Boiler HW Branch,                            !- Branch Name
+  OpenUBEM_HW_Loop HW Supply Bypass Branch,                !- Name
+  OpenUBEM_HW_Loop HW Supply Outlet Branch;                !- Name
+
+ConnectorList,
+  OpenUBEM_HW_Loop HW Supply Side Connectors,              !- Name
+  Connector:Splitter,                                      !- Connector Object Type
+  OpenUBEM_HW_Loop HW Supply Splitter,                     !- Connector Name
+  Connector:Mixer,                                         !- Connector Object Type
+  OpenUBEM_HW_Loop HW Supply Mixer;                        !- Connector Name
+
+Connector:Splitter,
+  OpenUBEM_HW_Loop HW Supply Splitter,                     !- Name
+  OpenUBEM_HW_Loop HW Supply Inlet Branch,                 !- Inlet Branch Name
+  OpenUBEM_HW_Boiler HW Branch,                            !- Outlet Branch Name
+  OpenUBEM_HW_Loop HW Supply Bypass Branch;                !- Outlet Branch Name
+
+Connector:Mixer,
+  OpenUBEM_HW_Loop HW Supply Mixer,                        !- Name
+  OpenUBEM_HW_Loop HW Supply Outlet Branch,                !- Outlet Branch Name
+  OpenUBEM_HW_Boiler HW Branch,                            !- Outlet Branch Name
+  OpenUBEM_HW_Loop HW Supply Bypass Branch;                !- Inlet Branch Name
+
+Branch,
+  OpenUBEM_HW_Loop HW Supply Bypass Branch,                !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_HW_Loop HW Supply Side Bypass Pipe,             !- Component Name
+  OpenUBEM_HW_Loop HW Supply Bypass Inlet,                 !- Component Inlet Node Name
+  OpenUBEM_HW_Loop HW Supply Bypass Outlet;                !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_HW_Loop HW Supply Side Bypass Pipe,             !- Name
+  OpenUBEM_HW_Loop HW Supply Bypass Inlet,                 !- Inlet Node Name
+  OpenUBEM_HW_Loop HW Supply Bypass Outlet;                !- Outlet Node Name
+
+Pump:ConstantSpeed,
+  OpenUBEM_HW_Loop HW Supply Pump,                         !- Name
+  OpenUBEM_HW_Loop HW Supply Inlet,                        !- Inlet Node Name
+  OpenUBEM_HW_Loop HW Pump Outlet,                         !- Outlet Node Name
+  autosize,                                                !- Rated Volumetric Flow Rate {m3/s}
+  179352,                                                  !- Rated Pump Head {Pa}
+  autosize,                                                !- Rated Power Consumption {W}
+  0.9,                                                     !- Motor Efficiency
+  0,                                                       !- Fraction of Motor Inefficiencies to Fluid Stream
+  Intermittent,                                            !- Pump Control Type
+  ;                                                        !- Pump Flow Rate Schedule Name
+
+Branch,
+  OpenUBEM_HW_Loop HW Supply Inlet Branch,                 !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pump:ConstantSpeed,                                      !- Component Object Type
+  OpenUBEM_HW_Loop HW Supply Pump,                         !- Component Name
+  OpenUBEM_HW_Loop HW Supply Inlet,                        !- Component Inlet Node Name
+  OpenUBEM_HW_Loop HW Pump Outlet;                         !- Component Outlet Node Name
+
+Branch,
+  OpenUBEM_HW_Loop HW Supply Outlet Branch,                !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_HW_Loop HW Supply Outlet Pipe,                  !- Component Name
+  OpenUBEM_HW_Loop HW Supply Outlet Pipe Inlet,            !- Component Inlet Node Name
+  OpenUBEM_HW_Loop HW Supply Outlet;                       !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_HW_Loop HW Supply Outlet Pipe,                  !- Name
+  OpenUBEM_HW_Loop HW Supply Outlet Pipe Inlet,            !- Inlet Node Name
+  OpenUBEM_HW_Loop HW Supply Outlet;                       !- Outlet Node Name
+
+BranchList,
+  OpenUBEM_HW_Loop HW Demand Side Branches,                !- Name
+  OpenUBEM_HW_Loop HW Demand Inlet Branch,                 !- Name
+  Block LargeHotel Storey 0 Heating Coil HW Branch,        !- Name
+  OpenUBEM_HW_Loop HW Demand Bypass Branch,                !- Name
+  OpenUBEM_HW_Loop HW Demand Outlet Branch;                !- Name
+
+ConnectorList,
+  OpenUBEM_HW_Loop HW Demand Side Connectors,              !- Name
+  Connector:Splitter,                                      !- Connector Object Type
+  OpenUBEM_HW_Loop HW Demand Splitter,                     !- Connector Name
+  Connector:Mixer,                                         !- Connector Object Type
+  OpenUBEM_HW_Loop HW Demand Mixer;                        !- Connector Name
+
+Connector:Splitter,
+  OpenUBEM_HW_Loop HW Demand Splitter,                     !- Name
+  OpenUBEM_HW_Loop HW Demand Inlet Branch,                 !- Inlet Branch Name
+  OpenUBEM_HW_Loop HW Demand Bypass Branch,                !- Outlet Branch Name
+  Block LargeHotel Storey 0 Heating Coil HW Branch;        !- Name
+
+Connector:Mixer,
+  OpenUBEM_HW_Loop HW Demand Mixer,                        !- Name
+  OpenUBEM_HW_Loop HW Demand Outlet Branch,                !- Outlet Branch Name
+  OpenUBEM_HW_Loop HW Demand Bypass Branch,                !- Inlet Branch Name
+  Block LargeHotel Storey 0 Heating Coil HW Branch;        !- Name
+
+Branch,
+  OpenUBEM_HW_Loop HW Demand Inlet Branch,                 !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_HW_Loop HW Demand Inlet Pipe,                   !- Component Name
+  OpenUBEM_HW_Loop HW Demand Inlet,                        !- Component Inlet Node Name
+  OpenUBEM_HW_Loop HW Demand Inlet Pipe Outlet;            !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_HW_Loop HW Demand Inlet Pipe,                   !- Name
+  OpenUBEM_HW_Loop HW Demand Inlet,                        !- Inlet Node Name
+  OpenUBEM_HW_Loop HW Demand Inlet Pipe Outlet;            !- Outlet Node Name
+
+Branch,
+  OpenUBEM_HW_Loop HW Demand Bypass Branch,                !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_HW_Loop HW Demand Side Bypass Pipe,             !- Component Name
+  OpenUBEM_HW_Loop HW Demand Bypass Inlet,                 !- Component Inlet Node Name
+  OpenUBEM_HW_Loop HW Demand Bypass Outlet;                !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_HW_Loop HW Demand Side Bypass Pipe,             !- Name
+  OpenUBEM_HW_Loop HW Demand Bypass Inlet,                 !- Inlet Node Name
+  OpenUBEM_HW_Loop HW Demand Bypass Outlet;                !- Outlet Node Name
+
+Branch,
+  OpenUBEM_HW_Loop HW Demand Outlet Branch,                !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_HW_Loop HW Demand Outlet Pipe,                  !- Component Name
+  OpenUBEM_HW_Loop HW Demand Outlet Pipe Inlet,            !- Component Inlet Node Name
+  OpenUBEM_HW_Loop HW Demand Outlet;                       !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_HW_Loop HW Demand Outlet Pipe,                  !- Name
+  OpenUBEM_HW_Loop HW Demand Outlet Pipe Inlet,            !- Inlet Node Name
+  OpenUBEM_HW_Loop HW Demand Outlet;                       !- Outlet Node Name
+
+Sizing:Plant,
+  OpenUBEM_CHW_Loop Chilled Water Loop,                    !- Plant or Condenser Loop Name
+  Cooling,                                                 !- Loop Type
+  6.67,                                                    !- Design loop exit temperature {C}
+  8.33;                                                    !- Design loop delta T {deltaC}
+
+PlantLoop,
+  OpenUBEM_CHW_Loop Chilled Water Loop,                    !- Name
+  Water,                                                   !- Fluid Type
+  ,                                                        !- User Defined Fluid Type
+  OpenUBEM_CHW_Loop Chiller Operation,                     !- PlantEquipmentOperationSchemes Name
+  OpenUBEM_CHW_Loop ChW Supply Outlet,                     !- Loop Temperature Setpoint Node Name
+  98,                                                      !- Maximum Loop Temperature {C}
+  1,                                                       !- Minimum Loop Temperature {C}
+  autosize,                                                !- Maximum Loop Volumetric Flow Rate {m3/s}
+  0,                                                       !- Minimum Loop Volumetric Flow Rate {m3/s}
+  autosize,                                                !- volume of the plant loop {m3}
+  OpenUBEM_CHW_Loop ChW Supply Inlet,                      !- Plant Side Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Supply Outlet,                     !- Plant Side Outlet Node Name
+  OpenUBEM_CHW_Loop ChW Supply Side Branches,              !- Plant Side Branch List Name
+  OpenUBEM_CHW_Loop ChW Supply Side Connectors,            !- Plant Side Connector List Name
+  OpenUBEM_CHW_Loop ChW Demand Inlet,                      !- Demand Side Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Demand Outlet,                     !- Demand Side Outlet Node Name
+  OpenUBEM_CHW_Loop ChW Demand Side Branches,              !- Demand Side Branch List Name
+  OpenUBEM_CHW_Loop ChW Demand Side Connectors,            !- Demand Side Connector List Name
+  SequentialLoad,                                          !- Load Distribution Scheme
+  ,                                                        !- AvailabilityManagerAssignmentList
+  SingleSetpoint,                                          !- Plant Loop Demand Calculation Scheme
+  None;                                                    !- Common Pipe Simulation
+
+PlantEquipmentOperationSchemes,
+  OpenUBEM_CHW_Loop Chiller Operation,                     !- Name
+  PlantEquipmentOperation:CoolingLoad,                     !- Control Scheme Object Type
+  OpenUBEM_CHW_Loop Chiller Operation All Hours,           !- Control Scheme Name
+  HVACTemplate-Always 1;                                   !- Control Scheme Schedule Name
+
+PlantEquipmentOperation:CoolingLoad,
+  OpenUBEM_CHW_Loop Chiller Operation All Hours,           !- Name
+  0,                                                       !- Load Range Lower Limit 1 {W}
+  1000000000000000,                                        !- Load Range Upper Limit 1 {W}
+  OpenUBEM_CHW_Loop All Chillers;                          !- Priority Control 1 Equipment List Name
+
+PlantEquipmentList,
+  OpenUBEM_CHW_Loop All Chillers,                          !- Name
+  Chiller:Electric:EIR,                                    !- Equipment Object Type
+  OpenUBEM_Chiller;                                        !- Equipment Name
+
+NodeList,
+  OpenUBEM_CHW_Loop ChW Supply Setpoint Nodes,             !- Name
+  OpenUBEM_Chiller ChW Outlet,                             !- Node Name
+  OpenUBEM_CHW_Loop ChW Supply Outlet;                     !- Node Name
+
+Schedule:Compact,
+  HVACTemplate-Always 6.67,                                !- Name
+  HVACTemplate Any Number,                                 !- Schedule Type Limits Name
+  Through: 12/31,                                          !- Field 1
+  For: AllDays,                                            !- Field 2
+  Until: 24:00,                                            !- Field 3
+  6.67;                                                    !- Field 4
+
+SetpointManager:Scheduled,
+  OpenUBEM_CHW_Loop ChW Temp Manager,                      !- Name
+  Temperature,                                             !- Control Variable
+  HVACTemplate-Always 6.67,                                !- Schedule Name
+  OpenUBEM_CHW_Loop ChW Supply Setpoint Nodes;             !- Setpoint Node or NodeList Name
+
+BranchList,
+  OpenUBEM_CHW_Loop ChW Supply Side Branches,              !- Name
+  OpenUBEM_CHW_Loop ChW Supply Inlet Branch,               !- Name
+  OpenUBEM_Chiller ChW Branch,                             !- Name
+  OpenUBEM_CHW_Loop ChW Supply Bypass Branch,              !- Name
+  OpenUBEM_CHW_Loop ChW Supply Outlet Branch;              !- Name
+
+ConnectorList,
+  OpenUBEM_CHW_Loop ChW Supply Side Connectors,            !- Name
+  Connector:Splitter,                                      !- Connector Object Type
+  OpenUBEM_CHW_Loop ChW Supply Splitter,                   !- Connector Name
+  Connector:Mixer,                                         !- Connector Object Type
+  OpenUBEM_CHW_Loop ChW Supply Mixer;                      !- Connector Name
+
+Connector:Splitter,
+  OpenUBEM_CHW_Loop ChW Supply Splitter,                   !- Name
+  OpenUBEM_CHW_Loop ChW Supply Inlet Branch,               !- Inlet Branch Name
+  OpenUBEM_CHW_Loop ChW Supply Bypass Branch,              !- Outlet Branch Name
+  OpenUBEM_Chiller ChW Branch;                             !- Outlet Branch Name
+
+Connector:Mixer,
+  OpenUBEM_CHW_Loop ChW Supply Mixer,                      !- Name
+  OpenUBEM_CHW_Loop ChW Supply Outlet Branch,              !- Outlet Branch Name
+  OpenUBEM_CHW_Loop ChW Supply Bypass Branch,              !- Inlet Branch Name
+  OpenUBEM_Chiller ChW Branch;                             !- Inlet Branch Name
+
+Branch,
+  OpenUBEM_CHW_Loop ChW Supply Bypass Branch,              !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_CHW_Loop ChW Supply Side Bypass Pipe,           !- Component Name
+  OpenUBEM_CHW_Loop ChW Supply Bypass Inlet,               !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Supply Bypass Outlet;              !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_CHW_Loop ChW Supply Side Bypass Pipe,           !- Name
+  OpenUBEM_CHW_Loop ChW Supply Bypass Inlet,               !- Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Supply Bypass Outlet;              !- Outlet Node Name
+
+Pump:ConstantSpeed,
+  OpenUBEM_CHW_Loop ChW Supply Pump,                       !- Name
+  OpenUBEM_CHW_Loop ChW Supply Inlet,                      !- Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Pump Outlet,                       !- Outlet Node Name
+  autosize,                                                !- Rated Volumetric Flow Rate {m3/s}
+  179352,                                                  !- Rated Pump Head {Pa}
+  autosize,                                                !- Rated Power Consumption {W}
+  0.9,                                                     !- Motor Efficiency
+  0,                                                       !- Fraction of Motor Inefficiencies to Fluid Stream
+  Intermittent,                                            !- Pump Control Type
+  ;                                                        !- Pump Flow Rate Schedule Name
+
+Branch,
+  OpenUBEM_CHW_Loop ChW Supply Inlet Branch,               !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pump:ConstantSpeed,                                      !- Component Object Type
+  OpenUBEM_CHW_Loop ChW Supply Pump,                       !- Component Name
+  OpenUBEM_CHW_Loop ChW Supply Inlet,                      !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Pump Outlet;                       !- Component Outlet Node Name
+
+Branch,
+  OpenUBEM_CHW_Loop ChW Supply Outlet Branch,              !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_CHW_Loop ChW Supply Outlet Pipe,                !- Component Name
+  OpenUBEM_CHW_Loop ChW Supply Outlet Pipe Inlet,          !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Supply Outlet;                     !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_CHW_Loop ChW Supply Outlet Pipe,                !- Name
+  OpenUBEM_CHW_Loop ChW Supply Outlet Pipe Inlet,          !- Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Supply Outlet;                     !- Outlet Node Name
+
+BranchList,
+  OpenUBEM_CHW_Loop ChW Demand Side Branches,              !- Name
+  OpenUBEM_CHW_Loop ChW Demand Inlet Branch,               !- Name
+  Block LargeHotel Storey 0 Cooling Coil ChW Branch,       !- Name
+  OpenUBEM_CHW_Loop ChW Demand Bypass Branch,              !- Name
+  OpenUBEM_CHW_Loop ChW Demand Outlet Branch;              !- Name
+
+ConnectorList,
+  OpenUBEM_CHW_Loop ChW Demand Side Connectors,            !- Name
+  Connector:Splitter,                                      !- Connector Object Type
+  OpenUBEM_CHW_Loop ChW Demand Splitter,                   !- Connector Name
+  Connector:Mixer,                                         !- Connector Object Type
+  OpenUBEM_CHW_Loop ChW Demand Mixer;                      !- Connector Name
+
+Connector:Splitter,
+  OpenUBEM_CHW_Loop ChW Demand Splitter,                   !- Name
+  OpenUBEM_CHW_Loop ChW Demand Inlet Branch,               !- Inlet Branch Name
+  OpenUBEM_CHW_Loop ChW Demand Bypass Branch,              !- Outlet Branch Name
+  Block LargeHotel Storey 0 Cooling Coil ChW Branch;       !- Outlet Branch Name
+
+Connector:Mixer,
+  OpenUBEM_CHW_Loop ChW Demand Mixer,                      !- Name
+  OpenUBEM_CHW_Loop ChW Demand Outlet Branch,              !- Outlet Branch Name
+  OpenUBEM_CHW_Loop ChW Demand Bypass Branch,              !- Inlet Branch Name
+  Block LargeHotel Storey 0 Cooling Coil ChW Branch;       !- Inlet Branch Name
+
+Branch,
+  OpenUBEM_CHW_Loop ChW Demand Inlet Branch,               !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_CHW_Loop ChW Demand Inlet Pipe,                 !- Component Name
+  OpenUBEM_CHW_Loop ChW Demand Inlet,                      !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Demand Inlet Pipe Outlet;          !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_CHW_Loop ChW Demand Inlet Pipe,                 !- Name
+  OpenUBEM_CHW_Loop ChW Demand Inlet,                      !- Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Demand Inlet Pipe Outlet;          !- Outlet Node Name
+
+Branch,
+  OpenUBEM_CHW_Loop ChW Demand Bypass Branch,              !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_CHW_Loop ChW Demand Side Bypass Pipe,           !- Component Name
+  OpenUBEM_CHW_Loop ChW Demand Bypass Inlet,               !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Demand Bypass Outlet;              !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_CHW_Loop ChW Demand Side Bypass Pipe,           !- Name
+  OpenUBEM_CHW_Loop ChW Demand Bypass Inlet,               !- Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Demand Bypass Outlet;              !- Outlet Node Name
+
+Branch,
+  OpenUBEM_CHW_Loop ChW Demand Outlet Branch,              !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_CHW_Loop ChW Demand Outlet Pipe,                !- Component Name
+  OpenUBEM_CHW_Loop ChW Demand Outlet Pipe Inlet,          !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Demand Outlet;                     !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_CHW_Loop ChW Demand Outlet Pipe,                !- Name
+  OpenUBEM_CHW_Loop ChW Demand Outlet Pipe Inlet,          !- Inlet Node Name
+  OpenUBEM_CHW_Loop ChW Demand Outlet;                     !- Outlet Node Name
+
+Sizing:Plant,
+  OpenUBEM_CHW_Loop Condenser Water Loop,                  !- Plant or Condenser Loop Name
+  Condenser,                                               !- Loop Type
+  29.4,                                                    !- Design loop exit temperature {C}
+  5.6;                                                     !- Design loop delta T {deltaC}
+
+CondenserLoop,
+  OpenUBEM_CHW_Loop Condenser Water Loop,                  !- Name
+  Water,                                                   !- Fluid Type
+  ,                                                        !- User Defined Fluid Type
+  OpenUBEM_CHW_Loop Condenser Operation,                   !- Condenser Operation Scheme List Name
+  OpenUBEM_CHW_Loop CndW Supply Outlet,                    !- Condenser Loop Temperature Setpoint Node Name or Reference
+  80,                                                      !- Maximum Loop Temperature {C}
+  5,                                                       !- Minimum Loop Temperature {C}
+  autosize,                                                !- Maximum Loop Volumetric Flow Rate {m3/s}
+  0,                                                       !- Minimum Loop Volumetric Flow Rate {m3/s}
+  autosize,                                                !- volume of the plant loop {m3}
+  OpenUBEM_CHW_Loop CndW Supply Inlet,                     !- Condenser Side Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Supply Outlet,                    !- Condenser Side Outlet Node Name
+  OpenUBEM_CHW_Loop CndW Supply Side Branches,             !- Condenser Side Branch List Name
+  OpenUBEM_CHW_Loop CndW Supply Side Connectors,           !- Condenser Side Connector List Name
+  OpenUBEM_CHW_Loop CndW Demand Inlet,                     !- Demand Side Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Demand Outlet,                    !- Demand Side Outlet Node Name
+  OpenUBEM_CHW_Loop CndW Demand Side Branches,             !- Condenser Demand Side Branch List Name
+  OpenUBEM_CHW_Loop CndW Demand Side Connectors,           !- Condenser Demand Side Connector List Name
+  SequentialLoad;                                          !- Load Distribution Scheme
+
+CondenserEquipmentOperationSchemes,
+  OpenUBEM_CHW_Loop Condenser Operation,                   !- Name
+  PlantEquipmentOperation:CoolingLoad,                     !- Control Scheme Object Type
+  OpenUBEM_CHW_Loop Condenser Operation All Hours,         !- Control Scheme Name
+  HVACTemplate-Always 1;                                   !- Control Scheme Schedule Name
+
+PlantEquipmentOperation:CoolingLoad,
+  OpenUBEM_CHW_Loop Condenser Operation All Hours,         !- Name
+  0,                                                       !- Load Range Lower Limit 1 {W}
+  1000000000000000,                                        !- Load Range Upper Limit 1 {W}
+  OpenUBEM_CHW_Loop All Condensers;                        !- Priority Control 1 Equipment List Name
+
+CondenserEquipmentList,
+  OpenUBEM_CHW_Loop All Condensers,                        !- Name
+  CoolingTower:TwoSpeed,                                   !- Equipment Object Type
+  OpenUBEM_Tower;                                          !- Equipment Name
+
+NodeList,
+  OpenUBEM_CHW_Loop CndW Supply Setpoint Nodes,            !- Name
+  OpenUBEM_Tower CndW Outlet,                              !- Node Name
+  OpenUBEM_CHW_Loop CndW Supply Outlet;                    !- Node Name
+
+Schedule:Compact,
+  HVACTemplate-Always 29.4,                                !- Name
+  HVACTemplate Any Number,                                 !- Schedule Type Limits Name
+  Through: 12/31,                                          !- Field 1
+  For: AllDays,                                            !- Field 2
+  Until: 24:00,                                            !- Field 3
+  29.4;                                                    !- Field 4
+
+SetpointManager:Scheduled,
+  OpenUBEM_CHW_Loop CndW Temp Manager,                     !- Name
+  Temperature,                                             !- Control Variable
+  HVACTemplate-Always 29.4,                                !- Schedule Name
+  OpenUBEM_CHW_Loop CndW Supply Setpoint Nodes;            !- Setpoint Node or NodeList Name
+
+BranchList,
+  OpenUBEM_CHW_Loop CndW Supply Side Branches,             !- Name
+  OpenUBEM_CHW_Loop CndW Supply Inlet Branch,              !- Name
+  OpenUBEM_Tower CndW Branch,                              !- Name
+  OpenUBEM_CHW_Loop CndW Supply Bypass Branch,             !- Name
+  OpenUBEM_CHW_Loop CndW Supply Outlet Branch;             !- Name
+
+ConnectorList,
+  OpenUBEM_CHW_Loop CndW Supply Side Connectors,           !- Name
+  Connector:Splitter,                                      !- Connector Object Type
+  OpenUBEM_CHW_Loop CndW Supply Splitter,                  !- Connector Name
+  Connector:Mixer,                                         !- Connector Object Type
+  OpenUBEM_CHW_Loop CndW Supply Mixer;                     !- Connector Name
+
+Connector:Splitter,
+  OpenUBEM_CHW_Loop CndW Supply Splitter,                  !- Name
+  OpenUBEM_CHW_Loop CndW Supply Inlet Branch,              !- Inlet Branch Name
+  OpenUBEM_CHW_Loop CndW Supply Bypass Branch,             !- Outlet Branch Name
+  OpenUBEM_Tower CndW Branch;                              !- Outlet Branch Name
+
+Connector:Mixer,
+  OpenUBEM_CHW_Loop CndW Supply Mixer,                     !- Name
+  OpenUBEM_CHW_Loop CndW Supply Outlet Branch,             !- Outlet Branch Name
+  OpenUBEM_CHW_Loop CndW Supply Bypass Branch,             !- Inlet Branch Name
+  OpenUBEM_Tower CndW Branch;                              !- Inlet Branch Name
+! Pump part load coefficients are linear to represent condenser pumps dedicated to each chiller.
+
+Pump:VariableSpeed,
+  OpenUBEM_CHW_Loop CndW Supply Pump,                      !- Name
+  OpenUBEM_CHW_Loop CndW Supply Inlet,                     !- Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Pump Outlet,                      !- Outlet Node Name
+  autosize,                                                !- Rated Volumetric Flow Rate {m3/s}
+  179352,                                                  !- Rated Pump Head {Pa}
+  autosize,                                                !- Rated Power Consumption {W}
+  0.9,                                                     !- Motor Efficiency
+  0,                                                       !- Fraction of Motor Inefficiencies to Fluid Stream
+  0,                                                       !- Coefficient 1 of the Part Load Performance Curve
+  0,                                                       !- Coefficient 2 of the Part Load Performance Curve
+  1,                                                       !- Coefficient 3 of the Part Load Performance Curve
+  0,                                                       !- Coefficient 4 of the Part Load Performance Curve
+  0,                                                       !- Min Flow Rate while operating in variable flow capacity {m3/s}
+  Intermittent,                                            !- Pump Control Type
+  ;                                                        !- Pump Flow Rate Schedule Name
+
+Branch,
+  OpenUBEM_CHW_Loop CndW Supply Inlet Branch,              !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pump:VariableSpeed,                                      !- Component Object Type
+  OpenUBEM_CHW_Loop CndW Supply Pump,                      !- Component Name
+  OpenUBEM_CHW_Loop CndW Supply Inlet,                     !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Pump Outlet;                      !- Component Outlet Node Name
+
+Branch,
+  OpenUBEM_CHW_Loop CndW Supply Outlet Branch,             !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_CHW_Loop CndW Supply Outlet Pipe,               !- Component Name
+  OpenUBEM_CHW_Loop CndW Supply Outlet Pipe Inlet,         !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Supply Outlet;                    !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_CHW_Loop CndW Supply Outlet Pipe,               !- Name
+  OpenUBEM_CHW_Loop CndW Supply Outlet Pipe Inlet,         !- Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Supply Outlet;                    !- Outlet Node Name
+
+Branch,
+  OpenUBEM_CHW_Loop CndW Supply Bypass Branch,             !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_CHW_Loop CndW Supply Side Bypass Pipe,          !- Component Name
+  OpenUBEM_CHW_Loop CndW Supply Bypass Inlet,              !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Supply Bypass Outlet;             !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_CHW_Loop CndW Supply Side Bypass Pipe,          !- Name
+  OpenUBEM_CHW_Loop CndW Supply Bypass Inlet,              !- Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Supply Bypass Outlet;             !- Outlet Node Name
+
+BranchList,
+  OpenUBEM_CHW_Loop CndW Demand Side Branches,             !- Name
+  OpenUBEM_CHW_Loop CndW Demand Inlet Branch,              !- Name
+  OpenUBEM_Chiller CndW Branch,                            !- Name
+  OpenUBEM_CHW_Loop CndW Demand Bypass Branch,             !- Name
+  OpenUBEM_CHW_Loop CndW Demand Outlet Branch;             !- Name
+
+ConnectorList,
+  OpenUBEM_CHW_Loop CndW Demand Side Connectors,           !- Name
+  Connector:Splitter,                                      !- Connector Object Type
+  OpenUBEM_CHW_Loop CndW Demand Splitter,                  !- Connector Name
+  Connector:Mixer,                                         !- Connector Object Type
+  OpenUBEM_CHW_Loop CndW Demand Mixer;                     !- Connector Name
+
+Connector:Splitter,
+  OpenUBEM_CHW_Loop CndW Demand Splitter,                  !- Name
+  OpenUBEM_CHW_Loop CndW Demand Inlet Branch,              !- Inlet Branch Name
+  OpenUBEM_CHW_Loop CndW Demand Bypass Branch,             !- Outlet Branch Name
+  OpenUBEM_Chiller CndW Branch;                            !- Outlet Branch Name
+
+Connector:Mixer,
+  OpenUBEM_CHW_Loop CndW Demand Mixer,                     !- Name
+  OpenUBEM_CHW_Loop CndW Demand Outlet Branch,             !- Outlet Branch Name
+  OpenUBEM_CHW_Loop CndW Demand Bypass Branch,             !- Inlet Branch Name
+  OpenUBEM_Chiller CndW Branch;                            !- Inlet Branch Name
+
+Branch,
+  OpenUBEM_CHW_Loop CndW Demand Inlet Branch,              !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_CHW_Loop CndW Demand Inlet Pipe,                !- Component Name
+  OpenUBEM_CHW_Loop CndW Demand Inlet,                     !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Demand Inlet Pipe Outlet;         !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_CHW_Loop CndW Demand Inlet Pipe,                !- Name
+  OpenUBEM_CHW_Loop CndW Demand Inlet,                     !- Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Demand Inlet Pipe Outlet;         !- Outlet Node Name
+
+Branch,
+  OpenUBEM_CHW_Loop CndW Demand Bypass Branch,             !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_CHW_Loop CndW Demand Side Bypass Pipe,          !- Component Name
+  OpenUBEM_CHW_Loop CndW Demand Bypass Inlet,              !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Demand Bypass Outlet;             !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_CHW_Loop CndW Demand Side Bypass Pipe,          !- Name
+  OpenUBEM_CHW_Loop CndW Demand Bypass Inlet,              !- Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Demand Bypass Outlet;             !- Outlet Node Name
+
+Branch,
+  OpenUBEM_CHW_Loop CndW Demand Outlet Branch,             !- Name
+  ,                                                        !- Pressure Drop Curve Name
+  Pipe:Adiabatic,                                          !- Component Object Type
+  OpenUBEM_CHW_Loop CndW Demand Outlet Pipe,               !- Component Name
+  OpenUBEM_CHW_Loop CndW Demand Outlet Pipe Inlet,         !- Component Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Demand Outlet;                    !- Component Outlet Node Name
+
+Pipe:Adiabatic,
+  OpenUBEM_CHW_Loop CndW Demand Outlet Pipe,               !- Name
+  OpenUBEM_CHW_Loop CndW Demand Outlet Pipe Inlet,         !- Inlet Node Name
+  OpenUBEM_CHW_Loop CndW Demand Outlet;                    !- Outlet Node Name

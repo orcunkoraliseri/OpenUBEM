@@ -6,7 +6,7 @@ from geomeppy import IDF
 from eppy.modeleditor import IDDAlreadySetError
 
 from openubem.config import ENERGYPLUS_IDD_PATH
-from openubem.idf.outputs import STANDARD_OUTPUTS, write_outputs
+from openubem.idf.outputs import STANDARD_OUTPUTS, HVAC_METERS, write_outputs
 
 TEMPLATES_DIR = Path(__file__).parent.parent / "openubem" / "idf" / "templates"
 _BASE_TPL = str(TEMPLATES_DIR / "commercial_base.idf")
@@ -76,3 +76,33 @@ class TestOutputs:
         write_outputs(idf)
         sqlite = idf.idfobjects["OUTPUT:SQLITE"][0]
         assert sqlite.Option_Type == "SimpleAndTabular"
+
+    def test_hvac_meters_count(self):
+        assert len(HVAC_METERS) == 11
+
+    def test_hvac_meters_phase_e_required(self):
+        required = {
+            "Pumps:Electricity",
+            "WaterSystems:NaturalGas",
+            "WaterSystems:Electricity",
+            "Refrigeration:Electricity",
+            "InteriorEquipment:NaturalGas",
+            "Cooking:InteriorEquipment:Electricity",
+            "Refrigeration:InteriorEquipment:Electricity",
+        }
+        assert required.issubset(set(HVAC_METERS))
+
+    def test_hvac_meters_phase_d_retained(self):
+        retained = {
+            "Cooling:Electricity",
+            "Heating:Electricity",
+            "Heating:NaturalGas",
+            "Fans:Electricity",
+        }
+        assert retained.issubset(set(HVAC_METERS))
+
+    def test_output_meter_count(self):
+        idf = _fresh_idf()
+        write_outputs(idf)
+        meters = idf.idfobjects["OUTPUT:METER"]
+        assert len(meters) == 11

@@ -20,12 +20,19 @@ STANDARD_OUTPUTS: list[tuple[str, str]] = [
     ("Site Wind Speed", "Hourly"),
 ]
 
-# T04: HVAC end-use meters for metered cooling/heating/fans EUI (Phase-D §3 mapping).
+# T04/T12: HVAC + Phase-E service-load end-use meters (RunPeriod, stored in SQL for parser).
 HVAC_METERS: tuple[str, ...] = (
     "Cooling:Electricity",
     "Heating:Electricity",
     "Heating:NaturalGas",
     "Fans:Electricity",
+    "Pumps:Electricity",
+    "WaterSystems:NaturalGas",
+    "WaterSystems:Electricity",
+    "Refrigeration:Electricity",
+    "InteriorEquipment:NaturalGas",
+    "Cooking:InteriorEquipment:Electricity",
+    "Refrigeration:InteriorEquipment:Electricity",
 )
 
 

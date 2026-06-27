@@ -1,9 +1,9 @@
 """Step-5 Module 13: SQL extraction, zone resolution, EUI, and IOD (DESIGN §3A-§3D).
 Phase-D (§0.1 authorized deviation): _EUI_VARS rewired to metered HVAC end-uses (T05).
+Phase-E (T13): extended METER_QUERY with pumps/DHW/cooking/refrigeration meters;
+_compute_eui adds pumps_eui, dhw_eui, cooking_eui, refrigeration_eui; D9 total includes all 9 end-uses.
 Authorized deviation: DESIGN_step-3...md:H3/§3I — cooling/heating now from RunPeriod meters
 (Cooling:Electricity, Heating:Electricity+NaturalGas) instead of ideal-loads thermal variables.
-fans_eui_kwh_m2 added as a separate visible column; NOT folded into total_eui_kwh_m2.
-Manager decision on fan allocation deferred to CP-4.
 """
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ JOIN   Time t                 ON r.TimeIndex = t.TimeIndex
 WHERE  d.ReportingFrequency = 'Hourly'
 """
 
-# T05: RunPeriod meter query for PTAC end-use meters.
+# T13 (Phase-E): RunPeriod meter query — all end-use meters.
 METER_QUERY = """
 SELECT d.Name AS meter_name,
        r.Value AS value_j
@@ -39,7 +39,11 @@ FROM   ReportData r
 JOIN   ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
 WHERE  d.ReportingFrequency = 'Run Period'
   AND  d.Name IN ('Cooling:Electricity', 'Heating:Electricity',
-                  'Heating:NaturalGas', 'Fans:Electricity')
+                  'Heating:NaturalGas', 'Fans:Electricity',
+                  'Pumps:Electricity',
+                  'WaterSystems:NaturalGas', 'WaterSystems:Electricity',
+                  'InteriorEquipment:NaturalGas',
+                  'Refrigeration:Electricity')
 """
 
 J_TO_KWH = 1.0 / 3.6e6
@@ -98,6 +102,11 @@ def _parse_meters_sql(sql_path: Path) -> dict[str, float]:
         "Heating:Electricity": 0.0,
         "Heating:NaturalGas": 0.0,
         "Fans:Electricity": 0.0,
+        "Pumps:Electricity": 0.0,
+        "WaterSystems:NaturalGas": 0.0,
+        "WaterSystems:Electricity": 0.0,
+        "InteriorEquipment:NaturalGas": 0.0,
+        "Refrigeration:Electricity": 0.0,
     }
     try:
         with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
@@ -235,15 +244,19 @@ def _compute_eui(
 ) -> tuple[dict[str, float] | None, str, str | None]:
     """Compute EUI columns using metered HVAC + hourly zone lighting/equipment.
 
-    cooling_eui_kwh_m2  ← Cooling:Electricity meter
-    heating_eui_kwh_m2  ← Heating:Electricity + Heating:NaturalGas meters (all-fuels site)
-    lighting_eui_kwh_m2 ← Zone Lights Electricity Energy (hourly)
-    equipment_eui_kwh_m2← Zone Electric Equipment Electricity Energy (hourly)
-    fans_eui_kwh_m2     ← Fans:Electricity meter (separate, NOT in total)
-    total_eui_kwh_m2    ← heating + cooling + lighting + equipment (fans excluded, flagged for CP-4)
+    cooling_eui_kwh_m2       ← Cooling:Electricity meter
+    heating_eui_kwh_m2       ← Heating:Electricity + Heating:NaturalGas meters (all-fuels site)
+    lighting_eui_kwh_m2      ← Zone Lights Electricity Energy (hourly)
+    equipment_eui_kwh_m2     ← Zone Electric Equipment Electricity Energy (hourly)
+    fans_eui_kwh_m2          ← Fans:Electricity meter
+    pumps_eui_kwh_m2         ← Pumps:Electricity meter
+    dhw_eui_kwh_m2           ← WaterSystems:NaturalGas + WaterSystems:Electricity (all-fuel DHW)
+    cooking_eui_kwh_m2       ← InteriorEquipment:NaturalGas (gas cooking; elec cooking in equipment)
+    refrigeration_eui_kwh_m2 ← Refrigeration:Electricity (CompressorRack; lumped in equipment)
+    total_eui_kwh_m2         ← sum of all 9 end-use EUIs (D9: Phase-E whole-building total)
 
     P10 (C3-enforced): missing lighting or equipment variable → failed_parse.
-    Missing meters (all-electric → no NaturalGas) → 0.0 (not failed_parse).
+    Missing meters → 0.0 (not failed_parse).
     """
     num_floors = derive_num_floors(row)
     footprint_area = float(row["footprint_area_m2"])
@@ -260,26 +273,45 @@ def _compute_eui(
         kwh = float(df[df["variable_name"] == var_name]["value"].sum())
         eui[col] = kwh / floor_area
 
-    # Metered HVAC (0.0 if meter absent — valid for all-electric or no-cooling buildings)
+    # Metered end-uses (0.0 if meter absent — valid for all-electric or no-cooking buildings)
     if meters is None:
         meters = {}
-    cooling_kwh = meters.get("Cooling:Electricity", 0.0)
-    heating_kwh = (
-        meters.get("Heating:Electricity", 0.0)
-        + meters.get("Heating:NaturalGas", 0.0)
-    )
-    fans_kwh = meters.get("Fans:Electricity", 0.0)
+
+    def _m(key: str) -> float:
+        return meters.get(key, 0.0)
+
+    cooling_kwh = _m("Cooling:Electricity")
+    heating_kwh = _m("Heating:Electricity") + _m("Heating:NaturalGas")
+    fans_kwh = _m("Fans:Electricity")
+    pumps_kwh = _m("Pumps:Electricity")
+    dhw_kwh = _m("WaterSystems:NaturalGas") + _m("WaterSystems:Electricity")
+    cooking_kwh = _m("InteriorEquipment:NaturalGas")  # gas cooking; elec cooking lives in equipment
+    refrigeration_kwh = _m("Refrigeration:Electricity")  # CompressorRack; lumped is in equipment
+
+    dhw_gas_kwh = _m("WaterSystems:NaturalGas")
+    dhw_elec_kwh = _m("WaterSystems:Electricity")
 
     eui["cooling_eui_kwh_m2"] = cooling_kwh / floor_area
     eui["heating_eui_kwh_m2"] = heating_kwh / floor_area
     eui["fans_eui_kwh_m2"] = fans_kwh / floor_area
+    eui["pumps_eui_kwh_m2"] = pumps_kwh / floor_area
+    eui["dhw_gas_eui_kwh_m2"] = dhw_gas_kwh / floor_area   # gas DHW (× f_gas in carbon.py)
+    eui["dhw_elec_eui_kwh_m2"] = dhw_elec_kwh / floor_area  # elec DHW (× f_elec)
+    eui["dhw_eui_kwh_m2"] = dhw_kwh / floor_area            # combined total for D9
+    eui["cooking_eui_kwh_m2"] = cooking_kwh / floor_area    # gas only (InteriorEquipment:NaturalGas)
+    eui["refrigeration_eui_kwh_m2"] = refrigeration_kwh / floor_area
 
-    # total = heating + cooling + lighting + equipment; fans separate (manager defers to CP-4)
+    # D9: total = all 9 end-use EUIs summed (Phase-E whole-building site energy)
     eui["total_eui_kwh_m2"] = (
         eui["cooling_eui_kwh_m2"]
         + eui["heating_eui_kwh_m2"]
         + eui["lighting_eui_kwh_m2"]
         + eui["equipment_eui_kwh_m2"]
+        + eui["fans_eui_kwh_m2"]
+        + eui["pumps_eui_kwh_m2"]
+        + eui["dhw_eui_kwh_m2"]
+        + eui["cooking_eui_kwh_m2"]
+        + eui["refrigeration_eui_kwh_m2"]
     )
     return eui, data_quality_flag, None
 

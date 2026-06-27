@@ -74,3 +74,8 @@ GWP_NATURAL_GAS_KGCO2_KWH: float = 0.181  # Iseri et al. (2025)
 GWP_CONVENTION: str = "load_referenced_v1"
 IOD_SUMMER_MONTHS: tuple[int, int] = (6, 9)  # Jun–Sep inclusive (PLAN P9)
 EUI_PLAUSIBILITY_BOUNDS: tuple[float, float] = (25.0, 1000.0)  # kWh/m²/yr
+
+# ── Phase-E reporting-layer reconstruction (T15) ──────────────────────────────
+# When True, reconstruct_frame applies the Table-4 fraction-split uplift (pre-Phase-E).
+# False (default in Phase-E): service loads are physically modelled; reconstruction is a no-op.
+RECONSTRUCT_SERVICE_LOADS: bool = bool(int(os.environ.get("OPENUBEM_RECONSTRUCT_SERVICE_LOADS", "0")))

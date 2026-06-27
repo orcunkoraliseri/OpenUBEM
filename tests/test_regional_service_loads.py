@@ -156,7 +156,7 @@ class TestUnresolvableRegionNationalIdentity:
     def test_unknown_city_is_national(self):
         coeffs = load_coefficients(_REGIONAL_JSON)
         row = _office_row("chicago")  # not in F5 map
-        reg_frame = reconstruct_frame(pd.DataFrame([row]), coeffs)
+        reg_frame = reconstruct_frame(pd.DataFrame([row]), coeffs, force=True)
         national = reconstruct_building(row, coeffs, region=None)
         assert math.isclose(
             reg_frame.iloc[0]["total_eui_reconstructed_kwh_m2"],
@@ -183,7 +183,7 @@ class TestUnresolvableRegionNationalIdentity:
         coeffs = load_coefficients(_REGIONAL_JSON)
         row = _office_row("nyc")
         del row["city"]
-        out = reconstruct_frame(pd.DataFrame([row]), coeffs)
+        out = reconstruct_frame(pd.DataFrame([row]), coeffs, force=True)
         assert out.iloc[0]["reconstruction_basis"] == "table4_fraction_split"
 
 
@@ -225,7 +225,7 @@ class TestReconstructFrameRegionDerivation:
     def test_nyc_office_row_regional_la_mf_national(self):
         coeffs = load_coefficients(_REGIONAL_JSON)
         df = pd.DataFrame([_office_row("nyc"), _mf_row("la")])
-        out = reconstruct_frame(df, coeffs)
+        out = reconstruct_frame(df, coeffs, force=True)
         office = out[out["osm_id"] == "way/office"].iloc[0]
         mf = out[out["osm_id"] == "way/mf"].iloc[0]
         assert office["reconstruction_basis"] == "regional_fraction_split"
@@ -235,5 +235,5 @@ class TestReconstructFrameRegionDerivation:
         """coeffs WITHOUT fractions_by_region → all rows national (byte-identical path)."""
         t4 = load_coefficients(_TABLE4_JSON)
         df = pd.DataFrame([_office_row("nyc")])
-        out = reconstruct_frame(df, t4)
+        out = reconstruct_frame(df, t4, force=True)
         assert out.iloc[0]["reconstruction_basis"] == "table4_fraction_split"
