@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 from openubem.results.service_loads import load_coefficients, reconstruct_frame
 
 # §4.1: 9 cells in docs_VALIDATION tree, 3 in validations tree
-_BASE_9 = ROOT / "docs" / "docs_VALIDATION" / "overAll" / "results" / "phaseC"
+_BASE_9 = ROOT / "docs" / "docs_VALIDATION" / "step1" / "overAll" / "results" / "phaseC"
 _BASE_3 = ROOT / "docs" / "validations" / "overAll" / "results" / "phaseC"
 
 CELL_TO_BASE: dict[str, Path] = {
