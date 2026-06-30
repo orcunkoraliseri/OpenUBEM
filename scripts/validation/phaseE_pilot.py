@@ -4,7 +4,7 @@ Execution flow:
   S0  — pre-flight wiring proof (LargeOffice + FSR + SuperMarket fixture IDFs)
   S1–S3 — run_cell("la_urban", output_subdir="phaseE") via v12_cell_pipeline
   S4  — re-score vs LA EBEWE anchor + national CBECS Pacific
-  S5  — write docs/docs_ACTIVE/hvac-ServiceLoads/REPORT_phaseE_pilot.md
+  S5  — write docs/docs_ACTIVE/hvac-ServiceLoads/pilot/REPORT_phaseE_pilot.md
 
 Usage:
     py -3 scripts/validation/phaseE_pilot.py
@@ -37,7 +37,7 @@ _SUPERMARKET_REFRIG_HI = 350.0  # kWh/m²/yr  sanity band
 _PHASED2_DIR = ROOT / "docs" / "validations" / "overAll" / "results" / "phaseD2" / _CELL
 _PHASEE_DIR  = ROOT / "docs" / "validations" / "overAll" / "results" / _SUBDIR / _CELL
 _CBECS_PACIFIC = ROOT / "inputs" / "reports" / "cbecs_2018_pacific_eui.csv"
-_REPORT_PATH = ROOT / "docs" / "docs_ACTIVE" / "hvac-ServiceLoads" / "REPORT_phaseE_pilot.md"
+_REPORT_PATH = ROOT / "docs" / "docs_ACTIVE" / "hvac-ServiceLoads" / "pilot" / "REPORT_phaseE_pilot.md"
 _OUTPUTS_DIR = ROOT / "openubem" / "outputs"
 
 EPW_PATH = Path(r"C:\EnergyPlusV23-1-0\WeatherData\USA_IL_Chicago-OHare.Intl.AP.725300_TMY3.epw")

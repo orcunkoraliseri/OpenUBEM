@@ -9,6 +9,7 @@ import pandas as pd
 from geomeppy import IDF as GeomIDF
 from eppy.modeleditor import IDDAlreadySetError
 from joblib import Parallel, delayed
+from shapely.geometry.polygon import orient
 
 from openubem import config
 from openubem.config import SHADING_SPHERE_RADIUS
@@ -103,8 +104,12 @@ def _coerce_to_polygon(geom, dq_flag: str) -> tuple:
 
 
 class BuildingIDF:
-    def __init__(self, row: pd.Series) -> None:
+    def __init__(self, row: pd.Series, thermal_mass: bool = False, resolution_mode: str = "auto",
+                 trim_outputs: bool = False) -> None:
         self.row = row
+        self.thermal_mass = thermal_mass
+        self.resolution_mode = resolution_mode
+        self.trim_outputs = trim_outputs
         template_name = TEMPLATE_ROUTING.get(row["archetype_id"], "commercial_base.idf")
         template_path = str(
             files("openubem.idf").joinpath("templates").joinpath(template_name)
@@ -119,20 +124,37 @@ class BuildingIDF:
         row = self.row
         idf = self.idf
 
+        _K = 0.12  # W/m·K light structural — preserves R = Thickness/Conductivity
+
         for name, u_col in [
             ("Roof_Assembly", "u_roof_w_m2k"),
             ("Wall_Assembly", "u_wall_w_m2k"),
             ("Floor_Assembly", "u_floor_w_m2k"),
         ]:
-            idf.newidfobject(
-                "MATERIAL:NOMASS",
-                Name=name,
-                Roughness="MediumRough",
-                Thermal_Resistance=1.0 / float(row[u_col]),
-                Thermal_Absorptance=0.9,
-                Solar_Absorptance=0.7,
-                Visible_Absorptance=0.7,
-            )
+            r_val = 1.0 / float(row[u_col])
+            if self.thermal_mass:
+                idf.newidfobject(
+                    "MATERIAL",
+                    Name=name,
+                    Roughness="MediumRough",
+                    Thickness=max(0.01, r_val * _K),
+                    Conductivity=_K,
+                    Density=800.0,
+                    Specific_Heat=1000.0,
+                    Thermal_Absorptance=0.9,
+                    Solar_Absorptance=0.7,
+                    Visible_Absorptance=0.7,
+                )
+            else:
+                idf.newidfobject(
+                    "MATERIAL:NOMASS",
+                    Name=name,
+                    Roughness="MediumRough",
+                    Thermal_Resistance=r_val,
+                    Thermal_Absorptance=0.9,
+                    Solar_Absorptance=0.7,
+                    Visible_Absorptance=0.7,
+                )
             idf.newidfobject(
                 "CONSTRUCTION",
                 Name=name.replace("_Assembly", "_Construction"),
@@ -195,34 +217,65 @@ class BuildingIDF:
 
         for z in zones:
             zname = z["name"]
-            idf.newidfobject(
-                "PEOPLE",
-                Name=f"People_{zname}",
-                Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
-                Number_of_People_Schedule_Name=f"Occupancy_Schedule_{arch}",
-                Number_of_People_Calculation_Method="People/Area",
-                People_per_Floor_Area=people_per_m2,
-                Activity_Level_Schedule_Name="Activity_Level",
-                Fraction_Radiant=0.3,
-            )
-            idf.newidfobject(
-                "LIGHTS",
-                Name=f"Lights_{zname}",
-                Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
-                Schedule_Name=f"Lighting_Schedule_{arch}",
-                Design_Level_Calculation_Method="Watts/Area",
-                Watts_per_Zone_Floor_Area=float(row["lighting_w_m2"]),
-                Fraction_Radiant=0.42,
-            )
-            idf.newidfobject(
-                "ELECTRICEQUIPMENT",
-                Name=f"Equipment_{zname}",
-                Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
-                Schedule_Name=f"Equipment_Schedule_{arch}",
-                Design_Level_Calculation_Method="Watts/Area",
-                Watts_per_Zone_Floor_Area=float(row["equipment_w_m2"]),
-                Fraction_Radiant=0.5,
-            )
+            floor_area_m2 = z.get("floor_area_m2")
+            if floor_area_m2 is not None:
+                idf.newidfobject(
+                    "PEOPLE",
+                    Name=f"People_{zname}",
+                    Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
+                    Number_of_People_Schedule_Name=f"Occupancy_Schedule_{arch}",
+                    Number_of_People_Calculation_Method="People",
+                    Number_of_People=people_per_m2 * floor_area_m2,
+                    Activity_Level_Schedule_Name="Activity_Level",
+                    Fraction_Radiant=0.3,
+                )
+                idf.newidfobject(
+                    "LIGHTS",
+                    Name=f"Lights_{zname}",
+                    Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
+                    Schedule_Name=f"Lighting_Schedule_{arch}",
+                    Design_Level_Calculation_Method="LightingLevel",
+                    Lighting_Level=float(row["lighting_w_m2"]) * floor_area_m2,
+                    Fraction_Radiant=0.42,
+                )
+                idf.newidfobject(
+                    "ELECTRICEQUIPMENT",
+                    Name=f"Equipment_{zname}",
+                    Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
+                    Schedule_Name=f"Equipment_Schedule_{arch}",
+                    Design_Level_Calculation_Method="EquipmentLevel",
+                    Design_Level=float(row["equipment_w_m2"]) * floor_area_m2,
+                    Fraction_Radiant=0.5,
+                )
+            else:
+                idf.newidfobject(
+                    "PEOPLE",
+                    Name=f"People_{zname}",
+                    Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
+                    Number_of_People_Schedule_Name=f"Occupancy_Schedule_{arch}",
+                    Number_of_People_Calculation_Method="People/Area",
+                    People_per_Floor_Area=people_per_m2,
+                    Activity_Level_Schedule_Name="Activity_Level",
+                    Fraction_Radiant=0.3,
+                )
+                idf.newidfobject(
+                    "LIGHTS",
+                    Name=f"Lights_{zname}",
+                    Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
+                    Schedule_Name=f"Lighting_Schedule_{arch}",
+                    Design_Level_Calculation_Method="Watts/Area",
+                    Watts_per_Zone_Floor_Area=float(row["lighting_w_m2"]),
+                    Fraction_Radiant=0.42,
+                )
+                idf.newidfobject(
+                    "ELECTRICEQUIPMENT",
+                    Name=f"Equipment_{zname}",
+                    Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
+                    Schedule_Name=f"Equipment_Schedule_{arch}",
+                    Design_Level_Calculation_Method="Watts/Area",
+                    Watts_per_Zone_Floor_Area=float(row["equipment_w_m2"]),
+                    Fraction_Radiant=0.5,
+                )
             idf.newidfobject(
                 "HVACTEMPLATE:THERMOSTAT",
                 Name=f"{zname}_Thermostat",
@@ -255,6 +308,7 @@ class BuildingIDF:
                 "zoning_strategy": "", "num_zones": 0, "num_context_buildings": 0,
                 "simplification_status": "skip", "data_quality_flag": dq_flag,
                 "generation_status": "skipped_invalid_geometry",
+                "resolution_mode": self.resolution_mode,
             }
 
         poly_local, cx, cy = translate_to_origin(poly)
@@ -268,7 +322,9 @@ class BuildingIDF:
         # 3B: zoning — prefer contract column, fall back to simplified poly area (B5/W3.8)
         _col_area = row.get("footprint_area_m2")
         footprint_area = float(_col_area) if pd.notna(_col_area) else poly_local.area
-        strategy = decide_zoning_strategy(arch, footprint_area, num_floors)
+        strategy = decide_zoning_strategy(arch, footprint_area, num_floors, self.resolution_mode)
+        if self.resolution_mode != "auto":
+            poly_local = orient(poly_local, sign=1.0)
         zones = build_zones(osm_id, poly_local, arch, num_floors, strategy)
 
         # 3D: schedule library must be copied before geometry objects reference schedules
@@ -308,6 +364,7 @@ class BuildingIDF:
                         "num_context_buildings": len(context),
                         "simplification_status": simp_status, "data_quality_flag": dq_flag,
                         "generation_status": "failed_interzone_vertex_mismatch",
+                        "resolution_mode": self.resolution_mode,
                     }
             else:
                 logger.error(
@@ -320,6 +377,7 @@ class BuildingIDF:
                     "num_context_buildings": len(context),
                     "simplification_status": simp_status, "data_quality_flag": dq_flag,
                     "generation_status": "failed_interzone_vertex_mismatch",
+                    "resolution_mode": self.resolution_mode,
                 }
 
         # 3E-10c: adiabatic party walls and ground-floor slab
@@ -340,6 +398,7 @@ class BuildingIDF:
                 "num_context_buildings": len(context),
                 "simplification_status": simp_status, "data_quality_flag": dq_flag,
                 "generation_status": "failed_no_extruded_zones",
+                "resolution_mode": self.resolution_mode,
             }
 
         # 3F: constructions (needs extruded surfaces for set_wwr)
@@ -358,7 +417,7 @@ class BuildingIDF:
         assign_refrigeration(self.idf, row, extruded_zones)
 
         # 3I: outputs
-        write_outputs(self.idf)
+        write_outputs(self.idf, trim_hourly=self.trim_outputs)
 
         # Save IDF (sanitise osm_id for filesystem)
         safe_id = osm_id.replace("/", "_").replace(":", "_").replace(" ", "_")
@@ -382,10 +441,11 @@ class BuildingIDF:
             "simplification_status": simp_status,
             "data_quality_flag": dq_flag,
             "generation_status": gen_status,
+            "resolution_mode": self.resolution_mode,
         }
 
 
-def _worker_exception_row(row_like: dict, osm_id: str) -> dict:
+def _worker_exception_row(row_like: dict, osm_id: str, resolution_mode: str = "auto") -> dict:
     """Manifest row recorded when a build raises (shared by serial + loky paths)."""
     logger.error("osm_id=%s worker exception: %s", osm_id, traceback.format_exc()[-300:])
     return {
@@ -393,11 +453,13 @@ def _worker_exception_row(row_like: dict, osm_id: str) -> dict:
         "zoning_strategy": "", "num_zones": 0, "num_context_buildings": 0,
         "simplification_status": "skip", "data_quality_flag": "",
         "generation_status": "failed_worker_exception",
+        "resolution_mode": resolution_mode,
     }
 
 
 def _build_one(row_dict: dict, gdf: gpd.GeoDataFrame, schedule_library: dict,
-               output_dir: Path) -> dict:
+               output_dir: Path, resolution_mode: str = "auto",
+               trim_outputs: bool = False) -> dict:
     """Module-level worker: build one IDF in a loky subprocess (C10 — picklable, never raises)."""
     try:
         # Each loky worker process needs its own IDD lock (process-local state).
@@ -406,9 +468,10 @@ def _build_one(row_dict: dict, gdf: gpd.GeoDataFrame, schedule_library: dict,
         except IDDAlreadySetError:
             pass
         row = pd.Series(row_dict)
-        return BuildingIDF(row).build(gdf, schedule_library, output_dir)
+        return BuildingIDF(row, resolution_mode=resolution_mode,
+                           trim_outputs=trim_outputs).build(gdf, schedule_library, output_dir)
     except Exception:
-        return _worker_exception_row(row_dict, str(row_dict.get("osm_id", "unknown")))
+        return _worker_exception_row(row_dict, str(row_dict.get("osm_id", "unknown")), resolution_mode)
 
 
 def run_step3(
@@ -416,11 +479,17 @@ def run_step3(
     schedule_library: dict,
     output_dir: Path,
     n_jobs: int = 1,
+    resolution_mode: str = "auto",
+    trim_outputs: bool = False,
 ) -> pd.DataFrame:
     """Iterate all buildings, call BuildingIDF.build(), write 03_idf_manifest.parquet (DESIGN §4).
 
     n_jobs=1 (default): unchanged serial path. n_jobs>1: loky process pool (C10).
+    trim_outputs=True: skip hourly per-zone Output:Variable objects (T08 large-fleet use).
     """
+    # Validate mode once before the fleet loop (raises ValueError or NotImplementedError fast).
+    decide_zoning_strategy("_", 1.0, 2, resolution_mode)
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "idfs").mkdir(exist_ok=True)
@@ -429,14 +498,16 @@ def run_step3(
         manifest_rows = []
         for _, row in gdf.iterrows():
             try:
-                manifest_row = BuildingIDF(row).build(gdf, schedule_library, output_dir)
+                manifest_row = BuildingIDF(row, resolution_mode=resolution_mode,
+                                           trim_outputs=trim_outputs).build(gdf, schedule_library, output_dir)
             except Exception:
-                manifest_row = _worker_exception_row(row.to_dict(), str(row.get("osm_id", "unknown")))
+                manifest_row = _worker_exception_row(row.to_dict(), str(row.get("osm_id", "unknown")), resolution_mode)
             manifest_rows.append(manifest_row)
     else:
         row_dicts = [row.to_dict() for _, row in gdf.iterrows()]
         manifest_rows = Parallel(n_jobs=n_jobs, backend="loky")(
-            delayed(_build_one)(rd, gdf, schedule_library, output_dir) for rd in row_dicts
+            delayed(_build_one)(rd, gdf, schedule_library, output_dir, resolution_mode, trim_outputs)
+            for rd in row_dicts
         )
 
     manifest_df = pd.DataFrame(manifest_rows)

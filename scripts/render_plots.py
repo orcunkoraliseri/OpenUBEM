@@ -44,7 +44,7 @@ _ALL_CELLS = [
     "austin_centre", "austin_urban", "austin_suburban", "austin_rural",
 ]
 
-_VAL_BASE = _ROOT / "docs" / "validations" / "overAll" / "results"
+_VAL_BASE = _ROOT / "docs" / "docs_VALIDATION" / "validations" / "overAll" / "results"
 
 
 def _render_sim(cells: list[str]) -> None:

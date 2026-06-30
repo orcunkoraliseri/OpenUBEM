@@ -136,3 +136,84 @@ class TestZoning:
         zones = build_zones("b10", sq, "OpenUBEMUnknown", 1, "single_zone")
         assert len(zones) == 1
         assert zones[0]["archetype_id"] == "OpenUBEMUnknown"
+
+
+class TestForcedModes:
+    # --- building mode: always single_zone, all gates bypassed ---
+
+    def test_building_small_office_2f(self):
+        assert decide_zoning_strategy("SmallOffice", 196.0, 2, "building") == "single_zone"
+
+    def test_building_bypass_one_per_floor(self):
+        # MidriseApartment would be one_zone_per_floor under auto (_ONE_PER_FLOOR gate)
+        assert decide_zoning_strategy("MidriseApartment", 800.0, 5, "building") == "single_zone"
+
+    def test_building_bypass_perimeter_core(self):
+        # MediumOffice 2000 m² 10F would be perimeter_core under auto
+        assert decide_zoning_strategy("MediumOffice", 2000.0, 10, "building") == "single_zone"
+
+    def test_building_single_floor(self):
+        assert decide_zoning_strategy("Warehouse", 5000.0, 1, "building") == "single_zone"
+
+    # --- floor mode: always one_zone_per_floor, all gates bypassed ---
+
+    def test_floor_bypass_single_zone(self):
+        # 1-floor → single_zone under auto; floor mode forces one_zone_per_floor
+        assert decide_zoning_strategy("Warehouse", 4900.0, 1, "floor") == "one_zone_per_floor"
+
+    def test_floor_bypass_perimeter_core(self):
+        # LargeOffice large footprint → perimeter_core under auto
+        assert decide_zoning_strategy("LargeOffice", 1500.0, 5, "floor") == "one_zone_per_floor"
+
+    def test_floor_midrise(self):
+        assert decide_zoning_strategy("MidriseApartment", 625.0, 4, "floor") == "one_zone_per_floor"
+
+    # --- fast_zone mode: always perimeter_core, all gates bypassed ---
+
+    def test_fast_zone_bypass_one_per_floor_residential(self):
+        # MidriseApartment 300 m² 5F → one_zone_per_floor under auto (_ONE_PER_FLOOR gate)
+        assert decide_zoning_strategy("MidriseApartment", 300.0, 5, "fast_zone") == "perimeter_core"
+
+    def test_fast_zone_bypass_single_zone_one_floor(self):
+        # Warehouse 1F → single_zone under auto (num_floors == 1 gate)
+        assert decide_zoning_strategy("Warehouse", 100.0, 1, "fast_zone") == "perimeter_core"
+
+    def test_fast_zone_bypass_small_footprint(self):
+        # SmallOffice 196 m² → one_zone_per_floor under auto (area < 500 gate)
+        assert decide_zoning_strategy("SmallOffice", 196.0, 2, "fast_zone") == "perimeter_core"
+
+    def test_fast_zone_bypass_unknown_archetype(self):
+        # OpenUBEMUnknown excluded from perimeter_core under auto
+        assert decide_zoning_strategy("OpenUBEMUnknown", 1000.0, 5, "fast_zone") == "perimeter_core"
+
+    # --- auto mode: explicit kwarg must reproduce existing F1 rules ---
+
+    def test_auto_explicit_single_zone(self):
+        assert decide_zoning_strategy("MediumOffice", 2000.0, 1, "auto") == "single_zone"
+
+    def test_auto_explicit_one_zone_per_floor(self):
+        assert decide_zoning_strategy("MidriseApartment", 800.0, 5, "auto") == "one_zone_per_floor"
+
+    def test_auto_explicit_perimeter_core(self):
+        assert decide_zoning_strategy("MediumOffice", 1500.0, 3, "auto") == "perimeter_core"
+
+    # --- "zone" raises NotImplementedError (known but deferred token, §3) ---
+
+    def test_zone_raises_not_implemented(self):
+        with pytest.raises(NotImplementedError, match="zone"):
+            decide_zoning_strategy("MediumOffice", 1500.0, 3, "zone")
+
+    def test_zone_is_not_value_error(self):
+        # zone is a known token → NotImplementedError, not ValueError
+        with pytest.raises(NotImplementedError):
+            decide_zoning_strategy("SmallOffice", 200.0, 2, "zone")
+
+    # --- unknown mode raises ValueError (§3 unknown branch) ---
+
+    def test_unknown_mode_raises_value_error(self):
+        with pytest.raises(ValueError, match="unknown resolution_mode"):
+            decide_zoning_strategy("MediumOffice", 1500.0, 3, "typo")
+
+    def test_unknown_mode_is_not_not_implemented(self):
+        with pytest.raises(ValueError):
+            decide_zoning_strategy("SmallOffice", 200.0, 2, "unknown_xyz")

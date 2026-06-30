@@ -9,8 +9,22 @@ _ONE_PER_FLOOR = {"MidriseApartment", "HighriseApartment", "TallBuilding", "Supe
 
 
 def decide_zoning_strategy(
-    archetype_id: str, footprint_area_m2: float, num_floors: int
+    archetype_id: str, footprint_area_m2: float, num_floors: int,
+    resolution_mode: str = "auto",
 ) -> str:
+    if resolution_mode == "building":
+        return "single_zone"
+    if resolution_mode == "floor":
+        return "one_zone_per_floor"
+    if resolution_mode == "fast_zone":
+        return "perimeter_core"
+    if resolution_mode == "zone":
+        raise NotImplementedError(
+            "resolution_mode='zone' (detailed DOE layout) is not yet implemented; "
+            "use 'fast_zone' for generic core/perimeter"
+        )
+    if resolution_mode != "auto":
+        raise ValueError(f"unknown resolution_mode: {resolution_mode!r}")
     # single_zone only for genuine 1-floor buildings (DESIGN §262 restricted to num_floors==1;
     # manager ruling 2026-06-17: resolves inconsistency with DESIGN §300 floor_area=footprint×n_floors)
     if num_floors == 1:
@@ -41,6 +55,8 @@ def build_zones(
                 "z_ceiling": num_floors * floor_to_floor_m,
                 "height_m": num_floors * floor_to_floor_m,
                 "archetype_id": archetype_id,
+                "num_floors": num_floors,
+                "floor_area_m2": footprint_poly.area * num_floors,
             }
         ]
 

@@ -114,6 +114,34 @@ one-zone-per-floor.
 
 **Floor area** (the denominator for EUI) is always `footprint_area_m2 × num_floors`.
 
+#### Planned: a user-selectable resolution switch
+
+The three strategies above are applied **automatically** today (the `auto` mode). The plan
+(`docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md`) is to expose a
+`resolution_mode` switch so the user can fix the fidelity per study — coarse for early-design
+screening, full zone-level for detailed work. Five modes:
+
+| Mode | What it does | Zones/building | Status |
+|---|---|---|---|
+| **`auto`** *(current default)* | adaptive — picks per building | mixed | ✅ implemented |
+| **`building`** | whole building = 1 zone | 1 | ⬜ v1 |
+| **`floor`** | each floor = 1 zone | `num_floors` | ⬜ v1 |
+| **`fast_zone`** | generic core + perimeter on every floor, **every** archetype | ~5 × `num_floors` | ⬜ v1 |
+| **`zone`** | the core/perimeter shape **plus per-archetype loads** — e.g. apartment: hallway core + dwelling perimeter; restaurant: kitchen + dining; warehouse: one zone | ~5 × `num_floors` | ⏸ deferred (research done; loads upgrade, optional) |
+
+`building` and `floor` reuse strategies the code already has (`single_zone`,
+`one_zone_per_floor`); `fast_zone` extends the core+perimeter slicing to **all** archetypes
+regardless of area. `auto` is the validated baseline that produced the 8,160-building
+benchmark (§7.2).
+
+The `zone` mode is a later, **optional** upgrade. Deep research
+(`deepResearch/layoutMapping/`) showed that faithfully reproducing each prototype's *exact zone
+count* (e.g. literally 8 apartment zones + 1 corridor) is **not worth building** — it changes
+annual EUI < 5 % (below the validation tolerance), crashes on irregular real footprints, and no
+peer tool does it. So `zone` keeps the same robust core/perimeter *shape* as `fast_zone` and adds
+only the part that matters: **per-archetype load meaning** (the core labelled as a hallway with
+hallway loads, the perimeter as apartments with DOE apartment loads, etc.).
+
 ### 5.2 Temporal resolution
 
 - **Annual run period**, **8760 hourly timesteps**.

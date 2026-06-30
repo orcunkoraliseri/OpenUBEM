@@ -1,6 +1,8 @@
 """Standard EnergyPlus output configuration (DESIGN §3I, fact #26).
 Phase-D (§0.1 authorized deviation): HVAC end-use meters added (T04) for metered EUI.
 Authorized deviation: DESIGN_step-3...md §3I/§5 extended to include PTAC meters.
+T08 (resolution-mode sweep): InteriorLights and InteriorEquipment meters added so
+trim_hourly=True skips per-zone hourly variables without losing any end-use data.
 """
 import eppy.bunch_subclass
 from geomeppy import IDF as GeomIDF
@@ -21,6 +23,8 @@ STANDARD_OUTPUTS: list[tuple[str, str]] = [
 ]
 
 # T04/T12: HVAC + Phase-E service-load end-use meters (RunPeriod, stored in SQL for parser).
+# T08: InteriorLights:Electricity + InteriorEquipment:Electricity added so that trim_hourly=True
+# runs can parse all 9 end-uses from RunPeriod meters alone (no hourly zone variables needed).
 HVAC_METERS: tuple[str, ...] = (
     "Cooling:Electricity",
     "Heating:Electricity",
@@ -33,18 +37,26 @@ HVAC_METERS: tuple[str, ...] = (
     "InteriorEquipment:NaturalGas",
     "Cooking:InteriorEquipment:Electricity",
     "Refrigeration:InteriorEquipment:Electricity",
+    "InteriorLights:Electricity",
+    "InteriorEquipment:Electricity",
 )
 
 
-def write_outputs(idf: GeomIDF) -> None:
-    """Emit the standard output object set per DESIGN §3I (fact #26)."""
-    for var_name, freq in STANDARD_OUTPUTS:
-        idf.newidfobject(
-            "OUTPUT:VARIABLE",
-            Key_Value="*",
-            Variable_Name=var_name,
-            Reporting_Frequency=freq,
-        )
+def write_outputs(idf: GeomIDF, trim_hourly: bool = False) -> None:
+    """Emit the standard output object set per DESIGN §3I (fact #26).
+
+    trim_hourly=True: skip per-zone hourly Output:Variable and HTML table objects.
+    All 9 end-uses remain readable from RunPeriod meters. Use for large many-zone
+    fleets (fast_zone city sweeps) where hourly zone data would create >100 GB SQL.
+    """
+    if not trim_hourly:
+        for var_name, freq in STANDARD_OUTPUTS:
+            idf.newidfobject(
+                "OUTPUT:VARIABLE",
+                Key_Value="*",
+                Variable_Name=var_name,
+                Reporting_Frequency=freq,
+            )
 
     for meter in ("Electricity:Facility", "NaturalGas:Facility"):
         obj = idf.newidfobject("OUTPUT:METER:METERFILEONLY")
@@ -63,9 +75,10 @@ def write_outputs(idf: GeomIDF) -> None:
             obj.Name = meter
         obj.Reporting_Frequency = "RunPeriod"
 
-    idf.newidfobject("OUTPUTCONTROL:TABLE:STYLE", Column_Separator="HTML")
-    idf.newidfobject(
-        "OUTPUT:TABLE:SUMMARYREPORTS",
-        Report_1_Name="AllSummary",
-    )
+    if not trim_hourly:
+        idf.newidfobject("OUTPUTCONTROL:TABLE:STYLE", Column_Separator="HTML")
+        idf.newidfobject(
+            "OUTPUT:TABLE:SUMMARYREPORTS",
+            Report_1_Name="AllSummary",
+        )
     idf.newidfobject("OUTPUT:SQLITE", Option_Type="SimpleAndTabular")

@@ -208,8 +208,188 @@ re-evaluation in V16.)
 | Reconstruction CLI | `scripts/reconstruct_service_loads.py` |
 | Per-building output (8 152 rows, 9 end-uses) | `docs/validations/overAll/results/r7_service_loads.csv` |
 | Full analysis & findings | `docs/validations/overAll/V16_service_loads_reconstruction.md` |
-| Comparison figure | `openubem/outputs/comparisons/eui_sim_vs_reconstructed.png` |
+| Comparison figure | `openubem/outputs/comparisons/eui_sim_vs_reconstructed.png` ⚠️ historical — illustrates the §§1–6 reconstruction method (Phase-D2 data, 2026-06-26); **retired in Phase-E** — see §7 and [`outputs/comparisons/README.md`](../../openubem/outputs/comparisons/README.md). Phase-E successor: `phaseE_enduse_breakdown.png`. |
 
 ---
 
-*OpenUBEM — reporting-layer methodology note. No resimulation, no DESIGN change. 2026-06-17.*
+## 7. Phase-E — replacing reconstruction with physical simulation
+
+> **Status of this chapter.** §§1–6 above describe the model as it stood in mid-2026:
+> `IdealLoadsAirSystem` for HVAC plus a reporting-layer *reconstruction* overlay for the
+> five missing end-uses. **Phase-E (2026-06-27) retired both halves of that approach.** This
+> chapter explains what replaced them, presents the results, and — importantly — explains a
+> counter-intuitive finding: the physically-complete model scores *further* from measured
+> benchmarks than the reconstructed one did, and *why that is the correct outcome*.
+> Full record: `docs/docs_ACTIVE/hvac-ServiceLoads/REPORT_phaseE_final.md` and the
+> decomposition in `docs/docs_ACTIVE/hvac-ServiceLoads/validation-investigate/INVESTIGATION_phaseD2_vs_phaseE_why_D2_closer.md`.
+
+### 7.1 The one-paragraph version
+
+Reconstruction (§3) was always a stopgap: it *estimated* the five missing end-uses from
+average fraction tables because EnergyPlus, as configured, could not produce them. Phase-E
+removes the need to estimate. It gives every building its **real HVAC system** (central VAV
+with chiller + boiler for large offices, packaged rooftop units for small/medium
+nonresidential, fan-coil and water-loop heat pumps for large hotels and high-rise
+apartments, PTAC kept only for mid-rise residential) and adds **real EnergyPlus objects**
+for hot water, cooking, and refrigeration. Now all nine end-uses — including fans and pumps
+— are computed by the physics engine. The reconstruction overlay is switched off entirely
+(`OPENUBEM_RECONSTRUCT_SERVICE_LOADS=0`). There is no longer a "simulated vs reconstructed"
+split: there is one **physically simulated** EUI.
+
+```
+Phase-E total = heating + cooling + lighting + equipment
+              + fans + pumps + DHW + cooking + refrigeration      (ALL from EnergyPlus)
+```
+
+### 7.2 What Phase-E models — compare to the §2.1 table
+
+Every ❌ row from §2.1 is now a ✅, produced by a real object in the IDF rather than added
+afterward:
+
+| End-use | §2.1 (IdealLoads) | Phase-E | Phase-E source object |
+|---|---|---|---|
+| Space heating | ✅ ideal | ✅ physical | archetype HVAC heating coil / hot-water boiler |
+| Space cooling | ✅ ideal | ✅ physical | archetype HVAC DX coil / chilled-water chiller |
+| Lighting | ✅ | ✅ | `Lights` |
+| Plug / equipment | ✅ | ✅ | `ElectricEquipment` |
+| Ventilation **fans** | ❌ zero | ✅ | `HVACTemplate` supply/exhaust fans → `Fans:Electricity` |
+| **Pumps** | ❌ zero | ✅ | hot-water + chilled-water plant pumps (central-plant archetypes) |
+| Service hot water (**DHW**) | ❌ zero | ✅ | `WaterHeater:Mixed` + `WaterUse:Equipment` |
+| **Refrigeration** | ❌ zero | ✅ | `Refrigeration:Case` + `Refrigeration:CompressorRack` (SuperMarket) |
+| **Cooking** / process | ❌ zero | ✅ | `ZoneVentilation` kitchen exhaust + `OtherEquipment` process load |
+
+This required a re-simulation of all 8,160 buildings and an authorized deviation from the
+Phase-1 IdealLoads mandate (recorded in the Phase-E plan). It is **not** a reporting-layer
+change — it is a different simulation.
+
+### 7.3 Performance — Phase-E vs the reconstructed baseline
+
+City-Overall median total EUI (kWh/m²·yr) against measured benchmarks (NYC LL84 / LA EBEWE /
+Austin CBECS-WSC proxy). "Phase-D2 reconstructed" = the §3 overlay method (the previous
+production model):
+
+| City | Measured | Phase-D2 reconstructed | Phase-E physical |
+|---|---|---|---|
+| NYC | 219.2 | 223.8 (**+2.1 %**) | 165.7 (**−24.4 %**) |
+| LA | 113.6 | 109.4 (−3.7 %) | 107.2 (−5.6 %) |
+| Austin | 162.0 | 148.1 (−8.6 %) | 120.4 (−25.7 %) |
+
+At face value Phase-E looks **worse**: NYC and Austin move from near-perfect to ~−25 %. But
+two other metrics move the opposite way:
+
+| Metric | Phase-D2 reconstructed | Phase-E physical |
+|---|---|---|
+| Distribution shape, R² (NYC / LA / Austin) | ~0.71 / ~0.71 / ~0.71 | **0.895 / 0.924 / 0.718** |
+| End-use attribution | fans/pumps inferred from a national table | **physically computed per building** |
+| Fitted parameters | none (but a strong CBECS prior) | none |
+
+R² (how well the model ranks high- vs low-energy buildings) jumps sharply: the
+archetype-appropriate HVAC and real service loads inject genuine per-building variation that
+a smooth multiplier could not. The model now puts the right buildings in the right order —
+it just sits low on the absolute level. Phase-E per-end-use medians (success rows, excl.
+`OpenUBEMUnknown`):
+
+| City | Heat | Cool | Light | Equip | Fans | Pumps | DHW | Cook | Refrig | Total |
+|---|---|---|---|---|---|---|---|---|---|---|
+| NYC | 60.7 | 12.2 | 26.5 | 43.4 | 15.0 | 0.0 | 6.3 | 0.0 | 0.0 | 165.7 |
+| LA | 13.9 | 4.8 | 4.0 | 43.4 | 6.8 | 0.0 | 33.3 | 0.0 | 0.0 | 107.2 |
+| Austin | 15.3 | 28.2 | 26.5 | 27.8 | 11.7 | 0.0 | 4.4 | 0.0 | 0.0 | 120.4 |
+
+(Pumps/cooking/refrigeration read 0.0 at the city median because they apply only to
+central-plant / food-service / supermarket archetypes — a minority of buildings. They are
+non-zero at the archetype level: e.g. LargeOffice pumps ≈ 9, SuperMarket refrigeration is
+substantial.)
+
+### 7.4 The key methodological point — why the *more complete* model scores *worse*
+
+This is the part worth understanding, because it is easy to misread the table in §7.3 as
+"reconstruction was better." It was not. Here is the decomposition, on the **same 8,160
+buildings matched one-to-one**, for a NYC office (measured 184):
+
+| Energy piece | Phase-D2 reconstructed | Phase-E physical |
+|---|---|---|
+| Heating | **122** ← far too high | **55** ← realistic |
+| Cooling + Lighting + Equipment | 68 | 68 (identical) |
+| Service loads | 26 (estimated overlay) | 22 (physically simulated) |
+| **TOTAL** | **217 (+18 %)** | **147 (−20 %)** |
+
+Two facts fall out of this table:
+
+1. **The service-load layers are nearly equal (26 vs 22).** Removing the reconstruction
+   overlay did *not* drop the total — it was replaced by physically-simulated service loads
+   of almost the same size. (City-wide: NYC overlay +41 vs physical +37; LA +33 vs +39;
+   Austin +27.5 vs +16.3.) So the regression is **not** "we stopped adding the missing
+   loads."
+2. **The entire drop is heating** (122 → 55, a 67-point fall that accounts for ~all of the
+   70-point total drop). It appeared the moment each archetype switched off the simplified
+   blanket-PTAC system onto its real HVAC. Cooling/lighting/equipment did not move at all.
+
+**So why was the reconstructed model closer to measured?** Because it contained a large
+*compensating error*. Think of adding up a grocery bill whose true total is \$184: if you
+over-count one item by \$70 and forget a \$70 item, you still land on \$184 — right answer,
+wrong twice. Phase-D2's simplified PTAC heating was the \$70 over-count; the unmodeled
+"Other" loads (elevators, IT/process, miscellaneous plug loads — see §4 and the R6-4B
+close-out) were the \$70 it forgot. The two cancelled, and the total *looked* accurate.
+Phase-E fixed the heating, so the forgotten "Other" loads are no longer hidden — and the
+total honestly sits below measured.
+
+**Is the new, lower heating itself a mistake?** No — and this is the check that settles the
+interpretation. Compared against the DOE reference prototypes the archetypes are built from
+(ASHRAE 90.1-2022, in Buffalo — a climate *colder* than NYC, so heating there should be
+*higher* if anything):
+
+| Office archetype | DOE prototype heating (Buffalo) | Phase-D2 (NYC) | Phase-E (NYC) |
+|---|---|---|---|
+| SmallOffice | 6.0 | 132 (~22×) | 55 (~9×) |
+| MediumOffice | 23.1 | 81 (~3.5×) | 56 (~2.4×) |
+| LargeOffice | 18.8 | 69 (~3.7×) | 51 (~2.7×) |
+
+Phase-E heating is **above** the reference prototype, never below. A model that, if anything,
+still over-heats cannot be under-predicting the total *because of heating*. Therefore the
+remaining gap is genuinely the unmodeled "Other" category — exactly the residual the R6-4B
+work identified and that no Phase-1 object can produce.
+
+### 7.5 Three ways to report a whole-building EUI — updating §4
+
+The §4 "simulated vs reconstructed" table now has a third, preferred column:
+
+| | Simulated (§2) | Reconstructed (§3) | **Physical (Phase-E)** |
+|---|---|---|---|
+| HVAC | IdealLoads, 100 % efficient | IdealLoads | **real archetype system** |
+| End-uses | 4 | 9 (4 simulated + 5 estimated) | **9, all simulated** |
+| Service loads | absent | average-ratio estimate | **physically computed** |
+| Re-runs simulation? | — | No | **Yes (full re-sim)** |
+| Distribution shape (R²) | n/a | low | **high (0.72–0.92)** |
+| Closeness to measured *level* | low | high (by compensation) | lower, but honest |
+| Best use | what we modeled | a quick completed total | **the production baseline** |
+
+The headline lesson for anyone reading the figures: **closer to measured ≠ more correct.**
+The reconstructed bar matched the anchor by stacking a heating over-prediction on top of an
+estimated overlay; the physical bar is built from defensible per-end-use physics and reveals,
+rather than hides, the one category the model legitimately cannot produce.
+
+### 7.6 What this means going forward
+
+- **Phase-E is the adopted physical baseline.** Its end-use structure is faithful; its only
+  weakness is an absolute-level under-prediction driven by the unmodeled "Other" loads.
+- **The remaining gap is not closable without fitting.** Adding "Other" means tuning plug
+  loads until the total matches CBECS — curve-fitting to the answer, which violates the
+  zero-fitted-parameters rule. Per R6-4B (user-ratified, externally corroborated) this is
+  **accepted and documented, not calibrated away.**
+- **There is no honest lever that improves the *level*.** The only physically-correct
+  adjustment still available — bringing heating fully down to prototype levels — would push
+  the total *further* below measured, because the still-elevated heating is partly what holds
+  the total up. The −24 % city gap should therefore be read as a *lower bound* on the true
+  structural "Other" deficit, not its full size.
+- **One open, non-fitting question remains** (diagnostic, not blocking): why Phase-E heating
+  sits ~3–9× the DOE prototype. This is an envelope/infiltration question (OSM-derived
+  geometry on a leakier-than-new-code envelope), is the same upward direction across all
+  phases, and is entangled with the long-standing LA hot-bias. Resolving it would make the
+  model *more* faithful while making the scorecard *look* worse — an "understand the physics"
+  task, not a "match the benchmark" one.
+
+---
+
+*OpenUBEM — methodology note in two parts. §§1–6: reporting-layer reconstruction (no
+resimulation, no DESIGN change; 2026-06-17). §7: Phase-E physical simulation — full re-sim
+with an authorized DESIGN deviation from the Phase-1 IdealLoads mandate (2026-06-28).*
