@@ -29,7 +29,7 @@ VAL_DIR = _BASE / "openubem" / "outputs" / "validaitonResults"
 COMPARE_DIR = _BASE / "openubem" / "outputs" / "comparisons"
 
 _REGIONAL_COEFFS_PATH = _BASE / "openubem" / "data" / "service_loads" / "enduse_fractions_regional.json"
-_PHASED_BASE = _BASE / "docs" / "validations" / "overAll" / "results"
+_PHASED_BASE = _BASE / "docs" / "docs_VALIDATION" / "validations" / "overAll" / "results"
 
 
 def _phased_subdir() -> "str | None":

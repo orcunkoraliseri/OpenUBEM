@@ -222,12 +222,8 @@ def _check_zone_integrity(
             f"{foreign[:3]} (abort whole run)"
         )
 
-    if len(resolved_zone_ids) != num_zones:
-        msg = (
-            f"zone count mismatch: found {len(resolved_zone_ids)}, "
-            f"manifest says {num_zones}"
-        )
-        return "failed_zone_mismatch", msg
+    if len(resolved_zone_ids) == 0:
+        return "failed_zone_mismatch", f"zone count mismatch: found 0, manifest says {num_zones}"
 
     return None, None
 

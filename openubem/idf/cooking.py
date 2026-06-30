@@ -15,6 +15,9 @@ _HGF = _COOK_DATA["_heat_gain_fractions"]
 
 def _total_floor_area(row, zones):
     """Footprint × unique-floor count extracted from zone names."""
+    explicit = max((int(z.get("num_floors", 0) or 0) for z in zones), default=0)
+    if explicit > 0:
+        return float(row.get("footprint_area_m2") or 400.0) * explicit
     footprint = float(row.get("footprint_area_m2") or 400.0)
     floor_idx = set()
     for z in zones:

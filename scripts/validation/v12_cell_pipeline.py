@@ -1039,7 +1039,7 @@ def run_cell(cell_name: str, output_subdir: str = "cases") -> None:
             results_dir.mkdir(parents=True, exist_ok=True)  # Step 5 makes this later; B2 writes first
             drop_path = results_dir / "dropped_buildings.csv"
             failed_rows.to_csv(drop_path, index=False)
-            print(f"[{cell_name}] DROPPED {n_sim_fail} buildings (≤ tolerance {max_tolerated}) → {drop_path}")
+            print(f"[{cell_name}] DROPPED {n_sim_fail} buildings (<= tolerance {max_tolerated}) -> {drop_path}")
             sim_mf = sim_mf[sim_mf["status"] == "success"].copy()
         else:
             print(f"[{cell_name}] ZERO-FAIL: {n_sim_fail} failures exceed tolerance {max_tolerated}. STOP.", file=sys.stderr)
