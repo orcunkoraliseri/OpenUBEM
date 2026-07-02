@@ -6,13 +6,66 @@ Phase-D PTAC kept for SmallHotel; all other archetypes get real systems (T06-T08
 """
 import json
 import logging
+import math
 from functools import lru_cache
 from pathlib import Path
 
 import pandas as pd
 from geomeppy import IDF as GeomIDF
 
+from openubem.semantic import provenance
+
 logger = logging.getLogger(__name__)
+
+# ── Tier-B silent-default provenance (Input-Imputation arc T02) ───────────────
+# Every ASHRAE-default substitution below is an *instrumentation* fix: the default
+# VALUE is unchanged (EUI must not move); we only record a queryable provenance
+# token. A stored 0 is a data value — it is preserved and flagged distinctly, NOT
+# silently promoted to the default.
+_HVAC_SOURCE = "ASHRAE901"
+
+
+def _default_flag(param: str) -> str:
+    return provenance.impute_token("DEFAULT", f"{_HVAC_SOURCE}_{param}", "LOW")
+
+
+def _zero_flag(param: str) -> str:
+    return f"SUSPECT_ZERO_{param.upper()}"
+
+
+def _absent(v) -> bool:
+    return v is None or (isinstance(v, float) and math.isnan(v))
+
+
+def _resolve(entry: dict, key: str, default, param: str, flags: set):
+    """Single-key ASHRAE default with provenance (replaces `entry.get(k) or d`).
+
+    absent/None -> default (+DEFAULT token); stored 0 -> kept (+SUSPECT_ZERO
+    token); real value -> unchanged, no token.
+    """
+    v = entry.get(key, None)
+    if _absent(v):
+        flags.add(_default_flag(param))
+        return default
+    if isinstance(v, (int, float)) and not isinstance(v, bool) and v == 0:
+        flags.add(_zero_flag(param))
+        return v
+    return v
+
+
+def _resolve_chain(entry: dict, keys: list, default, param: str, flags: set):
+    """Multi-source fallback `entry[k0] or entry[k1] or ... or default`.
+
+    Preserves the `or`-chain idiom (first truthy source wins; a falsy/absent link
+    falls through to the next source). Emits a DEFAULT token only when the terminal
+    default is reached (no source supplied a value).
+    """
+    for k in keys:
+        v = entry.get(k, None)
+        if not _absent(v) and v:
+            return v
+    flags.add(_default_flag(param))
+    return default
 
 _DATA = Path(__file__).resolve().parent.parent / "data" / "loads"
 _COP_JSON = _DATA / "hvac_cop_by_archetype.json"
@@ -120,11 +173,17 @@ def _add_mixed_water_plant(idf: GeomIDF, htg_eff: float) -> None:
 # Tier-1 system emitters
 # ---------------------------------------------------------------------------
 
-def _emit_ptac(idf: GeomIDF, zones: list[dict], cop_entry: dict) -> None:
+def _emit_ptac(idf: GeomIDF, zones: list[dict], cop_entry: dict, flags: set | None = None) -> None:
     """PTAC w/ Electric Reheat — per zone (SmallHotel)."""
-    cooling_cop = cop_entry.get("cooling_cop") or 3.0
+    if flags is None:
+        flags = set()
+    cooling_cop = _resolve(cop_entry, "cooling_cop", 3.0, "cooling_cop", flags)
     htg_type = cop_entry.get("heating_coil_type")
-    htg_eff = cop_entry.get("heating_efficiency")
+    # Only resolved (and only flagged) for Gas coils — Electric coils never read this key.
+    htg_eff = (
+        _resolve(cop_entry, "heating_efficiency", 0.8, "heating_efficiency", flags)
+        if htg_type == "Gas" else None
+    )
     for z in zones:
         zname = z["name"]
         obj = idf.newidfobject("HVACTEMPLATE:ZONE:PTAC")
@@ -135,7 +194,7 @@ def _emit_ptac(idf: GeomIDF, zones: list[dict], cop_entry: dict) -> None:
         if htg_type == "Gas":
             obj.Heating_Coil_Type = "Gas"
             try:
-                obj.Gas_Heating_Coil_Efficiency = htg_eff if htg_eff is not None else 0.8
+                obj.Gas_Heating_Coil_Efficiency = htg_eff
             except Exception:
                 pass
         elif htg_type == "Electric":
@@ -163,12 +222,15 @@ def _emit_psz_ac(
     zones: list[dict],
     cop_entry: dict,
     sys_entry: dict,
+    flags: set | None = None,
 ) -> None:
     """PSZ-AC w/ Gas Furnace — one System:Unitary + Zone:Unitary per zone."""
-    cooling_cop = cop_entry.get("cooling_cop") or 3.0
-    htg_eff = cop_entry.get("heating_efficiency") or 0.8
-    fan_pa = sys_entry.get("fan_static_pa") or 622.5
-    fan_eff = sys_entry.get("fan_total_efficiency") or 0.55575
+    if flags is None:
+        flags = set()
+    cooling_cop = _resolve(cop_entry, "cooling_cop", 3.0, "cooling_cop", flags)
+    htg_eff = _resolve(cop_entry, "heating_efficiency", 0.8, "heating_efficiency", flags)
+    fan_pa = _resolve(sys_entry, "fan_static_pa", 622.5, "fan_static_pa", flags)
+    fan_eff = _resolve(sys_entry, "fan_total_efficiency", 0.55575, "fan_total_efficiency", flags)
 
     for z in zones:
         zname = z["name"]
@@ -201,12 +263,15 @@ def _emit_psz_hp(
     zones: list[dict],
     cop_entry: dict,
     sys_entry: dict,
+    flags: set | None = None,
 ) -> None:
     """PSZ-HP w/ Gas Backup — one System:UnitaryHeatPump:AirToAir + Zone:Unitary per zone."""
-    cooling_cop = cop_entry.get("cooling_cop") or 3.0
-    htg_eff = cop_entry.get("heating_efficiency") or 0.8
-    fan_pa = sys_entry.get("fan_static_pa") or 622.5
-    fan_eff = sys_entry.get("fan_total_efficiency") or 0.55575
+    if flags is None:
+        flags = set()
+    cooling_cop = _resolve(cop_entry, "cooling_cop", 3.0, "cooling_cop", flags)
+    htg_eff = _resolve(cop_entry, "heating_efficiency", 0.8, "heating_efficiency", flags)
+    fan_pa = _resolve(sys_entry, "fan_static_pa", 622.5, "fan_static_pa", flags)
+    fan_eff = _resolve(sys_entry, "fan_total_efficiency", 0.55575, "fan_total_efficiency", flags)
 
     for z in zones:
         zname = z["name"]
@@ -240,16 +305,19 @@ def _emit_pvav(
     cop_entry: dict,
     sys_entry: dict,
     reheat_type: str,
+    flags: set | None = None,
 ) -> None:
     """Packaged VAV — one System:PackagedVAV + N Zone:VAV.
 
     reheat_type: 'Electric' (no plant) or 'HotWater' (requires HW plant).
     """
-    cooling_cop = cop_entry.get("cooling_cop") or 3.0
-    htg_eff = cop_entry.get("heating_efficiency") or 0.8
-    fan_pa = sys_entry.get("fan_static_pa") or 1389.42
-    fan_eff = sys_entry.get("fan_total_efficiency") or 0.6084
-    turndown = sys_entry.get("vav_min_turndown") or 0.30
+    if flags is None:
+        flags = set()
+    cooling_cop = _resolve(cop_entry, "cooling_cop", 3.0, "cooling_cop", flags)
+    htg_eff = _resolve(cop_entry, "heating_efficiency", 0.8, "heating_efficiency", flags)
+    fan_pa = _resolve(sys_entry, "fan_static_pa", 1389.42, "fan_static_pa", flags)
+    fan_eff = _resolve(sys_entry, "fan_total_efficiency", 0.6084, "fan_total_efficiency", flags)
+    turndown = _resolve(sys_entry, "vav_min_turndown", 0.30, "vav_min_turndown", flags)
     sysname = f"{bld}_PVAV_Sys"
 
     sys_obj = idf.newidfobject("HVACTEMPLATE:SYSTEM:PACKAGEDVAV")
@@ -294,13 +362,18 @@ def _emit_buildup_vav(
     bld: str,
     cop_entry: dict,
     sys_entry: dict,
+    flags: set | None = None,
 ) -> None:
     """Built-up VAV w/ CHW & HW Reheat — System:VAV + Zone:VAV + full plant."""
-    chiller_cop = cop_entry.get("chiller_cop_phaseE") or cop_entry.get("cooling_cop") or 3.0
-    htg_eff = cop_entry.get("heating_efficiency") or 0.8
-    fan_pa = sys_entry.get("fan_static_pa") or 1389.42
-    fan_eff = sys_entry.get("fan_total_efficiency") or 0.6084
-    turndown = sys_entry.get("vav_min_turndown") or 0.30
+    if flags is None:
+        flags = set()
+    chiller_cop = _resolve_chain(
+        cop_entry, ["chiller_cop_phaseE", "cooling_cop"], 3.0, "chiller_cop", flags
+    )
+    htg_eff = _resolve(cop_entry, "heating_efficiency", 0.8, "heating_efficiency", flags)
+    fan_pa = _resolve(sys_entry, "fan_static_pa", 1389.42, "fan_static_pa", flags)
+    fan_eff = _resolve(sys_entry, "fan_total_efficiency", 0.6084, "fan_total_efficiency", flags)
+    turndown = _resolve(sys_entry, "vav_min_turndown", 0.30, "vav_min_turndown", flags)
     sysname = f"{bld}_VAV_Sys"
 
     sys_obj = idf.newidfobject("HVACTEMPLATE:SYSTEM:VAV")
@@ -346,12 +419,17 @@ def _emit_fcu(
     zones: list[dict],
     cop_entry: dict,
     sys_entry: dict,
+    flags: set | None = None,
 ) -> None:
     """Four-Pipe Fan Coil Units — Zone:FanCoil per zone + CHW+HW plant."""
-    chiller_cop = cop_entry.get("chiller_cop_phaseE") or cop_entry.get("cooling_cop") or 3.0
-    htg_eff = cop_entry.get("heating_efficiency") or 0.8
-    fan_pa = sys_entry.get("fan_static_pa") or 331.17
-    fan_eff = sys_entry.get("fan_total_efficiency") or 0.520
+    if flags is None:
+        flags = set()
+    chiller_cop = _resolve_chain(
+        cop_entry, ["chiller_cop_phaseE", "cooling_cop"], 3.0, "chiller_cop", flags
+    )
+    htg_eff = _resolve(cop_entry, "heating_efficiency", 0.8, "heating_efficiency", flags)
+    fan_pa = _resolve(sys_entry, "fan_static_pa", 331.17, "fan_static_pa", flags)
+    fan_eff = _resolve(sys_entry, "fan_total_efficiency", 0.520, "fan_total_efficiency", flags)
 
     for z in zones:
         zname = z["name"]
@@ -378,15 +456,22 @@ def _emit_wlhp(
     zones: list[dict],
     cop_entry: dict,
     sys_entry: dict,
+    flags: set | None = None,
 ) -> None:
     """Water-Loop Heat Pump — Zone:WaterToAirHeatPump per zone + MixedWaterLoop plant."""
-    cooling_cop = cop_entry.get("chiller_cop_phaseE") or cop_entry.get("cooling_cop") or 3.0
-    htg_eff_raw = cop_entry.get("heating_efficiency") or 1.0
+    if flags is None:
+        flags = set()
+    cooling_cop = _resolve_chain(
+        cop_entry, ["chiller_cop_phaseE", "cooling_cop"], 3.0, "cooling_cop", flags
+    )
+    # heating_efficiency read is vestigial (result unused); loop boiler uses the hardcoded
+    # 0.80 below, so no provenance token is emitted for it.
+    htg_eff_raw = cop_entry.get("heating_efficiency", 1.0)  # noqa: F841
     # heating_efficiency for WLHP is HP COP (electric); boiler is gas for loop backup
     # Use default gas boiler eff 0.80 for loop boiler (no gas furnace entry in WLHP archetype)
     loop_boiler_eff = 0.80
-    fan_pa = sys_entry.get("fan_static_pa") or 622.5
-    fan_eff = sys_entry.get("fan_total_efficiency") or 0.55575
+    fan_pa = _resolve(sys_entry, "fan_static_pa", 622.5, "fan_static_pa", flags)
+    fan_eff = _resolve(sys_entry, "fan_total_efficiency", 0.55575, "fan_total_efficiency", flags)
 
     for z in zones:
         zname = z["name"]
@@ -420,14 +505,17 @@ def _emit_crac_proxy(
     bld: str,
     cop_entry: dict,
     sys_entry: dict,
+    flags: set | None = None,
 ) -> None:
     """CRAC proxy → PSZ-DX per zone (cooling only; electric htg as required-field fallback).
     Proxy note: HVACTemplate:System:Unitary requires Heating_Coil_Type (no 'None'); Electric
     chosen as minimal-impact fallback since data centers are cooling-dominated (D4 T08).
     """
-    cooling_cop = cop_entry.get("cooling_cop") or 3.0
-    fan_pa = sys_entry.get("fan_static_pa") or 622.5
-    fan_eff = sys_entry.get("fan_total_efficiency") or 0.55575
+    if flags is None:
+        flags = set()
+    cooling_cop = _resolve(cop_entry, "cooling_cop", 3.0, "cooling_cop", flags)
+    fan_pa = _resolve(sys_entry, "fan_static_pa", 622.5, "fan_static_pa", flags)
+    fan_eff = _resolve(sys_entry, "fan_total_efficiency", 0.55575, "fan_total_efficiency", flags)
 
     for z in zones:
         zname = z["name"]
@@ -455,13 +543,18 @@ def _emit_crah_proxy(
     bld: str,
     cop_entry: dict,
     sys_entry: dict,
+    flags: set | None = None,
 ) -> None:
     """CRAH proxy → VAV-DX-CHW (no HW plant; cooling-only VAV + CHW chiller).
     Proxy note: CRAH recirculates cold-aisle air; VAV+CHW is closest HVACTemplate match (D4 T08).
     """
-    chiller_cop = cop_entry.get("chiller_cop_phaseE") or cop_entry.get("cooling_cop") or 3.0
-    fan_pa = sys_entry.get("fan_static_pa") or 1389.42
-    fan_eff = sys_entry.get("fan_total_efficiency") or 0.6084
+    if flags is None:
+        flags = set()
+    chiller_cop = _resolve_chain(
+        cop_entry, ["chiller_cop_phaseE", "cooling_cop"], 3.0, "chiller_cop", flags
+    )
+    fan_pa = _resolve(sys_entry, "fan_static_pa", 1389.42, "fan_static_pa", flags)
+    fan_eff = _resolve(sys_entry, "fan_total_efficiency", 0.6084, "fan_total_efficiency", flags)
     sysname = f"{bld}_CRAH_VAV_Sys"
 
     sys_obj = idf.newidfobject("HVACTEMPLATE:SYSTEM:VAV")
@@ -495,12 +588,15 @@ def _emit_warehouse_radiant_proxy(
     zones: list[dict],
     cop_entry: dict,
     sys_entry: dict,
+    flags: set | None = None,
 ) -> None:
     """Heated-only radiant proxy → gas heating unitary, cooling disabled.
     Proxy note: HVACTemplate has no native radiant; Unitary with Cooling=None + Gas heating
     models the heating load; cooling capacity will be negligible (D4 T08).
     """
-    htg_eff = cop_entry.get("heating_efficiency") or 0.8
+    if flags is None:
+        flags = set()
+    htg_eff = _resolve(cop_entry, "heating_efficiency", 0.8, "heating_efficiency", flags)
 
     for z in zones:
         zname = z["name"]
@@ -526,14 +622,20 @@ def _emit_warehouse_radiant_proxy(
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def assign_hvac(idf: GeomIDF, row: pd.Series, zones: list[dict]) -> None:
+def assign_hvac(idf: GeomIDF, row: pd.Series, zones: list[dict]) -> list[str]:
     """Dispatch HVAC objects for one building based on archetype system_family.
 
     Reads hvac_systems_by_archetype.json (T01) for system_family + air-side params,
     hvac_cop_by_archetype.json (T02) for COP + efficiency values.
     One plant per building for central-plant archetypes (unique-object constraint).
     Thermostat objects emitted upstream by assign_loads (builder.py); do NOT remove.
+
+    Any ASHRAE-default substitution records a provenance token (T02): the tokens are
+    appended in place to ``row['data_quality_flag']`` and also returned (sorted) so a
+    caller can merge them into its own flag accumulator.
     """
+    flags: set = set()
+
     cop_table = _load_cop_table()
     sys_table = _load_sys_table()
 
@@ -551,7 +653,7 @@ def assign_hvac(idf: GeomIDF, row: pd.Series, zones: list[dict]) -> None:
     central = sys_entry.get("central_plant", False)
 
     if not zones:
-        return
+        return []
 
     bld = zones[0]["name"].rsplit("_F", 1)[0]
 
@@ -589,38 +691,46 @@ def assign_hvac(idf: GeomIDF, row: pd.Series, zones: list[dict]) -> None:
               f"{orig_family!r} -> {new_family!r}")
 
     if family == "PTAC w/ Electric Reheat":
-        _emit_ptac(idf, zones, cop_entry)
+        _emit_ptac(idf, zones, cop_entry, flags)
 
     elif family == "PSZ-AC w/ Gas Furnace":
-        _emit_psz_ac(idf, zones, cop_entry, sys_entry)
+        _emit_psz_ac(idf, zones, cop_entry, sys_entry, flags)
 
     elif family == "PSZ-HP w/ Gas Backup":
-        _emit_psz_hp(idf, zones, cop_entry, sys_entry)
+        _emit_psz_hp(idf, zones, cop_entry, sys_entry, flags)
 
     elif family == "Packaged VAV w/ Electric Reheat":
-        _emit_pvav(idf, zones, bld, cop_entry, sys_entry, reheat_type="Electric")
+        _emit_pvav(idf, zones, bld, cop_entry, sys_entry, reheat_type="Electric", flags=flags)
 
     elif family == "Packaged VAV w/ Hot Water Reheat":
-        _emit_pvav(idf, zones, bld, cop_entry, sys_entry, reheat_type="HotWater")
+        _emit_pvav(idf, zones, bld, cop_entry, sys_entry, reheat_type="HotWater", flags=flags)
 
     elif family == "Built-up VAV w/ Chilled Water & Hot Water Reheat":
-        _emit_buildup_vav(idf, zones, bld, cop_entry, sys_entry)
+        _emit_buildup_vav(idf, zones, bld, cop_entry, sys_entry, flags)
 
     elif family == "Four-Pipe Fan Coil Units":
-        _emit_fcu(idf, zones, cop_entry, sys_entry)
+        _emit_fcu(idf, zones, cop_entry, sys_entry, flags)
 
     elif family == "Water-Loop Heat Pump":
-        _emit_wlhp(idf, zones, cop_entry, sys_entry)
+        _emit_wlhp(idf, zones, cop_entry, sys_entry, flags)
 
     elif family == "Data Center CRAC / CRAH":
         if central:
-            _emit_crah_proxy(idf, zones, bld, cop_entry, sys_entry)
+            _emit_crah_proxy(idf, zones, bld, cop_entry, sys_entry, flags)
         else:
-            _emit_crac_proxy(idf, zones, bld, cop_entry, sys_entry)
+            _emit_crac_proxy(idf, zones, bld, cop_entry, sys_entry, flags)
 
     elif family == "Heated-only Radiant / Unit Heaters":
-        _emit_warehouse_radiant_proxy(idf, zones, cop_entry, sys_entry)
+        _emit_warehouse_radiant_proxy(idf, zones, cop_entry, sys_entry, flags)
 
     else:
         # Unknown family — fall back to PTAC to avoid silent failures
-        _emit_ptac(idf, zones, cop_entry)
+        _emit_ptac(idf, zones, cop_entry, flags)
+
+    # Record the emitted default provenance on the building's row (T02). Instrumentation
+    # only — the default VALUES above are unchanged, so simulated EUI does not move.
+    for tok in sorted(flags):
+        row["data_quality_flag"] = provenance.append_flag_token(
+            row.get("data_quality_flag"), tok
+        )
+    return sorted(flags)

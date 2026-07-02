@@ -1,6 +1,9 @@
 """Phase-E refrigeration emitter: physical cases/racks (SuperMarket) | lumped (others) (T11, D5)."""
 import json
+import math
 from pathlib import Path
+
+from openubem.semantic import provenance
 
 _CASES_DATA = json.loads(
     (Path(__file__).parent.parent / "data/refrigeration/supermarket_cases.json").read_text()
@@ -13,12 +16,33 @@ _LUMPED_ARCHETYPES = frozenset(
 )
 
 
-def _total_floor_area(row, zones):
-    """Footprint × unique-floor count extracted from zone names."""
+def _resolve_area(row, flags):
+    """footprint_area_m2 with provenance (T03 residual, wave 2a). absent/None -> 400.0
+    (+DEFAULT token); stored 0 -> kept (+SUSPECT_ZERO token); real value -> unchanged."""
+    v = row.get("footprint_area_m2", None)
+    if v is None or (isinstance(v, float) and math.isnan(v)):
+        flags.add(provenance.impute_token("DEFAULT", "GEOMETRY_AREA", "LOW"))
+        return 400.0
+    fv = float(v)
+    if fv == 0:
+        flags.add("SUSPECT_ZERO_FOOTPRINT_AREA_M2")
+        return fv
+    return fv
+
+
+def _total_floor_area(row, zones, flags=None):
+    """Footprint × unique-floor count extracted from zone names.
+
+    A missing footprint (→400 m²) or a missing floor count (→1 floor) records a
+    provenance token in `flags`; default VALUES are unchanged (T03 residual,
+    instrumentation only).
+    """
+    if flags is None:
+        flags = set()
+    footprint = _resolve_area(row, flags)
     explicit = max((int(z.get("num_floors", 0) or 0) for z in zones), default=0)
     if explicit > 0:
-        return float(row.get("footprint_area_m2") or 400.0) * explicit
-    footprint = float(row.get("footprint_area_m2") or 400.0)
+        return footprint * explicit
     floor_idx = set()
     for z in zones:
         parts = z.get("name", "").split("_F")
@@ -26,6 +50,8 @@ def _total_floor_area(row, zones):
             fi = parts[1].split("_")[0]
             if fi.isdigit():
                 floor_idx.add(fi)
+    if len(floor_idx) == 0:
+        flags.add(provenance.impute_token("DEFAULT", "GEOMETRY_FLOORS", "LOW"))
     return footprint * max(len(floor_idx), 1)
 
 
@@ -217,26 +243,41 @@ def _emit_supermarket(idf, zone_name, floor_area):
 
 
 def assign_refrigeration(idf, row, zones):
-    """Emit refrigeration loads (D5): physical cases for SuperMarket, lumped elec for others."""
+    """Emit refrigeration loads (D5): physical cases for SuperMarket, lumped elec for others.
+
+    Returns the sorted geometry-default provenance tokens (T03 residual, wave 2a);
+    they are also appended in place to ``row['data_quality_flag']``. Archetypes that
+    get no refrigeration load at all (not SuperMarket, not in the lumped table, or a
+    lumped archetype with eui<=0) are skipped BEFORE geometry resolution — mirrors the
+    dhw/cooking no_dhw/no_cooking skip-ordering — so they never emit a geometry token.
+    """
     if not zones:  # degenerate geometry: no zone to host cases/equipment (D4a defensive guard)
-        return
+        return []
     arch = str(row["archetype_id"])
     zone_name = zones[0]["name"]
-    total_area = _total_floor_area(row, zones)
+    is_supermarket = arch == "SuperMarket"
 
-    if arch == "SuperMarket":
+    data = None
+    if not is_supermarket:
+        if arch not in _LUMPED_ARCHETYPES:
+            return []
+        data = _LUMPED_DATA.get(arch, {})
+        if data.get("energy_intensity_kwh_m2_yr", 0.0) <= 0:
+            return []
+
+    flags: set = set()
+    total_area = _total_floor_area(row, zones, flags)
+    for tok in sorted(flags):
+        row["data_quality_flag"] = provenance.append_flag_token(
+            row.get("data_quality_flag"), tok
+        )
+
+    if is_supermarket:
         _emit_supermarket(idf, zone_name, total_area)
-        return
-
-    if arch not in _LUMPED_ARCHETYPES:
-        return
-
-    data = _LUMPED_DATA.get(arch, {})
-    eui = data.get("energy_intensity_kwh_m2_yr", 0.0)
-    if eui <= 0:
-        return
+        return sorted(flags)
 
     # Convert annual kWh/m²/yr to average watts (constant 24/7 operation)
+    eui = data["energy_intensity_kwh_m2_yr"]
     avg_w_total = eui * total_area * 1000.0 / 8760.0
 
     _sched_constant_once(idf, "OpenUBEM_Refrig_ConstantSched", 1.0)
@@ -250,3 +291,5 @@ def assign_refrigeration(idf, row, zones):
     elec_eq.Fraction_Latent = 0.0
     elec_eq.Fraction_Lost = 1.0  # condenser rejects heat outdoors
     elec_eq.EndUse_Subcategory = "Refrigeration"
+
+    return sorted(flags)

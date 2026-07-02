@@ -27,8 +27,8 @@ Two things are always true about every row below:
 | # | Input category | What it represents | Real-world source | Bundled file (`openubem/data/…`) | Consuming module |
 |---|---|---|---|---|---|
 | 1 | Building footprints & tags | Geometry + raw attribute tags per building | OpenStreetMap (live, via `osmnx` → Overpass API) | *(runtime fetch — not bundled)* | `acquisition/osm_fetcher.py` |
-| 2 | OSM tag → use-class map | Maps ~60 OSM `building=`/`amenity=`/`shop=`/`office=` values to 6 use-classes | Manually curated map, DESIGN §3A Module 03 | `osm_to_use_class.json` | `semantic/building_classifier.py` |
-| 3 | Archetype vocabulary | 30 fixed DOE/OpenStudio archetype definitions (the classifier's only possible outputs) | OpenStudio *Building Types and Templates* (NREL) | `openstudio_archetypes.json` | `semantic/building_classifier.py` |
+| 2 | OSM tag → use-class map | Maps ~60 OSM `building=`/`amenity=`/`shop=`/`office=` values to 6 use-classes | Manually curated map, DESIGN §3A Module 03; checked against peer UBEM-tool practice in `RESULT_I01` (§6) | `osm_to_use_class.json` | `semantic/building_classifier.py` |
+| 3 | Archetype vocabulary | 30 fixed DOE/OpenStudio archetype definitions (the classifier's only possible outputs); the 17-rule size/level cascade that picks among them was threshold-checked in `RESULT_I02` (§6) | OpenStudio *Building Types and Templates* (NREL) | `openstudio_archetypes.json` | `semantic/building_classifier.py` |
 | 4 | Climate zone polygons | County → ASHRAE climate zone (1A–8) | US Census county boundaries + NREL ResStock housing-characteristics matrix (ASHRAE 169-2013-consistent) | `climate_zones/ashrae_climate_zones.gpkg` | `acquisition/climate_zone.py` |
 | 5 | Weather station catalogue | Nearest-station lookup index (~2,900 US stations) | climate.onebuilding.org TMYx KML index | `epw_stations.csv` | `acquisition/epw_manager.py` |
 | 6 | Weather data (EPW) | Actual 8760-hour weather file used by EnergyPlus | climate.onebuilding.org (primary) / energyplus.net (fallback) | *(runtime download → `~/.openubem/epw` cache)* | `acquisition/epw_manager.py`, `simulation/runner.py` |
@@ -41,10 +41,32 @@ Two things are always true about every row below:
 | 13 | Cooking loads | Kitchen exhaust + process-load intensity per archetype/hood type | PNNL Full/Quick-Service-Restaurant prototypes + ASHRAE 90.1 §6.5.3.1 kitchen exhaust | `loads/cooking_by_archetype.json` | `idf/cooking.py` |
 | 14 | Refrigeration | Lumped equipment intensity (4 archetypes) + detailed case/rack layout (SuperMarket) | ENERGY STAR Portfolio Manager supermarket data + ASHRAE 90.1 Appendix G refrigeration specs | `refrigeration/refrigeration_lumped.json`, `refrigeration/supermarket_cases.json` | `idf/refrigeration.py` |
 | 15 | Service-load end-use fractions (legacy overlay) | % split of whole-building energy across 9 end-uses, by archetype / census region | CBECS 2018 + PNNL Commercial Prototype models (deep-research Table 4) | `service_loads/enduse_fractions_table4.json`, `service_loads/enduse_fractions_regional.json` | `results/service_loads.py` *(Phase-D2 reconstruction overlay — retired as of Phase-E, kept for back-compat/report mode)* |
-| 16 | Archetype ↔ CBECS mapping | Maps OpenUBEM's 30 archetypes to CBECS Principal Building Activity codes for national benchmarking | CBECS 2018 (Commercial Buildings Energy Consumption Survey) | `cbecs_pba_map.json` | validation/aggregation scripts |
+| 16 | Archetype ↔ CBECS mapping | Maps OpenUBEM's 30 archetypes to CBECS Principal Building Activity codes for national benchmarking; crosswalk validated against the CBECS 2018 codebook in `RESULT_I03` (§6) | CBECS 2018 (Commercial Buildings Energy Consumption Survey) | `cbecs_pba_map.json` | validation/aggregation scripts |
 | 17 | Carbon intensity (electricity) | kg CO₂e/kWh, state-level and eGRID-subregion-level | EPA eGRID 2022 | `carbon/egrid_2022.json`, `carbon/egrid_2022_subregions.json` | `results/carbon.py` |
 | 18 | Carbon intensity (natural gas) | Fixed factor, 0.181 kg CO₂e/kWh | Iseri et al. (2025), Energy & Buildings 337 | hard-coded constant, `openubem/config.py` | `results/carbon.py` |
 | 19 | EnergyPlus engine | The physics solver itself | EnergyPlus 23.1 (energyplus.net), user-installed binary | *(not bundled — path via `ENERGYPLUS_PATH` env var)* | `simulation/runner.py` |
+
+**Classification audit (rows 2, 3, 16).** Three deep-research reports
+(`docs/docs_ACTIVE/input/deepResearch/RESULT_I01`–`I03`, full citations in §6) checked the OSM tag
+map, the archetype size/level cascade, and the CBECS crosswalk against peer UBEM-tool practice and
+primary sources (DOE/PNNL prototype TSDs, the CBECS 2018 codebook). Headline findings — not yet
+acted on, audit pending manager review:
+
+- **`RESULT_I01`** — OpenUBEM's symmetric tag-agreement rule (a `function_tag` and `building_tag`
+  must agree, or the row becomes `mixed`) is a likely deviation from peer practice (URBANopt,
+  CityBES, AutoBEM, CEA all let a specific function tag like `amenity=clinic` outrank a generic
+  structural tag outright). ~24 common OSM tags (e.g. `building=duplex`, `amenity=place_of_worship`,
+  `office=government`) are absent from `osm_to_use_class.json` and currently fall through to
+  `unknown`.
+- **`RESULT_I02`** — 3 of the 6 size/level cut-points in the archetype cascade (office,
+  secondary-vs-primary school, large-vs-small hotel) misclassify the very DOE/PNNL prototype
+  buildings the thresholds were meant to represent (e.g. the 511 m² Small Office prototype itself
+  falls on the Medium-Office side of OpenUBEM's current 500 m² cut). Highrise/midrise apartment and
+  data-center cut-points check out against precedent.
+- **`RESULT_I03`** — the archetype↔CBECS-PBA crosswalk is correct but coarser than necessary;
+  CBECS' own `PBAPLUS`/`SQFT`/`NFLOOR` sub-variables would let the office, restaurant, hotel, and
+  education archetypes each score against a narrower CBECS bin instead of one shared code. The
+  residential and data-center exclusions are both confirmed correct as-is.
 
 ---
 
@@ -78,6 +100,11 @@ for the full rule cascade). "Occupancy" in the UBEM sense — how many people, w
 what — is **not** an OSM input at all: it comes entirely from the matched archetype's
 schedules and loads (rows 8–9 above), not from anything observed about the specific
 building.
+
+The `function_tag`/`building_tag` priority rule above ("first non-null wins") and the
+`osm_to_use_class.json` tag list were independently checked against peer UBEM-tool practice —
+see `RESULT_I01_osm_tag_to_use_class_mapping.md` (§6) for the full comparison table and the list
+of commonly-used OSM tags currently missing from the map.
 
 ---
 
@@ -152,6 +179,9 @@ Source prompts/results for the three city benchmarks live in
 | Schedules (digitized DOE prototype IDFs) | `docs/docs_DONE/scheduleDigitization/PROVENANCE.md` |
 | Service-load end-use fractions (legacy overlay) | `docs/docs_DONE/serviceLoads/SERVICE_LOADS_coefficients.md` |
 | HVAC / DHW / cooking / refrigeration deep research | `docs/docs_DONE/hvac-ServiceLoads/deepResearch/` (RESULT_01 through RESULT_05) |
+| OSM tag → use-class mapping vs. peer UBEM-tool practice | `docs/docs_ACTIVE/input/deepResearch/RESULT_I01_osm_tag_to_use_class_mapping.md` |
+| Archetype size/level cut-points vs. DOE/PNNL prototype TSDs | `docs/docs_ACTIVE/input/deepResearch/RESULT_I02_archetype_classification_cascade.md` |
+| Archetype ↔ CBECS-PBA crosswalk vs. the CBECS 2018 codebook | `docs/docs_ACTIVE/input/deepResearch/RESULT_I03_cbecs_pba_crosswalk_validation.md` |
 | Phase-E physical-simulation results & methodology | `docs/docs_DONE/hvac-ServiceLoads/REPORT_phaseE_final.md` |
 | External validation ground truth | `docs/docs_VALIDATION/step1/external_literature/` |
 | Full bundled-data inventory + config constants | root `README.md` §"Data Assets" and §"Configuration & Constants" |
@@ -172,4 +202,5 @@ Source prompts/results for the three city benchmarks live in
 ---
 
 *OpenUBEM — inputs reference. Cross-references the binding DESIGN spec, per-module
-PROVENANCE.md files, and the Phase-E adopted baseline. 2026-06-30.*
+PROVENANCE.md files, the Phase-E adopted baseline, and the I01–I03 classification deep-research
+audit. 2026-06-30.*

@@ -31,17 +31,19 @@ _VALID_30: frozenset[str] = frozenset(
     a["archetype_id"] for a in _RAW_ARCHETYPES["archetypes"]
 )
 
-# 15 emit-side tokens; FALLBACK_DEFAULT is deprecated read-side only (Pass-2 §11 line 468)
+# 16 emit-side tokens; FALLBACK_DEFAULT / HEURISTIC_DEFAULT are deprecated read-side only
+# (Pass-2 §11 line 468; HEURISTIC_DEFAULT superseded by GROUPMEDIAN_LEVELS_MED /
+# LEVELS_DEFAULT_LOW at T05 wave-2b — old archives may still carry it)
 _EMIT_TOKENS: frozenset[str] = frozenset({
     "RULE_HIGHRISE", "RULE_RESIDENTIAL_TIER", "RULE_LODGING_TIER",
     "RULE_FUNCTION_TAG", "RULE_FUNCTION_TAG_SIZE",
     "RULE_USE_CLASS", "RULE_USE_CLASS_SIZE",
     "MIXED_USE_DOMINANT_TAG", "FALLBACK_UNKNOWN", "FALLBACK_SIZE_DEFAULT",
-    "HEURISTIC_HEIGHT", "HEURISTIC_DEFAULT",
+    "HEURISTIC_HEIGHT", "GROUPMEDIAN_LEVELS_MED", "LEVELS_DEFAULT_LOW",
     "ASSUMPTION_DOE_PROTOTYPE_DERIVED", "DETAILED_OFFICE",
     "OVERRIDE_USER",
 })
-_READ_SIDE_TOKENS: frozenset[str] = _EMIT_TOKENS | {"FALLBACK_DEFAULT"}
+_READ_SIDE_TOKENS: frozenset[str] = _EMIT_TOKENS | {"FALLBACK_DEFAULT", "HEURISTIC_DEFAULT"}
 _OVERRIDE_USER_RE = re.compile(r"^OVERRIDE_USER\(.*\)$")
 
 _DETAILED_MAP: dict[str, str] = {
@@ -118,13 +120,45 @@ def _normalise_use_class(
 
 # ── Stage 3D helper: levels imputation (DESIGN §3D lines 238-253) ─────────────
 
-def _impute_levels(row: pd.Series, floor_to_floor_m: float = 3.5) -> tuple[int, str]:
+def _impute_levels(
+    row: pd.Series,
+    floor_to_floor_m: float = 3.5,
+    *,
+    use_class: "str | None" = None,
+    levels_group_median: "dict[str, int] | None" = None,
+    levels_global_median: "int | None" = None,
+) -> tuple[int, str]:
     if pd.notna(row["levels"]):
         return int(row["levels"]), "OSM_OBSERVED"
     h = row["height_m"]
     if pd.notna(h) and h > 0:
         return max(1, int(h // floor_to_floor_m)), "HEURISTIC_HEIGHT"
-    return 1, "HEURISTIC_DEFAULT"
+    # T05 wave-2b: group-wise stratified median (observed-levels rows only, no leakage)
+    # replaces the flat HEURISTIC_DEFAULT→1 fill (M03 Table 4 / Part C).
+    if levels_group_median and use_class in levels_group_median:
+        return levels_group_median[use_class], "GROUPMEDIAN_LEVELS_MED"
+    if levels_global_median is not None:
+        return levels_global_median, "GROUPMEDIAN_LEVELS_MED"
+    return 1, "LEVELS_DEFAULT_LOW"
+
+
+# E-R3-3: office size-tier bins (LBNL CBES 25,000 / 100,000 ft²; Hong et al. 2015)
+_OFFICE_SMALL_MAX_M2 = 2322.0
+_OFFICE_MEDIUM_MAX_M2 = 9290.0
+
+# E-R3-3: hotel tier boundary (Deru et al. 2011: SmallHotel 4-story / LargeHotel 6-story)
+_HOTEL_LARGE_MIN_LEVELS = 5
+
+# E-R3-3: school tier boundary (Deru et al. 2011: Primary 1-story / Secondary 2-story)
+_SECONDARY_SCHOOL_MIN_LEVELS = 2
+
+
+def _office_size_tier(total_floor_area_m2: float) -> str:
+    if total_floor_area_m2 < _OFFICE_SMALL_MAX_M2:
+        return "SmallOffice"
+    if total_floor_area_m2 < _OFFICE_MEDIUM_MAX_M2:
+        return "MediumOffice"
+    return "LargeOffice"
 
 
 # ── Stage 3C: 17-rule classifier (DESIGN §3C + Pass-2 §11 line 465) ───────────
@@ -175,11 +209,11 @@ def _apply_rule_table(
         return "MidriseApartment", "RULE_RESIDENTIAL_TIER", None
 
     # 3a — LargeHotel
-    if ft in {"hotel", "motel", "guest_house"} and levels_imputed >= 4:
+    if ft in {"hotel", "motel", "guest_house"} and levels_imputed >= _HOTEL_LARGE_MIN_LEVELS:
         return "LargeHotel", "RULE_LODGING_TIER", None
 
     # 3b — SmallHotel
-    if ft in {"hotel", "motel", "guest_house"} and levels_imputed < 4:
+    if ft in {"hotel", "motel", "guest_house"} and levels_imputed < _HOTEL_LARGE_MIN_LEVELS:
         return "SmallHotel", "RULE_LODGING_TIER", None
 
     # 4a — FullServiceRestaurant
@@ -203,11 +237,11 @@ def _apply_rule_table(
         return "College", "RULE_FUNCTION_TAG", None
 
     # 6b — SecondarySchool (composite token: RULE_FUNCTION_TAG_SIZE,ASSUMPTION_DOE_PROTOTYPE_DERIVED)
-    if (ft == "school" or bt == "school") and area >= 5000:
+    if (ft == "school" or bt == "school") and levels_imputed >= _SECONDARY_SCHOOL_MIN_LEVELS:
         return "SecondarySchool", "RULE_FUNCTION_TAG_SIZE,ASSUMPTION_DOE_PROTOTYPE_DERIVED", None
 
-    # 6c — PrimarySchool
-    if (ft in {"school", "kindergarten"} or bt in {"school", "kindergarten"}) and area < 5000:
+    # 6c — PrimarySchool (catch-all: any remaining school/kindergarten tag)
+    if ft in {"school", "kindergarten"} or bt in {"school", "kindergarten"}:
         return "PrimarySchool", "RULE_FUNCTION_TAG", None
 
     # 7 — Courthouse (civic / government)
@@ -257,13 +291,9 @@ def _apply_rule_table(
     ):
         return "RetailStandalone", "RULE_FUNCTION_TAG", None
 
-    # 12a/12b/12c — Office by use_class + size (E-R3-1: total floor area)
+    # 12a/12b/12c — Office by use_class + size (E-R3-1: total floor area; E-R3-3: bins)
     if use_class == "commercial":
-        if total_floor_area_m2 < 500:
-            return "SmallOffice", "RULE_USE_CLASS_SIZE", None
-        if total_floor_area_m2 < 4000:
-            return "MediumOffice", "RULE_USE_CLASS_SIZE", None
-        return "LargeOffice", "RULE_USE_CLASS_SIZE", None
+        return _office_size_tier(total_floor_area_m2), "RULE_USE_CLASS_SIZE", None
 
     # 13 — Warehouse (industrial use_class, no specific tag matched above)
     if use_class == "industrial":
@@ -296,11 +326,7 @@ def _apply_rule_table(
 
     # 17a — E-R3-2: untagged building=yes → size-bucketed office default (LOW confidence)
     if use_class == "unknown" and bt == "yes":
-        if total_floor_area_m2 < 500:
-            return "SmallOffice", "FALLBACK_SIZE_DEFAULT", None
-        if total_floor_area_m2 < 4000:
-            return "MediumOffice", "FALLBACK_SIZE_DEFAULT", None
-        return "LargeOffice", "FALLBACK_SIZE_DEFAULT", None
+        return _office_size_tier(total_floor_area_m2), "FALLBACK_SIZE_DEFAULT", None
 
     # 17 — FALLBACK_UNKNOWN (Pass-2: OpenUBEMUnknown, not MediumOffice)
     return "OpenUBEMUnknown", "FALLBACK_UNKNOWN", None
@@ -492,9 +518,17 @@ def classify_building(
     high_rise_levels_threshold: int = 20,
     super_tall_levels_threshold: int = 40,
     floor_to_floor_m: float = 3.5,
+    levels_group_median: "dict[str, int] | None" = None,
+    levels_global_median: "int | None" = None,
 ) -> tuple[str, str, str]:
     uc, score = _normalise_use_class(row, dominant_tag_threshold=dominant_tag_threshold)
-    lev, lev_src = _impute_levels(row, floor_to_floor_m=floor_to_floor_m)
+    lev, lev_src = _impute_levels(
+        row,
+        floor_to_floor_m=floor_to_floor_m,
+        use_class=uc,
+        levels_group_median=levels_group_median,
+        levels_global_median=levels_global_median,
+    )
 
     aid, src_tok, inh_tok = _apply_rule_table(
         row, lev, uc, score,
@@ -571,6 +605,12 @@ class BuildingClassifier:
             return out
 
         out = gdf.copy()
+
+        # T05 wave-2b: use_class -> median(levels) lookup, fit on OBSERVED-levels rows
+        # only (no leakage) so the third _impute_levels branch stratifies instead of
+        # flat-defaulting to 1 (M03 Table 4 / Part C).
+        levels_group_median, levels_global_median = self._build_levels_median_lookup(out)
+
         results = out.apply(
             lambda row: classify_building(
                 row,
@@ -579,6 +619,8 @@ class BuildingClassifier:
                 high_rise_levels_threshold=self.high_rise_levels_threshold,
                 super_tall_levels_threshold=self.super_tall_levels_threshold,
                 floor_to_floor_m=self.floor_to_floor_m,
+                levels_group_median=levels_group_median,
+                levels_global_median=levels_global_median,
             ),
             axis=1,
             result_type="expand",
@@ -618,6 +660,27 @@ class BuildingClassifier:
             self._serialize(out, Path(output_dir), log_lines=log_lines)
 
         return out
+
+    def _build_levels_median_lookup(
+        self, out: gpd.GeoDataFrame
+    ) -> "tuple[dict[str, int], int | None]":
+        """T05 wave-2b: use_class -> median(levels), fit on observed-levels rows only.
+
+        No leakage: rows with missing `levels` never enter the lookup. Deterministic
+        (plain median, no sampling).
+        """
+        observed = out[out["levels"].notna()]
+        if len(observed) == 0:
+            return {}, None
+
+        obs_use_class = observed.apply(
+            lambda r: _normalise_use_class(r, dominant_tag_threshold=self.dominant_tag_threshold)[0],
+            axis=1,
+        )
+        group_medians = observed["levels"].groupby(obs_use_class).median()
+        levels_group_median = {uc: max(1, round(m)) for uc, m in group_medians.items()}
+        levels_global_median = max(1, round(observed["levels"].median()))
+        return levels_group_median, levels_global_median
 
     def _build_log_lines(self, out: gpd.GeoDataFrame) -> list[str]:
         # Per-rule fire counts (first token of archetype_source).

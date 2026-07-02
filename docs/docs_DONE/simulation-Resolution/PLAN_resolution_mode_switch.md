@@ -837,6 +837,36 @@ building totals. The manager grepped the builder and confirmed OpenUBEM already 
 - git-stash incident (agent briefly stashed/popped all uncommitted work): verified self-recovered — `git stash list` empty, all six touched files present + Modified, tests green.
 - **VERDICT: CP-fix PASS.** Greenlit CP-resim: re-sim the 12 building-mode legs only (cluster 5 via Sonnet+sbatch fire-and-forget, local 7) → re-harvest building mode → confirm building total ≈ auto/floor (not 1/N) and conserves. Dispatched to a Sonnet employee per cluster-job rule.
 
+#### CP-resim — building-mode re-sim harvested; conservation PASS → **CP4 GO on `building` mode** — completed 2026-07-01 (manager)
+- **Re-sim complete, all 12 cells post-fix.** Local 7 cells (la_urban/suburban/rural, austin_centre/urban/suburban/rural) re-simmed 2026-06-30 18:01–18:21. Cluster 5 cells (nyc_centre 1048357, nyc_urban 1048358, nyc_suburban 1048359, nyc_rural 1048360, la_centre 1048361) ran overnight once the user's other-project blocker drained; `sacct -X` = **COMPLETED, ExitCode 0:0 across all 4,530 array tasks, zero fatals**. Fresh per-building `eplusout.sql` stamped 2026-07-01 01:xx.
+- **Stale-CSV trap (recorded for the record).** The first harvest reused *cached pre-fix* SQLs in `%TEMP%\ubem_t08_harvest\` and produced a conservation table that looked like the bug survived in the tall cluster cells (nyc_centre 177 / la_centre 109 / nyc_urban 13 buildings at ratio<0.35, all multi-floor). Diagnosis proved this was **an aggregation artifact, not a physics failure**: the IDF the cluster actually ran for a 67-floor tower (way/265875648) carries the fix — `LightingLevel = 2,800,756 W = 10.76 W/m² × 3,885 m² × 67` (absolute, footprint×levels); the cluster E+ SQL is correct (InteriorLights 6,888,689 kWh ÷ 260,293 m² = **26.465 kWh/m²**); the harvest formula is correct. Only the published `t08_all_modes_eui.csv` held stale energy (correct ÷ num_floors, exact 1/N). Rebuilt the CSV from the fresh SQLs; way/265875648 now reads lighting **26.465** / equipment **44.063** (was the stale ~0.4). **No cluster relaunch needed — the fixed SQLs already existed on disk.**
+- **Conservation table (fresh data, `total_eui`, building vs floor/auto, per-building matched):**
+
+  | cell | N | EUI_bld | EUI_floor | EUI_auto | med(bld/floor) | IQR | med(bld/auto) | N<0.35 |
+  |---|---|---|---|---|---|---|---|---|
+  | nyc_centre | 738 | 170.2 | 195.4 | 198.9 | 0.861 | 0.154 | 0.897 | 0 |
+  | nyc_urban | 1779 | 163.8 | 176.0 | 172.9 | 0.934 | 0.028 | 0.964 | 0 |
+  | nyc_suburban | 1589 | 257.9 | 257.9 | 255.4 | 1.000 | 0.000 | 1.002 | 0 |
+  | nyc_rural | 198 | 258.4 | 258.4 | 253.7 | 1.000 | 0.000 | 1.033 | 0 |
+  | la_centre | 225 | 145.7 | 163.9 | 162.2 | 0.955 | 0.247 | 0.950 | 0 |
+  | la_urban | 617 | 117.3 | 125.7 | 123.0 | 0.959 | 0.016 | 0.986 | 0 |
+  | la_suburban | 1343 | 116.9 | 121.0 | 114.9 | 0.964 | 0.007 | 1.014 | 0 |
+  | la_rural | 143 | 126.6 | 134.3 | 132.8 | 0.958 | 0.052 | 1.027 | 0 |
+  | austin_centre | 413 | 277.3 | 290.1 | 285.3 | 1.000 | 0.199 | 1.037 | 0 |
+  | austin_urban | 425 | 144.5 | 158.7 | 152.8 | 0.953 | 0.030 | 1.019 | 0 |
+  | austin_suburban | 437 | 198.1 | 208.2 | 198.9 | 0.954 | 0.062 | 1.026 | 0 |
+  | austin_rural | 245 | 207.6 | 207.6 | 198.6 | 1.000 | 0.000 | 1.070 | 0 |
+
+- **VERDICT: CP-resim PASS → CP4 GO on `building` mode.** Every cell: `N_ratio_below_0.35 == 0` (the 1/num_floors undercount is gone) and `median(building/floor)` ∈ **0.861–1.000**, inside the healthy 0.75–1.05 band (`median(building/auto)` 0.897–1.070). The tall/dense cells (nyc_centre 0.861, la_centre widest IQR 0.247) show the largest but modest gaps — expected single-zone-vs-per-floor physics per §9 (~10–26% heating, ~10–20% lighting), **not** undercount. This resolves the **M18 NO-GO**: `building` mode is now area-conserving and valid for multi-floor buildings. All four modes {auto, floor, fast_zone, building} are GO; `zone` remains NotImplementedError by design. **T09/P5 unblocked.**
+- **Carry-forward notes (non-blocking):** (a) DHW for tall office towers reads high (way/265875648 ≈ 36.9 kWh/m², NaturalGas 9.6 GWh) — sanity-check the DHW peak-flow×area scaling for very tall archetypes as a T09 follow-up, not a CP4 blocker. (b) Minor backup-reference match shortfalls (la_centre 225/226, la_urban 617/618, la_rural 143/149) are missing floor/auto rows in the pre-resim backup, not building-mode failures. (c) `t08_all_modes_eui.STALE_backup_20260701_100757.csv` retained as the pre-rebuild snapshot.
+
+#### T09 — Author `literatureValidation/` deep-research prompt set — completed 2026-07-01 (manager + Sonnet)
+- Artifacts: `deepResearch/literatureValidation/` — `00_README_literature_validation_prompt_set.md` + `V01…V06` (6 axis prompts). Manager authored the index + V01 exemplar; a Sonnet executor authored V02–V06 against that template + a per-axis spec; manager audited.
+- **Set purpose:** commission the *external-literature envelopes* to test OpenUBEM's T08/CP4 cross-mode deltas against (validation-commissioning, not fitting — mirrors how layoutMapping prompts preceded RESULT_L0x). Axes: **V01** annual-EUI zoning sensitivity (building scale; the master envelope for the `building/floor` 0.86–1.00 ratio), **V02** heating/cooling end-use split (core/perimeter cancellation), **V03** peak/equipment-sizing (report-only — v1 doesn't size on coarse modes; peak validation a GAP until AMI), **V04** daylighting/lighting over-prediction (D7-off: asks both absolute + relative-mode residual), **V05** district-scale wash-out (load-bearing, paired with V01; demands random-vs-systematic verdict), **V06** archetype-cohort stratification (Table-4 maps onto the OpenUBEM roster, per RESULT_11's stratified-reporting rule).
+- Deviations: none. Template followed verbatim (SCOPE GUARD → What this is → Role → Why → REQUIRED OUTPUT TABLES → Part C → Output format → Hard requirements); every prompt demands numeric signed-% ranges with named/dated sources, SI units, GAP-flagging, and the 4-mode map (building/floor/fast_zone; zone deferred). Internal RESULT figures are walled off as "the regime the published ranges must bracket," explicitly NOT external evidence (00_README rule).
+- Audit: structural grep — all 6 files present, 8 required sections each (7×`##` + 1 SCOPE GUARD), zero `.py`, all table cells empty (no fabricated findings), cross-check rows echo the correct per-axis observed value. Spot-read V05 in full (sound random-vs-systematic + driver-ranking framing) and confirmed V02/V03/V04/V06 cross-check rows. **PASS.**
+- Notes: the actual in/out-of-envelope comparison of T08 numbers against the returned `RESULT_V0x` reports is the **follow-on after these run externally** — not part of T09. **P5 / T09 complete → the resolution-mode arc is fully authored; all four modes GO, `zone` deferred by design.**
+
 The deep-research set is emphatic on one point: **the three modes will produce different EUIs for the
 same building, and that is correct physics, not an implementation error.** Whoever runs the eventual
 multi-mode comparison must read these as expected so nobody "fixes" a real effect or fails the build over

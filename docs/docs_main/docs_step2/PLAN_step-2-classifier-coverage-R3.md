@@ -48,10 +48,11 @@ Other test files may ONLY be touched if the suite proves they assert the old rul
 | F8 | TallBuilding/SuperTallBuilding rules fire before office buckets for `use_class ∈ {commercial, institutional, mixed, unknown}` (lines 156-168) — untagged towers are already correct; do not disturb | code grep + F4 (5/5 correct) |
 | F9 | CBECS baseline gate values (R2 plan Z08): CV(RMSE) 53.784 FAIL / NMBE −10.813 FAIL / R² 0.7312 PASS / KS 0.1902 FAIL; 465 gate-eligible buildings, OpenUBEMUnknown = 278/465 | R2 plan §8 Z08 |
 
-### User rulings of 2026-06-11 (DESIGN errata — binding)
+### User rulings (DESIGN errata — binding)
 
 - **E-R3-1 — Office size buckets use TOTAL floor area** (`footprint_area_m2 × levels_imputed`), thresholds unchanged (<500 / 500–4000 / ≥4000 m²). Reconciles §3C rules 12a–c with §3B's literal wording "floor area" and with ASHRAE prototype definitions. User answer: "answer two: total floor area".
 - **E-R3-2 — Untagged `building=yes` rows default to size-bucketed offices, not Unknown.** New rule 17a, evaluated after rules 1–16 and before rule 17: `use_class == "unknown" AND building_tag == "yes"` → Small/Medium/LargeOffice by E-R3-1 metric, confidence **LOW**, new `archetype_source` token **`FALLBACK_SIZE_DEFAULT`** (emit vocabulary 14→15; supersedes part of the OQ-5 resolution). Rule 17 (`OpenUBEMUnknown` + `FALLBACK_UNKNOWN` + LOW) remains for everything else (service/roof/canopy/garage tags, non-yes generic tags). User answer: "answer one, proceed with educated guess". Validator lines 466-470 unchanged (Unknown still requires FALLBACK_UNKNOWN).
+- **E-R3-3 (2026-06-30) — Office / school / hotel cut-points corrected to their DOE/PNNL prototype boundaries.** Supersedes the "thresholds unchanged" clause of E-R3-1: office total-floor-area bins `<500 / 500–4000` → **`<2322 / <9290 m²`** (LBNL CBES 25k / 100k ft²); hotel Small/Large split `≥4` → **`≥5`** levels; school Primary/Secondary now by **level count** (Primary = 1 story / Secondary ≥ 2 stories), replacing the footprint `≥5000` rule (resolves §3C OQ-4). Rationale: the old cut-points misclassified the very DOE prototypes each archetype represents (deep-research RESULT_I02). Full plan + validation: `docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md`. CP-α re-validated 2026-06-30 (coarse 100% / fine 92% on the 50-building fixture; 13 office labels re-ratified to the CBES bins). E-R3-1's total-floor-area *metric* stands — only its thresholds are superseded.
 
 ## §6 Task list
 

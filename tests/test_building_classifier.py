@@ -14,6 +14,7 @@ from openubem.semantic.building_classifier import (
     BuildingClassifier,
     SchemaError,
     _INPUT_SCHEMA_COLUMNS,
+    _LEVELS_CONSUMING,
     _VALID_30,
     _apply_detailed_office,
     _apply_overrides,
@@ -218,7 +219,7 @@ class TestImputeLevels:
     def test_nan_nan(self):
         r = _row(levels=pd.NA, height_m=float("nan"))
         lev, src = _impute_levels(r)
-        assert lev == 1 and src == "HEURISTIC_DEFAULT"
+        assert lev == 1 and src == "LEVELS_DEFAULT_LOW"
 
     def test_provenance_levels_invariant(self):
         r = _row(levels=pd.NA, provenance_levels="OSM_OBSERVED")
@@ -250,22 +251,24 @@ class TestApplyRuleTable:
         assert aid == "QuickServiceRestaurant" and tok == "RULE_FUNCTION_TAG"
 
     def test_rule_6b_composite_token(self):
+        # E-R3-3: rule 6b keys on levels_imputed >= 2 (not footprint); levels_imputed=2 here → SecondarySchool
         r = _row(function_tag="school", footprint_area_m2=6000.0)
         aid, tok, _ = _apply_rule_table(r, 2, "institutional", 1.0)
         assert aid == "SecondarySchool"
         assert tok == "RULE_FUNCTION_TAG_SIZE,ASSUMPTION_DOE_PROTOTYPE_DERIVED"
 
     def test_rule_6c_primary_school(self):
+        # E-R3-3: kindergarten is the unconditional Primary catch-all (D4) regardless of levels/footprint
         r = _row(function_tag="kindergarten", footprint_area_m2=800.0)
         aid, tok, _ = _apply_rule_table(r, 2, "institutional", 1.0)
         assert aid == "PrimarySchool" and tok == "RULE_FUNCTION_TAG"
 
     def test_rule_17a_building_yes_size_default(self):
         # E-R3-2: building=yes → FALLBACK_SIZE_DEFAULT office (not OpenUBEMUnknown)
-        # default footprint=800, levels=2 → total=1600 → MediumOffice
+        # E-R3-3: default footprint=800, levels=2 → total=1600 → SmallOffice (< 2322 m²)
         r = _row(building_tag="yes", function_tag="")
         aid, tok, inh = _apply_rule_table(r, 2, "unknown", 0.0)
-        assert aid == "MediumOffice"
+        assert aid == "SmallOffice"
         assert tok == "FALLBACK_SIZE_DEFAULT"
         assert inh is None
 
@@ -314,13 +317,13 @@ class TestApplyRuleTable:
         assert aid == "SmallDataCenterHighITE"
 
     def test_rule_12b_medium_office(self):
-        # footprint=1000, levels=3 → total=3000 → MediumOffice (E-R3-1)
+        # footprint=1000, levels=3 → total=3000 → MediumOffice (E-R3-1 metric; E-R3-3 bins: 2322<=x<9290)
         r = _row(building_tag="office", footprint_area_m2=1000.0)
         aid, tok, _ = _apply_rule_table(r, 3, "commercial", 1.0)
         assert aid == "MediumOffice" and tok == "RULE_USE_CLASS_SIZE"
 
     def test_rule_12c_tall_slim_tower(self):
-        # A01 E-R3-1: footprint=1000, levels=10 → total=10000 ≥ 4000 → LargeOffice
+        # A01 E-R3-1: footprint=1000, levels=10 → total=10000 → LargeOffice (E-R3-3 bins: >= 9290 m²)
         r = _row(building_tag="office", footprint_area_m2=1000.0)
         aid, tok, _ = _apply_rule_table(r, 10, "commercial", 1.0)
         assert aid == "LargeOffice" and tok == "RULE_USE_CLASS_SIZE"
@@ -499,20 +502,23 @@ class TestApplyOverrides:
 # ── TestClassifyBuildingRow ───────────────────────────────────────────────────
 
 class TestClassifyBuildingRow:
-    def test_rule_2b_heuristic_default_source(self):
+    def test_rule_2b_levels_default_low_source(self):
+        # both levels and height absent, no group/global observed median available
+        # (single-row classify_building has no lookup) -> LEVELS_DEFAULT_LOW
         r = _row(building_tag="apartments", function_tag="", levels=pd.NA,
                  height_m=float("nan"), provenance_function_tag="OSM_MISSING")
         aid, conf, src = classify_building(r)
         assert aid == "MidriseApartment"
-        assert src == "RULE_RESIDENTIAL_TIER,HEURISTIC_DEFAULT"
+        assert src == "RULE_RESIDENTIAL_TIER,LEVELS_DEFAULT_LOW"
 
     def test_rule_17a_building_yes_office_default(self):
-        # E-R3-2: building=yes, levels=2, footprint=800 → total=1600 → MediumOffice/LOW/FALLBACK_SIZE_DEFAULT
+        # E-R3-2: building=yes, levels=2, footprint=800 → total=1600 → SmallOffice/LOW/FALLBACK_SIZE_DEFAULT
+        # E-R3-3: total floor area 1600 < 2322 → SmallOffice
         r = _row(building_tag="yes", function_tag="", data_quality_flag="generic_tag",
                  provenance_building_tag="OSM_GENERIC", provenance_function_tag="OSM_MISSING",
                  levels=pd.array([2], dtype="Int64")[0], provenance_levels="OSM_OBSERVED")
         aid, conf, src = classify_building(r)
-        assert aid == "MediumOffice"
+        assert aid == "SmallOffice"
         assert conf == "LOW"
         assert src == "FALLBACK_SIZE_DEFAULT"
 
@@ -525,7 +531,9 @@ class TestClassifyBuildingRow:
         assert src == "RULE_FUNCTION_TAG"
 
     def test_rule_6b_secondary_school(self):
+        # E-R3-3: rule 6b keys on levels_imputed >= 2; explicit levels=2 makes this genuinely Secondary
         r = _row(function_tag="school", footprint_area_m2=6000.0,
+                 levels=pd.array([2], dtype="Int64")[0], provenance_levels="OSM_OBSERVED",
                  provenance_function_tag="OSM_OBSERVED", provenance_building_tag="OSM_OBSERVED")
         aid, conf, src = classify_building(r)
         assert aid == "SecondarySchool"
@@ -550,7 +558,7 @@ class TestClassifyBuildingRow:
         r = _row(building_tag="office", footprint_area_m2=800.0,
                  provenance_function_tag="OSM_MISSING", provenance_building_tag="OSM_OBSERVED")
         aid, conf, src = classify_building(r, detailed_office=True)
-        assert aid == "MediumOfficeDetailed"
+        assert aid == "SmallOfficeDetailed"
         assert "DETAILED_OFFICE" in src
 
 
@@ -610,7 +618,7 @@ class TestBuildingClassifier:
     def test_detailed_office_produces_detailed(self):
         gdf = _make_min_gdf(2, building_tag="office", footprint_area_m2=800.0)
         out = BuildingClassifier(detailed_office=True).classify(gdf)
-        assert (out["archetype_id"] == "MediumOfficeDetailed").all()
+        assert (out["archetype_id"] == "SmallOfficeDetailed").all()
 
     def test_overrides_applied(self):
         gdf = self._simple_gdf()
@@ -813,25 +821,27 @@ def synthetic_30_gdf():
 
     rows = [
         _r(0,  "",           "office",      pd.NA,   200.0),  # SmallOffice
-        _r(1,  "",           "office",      pd.NA,   800.0),  # MediumOffice
-        _r(2,  "",           "office",      pd.NA,  5000.0),  # LargeOffice
+        _r(1,  "",           "office",      pd.NA,  3000.0),  # MediumOffice
+        _r(2,  "",           "office",      pd.NA, 10000.0),  # LargeOffice
         _r(3,  "retail",     "",            pd.NA,   300.0),  # RetailStandalone
         _r(4,  "",           "strip_mall",  pd.NA,   400.0),  # RetailStripmall
         _r(5,  "",           "supermarket", pd.NA,  2000.0),  # SuperMarket
         _r(6,  "restaurant", "",            pd.NA,   200.0),  # FullServiceRestaurant
         _r(7,  "cafe",       "",            pd.NA,   150.0),  # QuickServiceRestaurant
         _r(8,  "hotel",      "",            2,       500.0,
-           provenance_levels="OSM_OBSERVED"),                 # SmallHotel (levels<4)
+           provenance_levels="OSM_OBSERVED"),                 # SmallHotel (levels<5)
         _r(9,  "hotel",      "",            5,      1000.0,
-           provenance_levels="OSM_OBSERVED"),                 # LargeHotel (levels>=4)
+           provenance_levels="OSM_OBSERVED"),                 # LargeHotel (levels>=5)
         _r(10, "",           "apartments",  5,       600.0,
            provenance_levels="OSM_OBSERVED"),                 # MidriseApartment (levels<9)
         _r(11, "",           "apartments",  12,     1000.0,
            provenance_levels="OSM_OBSERVED"),                 # HighriseApartment (levels>=9)
         _r(12, "hospital",   "",            pd.NA,  2000.0),  # Hospital
         _r(13, "clinic",     "",            pd.NA,   400.0),  # Outpatient
-        _r(14, "school",     "",            pd.NA,  1000.0),  # PrimarySchool (<5000 m²)
-        _r(15, "school",     "",            pd.NA,  6000.0),  # SecondarySchool (>=5000 m²)
+        _r(14, "school",     "",               1,   1000.0,
+           provenance_levels="OSM_OBSERVED"),                 # PrimarySchool (levels=1, observed)
+        _r(15, "school",     "",               2,   6000.0,
+           provenance_levels="OSM_OBSERVED"),                 # SecondarySchool (levels>=2)
         _r(16, "university", "",            pd.NA,  3000.0),  # College
         _r(17, "government", "",            pd.NA,  1500.0),  # Courthouse
         _r(18, "",           "data_center", pd.NA,   300.0),  # SmallDataCenterHighITE (<500 m²)
@@ -911,16 +921,21 @@ class TestArchetypeCoverage30:
 # ── TestExactBoundaries (E2) ──────────────────────────────────────────────────
 
 @pytest.mark.parametrize("tag_overrides,levels_val,area_val,expected_archetype", [
-    # area=500: exactly at Small/Medium boundary → MediumOffice (DESIGN §3C: 500 ≤ area < 4000)
-    ({"building_tag": "office", "footprint_area_m2": 500.0}, pd.NA, 500.0, "MediumOffice"),
-    # area=4000: exactly at Medium/Large boundary → LargeOffice (DESIGN §3C: area ≥ 4000)
-    ({"building_tag": "office", "footprint_area_m2": 4000.0}, pd.NA, 4000.0, "LargeOffice"),
-    # area=5000 with school → SecondarySchool (DESIGN §3C rule 6b: area ≥ 5000)
+    # E-R3-3: total floor area=500 → SmallOffice (office bins: <2322 / 2322-<9290 / >=9290 m²)
+    ({"building_tag": "office", "footprint_area_m2": 500.0}, pd.NA, 500.0, "SmallOffice"),
+    # E-R3-3: total floor area=4000 → MediumOffice (< 9290 m² upper bin boundary)
+    ({"building_tag": "office", "footprint_area_m2": 4000.0}, pd.NA, 4000.0, "MediumOffice"),
+    # E-R3-3: school, 1 story → PrimarySchool (level-count rule: Primary = 1 story)
     ({"function_tag": "school", "footprint_area_m2": 5000.0,
-      "provenance_function_tag": "OSM_OBSERVED"}, pd.NA, 5000.0, "SecondarySchool"),
-    # levels=4 with hotel → LargeHotel (DESIGN §3C rule 3a: levels ≥ 4)
+      "provenance_function_tag": "OSM_OBSERVED",
+      "provenance_levels": "OSM_OBSERVED"}, 1, 5000.0, "PrimarySchool"),
+    # E-R3-3: school, 2 stories → SecondarySchool (level-count rule: Secondary >= 2 stories)
+    ({"function_tag": "school", "footprint_area_m2": 5000.0,
+      "provenance_function_tag": "OSM_OBSERVED",
+      "provenance_levels": "OSM_OBSERVED"}, 2, 5000.0, "SecondarySchool"),
+    # E-R3-3: levels=4 with hotel → SmallHotel (hotel Large/Small boundary now >= 5 levels)
     ({"function_tag": "hotel", "provenance_function_tag": "OSM_OBSERVED",
-      "provenance_levels": "OSM_OBSERVED"}, 4, 800.0, "LargeHotel"),
+      "provenance_levels": "OSM_OBSERVED"}, 4, 800.0, "SmallHotel"),
     # levels=9 with residential → HighriseApartment (DESIGN §3C rule 2a: levels ≥ 9)
     ({"building_tag": "apartments", "provenance_levels": "OSM_OBSERVED"}, 9, 800.0, "HighriseApartment"),
     # levels=20 with commercial → TallBuilding (DESIGN §3C rule 1b: 20 ≤ levels < 40)
@@ -1040,3 +1055,129 @@ class TestLabelledTop1Accuracy:
             pytest.skip("labelled fixture not found")
         n_distinct = merged["expected_archetype"].nunique()
         assert n_distinct >= 10, f"only {n_distinct} distinct archetypes in fixture (need ≥10)"
+
+
+# ── TestDoePrototypeSelfClassification (T07) ──────────────────────────────────
+
+@pytest.mark.parametrize("case_kwargs,levels_val,expected_archetype", [
+    # SmallOffice — DOE/PNNL prototype 511 m² footprint, 1-story → total 511 m² (< 2322)
+    ({"building_tag": "office", "footprint_area_m2": 511.0,
+      "provenance_levels": "OSM_OBSERVED"}, 1, "SmallOffice"),
+    # MediumOffice — DOE/PNNL prototype ~1,660.67 m² footprint, 3-story → total ~4,982 m² (2322 <= x < 9290)
+    ({"building_tag": "office", "footprint_area_m2": 1660.67,
+      "provenance_levels": "OSM_OBSERVED"}, 3, "MediumOffice"),
+    # LargeOffice — DOE/PNNL prototype 3,860 m² footprint, 12-story → total 46,320 m² (>= 9290)
+    ({"building_tag": "office", "footprint_area_m2": 3860.0,
+      "provenance_levels": "OSM_OBSERVED"}, 12, "LargeOffice"),
+    # PrimarySchool — DOE/PNNL prototype 6,871 m² footprint, 1-story → level rule: Primary = 1 story
+    ({"function_tag": "school", "footprint_area_m2": 6871.0,
+      "provenance_function_tag": "OSM_OBSERVED",
+      "provenance_levels": "OSM_OBSERVED"}, 1, "PrimarySchool"),
+    # SecondarySchool — DOE/PNNL prototype, 2-story → level rule: Secondary >= 2 stories
+    ({"function_tag": "school", "footprint_area_m2": 6871.0,
+      "provenance_function_tag": "OSM_OBSERVED",
+      "provenance_levels": "OSM_OBSERVED"}, 2, "SecondarySchool"),
+    # SmallHotel — DOE/PNNL prototype, 4-story → Small/Large hotel boundary is now >= 5 levels
+    ({"function_tag": "hotel", "provenance_function_tag": "OSM_OBSERVED",
+      "provenance_levels": "OSM_OBSERVED"}, 4, "SmallHotel"),
+    # LargeHotel — DOE/PNNL prototype, 6-story → >= 5 levels
+    ({"function_tag": "hotel", "provenance_function_tag": "OSM_OBSERVED",
+      "provenance_levels": "OSM_OBSERVED"}, 6, "LargeHotel"),
+], ids=[
+    "SmallOffice", "MediumOffice", "LargeOffice",
+    "PrimarySchool", "SecondarySchool", "SmallHotel", "LargeHotel",
+])
+class TestDoePrototypeSelfClassification:
+    """E-R3-3 T07: each DOE/PNNL reference prototype must classify into its own archetype (F11)."""
+
+    def test_prototype_self_classifies(self, case_kwargs, levels_val, expected_archetype):
+        kw = dict(case_kwargs)
+        kw["levels"] = pd.array([levels_val], dtype="Int64")[0]
+        r = _row(**kw)
+        aid, _conf, _src = classify_building(r)
+        assert aid == expected_archetype, (
+            f"{expected_archetype} prototype (levels={levels_val}) → got {aid}"
+        )
+
+
+# ── TestSchoolLevelsAndMissingDefault (T12) ───────────────────────────────────
+
+@pytest.mark.parametrize("case_kwargs,levels_val,expected_archetype,expected_source", [
+    # 1-story observed school -> rule 6b (>=2) does not fire -> 6c catch-all -> PrimarySchool
+    ({"function_tag": "school", "footprint_area_m2": 6000.0,
+      "provenance_function_tag": "OSM_OBSERVED", "provenance_levels": "OSM_OBSERVED"},
+     1, "PrimarySchool", "RULE_FUNCTION_TAG"),
+    # 2-story observed school -> rule 6b fires -> SecondarySchool
+    ({"function_tag": "school", "footprint_area_m2": 6000.0,
+      "provenance_function_tag": "OSM_OBSERVED", "provenance_levels": "OSM_OBSERVED"},
+     2, "SecondarySchool", "RULE_FUNCTION_TAG_SIZE,ASSUMPTION_DOE_PROTOTYPE_DERIVED"),
+    # >=3-story observed school -> rule 6b still fires -> SecondarySchool
+    ({"function_tag": "school", "footprint_area_m2": 6000.0,
+      "provenance_function_tag": "OSM_OBSERVED", "provenance_levels": "OSM_OBSERVED"},
+     3, "SecondarySchool", "RULE_FUNCTION_TAG_SIZE,ASSUMPTION_DOE_PROTOTYPE_DERIVED"),
+    # kindergarten at any level count (incl. one that would trip 6b for "school") stays Primary (D4)
+    ({"function_tag": "kindergarten", "footprint_area_m2": 800.0,
+      "provenance_function_tag": "OSM_OBSERVED", "provenance_levels": "OSM_OBSERVED"},
+     2, "PrimarySchool", "RULE_FUNCTION_TAG"),
+], ids=[
+    "school_1story_observed_primary",
+    "school_2story_observed_secondary",
+    "school_3story_observed_secondary",
+    "kindergarten_2story_stays_primary",
+])
+class TestSchoolLevelsAndMissingDefault:
+    """E-R3-3 T12: regression lock for the Option B school level rule (rules 6b/6c) — the
+    one path neither accuracy gate exercises (CP-alpha fixture and CP-beta Boston fleet both
+    have zero school rows)."""
+
+    def test_school_levels_classification(self, case_kwargs, levels_val, expected_archetype, expected_source):
+        kw = dict(case_kwargs)
+        kw["levels"] = pd.array([levels_val], dtype="Int64")[0]
+        r = _row(**kw)
+        aid, conf, src = classify_building(r)
+        assert aid == expected_archetype, (
+            f"{expected_archetype} (levels={levels_val}) -> got {aid}"
+        )
+        assert src == expected_source, f"expected source {expected_source!r}, got {src!r}"
+        assert conf == "HIGH"
+
+
+class TestSchoolLevelsMissingDefaultExtra:
+    """E-R3-3 T12: unparametrized companions to TestSchoolLevelsAndMissingDefault —
+    the missing-`levels` D3 default lock + the _LEVELS_CONSUMING head-token check."""
+
+    def test_school_head_tokens_not_levels_consuming(self):
+        # D3: the school rule heads must stay out of _LEVELS_CONSUMING, else an
+        # imputed-levels school would get wrongly downgraded to MEDIUM confidence.
+        assert "RULE_FUNCTION_TAG" not in _LEVELS_CONSUMING
+        assert "RULE_FUNCTION_TAG_SIZE" not in _LEVELS_CONSUMING
+
+    def test_missing_levels_school_defaults_to_primary(self):
+        # D3 blind-spot closure: a school with NO observed `levels` (and no height_m)
+        # goes through the imputation default at building_classifier.py:121-127
+        # (_impute_levels: no levels, no height -> 1, "HEURISTIC_DEFAULT"), which is
+        # below _SECONDARY_SCHOOL_MIN_LEVELS, so rule 6b does not fire and the 6c
+        # catch-all applies -> PrimarySchool. The actual imputed value is read here,
+        # not hard-coded, so this test tracks the real current default.
+        missing = _row(function_tag="school", footprint_area_m2=6000.0,
+                        provenance_function_tag="OSM_OBSERVED")
+        lev, lev_src = _impute_levels(missing)
+        assert lev_src != "OSM_OBSERVED", "test setup must omit observed levels/height"
+
+        observed_1story = _row(function_tag="school", footprint_area_m2=6000.0,
+                                provenance_function_tag="OSM_OBSERVED",
+                                levels=pd.array([1], dtype="Int64")[0],
+                                provenance_levels="OSM_OBSERVED")
+
+        aid_miss, conf_miss, src_miss = classify_building(missing)
+        aid_obs, conf_obs, src_obs = classify_building(observed_1story)
+
+        assert aid_miss == "PrimarySchool", (
+            f"D3 STOP condition: missing-levels school classified as {aid_miss!r}, "
+            "not PrimarySchool -- do not silently fix, report to the manager"
+        )
+        assert aid_miss == aid_obs
+        # D3: no confidence downgrade and no HEURISTIC_* marker for imputed-levels schools
+        assert src_miss == src_obs == "RULE_FUNCTION_TAG"
+        assert lev_src not in src_miss.split(",")
+        assert conf_miss == conf_obs

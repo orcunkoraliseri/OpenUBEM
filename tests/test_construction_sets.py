@@ -78,13 +78,10 @@ def test_resolve_vintage_bin_edges(year, expected):
 def test_resolve_vintage_nan_year():
     df = _gdf([
         {"year_built": float("nan"), "archetype_id": "MediumOffice", "climate_zone": "1A"},
-        {"year_built": 2020.0,        "archetype_id": "MediumOffice", "climate_zone": "1A"},
     ])
     vintage, nan_rows, _ = resolve_vintage(df)
     assert vintage.iloc[0] == "DOERefPre1980"
-    assert vintage.iloc[1] == "90.1-2019"
     assert 0 in nan_rows
-    assert 1 not in nan_rows
 
 
 def test_append_vintage_nan_flag():

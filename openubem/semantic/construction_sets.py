@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 
+from openubem.config import RANDOM_SEED
+
 if TYPE_CHECKING:
     pass
 
@@ -43,6 +45,13 @@ _VINTAGE_BIN_LABELS = (
 # NaN year_built flag token (DESIGN §3B / F4)
 _VINTAGE_NAN_TOKEN = "VINTAGE_NAN_PERMISSIVE_DEFAULT"
 _FLAG_SEP = "|"  # separator for multi-token data_quality_flag (matches Step 1/3 convention)
+
+# Donor-tier provenance tokens (Input-Imputation arc T04, PINNED CONTRACT v2).
+# Literal per §6 T04 -- tier 1 from T06 knn_fill's own HIGH/MEDIUM confidence tier,
+# tier 2 is a flat MED (group-wise mode), tier 3 keeps the legacy LOW token above.
+_HOTDECK_NEIGHBOR_HIGH = "HOTDECK_NEIGHBOR_HIGH"
+_HOTDECK_NEIGHBOR_MED = "HOTDECK_NEIGHBOR_MED"
+_GROUPMODE_MED = "GROUPMODE_MED"
 
 
 # ── Table loading ─────────────────────────────────────────────────────────────
@@ -114,31 +123,132 @@ _YEAR_LABELS = [
 ]
 
 
-def resolve_vintage(gdf: pd.DataFrame) -> tuple[pd.Series, pd.Index, pd.Index]:
+def resolve_vintage(gdf: pd.DataFrame) -> tuple[pd.Series, pd.Index, pd.Series]:
     """
-    Map year_built → vintage_standard token per DESIGN §3B (F3/F4).
+    Map year_built → vintage_standard token per DESIGN §3B (F3/F4), with a
+    three-tier donor fill on NaN year_built rows before the oldest-default
+    (Input-Imputation arc T04, PINNED CONTRACT v2 — position-stable):
+
+      1. Spatial neighbour donor (T06 ``spatial_impute.knn_fill``), stratified by
+         ``use_class`` if present else ``archetype_id``; donors are observed-year
+         rows only (leakage-safe); MNAR-guarded (T06's own >=60% local-missingness
+         block routes the row to tier 2).
+      2. Group-wise mode of observed vintage bins in the same stratum.
+      3. Last-resort oldest-default (``DOERefPre1980``), unchanged legacy behaviour.
 
     Returns:
-        vintage_series:    Series of vintage tokens (str), index-aligned with gdf.
-        nan_rows:          Index of rows where year_built was NaN (get flag token).
-        heuristic_mask:    Same as nan_rows (env provenances = HEURISTIC for these).
+        vintage_series: Series of vintage tokens (str), index-aligned with gdf.
+            Originally-NaN rows now carry the tier-1/tier-2 donor fill (re-binned
+            via `_YEAR_BINS`/`_YEAR_LABELS`) when a donor exists; tier-3 rows keep
+            `DOERefPre1980` (byte-identical to pre-T04 behaviour).
+        nan_rows:       Index of EVERY row where year_built was originally NaN
+            (position-1, unchanged meaning from pre-T04 -- env provenances are
+            still HEURISTIC for all of these regardless of donor tier).
+        vintage_prov:   Series[str] of the per-row provenance token (position-2,
+            previously an unused duplicate of `nan_rows`), indexed over `nan_rows`:
+            `HOTDECK_NEIGHBOR_HIGH` / `HOTDECK_NEIGHBOR_MED` (tier 1), `GROUPMODE_MED`
+            (tier 2), or `VINTAGE_NAN_PERMISSIVE_DEFAULT` (tier 3, the legacy token).
     """
     year = gdf["year_built"].copy()
     nan_mask = year.isna()
+    all_nan_rows = gdf.index[nan_mask]
 
     # pd.cut: right=False gives half-open [left, right) bins
     vintage = pd.cut(
-        year.fillna(-1).astype(float),  # NaN → -1 → falls below 1980 → Pre1980
+        year.fillna(-1).astype(float),  # NaN → -1 → falls below 1980 → Pre1980 placeholder
         bins=[-np.inf] + _YEAR_BINS + [np.inf],
         labels=_YEAR_LABELS,
         right=False,
         ordered=False,
     ).astype(str)
+    vintage[nan_mask] = "DOERefPre1980"  # tier-3 placeholder; may be overwritten by a donor below
 
-    # NaN rows already map to DOERefPre1980 (fill value -1 < 1980) — confirm
-    vintage[nan_mask] = "DOERefPre1980"
+    vintage_prov: pd.Series = pd.Series(index=all_nan_rows, dtype=object)
+    if len(all_nan_rows) == 0:
+        return vintage, all_nan_rows, vintage_prov
 
-    return vintage, gdf.index[nan_mask], gdf.index[nan_mask]
+    if "use_class" in gdf.columns:
+        strat_col = "use_class"
+    elif "archetype_id" in gdf.columns:
+        strat_col = "archetype_id"
+    else:
+        # No stratifier available: do not vote across all uses (STOP condition (a)
+        # is a manager-verified precondition -- __init__.py:307 always has
+        # archetype_id -- this branch is a defensive no-op fallback, not the
+        # expected production path).
+        vintage_prov.loc[:] = _VINTAGE_NAN_TOKEN
+        return vintage, all_nan_rows, vintage_prov
+
+    still_nan = pd.Series(True, index=all_nan_rows)
+
+    # ── Tier 1: spatial neighbour donor (T06, leakage-safe, MNAR-guarded) ─────
+    # Only meaningful on a geometry-bearing frame; plain DataFrame callers (unit
+    # tests) fall straight through to tier 2/3.
+    has_geometry = hasattr(gdf, "geometry") and "geometry" in getattr(gdf, "columns", [])
+    if has_geometry:
+        from openubem.semantic.spatial_impute import knn_fill
+
+        for _stratum_value, group in gdf.groupby(strat_col, dropna=False):
+            group_idx = group.index
+            nan_in_group = group_idx.intersection(all_nan_rows)
+            if len(nan_in_group) == 0:
+                continue
+            s_value, _s_dispersion, s_confidence, _gdf_out = knn_fill(group, "year_built")
+            for idx in nan_in_group:
+                conf = s_confidence.loc[idx]
+                val = s_value.loc[idx]
+                if conf in ("HIGH", "MEDIUM") and pd.notna(val):
+                    binned = pd.cut(
+                        pd.Series([float(val)]),
+                        bins=[-np.inf] + _YEAR_BINS + [np.inf],
+                        labels=_YEAR_LABELS,
+                        right=False,
+                        ordered=False,
+                    ).astype(str).iloc[0]
+                    vintage.loc[idx] = binned
+                    vintage_prov.loc[idx] = (
+                        _HOTDECK_NEIGHBOR_HIGH if conf == "HIGH" else _HOTDECK_NEIGHBOR_MED
+                    )
+                    still_nan.loc[idx] = False
+
+    # ── Tier 2: group-wise mode (same stratifier, observed rows only) ─────────
+    remaining = still_nan[still_nan].index
+    if len(remaining) > 0:
+        observed_idx = gdf.index[~nan_mask]
+        if len(observed_idx) > 0:
+            obs = pd.DataFrame(
+                {
+                    "_stratum": gdf.loc[observed_idx, strat_col].values,
+                    "_vintage": vintage.loc[observed_idx].values,
+                },
+                index=observed_idx,
+            )
+            rng = np.random.default_rng(RANDOM_SEED)
+            mode_lookup: dict = {}
+            for stratum_value, group in obs.groupby("_stratum", dropna=False):
+                counts = group["_vintage"].value_counts()
+                top = counts.max()
+                winners = counts[counts == top].index.to_numpy()
+                winner = (
+                    winners[0] if len(winners) == 1
+                    else winners[int(rng.integers(len(winners)))]
+                )
+                mode_lookup[stratum_value] = winner
+
+            for idx in remaining:
+                stratum_value = gdf.at[idx, strat_col]
+                if stratum_value in mode_lookup:
+                    vintage.loc[idx] = mode_lookup[stratum_value]
+                    vintage_prov.loc[idx] = _GROUPMODE_MED
+                    still_nan.loc[idx] = False
+
+    # ── Tier 3: oldest-default (legacy LOW token, unchanged) ───────────────────
+    remaining = still_nan[still_nan].index
+    if len(remaining) > 0:
+        vintage.loc[remaining] = "DOERefPre1980"
+        vintage_prov.loc[remaining] = _VINTAGE_NAN_TOKEN
+
+    return vintage, all_nan_rows, vintage_prov
 
 
 # ── Envelope merge (T07) ───────────────────────────────────────────────────────
@@ -273,4 +383,36 @@ def append_vintage_nan_flag(
         existing[needs_token & (existing[needs_token] != "")] + _FLAG_SEP + _VINTAGE_NAN_TOKEN
     )
     gdf.loc[nan_vintage_rows, "data_quality_flag"] = existing_with_token
+    return gdf
+
+
+def append_vintage_donor_flags(
+    gdf: pd.DataFrame,
+    vintage_prov: pd.Series,
+) -> pd.DataFrame:
+    """Append each row's per-row donor/tier provenance token (T04 v2, position-2
+    of `resolve_vintage`) to `data_quality_flag`, via the same idempotent
+    `_FLAG_SEP`-guarded append logic as `append_vintage_nan_flag` (substring
+    guard against duplicate append, `|`-joined). `vintage_prov` is indexed over
+    the originally-NaN `year_built` rows; tier-3 rows carry the legacy
+    `VINTAGE_NAN_PERMISSIVE_DEFAULT` token unchanged, tier-1/tier-2 rows carry
+    `HOTDECK_NEIGHBOR_HIGH`/`HOTDECK_NEIGHBOR_MED`/`GROUPMODE_MED`.
+    """
+    if len(vintage_prov) == 0:
+        return gdf
+    gdf = gdf.copy()
+    idx = vintage_prov.index
+    existing = gdf.loc[idx, "data_quality_flag"].fillna("").astype(str)
+
+    def _append_once(current: str, token: str) -> str:
+        if token in current:
+            return current
+        return token if current == "" else current + _FLAG_SEP + token
+
+    updated = pd.Series(
+        [_append_once(cur, str(tok)) for cur, tok in zip(existing, vintage_prov)],
+        index=idx,
+        dtype=object,
+    )
+    gdf.loc[idx, "data_quality_flag"] = updated
     return gdf
