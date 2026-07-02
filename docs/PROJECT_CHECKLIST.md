@@ -3,11 +3,11 @@
 > Single-glance tracker. Past = one line each. **Current** and **Future** carry the detail.
 > Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[!]` blocked / needs decision
 >
-> **Last updated:** 2026-06-27
+> **Last updated:** 2026-07-01 (arc **G. input-parameter imputation** Phase A COMPLETE — T01–T06 greenlit + **CP-1 CHECKPOINT MET**; Phases B–E await user greenlight; E-R3-3 CP-2 ACCEPTED, T11 8,160 re-run parked)
 >
 > **CURRENT BASELINE (adopted):** **`phaseE` full realism** — archetype HVAC (VAV/PSZ/FCU/WLHP, real fans+pumps) + physical DHW/cooking/refrigeration; reconstruction RETIRED; zero fitted parameters. 12-cell 8,160-building matrix; 99.9% E+ success. CP-E scores: R²=0.895/0.924/0.718 (excellent shape); city-Overall −24.4% NYC / −5.6% LA / −25.7% Austin vs measured anchors (structural DOE-prototype-vs-CBECS "Other" offset; accept-and-report per R6-4B). CBECS NMBE −10.6%/−20.5%/−11.9% (expected regression — reconstruction was carrying the level). Phase-D2 is the prior superseded baseline. `REPORT_phaseE_final.md` shipped 2026-06-27; figures refreshed.
 >
-> **🔬 Next arc TBD** — user to set direction. Candidate: "Other" service-load physical modelling (elevators/process), or geometry quality improvement (Option A winding repair), or new city validation. No arc in flight.
+> **✅ Sub-arc — E-R3-3 archetype threshold fix — CP-2 ACCEPTED 2026-07-01 (fix ratified; T11 parked)** (reopened a slice of the phaseE full-realism baseline): corrected the office / school / hotel classifier cut-points that misclassified their own DOE prototypes. **CP-1 MET 2026-06-30** — local code + tests green; CP-α coarse 100% / fine 92% on the re-ratified 50-building fixture. **CP-β DONE on the CLUSTER 2026-07-01** — `sbatch` job 1053384 (`openubem_er33_cpbeta_r3`, array 1-483%32): **483/483 COMPLETED, 0 FAILED**, array wall ~1h23m. **Re-classification (offices only, provably-more-correct LBNL-CBES tiers):** 185/483 flipped — LargeOffice 138→71 (−67), MediumOffice 168→117 (−51), SmallOffice 74→192 (+118); zero schools/hotels in the fleet. F12 integrity PASS (parse 100%, zone 0-mismatch, EUI-plausibility 98.76% — 6 "outliers" = legit high-EUI food service). **CBECS gates (465 eligible, report-only per M-R2-4) vs the anchor:** CV 53.78→60.63, NMBE −10.81→−10.99, R² 0.731→0.883, KS 0.190→0.350. **D3 school blind-spot** (Boston fleet has zero schools/hotels → untested by CP-α *and* CP-β) **closed as a unit-level lock (T12: Option B levels + missing-`levels`→PrimarySchool, 6 tests green; accuracy gate unchanged 100%/92%).** **CP-2 investigation (user chose "hold + investigate" first):** manager diagnostic (`scratchpad/diag_cbecs_drift.py`, fig `openubem/outputs/er33_cbecs_drift.png`) proved the "3 gates worsened vs anchor" framing is **confounded** — the anchor is the **R1 baseline (smaller fleet)**; the true 483 predecessor already scored 69.82/−16.05/0.731/0.273 AND used OLD pre-Phase-E HVAC (cooling 70.9 vs 18.2 now). **Isolated classifier effect (two reconstructions agree): CV IMPROVES −3–5, KS IMPROVES −0.08–0.10, R² ±0.000 (the "+0.15 R²" is a Phase-E artifact), NMBE −5–7 more negative (only real cost — down-tiering to the lower-intensity SmallOffice DOE template).** Large CV/KS are structural (office-dominated neighbourhood vs all-types CBECS survey 8–1883) + pre-existing → exactly why the gates are report-only. **User ruling: ACCEPT (E-R3-3 ratified); PARK T11** (defer the 8,160 Phase-E re-run, batch with a future baseline refresh — do NOT dispatch). Remote 43G scratch cleanup dispatched. Plan: `docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md`.
 
 ---
 
@@ -211,7 +211,7 @@ Plan: `docs/docs_ACTIVE/hvac-ServiceLoads/PLAN_phaseE_full_realism.md`. CP-D rul
 
 ---
 
-## F. Resolution-mode switch — **AT CP4 / T08b IN PROGRESS (2026-06-30)**
+## F. Resolution-mode switch — **CP4 PASSED — all 4 modes GO (2026-07-01)**
 
 Plan: `docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md`. Binding spec: `openubem/geometry/zoning.py` contract + 5-mode table in `SIMULATION_RESOLUTION_zoning_by_building.md §1b`. Goal: expose `resolution_mode` param so users can force `building`/`floor`/`fast_zone` zoning instead of the adaptive `auto` default — zero physics change, `auto` baseline bit-identical.
 
@@ -233,5 +233,48 @@ Plan: `docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md`. B
   - Harvest parse bug (no `total_floor_area_m2` column in phaseE fixture → division-by-zero on all buildings) found + fixed (manager patch, local re-parse, no cluster contact); both halves now carry real EUI.
   - **CP4 finding:** `auto`/`floor`/`fast_zone` conserve full footprint×levels area exactly (bit-identical internal loads). **`building` (single_zone) mode does NOT** — models one zone of footprint-only area for multi-floor buildings (~1/num_floors too low; nyc_centre 102.7 vs auto 198.9 kWh/m²); low-rise cells unaffected. T05b's synthetic fixture was single-floor and missed it.
   - **VERDICT: GO on `auto`/`floor`/`fast_zone`. NO-GO on `building` mode** pending fix.
-  - [~] **T08b — fix `building`-mode floor-area conservation — IN PROGRESS (Sonnet executor).** Plan + new multi-floor conservation test authored; building-mode 12-cell re-sim gated on manager audit of the fix.
-- [ ] **T09 — author `deepResearch/literatureValidation/` prompt set — NOT STARTED.** Blocked behind T08b resolution.
+  - [x] **T08b — fix `building`-mode floor-area conservation — DONE + AUDITED (CP-fix PASS 2026-06-30).** single_zone carries `floor_area_m2 = footprint×num_floors`; assign_loads emits absolute design levels; 3 service emitters honor explicit num_floors. New `test_load_conservation_across_modes_multifloor` (5-floor) green; `pytest -k conservation` → 2 passed.
+- [x] **CP-resim — building-mode 12-cell re-sim + conservation — PASSED 2026-07-01 → CP4 GO on `building`.** Cluster 5 cells (jobs 1048357–1048361) COMPLETED 0:0 across 4,530 tasks; local 7 done. **Stale-CSV trap** caught + resolved (first harvest reused pre-fix cached SQLs; the actual cluster IDF/SQL carry the fix — 67-floor tower way/265875648 InteriorLights 26.465 kWh/m²; only the aggregated CSV was stale, rebuilt from fresh SQLs, no relaunch). Conservation on fresh data: **all 12 cells `N_ratio<0.35 == 0`**, `median(bld/floor)` 0.861–1.000 (healthy 0.75–1.05 band). **M18 NO-GO resolved; all 4 modes {auto/floor/fast_zone/building} GO**, `zone` NotImplementedError by design. Table + evidence = PLAN §8 CP-resim entry. Follow-up (non-blocking): sanity-check tall-tower DHW scaling (~36.9 kWh/m²) in T09.
+- [x] **T09 — author `deepResearch/literatureValidation/` prompt set — DONE + AUDITED 2026-07-01.** `deepResearch/literatureValidation/` = `00_README` + `V01–V06` (manager authored index+V01 exemplar; Sonnet authored V02–V06; manager audited). Axes: V01 annual-EUI sensitivity, V02 heating/cooling end-use split, V03 peak/sizing (report-only, GAP until AMI), V04 daylighting over-prediction (D7-off absolute+relative), V05 district wash-out (load-bearing), V06 archetype-cohort stratification. Commissions external envelopes to bracket T08/CP4 deltas — the in/out-of-envelope comparison vs returned `RESULT_V0x` is the follow-on after external run. Audit: 6 files, 8 sections each, cells empty, no fabrication, no `.py`. **Resolution-mode arc fully authored; all 4 modes GO, `zone` deferred by design.**
+
+---
+
+## G. Input-parameter imputation ("OpenUBEM AI") — **Phase A COMPLETE 2026-07-01 (T01–T06 greenlit + CP-1 CHECKPOINT MET); Phases B–E await user greenlight**
+
+New feature arc: impute/predict missing pipeline **input** parameters across four user-named tiers
+(basic stats → "OpenUBEM AI" subsystem → basic ML → advanced/data-driven). Docs under
+`docs/docs_ACTIVE/input/imputation/`. Grounding: manager audit `REPORT_missing_input_handling.md` +
+İşeri et al. in-repo paper.
+
+- [x] **Deep-research prompt set authored** (10 prompts M01–M10 + README), 2026-07-01.
+- [x] **9/10 RESULT reports returned + audited** by manager (M01–M07, M09, M10; **M08 not run** — its
+  subsystem-architecture synthesis folded into Phase B of the plan). User ran them via Gemini Antigravity.
+- [x] **Implementation plan written + grounded in live code** — `PLAN_input_imputation_implementation.md`
+  (T01–T13, five phases, four checkpoints). **Key finding: not greenfield** — `imputation.py` already
+  ships the KDE/PDE tier + a `build_ml_imputer` **Phase-2 stub** (DESIGN §3E / F12); this arc = execute
+  §3E Phase 2 + close the audit's Tier-B silent-default provenance gaps + add the research-endorsed
+  fusion/spatial tiers + the M09 validation harness. Research verdict binds method choice:
+  **classical-ML/spatial adopted, neural/GNN/LLM deferred-or-rejected** (zero-fitted-params + small-n).
+- [x] **Phase A** (T01–T06) — provenance-complete statistical MVP: **COMPLETE + CP-1 MET 2026-07-01.**
+  T01 provenance schema; T02/T03 HVAC/DHW/cooking Tier-B closures; T04 `year_built` donor/neighbour
+  vintage (PINNED CONTRACT v2, position-stable, 52/52); T05 group-wise `levels` (+ wave-2b test cleanup,
+  128/128); T06 spatial neighbour-fill + MNAR guard. **CP-1 CHECKPOINT MET:** (1) five gate suites 75/75
+  green; (2b) MNAR-block deactivation discharged at unit level (`TestMNARGuard` + `TestMnarBlocksSpatialFill`);
+  (2a) Tier-B instrumentation-only CONFIRMED via **exact local IDF field-diff** (user-ratified method,
+  supersedes the planned `sbatch` full-sim) — 25/25 IDFs BYTE-IDENTICAL over a 24-archetype coverage fleet,
+  current Tier-B vs `e063865` baseline, isolation invariant filecmp-verified. Dormant caveat (non-firing on
+  all current data, carry-forward to M09): Tier-B also fixes a literal-`0`/`NaN`-truthiness edge that would
+  change values only if a COP/area field ever carried 0/NaN. → **CP-1 ✅**.
+- [ ] **Phase B** (T07–T10) — "OpenUBEM AI" routing subsystem + strict mode + M09 validation harness
+  (mask-and-recover, spatial-block hold-out, mandatory downstream-EUI check, optional `--replicates`).
+  → **CP-2** (LIVE_SMOKE gate; **gates all data-driven work**).
+- [ ] **Phase C** (T11, GATED) — classical-ML imputer (MissForest via sklearn IterativeImputer); ships
+  only if it beats Phase-A baseline on mask-and-recover AND passes the EUI check. → **CP-3**.
+- [ ] **Phase D** (T12, GATED/scoped) — fusion-first external joins (Overture/LiDAR/assessor, runtime-
+  fetch, nothing bundled); LIVE_SMOKE before ship. → **CP-4**.
+- [ ] **Phase E** (T13) — frontier documented-deferred (deep-generative/GNN/LLM out of scope; optional
+  isolated experimental TabPFN track, never default).
+- **STATUS (2026-07-01): Phase A CLOSED — T01–T06 greenlit + CP-1 CHECKPOINT MET.** All three CP-1
+  conditions satisfied and manager-audited against source (five suites 75/75; MNAR deactivation discharged;
+  Tier-B EUI instrumentation-only CONFIRMED by exact local IDF field-diff, 25/25 byte-identical). **Next
+  action: awaiting explicit user greenlight to open Phase B (T07–T10 → CP-2).** Phases B–E stay GATED.

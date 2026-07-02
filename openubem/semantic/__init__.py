@@ -12,7 +12,7 @@ import pandas as pd
 from openubem import config
 from openubem.semantic.construction_sets import (
     apply_nan_vintage_provenance,
-    append_vintage_nan_flag,
+    append_vintage_donor_flags,
     get_construction_set,
     resolve_vintage,
 )
@@ -301,7 +301,7 @@ def enrich_semantics(
     out = gdf.copy()
 
     # ── 3B: vintage resolution ────────────────────────────────────────────────
-    vintage_series, nan_vintage_rows, _ = resolve_vintage(out)
+    vintage_series, nan_vintage_rows, vintage_prov = resolve_vintage(out)
 
     # ── 3C: envelope merge ────────────────────────────────────────────────────
     real_mask = out["archetype_id"] != "OpenUBEMUnknown"
@@ -328,7 +328,7 @@ def enrich_semantics(
         env_df = env_unk
 
     # ── 3B flag append ────────────────────────────────────────────────────────
-    out = append_vintage_nan_flag(out, nan_vintage_rows)
+    out = append_vintage_donor_flags(out, vintage_prov)
 
     # ── 3D: loads merge ───────────────────────────────────────────────────────
     loads_real = pd.DataFrame(index=out.index)

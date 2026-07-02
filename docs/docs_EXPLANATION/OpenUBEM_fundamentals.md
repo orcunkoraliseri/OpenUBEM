@@ -114,25 +114,36 @@ one-zone-per-floor.
 
 **Floor area** (the denominator for EUI) is always `footprint_area_m2 × num_floors`.
 
-#### Planned: a user-selectable resolution switch
+#### The user-selectable resolution switch
 
-The three strategies above are applied **automatically** today (the `auto` mode). The plan
-(`docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md`) is to expose a
-`resolution_mode` switch so the user can fix the fidelity per study — coarse for early-design
-screening, full zone-level for detailed work. Five modes:
+The three strategies above are applied **automatically** in the default `auto` mode, but the
+fidelity is now **user-selectable**: a `resolution_mode` parameter
+(`docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md`) lets the user fix the
+zoning per study — coarse for early-design screening, finer for detailed work. Five modes:
 
 | Mode | What it does | Zones/building | Status |
 |---|---|---|---|
-| **`auto`** *(current default)* | adaptive — picks per building | mixed | ✅ implemented |
-| **`building`** | whole building = 1 zone | 1 | ⬜ v1 |
-| **`floor`** | each floor = 1 zone | `num_floors` | ⬜ v1 |
-| **`fast_zone`** | generic core + perimeter on every floor, **every** archetype | ~5 × `num_floors` | ⬜ v1 |
+| **`auto`** *(default)* | adaptive — picks per building | mixed | ✅ validated (baseline) |
+| **`building`** | whole building = 1 zone | 1 | ✅ validated |
+| **`floor`** | each floor = 1 zone | `num_floors` | ✅ validated |
+| **`fast_zone`** | generic core + perimeter on every floor, **every** archetype | ~5 × `num_floors` | ✅ validated |
 | **`zone`** | the core/perimeter shape **plus per-archetype loads** — e.g. apartment: hallway core + dwelling perimeter; restaurant: kitchen + dining; warehouse: one zone | ~5 × `num_floors` | ⏸ deferred (research done; loads upgrade, optional) |
 
 `building` and `floor` reuse strategies the code already has (`single_zone`,
 `one_zone_per_floor`); `fast_zone` extends the core+perimeter slicing to **all** archetypes
 regardless of area. `auto` is the validated baseline that produced the 8,160-building
 benchmark (§7.2).
+
+All four active modes were validated across the full 12-cell / 8,160-building matrix
+(2026-07-01): internal loads **conserve** across modes — the same building simulated at any
+resolution accounts for the same total floor area (`footprint_area_m2 × num_floors`), so a
+`building`-mode tower is not under-counted relative to its per-floor version. The **EUI a
+building reports still differs by mode** — coarser zoning under-predicts annual heating ~10–26%
+and shifts peak/solar behaviour — and that is **correct physics, not error**: the differences
+are largest for tall, deep, resolution-sensitive buildings and **wash out to < ~2.3%** once
+results are aggregated to district scale. Use `building`/`floor` for screening and stock
+totals; they are **not** appropriate for peak-demand or equipment-sizing studies (that is what
+the deferred `zone` mode is for).
 
 The `zone` mode is a later, **optional** upgrade. Deep research
 (`deepResearch/layoutMapping/`) showed that faithfully reproducing each prototype's *exact zone
@@ -221,4 +232,4 @@ in all three regions — using a **zero-fitted-parameter** model.
 ---
 
 *OpenUBEM — fundamentals overview. Plain-language orientation; the design docs remain the
-binding source of truth. 2026-06-26.*
+binding source of truth. 2026-07-01.*
