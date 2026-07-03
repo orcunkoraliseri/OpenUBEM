@@ -78,7 +78,7 @@ class TestOutputs:
         assert sqlite.Option_Type == "SimpleAndTabular"
 
     def test_hvac_meters_count(self):
-        assert len(HVAC_METERS) == 11
+        assert len(HVAC_METERS) == 13
 
     def test_hvac_meters_phase_e_required(self):
         required = {
@@ -105,4 +105,4 @@ class TestOutputs:
         idf = _fresh_idf()
         write_outputs(idf)
         meters = idf.idfobjects["OUTPUT:METER"]
-        assert len(meters) == 11
+        assert len(meters) == 13

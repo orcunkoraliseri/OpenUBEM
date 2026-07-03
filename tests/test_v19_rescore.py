@@ -53,7 +53,7 @@ def test_archetype_table_has_all_10():
 
 
 def test_artifacts_exist():
-    out_dir = ROOT / "docs" / "validations" / "overAll" / "results"
+    out_dir = ROOT / "docs" / "docs_VALIDATION" / "validations" / "overAll" / "results"
     md = out_dir / "v19_comparison_tables.md"
     csv = out_dir / "v19_comparison.csv"
     assert md.exists(), f"Missing: {md}"

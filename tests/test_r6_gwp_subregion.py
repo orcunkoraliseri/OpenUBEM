@@ -167,7 +167,7 @@ class TestNYCCellGWPDirection:
         Actual eGRID 2022 data shows ratio=1.806 (NYCW/NY), so GWP increases.
         """
         summary = pd.read_csv(
-            REPO / "docs" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
+            REPO / "docs" / "docs_VALIDATION" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
         )
         nyc_cells = summary[summary["cell"].str.startswith("nyc")]
         assert len(nyc_cells) == 4, f"Expected 4 NYC cells, got {len(nyc_cells)}"
@@ -183,7 +183,7 @@ class TestNYCCellGWPDirection:
 class TestNoMutationOf05ResultsCSV:
     def test_05_results_csv_not_modified(self, tmp_path):
         """compute_gwp_subregion must not write to or modify 05_results.csv."""
-        cases_dir = REPO / "docs" / "validations" / "overAll" / "results" / "cases"
+        cases_dir = REPO / "docs" / "docs_VALIDATION" / "validations" / "overAll" / "results" / "cases"
         cell = "nyc_centre"
         csv_path = cases_dir / cell / "05_results.csv"
 
@@ -222,7 +222,7 @@ class TestR5ShippedGWPNotOverwritten:
             "austin_suburban": 17946122,
             "austin_rural": 10891760,
         }
-        cases_dir = REPO / "docs" / "validations" / "overAll" / "results" / "cases"
+        cases_dir = REPO / "docs" / "docs_VALIDATION" / "validations" / "overAll" / "results" / "cases"
         for cell, v13_gwp in v13_totals.items():
             summary_path = cases_dir / cell / "05_neighbourhood_summary.json"
             with open(summary_path, encoding="utf-8") as fh:
@@ -250,7 +250,7 @@ class TestR5ShippedGWPNotOverwritten:
             "austin_rural": 10891760,
         }
         summary = pd.read_csv(
-            REPO / "docs" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
+            REPO / "docs" / "docs_VALIDATION" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
         )
         assert "gwp_r5_state_kgco2e" in summary.columns, "Missing gwp_r5_state_kgco2e column"
         assert "gwp_r6_subregion_kgco2e" in summary.columns, "Missing gwp_r6_subregion_kgco2e column"
@@ -304,7 +304,7 @@ class TestSubregionFactors:
         assert f_erct < f_tx, f"ERCT ({f_erct}) should be < TX ({f_tx})"
 
         summary = pd.read_csv(
-            REPO / "docs" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
+            REPO / "docs" / "docs_VALIDATION" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
         )
         austin_cells = summary[summary["cell"].str.startswith("austin")]
         assert len(austin_cells) == 4

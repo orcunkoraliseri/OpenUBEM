@@ -11,7 +11,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 _AUSTIN_CENTRE_GPKG = (
     _REPO_ROOT / "runtime" / "ubem_validation" / "cases" / "austin_centre" / "results" / "05_results.gpkg"
 )
-_OUT_CSV = _REPO_ROOT / "docs" / "validations" / "overAll" / "results" / "r7_service_loads.csv"
+_OUT_CSV = _REPO_ROOT / "docs" / "docs_VALIDATION" / "step1" / "overAll" / "results" / "r7_service_loads.csv"
 
 # ---------------------------------------------------------------------------
 # LargeOffice hand-calc fixture

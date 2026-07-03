@@ -375,7 +375,7 @@ def test_plot_overview_grid_writes_png(tmp_path, monkeypatch):
 # T06 — comparison plot smoke tests
 # ---------------------------------------------------------------------------
 
-_R7_CSV = Path(__file__).resolve().parents[1] / "docs" / "validations" / "overAll" / "results" / "r7_service_loads.csv"
+_R7_CSV = Path(__file__).resolve().parents[1] / "docs" / "docs_VALIDATION" / "step1" / "overAll" / "results" / "r7_service_loads.csv"
 _CBECS_DIR = Path(__file__).resolve().parents[1] / "inputs" / "reports"
 
 

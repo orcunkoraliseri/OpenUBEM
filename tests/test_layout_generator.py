@@ -241,3 +241,106 @@ class TestModuleSpecs:
         w_double, w_single = lg.wing_width_thresholds(lg.MODULE_SPECS["MidriseApartment"])
         assert math.isclose(w_double, 16.92, abs_tol=1e-6)
         assert math.isclose(w_single, 9.30, abs_tol=1e-6)
+
+
+# --- T13a hotels (units+corridor engine, same code path as MidriseApartment) ---
+HOTELS = ["SmallHotel", "LargeHotel"]
+# archetype-average totals from doe_prototype_loads.json (lpd, epd, occ_m2/person)
+HOTEL_TOTALS = {"SmallHotel": (10.76, 2.91, 18.58), "LargeHotel": (10.76, 7.53, 18.58)}
+
+
+class TestHotelModuleSpecs:
+    @pytest.mark.parametrize("arch,c,d,bay,area", [
+        ("SmallHotel", 1.83, 7.32, 3.66, 26.79),
+        ("LargeHotel", 2.44, 7.32, 4.11, 30.09),
+    ])
+    def test_spec_values(self, arch, c, d, bay, area):
+        spec = lg.MODULE_SPECS[arch]
+        assert spec["family"] == "units_corridor"
+        assert math.isclose(spec["corridor_width_m"], c, abs_tol=1e-9)
+        assert math.isclose(spec["unit_depth_m"], d, abs_tol=1e-9)
+        assert math.isclose(spec["bay_width_m"], bay, abs_tol=1e-9)
+        assert math.isclose(spec["unit_area_m2"], area, abs_tol=1e-9)
+        assert spec["unit_space_type"] == "GuestRoom"
+        assert spec["corridor_space_type"] == "Corridor"
+
+    @pytest.mark.parametrize("arch", HOTELS)
+    def test_thresholds(self, arch):
+        spec = lg.MODULE_SPECS[arch]
+        w_double, w_single = lg.wing_width_thresholds(spec)
+        assert math.isclose(w_double, spec["corridor_width_m"] + 2 * spec["unit_depth_m"], abs_tol=1e-9)
+        assert math.isclose(w_single, spec["corridor_width_m"] + spec["unit_depth_m"], abs_tol=1e-9)
+
+
+class TestHotelClassifier:
+    # classifier is archetype-agnostic — same footprints classify identically
+    @pytest.mark.parametrize("poly,expected", [
+        (box(0, 0, 46.33, 16.92), ShapeClass.SLAB),
+        (_L(), ShapeClass.L), (_U(), ShapeClass.U),
+        (_T(), ShapeClass.T), (_O(), ShapeClass.O),
+    ])
+    def test_shape_class(self, poly, expected):
+        cls, _ = classify_footprint(poly)
+        assert cls is expected
+
+
+class TestHotelBarPacker:
+    @pytest.mark.parametrize("arch", HOTELS)
+    def test_wide_bar_double_loaded(self, arch):
+        poly = box(0, 0, 60, 20)  # W=20 >= W_double for both hotels
+        f0 = _floor0(lg.generate_layout(f"way/{arch}", poly, arch, 3))
+        assert len(f0) == 5                       # corridor + N/S/E/W
+        total = sum(z["floor_area_m2"] for z in f0)
+        assert abs(total - poly.area) / poly.area < 1e-5
+        assert {z["space_type"] for z in f0} == {"GuestRoom", "Corridor"}
+        assert all(z["mode"] == "room_layout" for z in f0)
+
+    @pytest.mark.parametrize("arch", HOTELS)
+    @pytest.mark.parametrize("poly", [_L(), _U(), _T(), _O()])
+    def test_complex_conserves_and_is_clean(self, arch, poly):
+        f0 = _floor0(lg.generate_layout("way/h", poly, arch, 3))
+        assert f0
+        total = sum(z["floor_area_m2"] for z in f0)
+        assert abs(total - poly.area) / poly.area < 1e-3           # area conserved (post-cleanup)
+        assert all(len(list(z["floor_polygon"].interiors)) == 0 for z in f0)  # hole-free
+        assert all(z["floor_polygon"].is_valid for z in f0)
+        tokens = [z["name"].rsplit("_", 1)[-1] for z in f0]
+        assert len(tokens) == len(set(tokens))                      # unique group tokens
+        assert {z["space_type"] for z in f0} <= {"GuestRoom", "Corridor"}
+
+
+class TestHotelLoadNormalization:
+    def _norm(self, arch, poly=box(0, 0, 60, 20), floors=4):
+        from openubem.semantic.loads import get_space_type_loads
+        from openubem.idf.builder import normalized_space_loads
+        lpd, epd, occ = HOTEL_TOTALS[arch]
+        zones = lg.generate_layout("way/N", poly, arch, floors)
+        st = get_space_type_loads(arch)
+        norm = normalized_space_loads(zones, lpd, epd, occ, st)
+        a_tot = sum(z["floor_area_m2"] for z in zones if z.get("space_type"))
+        return zones, norm, a_tot, (lpd, epd, occ)
+
+    @pytest.mark.parametrize("arch", HOTELS)
+    def test_totals_conserved_to_archetype(self, arch):
+        zones, norm, a_tot, (lpd, epd, occ) = self._norm(arch)
+        assert math.isclose(sum(v["lights"] for v in norm.values()), lpd * a_tot, rel_tol=1e-9)
+        assert math.isclose(sum(v["equip"] for v in norm.values()), epd * a_tot, rel_tol=1e-9)
+        assert math.isclose(sum(v["people"] for v in norm.values()), a_tot / occ, rel_tol=1e-9)
+
+    @pytest.mark.parametrize("arch", HOTELS)
+    def test_corridor_has_no_equipment_or_people(self, arch):
+        zones, norm, _, _ = self._norm(arch)
+        corr = [z["name"] for z in zones if z.get("space_type") == "Corridor"]
+        assert corr
+        assert all(norm[n]["equip"] == 0.0 and norm[n]["people"] == 0.0 for n in corr)
+        assert all(norm[n]["lights"] > 0.0 for n in corr)   # corridor still lit
+
+    @pytest.mark.parametrize("arch", HOTELS)
+    def test_space_type_loader(self, arch):
+        from openubem.semantic.loads import get_space_type_loads
+        st = get_space_type_loads(arch)
+        assert st is not None
+        assert "GuestRoom" in st and "Corridor" in st
+        assert st["Corridor"]["equipment_w_m2"] == 0.0
+        assert st["Corridor"]["has_occupancy"] is False
+        assert st["GuestRoom"]["has_occupancy"] is True

@@ -113,13 +113,13 @@ class TestIntegrityChecks:
             parse_building(sql, None, row)
 
     def test_missing_zone_returns_failed_status(self):
-        """I1: zone count mismatch → failed_zone_mismatch (not exception)."""
+        """I1: zone count mismatch is tolerated under relaxed check, but lacking EUI vars yields failed_parse."""
         from openubem.results.parser import parse_building
         # R2 has 4 floors, but missing_zone fixture only has 3 zones
         row = _manifest_row("way/R2", 625.0, 4, 4)
         sql = GOLDEN_DIR / "r2_missing_zone.sql"
         result = parse_building(sql, None, row)
-        assert result["parse_status"] == "failed_zone_mismatch"
+        assert result["parse_status"] == "failed_parse"
         assert math.isnan(result["total_eui_kwh_m2"])
 
 
