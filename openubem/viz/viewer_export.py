@@ -28,8 +28,11 @@ import pandas as pd
 from openubem.viz.attribute_binding import bind_provenance, bind_values
 from openubem.viz.basemap_raster import BASEMAP_PNG_NAME, BASEMAP_SIDECAR_NAME
 from openubem.viz.cityjson_emitter import build_cityjson
-from openubem.viz.geojson_context import build_context_geojson
+from openubem.viz.context_features import BLOCKS_NAME, GREEN_NAME, ROADS_NAME
+from openubem.viz.geojson_context import build_context_geojson, translate_geojson_geometry
 from openubem.viz.metadata_block import add_metadata_block, content_hash
+
+_CONTEXT_ATTRIBUTION = "© OpenStreetMap contributors"
 
 _SHELL_DIR = Path(__file__).parent / "shell"
 _TEMPLATE = _SHELL_DIR / "viewer.html.template"
@@ -89,6 +92,61 @@ def _load_basemap(basemap_path: Path | str | None, origin) -> dict | None:
     }
 
 
+def _load_one_context_layer(path: Path, ox: float, oy: float) -> dict | None:
+    """One `06_context_*.geojson` cache -> a scene-local FeatureCollection.
+
+    Missing/unreadable file -> `None` (T24 graceful degrade, mirrors T19's
+    `_load_basemap`). Features are translated UTM -> scene-local metres via
+    the SAME `translate_geojson_geometry` helper T04's footprint placeholders
+    use (PLAN Phase-G "Scene-frame to mirror"). Feature order is preserved
+    from the cache, which `context_features.py` already writes pre-sorted by
+    a stable key — no re-sort needed to stay deterministic.
+    """
+    try:
+        fc = json.loads(Path(path).read_text(encoding="utf-8"))
+        features = [
+            {"type": "Feature",
+             "geometry": translate_geojson_geometry(f["geometry"], ox, oy),
+             "properties": f.get("properties", {})}
+            for f in fc["features"]
+        ]
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
+        return None
+    return {"type": "FeatureCollection", "features": features}
+
+
+def _load_urban_context(
+    context_features_dir: Path | str | None, origin, reference_system: str,
+) -> dict | None:
+    """T23 caches -> the scene's `"urban_context"` entry (inline vector
+    FeatureCollections, PLAN §2: fetched ONCE at generation time — no runtime
+    fetch, ever). Any missing cache -> that sub-key is omitted; all three
+    missing -> the whole `urban_context` key is omitted (graceful, like
+    `basemap`). Never touches `scene["context"]` (T04 placeholders)."""
+    if context_features_dir is None:
+        return None
+    d = Path(context_features_dir)
+    ox, oy, _ = origin
+
+    layers = {}
+    for key, name in (("roads", ROADS_NAME), ("green", GREEN_NAME), ("blocks", BLOCKS_NAME)):
+        p = d / name
+        if p.exists():
+            fc = _load_one_context_layer(p, ox, oy)
+            if fc is not None:
+                layers[key] = fc
+
+    if not layers:
+        return None
+
+    layers["frame"] = {
+        "referenceSystem": reference_system,
+        "common_origin": [ox, oy, 0.0],
+    }
+    layers["attribution"] = _CONTEXT_ATTRIBUTION
+    return layers
+
+
 def build_scene(
     manifest_df: pd.DataFrame,
     buildings_gdf: gpd.GeoDataFrame,
@@ -99,15 +157,20 @@ def build_scene(
     repo_dir: str | None = None,
     timestamp: str | None = None,
     basemap_path: Path | str | None = None,
+    context_features_dir: Path | str | None = None,
 ) -> dict:
     """Assemble the full scene payload dict: geometry + values + provenance +
-    metadata + failed/absent placeholders + an optional cached basemap (T16).
+    metadata + failed/absent placeholders + an optional cached basemap (T16)
+    + optional cached urban-context vectors (T23/T24).
 
     Returns `{"cityjson", "context", "provenance_coverage"}` (+ `"basemap"`
     when a cached raster is found at `basemap_path` — T16's per-run directory
     or the `06_basemap_utm.png` file directly; absent/unreadable -> the key is
-    simply omitted, never a placeholder). `timestamp` is forwarded to the
-    metadata block (pass a fixed value to compare two builds).
+    simply omitted, never a placeholder) (+ `"urban_context"` when any of the
+    `06_context_{roads,green,blocks}.geojson` caches are found at
+    `context_features_dir` — T23's per-run directory; absent/unreadable ->
+    the whole key is omitted). `timestamp` is forwarded to the metadata block
+    (pass a fixed value to compare two builds).
     """
     cityjson = build_cityjson(manifest_df, buildings_gdf)
     bind_values(cityjson, results_df, buildings_gdf)
@@ -121,6 +184,7 @@ def build_scene(
         timestamp=timestamp,
     )
     origin = cityjson["metadata"]["+common_origin_utm"]
+    reference_system = cityjson["metadata"]["referenceSystem"]
     context = build_context_geojson(
         buildings_gdf, set(cityjson["CityObjects"].keys()), origin)
     scene = {"cityjson": cityjson, "context": context,
@@ -128,6 +192,9 @@ def build_scene(
     basemap = _load_basemap(basemap_path, origin)
     if basemap is not None:
         scene["basemap"] = basemap
+    urban_context = _load_urban_context(context_features_dir, origin, reference_system)
+    if urban_context is not None:
+        scene["urban_context"] = urban_context
     return scene
 
 
