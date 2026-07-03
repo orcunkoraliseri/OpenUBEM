@@ -209,11 +209,11 @@ def _apply_rule_table(
         return "MidriseApartment", "RULE_RESIDENTIAL_TIER", None
 
     # 3a — LargeHotel
-    if ft in {"hotel", "motel", "guest_house"} and levels_imputed >= _HOTEL_LARGE_MIN_LEVELS:
+    if (ft in {"hotel", "motel", "guest_house"} or bt in {"hotel", "motel", "guest_house"}) and levels_imputed >= _HOTEL_LARGE_MIN_LEVELS:
         return "LargeHotel", "RULE_LODGING_TIER", None
 
     # 3b — SmallHotel
-    if ft in {"hotel", "motel", "guest_house"} and levels_imputed < _HOTEL_LARGE_MIN_LEVELS:
+    if (ft in {"hotel", "motel", "guest_house"} or bt in {"hotel", "motel", "guest_house"}) and levels_imputed < _HOTEL_LARGE_MIN_LEVELS:
         return "SmallHotel", "RULE_LODGING_TIER", None
 
     # 4a — FullServiceRestaurant

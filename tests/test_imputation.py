@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from openubem.semantic.imputation import build_ml_imputer, impute_column
+from openubem.semantic.imputation import BelowFloorError, build_ml_imputer, impute_column
 
 
 def _rng():
@@ -82,11 +82,11 @@ def test_unknown_method_raises():
         impute_column(s, method="histogram", rng=_rng())
 
 
-# ── T10-5: ML imputer stub raises NotImplementedError ────────────────────────
+# ── T10-5: ML imputer below-floor raises BelowFloorError ─────────────────────
 
-def test_ml_imputer_stub_raises():
+def test_ml_imputer_below_floor_raises():
     df = pd.DataFrame({"a": [1.0], "b": [2.0]})
-    with pytest.raises(NotImplementedError, match="Phase-2"):
+    with pytest.raises(BelowFloorError):
         build_ml_imputer(df, "a", ["b"])
 
 

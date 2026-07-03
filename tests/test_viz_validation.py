@@ -20,11 +20,23 @@ Temp wipe).
 
 Plus the T13 self-contained assertion: the emitted HTML has zero fetchable
 external references.
+
+Phase E (T16-T20) adds four more, all against the SAME pilot:
+  CP-Basemap-Georef  — a known UTM corner round-trips through
+                       `extent_local + common_origin` exactly.
+  CP-Offline         — still zero external fetches with a basemap embedded
+                       (a `data:` URI is not an external reference).
+  CP-Reproducibility — content_hash is unaffected by basemap presence (it
+                       only ever hashes `scene["cityjson"]`).
+  CP-FlatFootprint   — Grand Central / Times Sq-42nd carry the raw
+                       `data_quality_flag`/`provenance_height_m` provenance
+                       the client-side `heightMissing()` (T18) reads.
 """
 
 from __future__ import annotations
 
 import copy
+import json
 import math
 import re
 import zipfile
@@ -305,6 +317,138 @@ def test_t13_html_is_self_contained(bundle):
     assert not re.search(r"url\(\s*['\"]?https?:", style.group(1), re.I)
     # The scene payload is an inline application/json island (not a fetch).
     assert '<script id="scene-data" type="application/json">' in html
+
+
+# ── Phase E / T16-T20: basemap (F1) + flat-footprint clarity (F2) ─────────────
+def _write_fixture_basemap(tmp_path, extent_utm):
+    """A tiny hand-written PNG + sidecar — no rasterio/contextily needed here;
+    that reprojection path is T16's own concern (test_viz_basemap_raster.py).
+    This exercises the T19 exporter seam: cache-on-disk -> embedded scene key.
+    """
+    from PIL import Image
+    png_path = tmp_path / "06_basemap_utm.png"
+    Image.new("RGBA", (2, 2), (10, 20, 30, 255)).save(png_path)
+    sidecar = {
+        "crs": "EPSG:32618", "extent_utm": list(extent_utm),
+        "attribution": "© OpenStreetMap contributors © CARTO",
+        "provider": "CartoDB.PositronNoLabels", "fetched_px": [2, 2], "zoom": 16,
+    }
+    (tmp_path / "06_basemap_utm.json").write_text(json.dumps(sidecar), encoding="utf-8")
+    return png_path.read_bytes()
+
+
+def test_t19_build_scene_wires_basemap_when_present(bundle, tmp_path):
+    ox, oy, _ = bundle["cityjson"]["metadata"]["+common_origin_utm"]
+    extent_utm = (ox + 10.0, oy + 20.0, ox + 510.0, oy + 420.0)
+    _write_fixture_basemap(tmp_path, extent_utm)
+
+    scene = build_scene(bundle["manifest_df"], bundle["buildings_gdf"],
+                        bundle["results_df"], run_id="nyc_centre",
+                        timestamp=_FIXED_TS, basemap_path=tmp_path)
+
+    assert "basemap" in scene
+    bm = scene["basemap"]
+    assert bm["image"].startswith("data:image/png;base64,")
+    assert bm["extent_local"] == [10.0, 20.0, 510.0, 420.0]
+    assert bm["attribution"] == "© OpenStreetMap contributors © CARTO"
+    assert bm["crs"] == "EPSG:32618"
+
+
+def test_t19_build_scene_omits_basemap_when_absent(bundle, tmp_path):
+    scene = build_scene(bundle["manifest_df"], bundle["buildings_gdf"],
+                        bundle["results_df"], run_id="nyc_centre",
+                        timestamp=_FIXED_TS, basemap_path=tmp_path / "nope")
+    assert "basemap" not in scene
+    # And with no path given at all (the MVP/legacy default behaviour).
+    assert "basemap" not in bundle["scene"]
+
+
+def test_t19_load_basemap_directly_present_absent_and_corrupt(tmp_path):
+    from openubem.viz.viewer_export import _load_basemap
+    origin = (1000.0, 2000.0, 0.0)
+
+    assert _load_basemap(None, origin) is None
+    assert _load_basemap(tmp_path / "missing", origin) is None
+
+    _write_fixture_basemap(tmp_path, (1010.0, 2005.0, 1200.0, 2300.0))
+    bm = _load_basemap(tmp_path, origin)
+    assert bm is not None
+    assert bm["extent_local"] == [10.0, 5.0, 200.0, 300.0]
+
+    # Directly via the PNG path (the alternate contract T19 supports).
+    bm2 = _load_basemap(tmp_path / "06_basemap_utm.png", origin)
+    assert bm2 == bm
+
+    # Corrupt sidecar -> graceful None, never a crash.
+    (tmp_path / "06_basemap_utm.json").write_text("not json", encoding="utf-8")
+    assert _load_basemap(tmp_path, origin) is None
+
+
+# ── CP-Basemap-Georef ──────────────────────────────────────────────────────────
+def test_cp_basemap_georef_utm_corner_roundtrips_through_extent_local(bundle, tmp_path):
+    ox, oy, _ = bundle["cityjson"]["metadata"]["+common_origin_utm"]
+    extent_utm = (585164.1, 4511216.0, 586729.7, 4512606.3)  # real pilot bbox (PLAN Phase-E)
+    _write_fixture_basemap(tmp_path, extent_utm)
+
+    scene = build_scene(bundle["manifest_df"], bundle["buildings_gdf"],
+                        bundle["results_df"], run_id="nyc_centre",
+                        timestamp=_FIXED_TS, basemap_path=tmp_path)
+    minx_l, miny_l, maxx_l, maxy_l = scene["basemap"]["extent_local"]
+    # A known UTM corner maps to the expected extent_local corner, exactly,
+    # through `extent_local + common_origin` (T20 §How).
+    assert (minx_l + ox, miny_l + oy) == pytest.approx((extent_utm[0], extent_utm[1]))
+    assert (maxx_l + ox, maxy_l + oy) == pytest.approx((extent_utm[2], extent_utm[3]))
+
+
+# ── CP-Offline (re-confirmed with a basemap embedded) ──────────────────────────
+def test_cp_offline_html_with_basemap_still_zero_external_fetches(bundle, tmp_path):
+    _write_fixture_basemap(tmp_path, (585164.1, 4511216.0, 586729.7, 4512606.3))
+    scene = build_scene(bundle["manifest_df"], bundle["buildings_gdf"],
+                        bundle["results_df"], run_id="nyc_centre",
+                        timestamp=_FIXED_TS, basemap_path=tmp_path)
+    assert "basemap" in scene, "test is meaningless without a basemap actually embedded"
+    html = _inject(scene, "nyc_centre")
+
+    assert not re.findall(r"<(?:img|iframe|source|audio|video)\b[^>]*\bsrc\s*=", html, re.I)
+    assert not re.findall(r'\b(?:src|href)\s*=\s*["\']\s*(?:https?:)?//', html, re.I), \
+        "external/protocol-relative resource reference (a data: URI is not external)"
+    assert scene["basemap"]["image"] in html or \
+        scene["basemap"]["image"].replace("/", "\\/") in html, \
+        "the basemap data-URI must be embedded verbatim in the payload"
+
+
+# ── CP-Reproducibility (unaffected by the basemap — content_hash covers cityjson only) ──
+def test_cp_reproducibility_unaffected_by_basemap(bundle, tmp_path):
+    _write_fixture_basemap(tmp_path, (585164.1, 4511216.0, 586729.7, 4512606.3))
+    no_bm = build_scene(bundle["manifest_df"], bundle["buildings_gdf"],
+                        bundle["results_df"], run_id="nyc_centre", timestamp=_FIXED_TS)
+    with_bm = build_scene(bundle["manifest_df"], bundle["buildings_gdf"],
+                          bundle["results_df"], run_id="nyc_centre",
+                          timestamp=_FIXED_TS, basemap_path=tmp_path)
+    assert content_hash(no_bm["cityjson"]) == content_hash(with_bm["cityjson"])
+
+
+# ── CP-FlatFootprint ────────────────────────────────────────────────────────────
+def test_cp_flatfootprint_grand_central_and_times_sq_carry_the_provenance(bundle):
+    """The two user-flagged flat slabs (PLAN Phase-E verified facts): faithful
+    underground-transit footprints with no OSM above-ground massing, not a
+    viewer bug. This asserts the RAW bound fields the client-side
+    `heightMissing()` (viewer_logic.mjs, T18) reads are genuinely present —
+    it does not re-implement that JS logic in Python.
+    """
+    cj = bundle["cityjson"]
+    for osm_id in ("relation/11171793", "relation/11171765"):
+        co = cj["CityObjects"].get(osm_id)
+        assert co is not None, f"{osm_id} must be present in the pilot CityJSON"
+        attrs = co["attributes"]
+        flag = attrs.get("data_quality_flag", "")
+        assert "no_height" in flag, f"{osm_id} data_quality_flag={flag!r}"
+        assert attrs.get("provenance_height_m") == "OSM_MISSING"
+        # Faithful-to-model: geometry is NOT fabricated — height/levels attrs
+        # reflect the placeholder 1-level/3.5 m fallback, never a raised roof.
+        assert attrs.get("levels") == 1.0
+        assert attrs.get("total_eui_kwh_m2") is not None, \
+            "still a real, simulated building — only its OSM height is missing"
 
 
 # ── CP-Accessibility (documented manual + automatable palette sanity) ─────────

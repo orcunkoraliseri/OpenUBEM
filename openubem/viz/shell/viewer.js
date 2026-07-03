@@ -20686,6 +20686,24 @@
       return true;
     }
   }
+  var LineDashedMaterial = class extends LineBasicMaterial {
+    constructor(parameters) {
+      super();
+      this.isLineDashedMaterial = true;
+      this.type = "LineDashedMaterial";
+      this.scale = 1;
+      this.dashSize = 3;
+      this.gapSize = 1;
+      this.setValues(parameters);
+    }
+    copy(source) {
+      super.copy(source);
+      this.scale = source.scale;
+      this.dashSize = source.dashSize;
+      this.gapSize = source.gapSize;
+      return this;
+    }
+  };
   function arraySlice(array, from, to) {
     if (isTypedArray(array)) {
       return new array.constructor(array.subarray(from, to !== void 0 ? to : array.length));
@@ -21158,6 +21176,24 @@
   var VectorKeyframeTrack = class extends KeyframeTrack {
   };
   VectorKeyframeTrack.prototype.ValueTypeName = "vector";
+  var Cache = {
+    enabled: false,
+    files: {},
+    add: function(key, file) {
+      if (this.enabled === false) return;
+      this.files[key] = file;
+    },
+    get: function(key) {
+      if (this.enabled === false) return;
+      return this.files[key];
+    },
+    remove: function(key) {
+      delete this.files[key];
+    },
+    clear: function() {
+      this.files = {};
+    }
+  };
   var LoadingManager = class {
     constructor(onLoad, onProgress, onError) {
       const scope = this;
@@ -21272,6 +21308,69 @@
     }
   };
   Loader.DEFAULT_MATERIAL_NAME = "__DEFAULT";
+  var ImageLoader = class extends Loader {
+    constructor(manager) {
+      super(manager);
+    }
+    load(url, onLoad, onProgress, onError) {
+      if (this.path !== void 0) url = this.path + url;
+      url = this.manager.resolveURL(url);
+      const scope = this;
+      const cached = Cache.get(url);
+      if (cached !== void 0) {
+        scope.manager.itemStart(url);
+        setTimeout(function() {
+          if (onLoad) onLoad(cached);
+          scope.manager.itemEnd(url);
+        }, 0);
+        return cached;
+      }
+      const image = createElementNS("img");
+      function onImageLoad() {
+        removeEventListeners();
+        Cache.add(url, this);
+        if (onLoad) onLoad(this);
+        scope.manager.itemEnd(url);
+      }
+      function onImageError(event) {
+        removeEventListeners();
+        if (onError) onError(event);
+        scope.manager.itemError(url);
+        scope.manager.itemEnd(url);
+      }
+      function removeEventListeners() {
+        image.removeEventListener("load", onImageLoad, false);
+        image.removeEventListener("error", onImageError, false);
+      }
+      image.addEventListener("load", onImageLoad, false);
+      image.addEventListener("error", onImageError, false);
+      if (url.slice(0, 5) !== "data:") {
+        if (this.crossOrigin !== void 0) image.crossOrigin = this.crossOrigin;
+      }
+      scope.manager.itemStart(url);
+      image.src = url;
+      return image;
+    }
+  };
+  var TextureLoader = class extends Loader {
+    constructor(manager) {
+      super(manager);
+    }
+    load(url, onLoad, onProgress, onError) {
+      const texture = new Texture();
+      const loader = new ImageLoader(this.manager);
+      loader.setCrossOrigin(this.crossOrigin);
+      loader.setPath(this.path);
+      loader.load(url, function(image) {
+        texture.image = image;
+        texture.needsUpdate = true;
+        if (onLoad !== void 0) {
+          onLoad(texture);
+        }
+      }, onProgress, onError);
+      return texture;
+    }
+  };
   var InstancedBufferGeometry = class extends BufferGeometry {
     constructor() {
       super();
@@ -25357,7 +25456,107 @@
     }
   };
 
-  // viewer_build/colormaps.mjs
+  // src/viewer_logic.mjs
+  function quantileBreaks(values, nClasses = 5) {
+    const v = values.filter((x) => typeof x === "number" && !Number.isNaN(x)).slice().sort((a, b) => a - b);
+    if (v.length === 0) return [];
+    const breaks = [];
+    for (let i = 1; i < nClasses; i++) {
+      const p = i / nClasses;
+      const idx = p * (v.length - 1);
+      const lo = Math.floor(idx);
+      const hi = Math.ceil(idx);
+      breaks.push(lo === hi ? v[lo] : v[lo] + (v[hi] - v[lo]) * (idx - lo));
+    }
+    return breaks;
+  }
+  function classifyQuantile(value, breaks) {
+    if (typeof value !== "number" || Number.isNaN(value)) return -1;
+    let i = 0;
+    while (i < breaks.length && value >= breaks[i]) i++;
+    return i;
+  }
+  function normalizeContinuous(value, domainMin, domainMax) {
+    if (typeof value !== "number" || Number.isNaN(value)) return -1;
+    if (domainMax <= domainMin) return 0;
+    const t = (value - domainMin) / (domainMax - domainMin);
+    return Math.max(0, Math.min(1, t));
+  }
+  function lodZGate(zoningStrategy) {
+    switch (zoningStrategy) {
+      case "perimeter_core":
+      case "room_layout":
+        return { zoneBreakdown: true, floorLevel: false, disclosure: null };
+      case "one_zone_per_floor":
+        return { zoneBreakdown: false, floorLevel: true, disclosure: null };
+      case "single_zone":
+        return {
+          zoneBreakdown: false,
+          floorLevel: false,
+          disclosure: "single zone \u2014 no interior subdivision modelled"
+        };
+      default:
+        return {
+          zoneBreakdown: false,
+          floorLevel: false,
+          disclosure: "not recorded \u2014 no real zone geometry"
+        };
+    }
+  }
+  function trustBadge(trustConfidence) {
+    if (trustConfidence === null || trustConfidence === void 0) {
+      return { glyph: "not_recorded", label: "not recorded" };
+    }
+    if (trustConfidence >= 0.75) return { glyph: "solid", label: "HIGH" };
+    if (trustConfidence >= 0.25) return { glyph: "half", label: "MEDIUM" };
+    return { glyph: "hollow", label: "LOW" };
+  }
+  function resolutionBorder(resolutionMode) {
+    switch (resolutionMode) {
+      case "building":
+        return { weight: "thin", label: "building" };
+      case "floor":
+        return { weight: "medium", label: "floor" };
+      case "fast_zone":
+        return { weight: "heavy", label: "fast_zone" };
+      case "zone":
+        return { weight: "heavy", label: "zone" };
+      case "auto":
+        return { weight: "medium", label: "auto" };
+      default:
+        return { weight: "none", label: "not recorded" };
+    }
+  }
+  function displayToken(value) {
+    if (value === null || value === void 0 || value === "") return "not recorded";
+    return String(value);
+  }
+  function basemapPlaneLayout(extentLocal, center) {
+    const [minx, miny, maxx, maxy] = extentLocal;
+    const cx = center && typeof center.x === "number" ? center.x : 0;
+    const cy = center && typeof center.y === "number" ? center.y : 0;
+    return {
+      width: maxx - minx,
+      height: maxy - miny,
+      x: (minx + maxx) / 2 - cx,
+      y: (miny + maxy) / 2 - cy
+    };
+  }
+  function shouldRenderBasemap(basemap) {
+    return !!(basemap && Array.isArray(basemap.extent_local) && basemap.extent_local.length === 4 && typeof basemap.image === "string" && basemap.image.length > 0);
+  }
+  var NO_HEIGHT_BADGE_TEXT = "Height: not in OSM \u2014 footprint only (no above-ground massing).";
+  function heightMissing(attrs) {
+    if (!attrs) return false;
+    const flag = attrs.data_quality_flag;
+    if (typeof flag === "string" && flag.includes("no_height")) return true;
+    return attrs.provenance_height_m === "OSM_MISSING";
+  }
+  function flatFootprintBadge(attrs) {
+    return heightMissing(attrs) ? NO_HEIGHT_BADGE_TEXT : null;
+  }
+
+  // src/colormaps.mjs
   var NO_DATA_GREY = [176, 176, 176];
   var VIRIDIS = [
     [68, 1, 84],
@@ -25466,84 +25665,22 @@
   function archetypeSector(archetypeId) {
     return ARCHETYPE_SECTOR[archetypeId] || "Fallback";
   }
-
-  // viewer_build/viewer_logic.mjs
-  function quantileBreaks(values, nClasses = 5) {
-    const v = values.filter((x) => typeof x === "number" && !Number.isNaN(x)).slice().sort((a, b) => a - b);
-    if (v.length === 0) return [];
-    const breaks = [];
-    for (let i = 1; i < nClasses; i++) {
-      const p = i / nClasses;
-      const idx = p * (v.length - 1);
-      const lo = Math.floor(idx);
-      const hi = Math.ceil(idx);
-      breaks.push(lo === hi ? v[lo] : v[lo] + (v[hi] - v[lo]) * (idx - lo));
+  function buildingFillColor(attrs, opts) {
+    if (opts.mode === "archetype") {
+      return attrs.archetype_id === void 0 ? NO_DATA_GREY.slice() : archetypeColor(attrs.archetype_id);
     }
-    return breaks;
-  }
-  function classifyQuantile(value, breaks) {
-    if (typeof value !== "number" || Number.isNaN(value)) return -1;
-    let i = 0;
-    while (i < breaks.length && value >= breaks[i]) i++;
-    return i;
-  }
-  function normalizeContinuous(value, domainMin, domainMax) {
-    if (typeof value !== "number" || Number.isNaN(value)) return -1;
-    if (domainMax <= domainMin) return 0;
-    const t = (value - domainMin) / (domainMax - domainMin);
-    return Math.max(0, Math.min(1, t));
-  }
-  function lodZGate(zoningStrategy) {
-    switch (zoningStrategy) {
-      case "perimeter_core":
-      case "room_layout":
-        return { zoneBreakdown: true, floorLevel: false, disclosure: null };
-      case "one_zone_per_floor":
-        return { zoneBreakdown: false, floorLevel: true, disclosure: null };
-      case "single_zone":
-        return {
-          zoneBreakdown: false,
-          floorLevel: false,
-          disclosure: "single zone \u2014 no interior subdivision modelled"
-        };
-      default:
-        return {
-          zoneBreakdown: false,
-          floorLevel: false,
-          disclosure: "not recorded \u2014 no real zone geometry"
-        };
+    const v = attrs.total_eui_kwh_m2;
+    if (typeof v !== "number" || Number.isNaN(v)) return NO_DATA_GREY.slice();
+    if (opts.classified) {
+      return classColor(opts.rampName, classifyQuantile(v, opts.breaks), 5);
     }
+    return sampleRamp(opts.rampName, normalizeContinuous(v, opts.min, opts.max));
   }
-  function trustBadge(trustConfidence) {
-    if (trustConfidence === null || trustConfidence === void 0) {
-      return { glyph: "not_recorded", label: "not recorded" };
-    }
-    if (trustConfidence >= 0.75) return { glyph: "solid", label: "HIGH" };
-    if (trustConfidence >= 0.25) return { glyph: "half", label: "MEDIUM" };
-    return { glyph: "hollow", label: "LOW" };
-  }
-  function resolutionBorder(resolutionMode) {
-    switch (resolutionMode) {
-      case "building":
-        return { weight: "thin", label: "building" };
-      case "floor":
-        return { weight: "medium", label: "floor" };
-      case "fast_zone":
-        return { weight: "heavy", label: "fast_zone" };
-      case "zone":
-        return { weight: "heavy", label: "zone" };
-      case "auto":
-        return { weight: "medium", label: "auto" };
-      default:
-        return { weight: "none", label: "not recorded" };
-    }
-  }
-  function displayToken(value) {
-    if (value === null || value === void 0 || value === "") return "not recorded";
-    return String(value);
+  function buildingFillOpacity(attrs) {
+    return 1;
   }
 
-  // viewer_build/viewer_app.mjs
+  // src/viewer_app.mjs
   var SURFTYPE_WINDOW = 5;
   var SURFTYPE_DOOR = 6;
   var GLASS_RGB = [150, 190, 220];
@@ -25586,6 +25723,8 @@
       this._initThree();
       this._loadGeometry();
       this._buildContext();
+      this._buildBasemap();
+      this._buildFlatFootprintOverlay();
       this._buildLegendData();
       this.recolor();
       this._frameNeighbourhood();
@@ -25667,11 +25806,12 @@
       }
       geom.setAttribute(
         "color",
-        new BufferAttribute(new Float32Array(n * 3), 3)
+        new BufferAttribute(new Float32Array(n * 4), 4)
       );
       const material = new MeshBasicMaterial({
         vertexColors: true,
-        side: DoubleSide
+        side: DoubleSide,
+        transparent: true
       });
       mesh.material = material;
       const rec = { mesh, geom, n, objectid, lodid, surfacetype, triObj, triLod, triCount };
@@ -25694,17 +25834,25 @@
       rec.geom.computeBoundingSphere();
     }
     // ---- colouring (T10/T11) ----
+    // Delegates to the pure, unit-tested `buildingFillColor` (colormaps.mjs) —
+    // one source of truth shared with the node test suite, gated by T22's
+    // footprint-only mute (`heightMissing`) BEFORE the EUI/archetype lookup.
     _colorForBuilding(objIdx) {
       const a = this.attrs(objIdx);
-      if (this.mode === "archetype") {
-        return a.archetype_id === void 0 ? NO_DATA_GREY : archetypeColor(a.archetype_id);
-      }
-      const v = a.total_eui_kwh_m2;
-      if (typeof v !== "number" || Number.isNaN(v)) return NO_DATA_GREY;
-      if (this.classified) {
-        return classColor(this.rampName, classifyQuantile(v, this.euiBreaks), 5);
-      }
-      return sampleRamp(this.rampName, normalizeContinuous(v, this.euiMin, this.euiMax));
+      return buildingFillColor(a, {
+        mode: this.mode,
+        classified: this.classified,
+        rampName: this.rampName,
+        breaks: this.euiBreaks,
+        min: this.euiMin,
+        max: this.euiMax
+      });
+    }
+    // T22: footprint-only buildings render translucent (opacity ~0.45); every
+    // other building stays fully opaque (1.0) — never fabricates a colour, only
+    // mutes the confident one.
+    _opacityForBuilding(objIdx) {
+      return buildingFillOpacity(this.attrs(objIdx));
     }
     recolor() {
       for (const rec of this.meshes) {
@@ -25713,20 +25861,24 @@
         for (let v = 0; v < rec.n; v++) {
           const obj = rec.objectid.getX(v);
           const st = rec.surfacetype.getX(v);
-          let rgb;
+          let rgb, alpha;
           if (st === SURFTYPE_WINDOW || st === SURFTYPE_DOOR) {
             rgb = GLASS_RGB;
+            alpha = 1;
           } else if (this.selected !== null && obj === this.selected) {
             rgb = HIGHLIGHT_RGB;
+            alpha = 1;
           } else {
-            rgb = cache.get(obj);
-            if (!rgb) {
-              rgb = this._colorForBuilding(obj);
-              cache.set(obj, rgb);
+            let cached = cache.get(obj);
+            if (!cached) {
+              cached = { rgb: this._colorForBuilding(obj), alpha: this._opacityForBuilding(obj) };
+              cache.set(obj, cached);
             }
+            rgb = cached.rgb;
+            alpha = cached.alpha;
           }
           const c = srgbToLinearColor(rgb);
-          color.setXYZ(v, c.r, c.g, c.b);
+          color.setXYZW(v, c.r, c.g, c.b, alpha);
         }
         color.needsUpdate = true;
       }
@@ -25760,6 +25912,77 @@
       }
       this.scene.add(group);
       this.contextGroup = group;
+    }
+    // ---- basemap ground-plane (T17, Phase E F1): offline georeferenced quad ----
+    // `scene.basemap` is embedded ONCE at generation time as a data-URI (T19) —
+    // no runtime fetch here, TextureLoader decodes the inline data-URI in place.
+    // Absent `scene.basemap` (no cache for this run, PLAN §T16 non-fatal) -> no
+    // mesh, current behaviour preserved.
+    _buildBasemap() {
+      const basemap = this.payload.basemap;
+      if (!shouldRenderBasemap(basemap)) {
+        this.basemapMesh = null;
+        return;
+      }
+      const center = new Vector3();
+      if (this.boundingBox) this.boundingBox.getCenter(center);
+      center.z = 0;
+      const layout = basemapPlaneLayout(basemap.extent_local, center);
+      const geom = new PlaneGeometry(layout.width, layout.height);
+      const texture = new TextureLoader().load(basemap.image);
+      texture.colorSpace = SRGBColorSpace;
+      const material = new MeshBasicMaterial({ map: texture, side: FrontSide });
+      const mesh = new Mesh(geom, material);
+      mesh.position.set(layout.x, layout.y, -0.1);
+      mesh.renderOrder = -1;
+      this.scene.add(mesh);
+      this.basemapMesh = mesh;
+      this.basemapAttribution = basemap.attribution || "";
+    }
+    // ---- flat-footprint clarity (T18, Phase E F2) ----
+    // Geometry is UNCHANGED (Phase-E binding constraint 1: never raise the
+    // roof) — this draws a distinct dashed-outline overlay, on top of the exact
+    // fallback extrusion, for buildings whose OSM height is missing
+    // (`heightMissing`, derived from EXISTING bound provenance). Distinct from
+    // BOTH the no-data hatch (failed buildings, solid grey wire) and the
+    // Fallback archetype fill (slate-violet) — a bright dashed magenta line.
+    _buildFlatFootprintOverlay() {
+      const group = new Group();
+      const mat = new LineDashedMaterial({
+        color: 16736176,
+        dashSize: 0.6,
+        gapSize: 0.4
+      });
+      for (let i = 0; i < this.objectKeys.length; i++) {
+        if (!heightMissing(this.attrs(i))) continue;
+        const positions = this._lodNPositionsFor(i);
+        if (!positions || positions.length < 9) continue;
+        const geom = new BufferGeometry();
+        geom.setAttribute("position", new Float32BufferAttribute(positions, 3));
+        const edges = new EdgesGeometry(geom);
+        const line = new LineSegments(edges, mat);
+        line.computeLineDistances();
+        group.add(line);
+      }
+      this.scene.add(group);
+      this.flatFootprintGroup = group;
+    }
+    // Read LOD-N (mass) triangle vertex positions for one building straight off
+    // the resident loader buffer — no re-fetch, no new geometry synthesized.
+    _lodNPositionsFor(objIdx) {
+      for (const rec of this.meshes) {
+        const pos = rec.geom.getAttribute("position");
+        const out = [];
+        for (let t = 0; t < rec.triCount; t++) {
+          if (rec.triObj[t] !== objIdx || rec.triLod[t] !== 0) continue;
+          for (let k = 0; k < 3; k++) {
+            const v = t * 3 + k;
+            out.push(pos.getX(v), pos.getY(v), pos.getZ(v));
+          }
+        }
+        if (out.length) return out;
+      }
+      return null;
     }
     _geojsonToShape(geometry, center) {
       if (!geometry) return null;
@@ -25841,9 +26064,27 @@
         if (e.key === "Escape") this._backToNeighbourhood();
       });
       this._buildControls();
+      this._buildBasemapUI();
       this._buildLegend();
       this._buildCompassScale();
       this._buildDetailPane();
+    }
+    // ---- basemap toggle + always-visible attribution (T17) ----
+    _buildBasemapUI() {
+      if (!this.basemapMesh) return;
+      const el = document.createElement("div");
+      el.className = "ubem-basemap-ui";
+      el.innerHTML = `
+      <label><input type="checkbox" id="ubem-basemap-toggle" checked> Basemap</label>
+      <div class="ubem-attribution" id="ubem-basemap-attribution">${this.basemapAttribution}</div>
+    `;
+      this.mount.appendChild(el);
+      el.querySelector("#ubem-basemap-toggle").addEventListener("change", (e) => this._toggleBasemap(e.target.checked));
+    }
+    _toggleBasemap(visible) {
+      if (this.basemapMesh) this.basemapMesh.visible = visible;
+      const attr = this.mount.querySelector("#ubem-basemap-attribution");
+      if (attr) attr.style.display = visible ? "" : "none";
     }
     _buildControls() {
       const el = document.createElement("div");
@@ -25894,6 +26135,14 @@
     _swatch(rgb) {
       return `<span class="ubem-swatch" style="background:rgb(${rgb[0]},${rgb[1]},${rgb[2]})"></span>`;
     }
+    // Footprint-only legend cue (D02): a dashed line, not a fill swatch — the
+    // fill is no longer muted (D01), so the only remaining visual cue is the
+    // dashed-magenta outline overlay (`_buildFlatFootprintOverlay`, #ff5fb0).
+    _dashedLegendRow() {
+      return `<div class="ubem-legrow">
+      <span class="ubem-swatch ubem-swatch-dashed" style="border-top:2px dashed #ff5fb0"></span>
+      <span class="ubem-leglabel">footprint only (no OSM height) \u2014 dashed outline</span></div>`;
+    }
     _buildLegend() {
       let el = this.mount.querySelector(".ubem-legend");
       if (!el) {
@@ -25906,7 +26155,8 @@
           <span class="ubem-leglabel">${id}</span>
           <span class="ubem-legsub">${archetypeSector(id)}</span></div>`).join("");
         el.innerHTML = `<div class="ubem-panel-title">Archetype (by sector)</div>${rows}
-        <div class="ubem-legrow">${this._swatch(NO_DATA_GREY)}<span class="ubem-leglabel">no data</span></div>`;
+        <div class="ubem-legrow">${this._swatch(NO_DATA_GREY)}<span class="ubem-leglabel">no data</span></div>
+        ${this._dashedLegendRow()}`;
       } else {
         const breaks = this.euiBreaks;
         let body = "";
@@ -25922,7 +26172,8 @@
           <div class="ubem-legrow"><span class="ubem-leglabel">${this.euiMin.toFixed(0)} \u2192 ${this.euiMax.toFixed(0)} kWh/m\xB2</span></div>`;
         }
         el.innerHTML = `<div class="ubem-panel-title">Annual EUI (kWh/m\xB2)</div>${body}
-        <div class="ubem-legrow">${this._swatch(NO_DATA_GREY)}<span class="ubem-leglabel">no data</span></div>`;
+        <div class="ubem-legrow">${this._swatch(NO_DATA_GREY)}<span class="ubem-leglabel">no data</span></div>
+        ${this._dashedLegendRow()}`;
       }
     }
     _buildCompassScale() {
@@ -25988,9 +26239,11 @@
       const border = resolutionBorder(a.resolution_mode);
       const trust = trustBadge(a.trust_confidence === void 0 ? null : a.trust_confidence);
       const glyphChar = { solid: "\u25CF", half: "\u25D0", hollow: "\u25CB", not_recorded: "\u2014" }[trust.glyph];
+      const flatBadge = flatFootprintBadge(a);
       this._detailEl.querySelector("#ubem-detail-badges").innerHTML = `
       <span class="ubem-badge ubem-border-${border.weight}">resolution: ${border.label}</span>
-      <span class="ubem-badge">trust: <b>${glyphChar}</b> ${trust.label}</span>`;
+      <span class="ubem-badge">trust: <b>${glyphChar}</b> ${trust.label}</span>
+      ${flatBadge ? `<span class="ubem-badge ubem-badge-flat">${flatBadge}</span>` : ""}`;
       const rows = DETAIL_FIELDS.map((f) => `<tr><td>${f}</td><td>${displayToken(a[f])}</td></tr>`).join("");
       this._detailEl.querySelector("#ubem-detail-table").innerHTML = rows;
       const gate = lodZGate(a.zoning_strategy);

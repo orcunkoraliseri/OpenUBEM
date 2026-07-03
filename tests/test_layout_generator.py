@@ -297,16 +297,11 @@ class TestHotelBarPacker:
 
     @pytest.mark.parametrize("arch", HOTELS)
     @pytest.mark.parametrize("poly", [_L(), _U(), _T(), _O()])
-    def test_complex_conserves_and_is_clean(self, arch, poly):
-        f0 = _floor0(lg.generate_layout("way/h", poly, arch, 3))
-        assert f0
-        total = sum(z["floor_area_m2"] for z in f0)
-        assert abs(total - poly.area) / poly.area < 1e-3           # area conserved (post-cleanup)
-        assert all(len(list(z["floor_polygon"].interiors)) == 0 for z in f0)  # hole-free
-        assert all(z["floor_polygon"].is_valid for z in f0)
-        tokens = [z["name"].rsplit("_", 1)[-1] for z in f0]
-        assert len(tokens) == len(set(tokens))                      # unique group tokens
-        assert {z["space_type"] for z in f0} <= {"GuestRoom", "Corridor"}
+    def test_complex_degrades_to_fallback(self, arch, poly):
+        # Small-module hotels fragment complex footprints into interior corridor cells too
+        # small for HVAC autosizing → E+ Fatal/Severe (T13a). generate_layout returns [] so
+        # the caller degrades to one_zone_per_floor (correctness > coverage, per apartment arc).
+        assert lg.generate_layout("way/h", poly, arch, 3) == []
 
 
 class TestHotelLoadNormalization:
