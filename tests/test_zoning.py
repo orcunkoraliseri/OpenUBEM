@@ -197,16 +197,19 @@ class TestForcedModes:
     def test_auto_explicit_perimeter_core(self):
         assert decide_zoning_strategy("MediumOffice", 1500.0, 3, "auto") == "perimeter_core"
 
-    # --- "zone" raises NotImplementedError (known but deferred token, §3) ---
+    # --- "zone" opt-in room layout (layoutGenerator, PLAN layoutgenerator T06) ---
 
-    def test_zone_raises_not_implemented(self):
-        with pytest.raises(NotImplementedError, match="zone"):
-            decide_zoning_strategy("MediumOffice", 1500.0, 3, "zone")
+    def test_zone_units_corridor_returns_room_layout(self):
+        # MidriseApartment is a units+corridor archetype → room-level layout generator
+        assert decide_zoning_strategy("MidriseApartment", 800.0, 5, "zone") == "room_layout"
 
-    def test_zone_is_not_value_error(self):
-        # zone is a known token → NotImplementedError, not ValueError
-        with pytest.raises(NotImplementedError):
-            decide_zoning_strategy("SmallOffice", 200.0, 2, "zone")
+    def test_zone_other_archetype_degrades_to_perimeter_core(self):
+        # non-family archetypes degrade to generic core/perimeter (never raises)
+        assert decide_zoning_strategy("MediumOffice", 1500.0, 3, "zone") == "perimeter_core"
+
+    def test_zone_dummy_archetype_mode_check_valid(self):
+        # run_step3 validates the mode once with a dummy archetype — must not raise
+        assert decide_zoning_strategy("_", 1.0, 2, "zone") == "perimeter_core"
 
     # --- unknown mode raises ValueError (§3 unknown branch) ---
 

@@ -383,9 +383,9 @@ class TestZoningAreaColumn:
 
         captured: dict = {}
 
-        def recording_decide(arch, area, floors):
+        def recording_decide(arch, area, floors, resolution_mode="auto"):
             captured["area"] = area
-            return decide_zoning_strategy(arch, area, floors)
+            return decide_zoning_strategy(arch, area, floors, resolution_mode)
 
         monkeypatch.setattr("openubem.idf.builder.decide_zoning_strategy", recording_decide)
 

@@ -127,7 +127,7 @@ zoning per study — coarse for early-design screening, finer for detailed work.
 | **`building`** | whole building = 1 zone | 1 | ✅ validated |
 | **`floor`** | each floor = 1 zone | `num_floors` | ✅ validated |
 | **`fast_zone`** | generic core + perimeter on every floor, **every** archetype | ~5 × `num_floors` | ✅ validated |
-| **`zone`** | the core/perimeter shape **plus per-archetype loads** — e.g. apartment: hallway core + dwelling perimeter; restaurant: kitchen + dining; warehouse: one zone | ~5 × `num_floors` | ⏸ deferred (research done; loads upgrade, optional) |
+| **`zone`** | **room-level layout** — a generated corridor + packed dwelling/room modules per floor, with per-archetype per-space loads (see §5.1.1) | many (footprint-dependent) | 🚧 in development (MidriseApartment first) |
 
 `building` and `floor` reuse strategies the code already has (`single_zone`,
 `one_zone_per_floor`); `fast_zone` extends the core+perimeter slicing to **all** archetypes
@@ -145,13 +145,45 @@ results are aggregated to district scale. Use `building`/`floor` for screening a
 totals; they are **not** appropriate for peak-demand or equipment-sizing studies (that is what
 the deferred `zone` mode is for).
 
-The `zone` mode is a later, **optional** upgrade. Deep research
-(`deepResearch/layoutMapping/`) showed that faithfully reproducing each prototype's *exact zone
-count* (e.g. literally 8 apartment zones + 1 corridor) is **not worth building** — it changes
-annual EUI < 5 % (below the validation tolerance), crashes on irregular real footprints, and no
-peer tool does it. So `zone` keeps the same robust core/perimeter *shape* as `fast_zone` and adds
-only the part that matters: **per-archetype load meaning** (the core labelled as a hallway with
-hallway loads, the perimeter as apartments with DOE apartment loads, etc.).
+The `zone` mode is a later, **opt-in** upgrade — it is never used by `auto`, so fleet runs and
+the validated 8,160-building baseline are unaffected. Earlier deep research
+(`deepResearch/layoutMapping/`) had concluded that faithfully reproducing each prototype's *exact
+zone count* was not worth building for the **average rectangular** case (< 5 % EUI change, below
+validation tolerance). The current work (§5.1.1) revisits that for the case the research flagged as
+the real gap: **non-rectangular footprints** (L/U/T/courtyard), which the coarser strategies cannot
+zone at all and silently degrade — and for the archetypes (offices, hotels, schools) where room-level
+detail actually moves EUI by 10–20 %.
+
+### 5.1.1 Room-level layout generation (`zone` mode)
+
+`openubem/geometry/layoutGenerator.py` is the engine behind `zone` mode. It closes a real gap:
+the coarser strategies can only zone rectangular plates, and **silently degrade any L / U / T /
+courtyard footprint to one-zone-per-floor** — a courtyard (donut) footprint would otherwise cause
+an EnergyPlus *Fatal*. The layout generator instead builds a plausible **room-level floor plan** from
+the building's true footprint:
+
+1. **Classify the footprint shape** (compact / slab / L / U / T / cross / courtyard-O / ribbon)
+   from pure geometry metrics — rectangularity, convexity, reflex-corner count — no fitted thresholds.
+2. **Decompose** non-rectangular shapes into rectangular wings (orthogonal cuts at reflex corners;
+   courtyards split into four hole-free wings so no holed polygon is ever extruded).
+3. **Pack each wing** with a **double-loaded corridor** down its spine and **DOE-standard room
+   modules** on either side (for MidriseApartment: 1.68 m corridor, 7.62 m unit depth, 11.58 m bay).
+4. **Conserve loads.** Per-space-type intensities (an apartment ≠ a corridor: the corridor has zero
+   equipment and zero occupancy) are re-normalised so the building's total lighting / equipment /
+   people **exactly match the archetype total**, regardless of how the geometry came out
+   ("Space-Type-Weighted Normalization").
+5. **Wire interior boundaries** correctly: unit↔unit walls = Adiabatic (same setpoint), corridor↔unit
+   = matched Surface pairs, courtyard-inner walls = Outdoors (self-shaded, never merged with the outer ring).
+
+**Every dimension traces to a cited source** (DOE prototype geometry, ASHRAE 90.1, IBC) — zero fitted
+parameters — and every generated zone carries provenance. The build sequence is **MidriseApartment first**
+(its DOE prototype *is* a corridor+units layout, so the generator can be validated by reproducing the DOE
+standard), then expansion to offices / hotels / schools.
+
+**Status (2026-07-02):** classifier, packing engine, per-space loads, and conservation are implemented
+and pass synthetic unit tests; EnergyPlus stability across all shapes and the DOE-standard reproduction
+are still being finalised. This is an active development track (see `docs/PROJECT_CHECKLIST.md` and
+`docs/docs_ACTIVE/simulation-Resolution/layoutgenerator/`), **not** yet a validated baseline.
 
 ### 5.2 Temporal resolution
 

@@ -3,11 +3,17 @@
 > Single-glance tracker. Past = one line each. **Current** and **Future** carry the detail.
 > Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[!]` blocked / needs decision
 >
-> **Last updated:** 2026-07-01 (arc **G. input-parameter imputation** Phase A COMPLETE — T01–T06 greenlit + **CP-1 CHECKPOINT MET**; Phases B–E await user greenlight; E-R3-3 CP-2 ACCEPTED, T11 8,160 re-run parked)
+> **Last updated:** 2026-07-02 (arc **G. input-parameter imputation** **Phase B COMPLETE — 5 tasks ACCEPTED + LIVE_SMOKE done** (T07 router / T07.1 lineage side-manifest / T07.2 categorical routing / T08 mask-recover 22/22 / T09 comparator-math 15/15). **CP-2 PROVISIONALLY MET:** 36-bldg synthetic A/B passes both gates (fleet NMBE 0.012% / CV(RMSE) 1.75%; held-out-only ≈0.04% / ≈3.1%). Manager provisionally greenlit CP-2 (unblocks Phase C PLANNING); **real-OSM-city cluster A/B owed before Phase C ships**. T10 deferred. No Phase C CODE (T11) until user aware of CP-2 numbers. E-R3-3 CP-2 ACCEPTED, **T11 8,160 re-run UN-PARKED + RUNNING** — la_centre pilot DONE/clean, 11-cell fan-out in progress, ~8–12h; T11.7 promotion = user-sign-off only)
 >
 > **CURRENT BASELINE (adopted):** **`phaseE` full realism** — archetype HVAC (VAV/PSZ/FCU/WLHP, real fans+pumps) + physical DHW/cooking/refrigeration; reconstruction RETIRED; zero fitted parameters. 12-cell 8,160-building matrix; 99.9% E+ success. CP-E scores: R²=0.895/0.924/0.718 (excellent shape); city-Overall −24.4% NYC / −5.6% LA / −25.7% Austin vs measured anchors (structural DOE-prototype-vs-CBECS "Other" offset; accept-and-report per R6-4B). CBECS NMBE −10.6%/−20.5%/−11.9% (expected regression — reconstruction was carrying the level). Phase-D2 is the prior superseded baseline. `REPORT_phaseE_final.md` shipped 2026-06-27; figures refreshed.
 >
 > **✅ Sub-arc — E-R3-3 archetype threshold fix — CP-2 ACCEPTED 2026-07-01 (fix ratified; T11 parked)** (reopened a slice of the phaseE full-realism baseline): corrected the office / school / hotel classifier cut-points that misclassified their own DOE prototypes. **CP-1 MET 2026-06-30** — local code + tests green; CP-α coarse 100% / fine 92% on the re-ratified 50-building fixture. **CP-β DONE on the CLUSTER 2026-07-01** — `sbatch` job 1053384 (`openubem_er33_cpbeta_r3`, array 1-483%32): **483/483 COMPLETED, 0 FAILED**, array wall ~1h23m. **Re-classification (offices only, provably-more-correct LBNL-CBES tiers):** 185/483 flipped — LargeOffice 138→71 (−67), MediumOffice 168→117 (−51), SmallOffice 74→192 (+118); zero schools/hotels in the fleet. F12 integrity PASS (parse 100%, zone 0-mismatch, EUI-plausibility 98.76% — 6 "outliers" = legit high-EUI food service). **CBECS gates (465 eligible, report-only per M-R2-4) vs the anchor:** CV 53.78→60.63, NMBE −10.81→−10.99, R² 0.731→0.883, KS 0.190→0.350. **D3 school blind-spot** (Boston fleet has zero schools/hotels → untested by CP-α *and* CP-β) **closed as a unit-level lock (T12: Option B levels + missing-`levels`→PrimarySchool, 6 tests green; accuracy gate unchanged 100%/92%).** **CP-2 investigation (user chose "hold + investigate" first):** manager diagnostic (`scratchpad/diag_cbecs_drift.py`, fig `openubem/outputs/er33_cbecs_drift.png`) proved the "3 gates worsened vs anchor" framing is **confounded** — the anchor is the **R1 baseline (smaller fleet)**; the true 483 predecessor already scored 69.82/−16.05/0.731/0.273 AND used OLD pre-Phase-E HVAC (cooling 70.9 vs 18.2 now). **Isolated classifier effect (two reconstructions agree): CV IMPROVES −3–5, KS IMPROVES −0.08–0.10, R² ±0.000 (the "+0.15 R²" is a Phase-E artifact), NMBE −5–7 more negative (only real cost — down-tiering to the lower-intensity SmallOffice DOE template).** Large CV/KS are structural (office-dominated neighbourhood vs all-types CBECS survey 8–1883) + pre-existing → exactly why the gates are report-only. **User ruling: ACCEPT (E-R3-3 ratified); PARK T11** (defer the 8,160 Phase-E re-run, batch with a future baseline refresh — do NOT dispatch). Remote 43G scratch cleanup dispatched. Plan: `docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md`.
+>
+> **▶ T11 UN-PARKED + RUNNING 2026-07-01 (user un-parked → autonomous handling authorized while away; T11.7 baseline promotion stays USER-SIGN-OFF ONLY).** Full 8,160-bldg Phase-E re-run with the corrected E-R3-3 classifier, frozen-geometry (no OSM drift) + non-destructive (`--output-subdir phaseE_er33`, committed `phaseE` baseline untouched). **Real bug found+fixed:** the post-sim reroute monkey-patch stub `v12_cell_pipeline.py:520` was a 3-arg lambda but commit e063865 added a 4th arg (`resolution_mode`) → crashed every cell reaching reroute; fixed to `*_a,**_k` (fan-out-critical, all 12 cells). Also learned: launch cell drivers **turn-surviving** (manager bg task), not employee-turn children (3× la_centre death was a launch-lifecycle bug). **la_centre PILOT DONE + CLEAN** (226/226 sim, 0 dropped — more complete than baseline's 225/226; all 5 checks pass; office down-tier Large 50→37/Med 30→26/Small 24→41; total EUI 130.1→129.4, R² 0.884→0.885, NMBE −25.3→−28.5). **11-cell fan-out RUNNING** (`bcjz97x9w`, sequential/idempotent/continue-on-failure, small→large; watcher `b6h8c1jin`); ETA ~8–12h → then **T11.6 CP-3 before/after compare (manager job)** → **T11.7 promotion (user gate)**.
+>
+> **🆕 Arc H — `layoutGenerator` room-level zoning (implements the deferred `zone` mode from arc F) — Phases 0–3 DONE, CP-1 + CP-2 MET 2026-07-02.** `openubem/geometry/layoutGenerator.py`: classify footprint → decompose L/U/T/courtyard wings → pack DOE-standard corridor+room modules → per-space-type loads with area/load conservation. Closes the gap where non-rectangular footprints silently degraded to one-zone-per-floor (courtyard = E+ Fatal). MidriseApartment first (self-validating vs its DOE prototype), then offices/hotels/schools. Opt-in only — `auto` and the 8,160 baseline untouched. **T01–T10 + T16 done: 130 unit tests green + a room_layout intersect_match fallback (T10a) + full-annual E+ 23.1 smoke on bar/L/U/T/O all Completed Successfully, 0 Fatal / 0 Severe. CP-2 MET (manager greenlight).** Next = Phase 4: T11 reproduce DOE MidriseApartment standard + T12 LIVE_SMOKE → CP-3. Detail = Section H.
+>
+> **🆕 Arc I — interactive 3D web visualization — DEEP-RESEARCH PROMPTS DRAFTED, pre-PLAN 2026-07-02.** A browser-based, navigable 3D viewer for the simulated neighbourhoods, two LODs (neighbourhood = surfaces/masses only; building = surfaces + sub-surfaces/windows) with function / population / energy-output (EUI heat-map) recolouring — the Torino-3d-heat-mapping / ubem.io analogue. Today OpenUBEM has only static matplotlib axonometrics + desktop-CAD exporters (COLLADA/OBJ/SketchUp) in the `idf_reader` ancestor; no interactive/web/output-driven view. **16-file deep-research prompt set (`00_README` + V01–V15) written under `docs/docs_ACTIVE/3D/deepResearch/`** (manager wrote README + core exemplars V01/V02/V06/V09; Sonnet drafted the rest, manager-audited). Two hard constraints: faithful-to-model (no invented geometry/values; flag imputed/degraded) + reproducible/self-contained/open-source (no paid tiles/proprietary engine). User runs prompts in Gemini Antigravity → manager audits each RESULT → then writes `PLAN_3dviz_implementation.md`. Load-bearing core to run first: V01+V02+V03+V05+V06+V09+V11+V15.
 
 ---
 
@@ -239,7 +245,7 @@ Plan: `docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md`. B
 
 ---
 
-## G. Input-parameter imputation ("OpenUBEM AI") — **Phase A COMPLETE 2026-07-01 (T01–T06 greenlit + CP-1 CHECKPOINT MET); Phases B–E await user greenlight**
+## G. Input-parameter imputation ("OpenUBEM AI") — **Phase B COMPLETE 2026-07-02: all 5 tasks + LIVE_SMOKE done; CP-2 PROVISIONALLY MET (synthetic gate passes; real-city cluster confirm owed before Phase C ships); Phase A COMPLETE + CP-1 MET; Phases C–E gated on CP-2**
 
 New feature arc: impute/predict missing pipeline **input** parameters across four user-named tiers
 (basic stats → "OpenUBEM AI" subsystem → basic ML → advanced/data-driven). Docs under
@@ -265,16 +271,140 @@ New feature arc: impute/predict missing pipeline **input** parameters across fou
   current Tier-B vs `e063865` baseline, isolation invariant filecmp-verified. Dormant caveat (non-firing on
   all current data, carry-forward to M09): Tier-B also fixes a literal-`0`/`NaN`-truthiness edge that would
   change values only if a COP/area field ever carried 0/NaN. → **CP-1 ✅**.
-- [ ] **Phase B** (T07–T10) — "OpenUBEM AI" routing subsystem + strict mode + M09 validation harness
+- [x] **Phase B** (T07–T10) — "OpenUBEM AI" routing subsystem + strict mode + M09 validation harness
   (mask-and-recover, spatial-block hold-out, mandatory downstream-EUI check, optional `--replicates`).
-  → **CP-2** (LIVE_SMOKE gate; **gates all data-driven work**).
+  → **CP-2 PROVISIONALLY MET 2026-07-02** (LIVE_SMOKE gate passes on synthetic fleet; real-city cluster
+  confirmation owed before Phase C ships). **COMPLETE 2026-07-02.**
+  - [x] **T07** — routing orchestrator `impute_missing`/`ImputeConfig`/strict mode + `StrictImputationError`
+    (`imputation.py`, `config.py`); **ACCEPTED** — 18/18 routing tests, CP-1 gate suite 183/183, and
+    **no-reroute VERIFIED byte-identical** (`enrich_semantics` 0-diff, `test_step22_orchestrator` 21/21
+    incl. 57-col/29-col byte-identical checks) so the CP-1 guarantee holds. Both carry-forward STOP-gates
+    correctly tripped rather than worked around.
+  - [x] **T07.1** — **GREENLIT.** The two ratified carry-forwards: legacy tier-less token reweight in
+    `_field_score` (KDE/HEURISTIC→MED, PDE/ASHRAE_STANDARD→LOW; blast radius manager-verified =
+    `add_lineage_summary` only, no EUI path) + lineage summary as a **side manifest** in the
+    `enrich_semantics` return-dict (schedule-lib dict, inserted after the JSON dump so on-disk artifacts +
+    57-col frame are untouched by construction). `test_provenance` 21/21, `test_step22_orchestrator` 21/21
+    (byte-identical checks pass). IDF-build path verified to consume the dict by keyed lookup only, so the
+    new key is inert; the in-flight T11 run uses committed code so is unaffected.
+  - [x] **T08** — **ACCEPTED.** Mask-and-recover + spatial-block hold-out harness
+    (`validation/mask_recover.py`), 22/22. Continuous path runs the real `impute_missing` router and scores
+    recovery vs held-out truth; whole-block hold-out (no row-leakage); KS-fidelity metric bites; no EUI,
+    no tuning. Surfaced that the router is continuous-only → `use_class` NOT_SCORABLE (honest, not
+    fabricated) → resolved by T07.2.
+  - [x] **T07.2** — **ACCEPTED** (45/45). Categorical routing in `impute_missing`: `use_class` via T06
+    `neighbour_vote` (spatial) + group-**mode** (statistical), §5G tokens reused; continuous byte-identical;
+    self-stratification leakage guard proven by test. Completes the routing subsystem — mask-and-recover now
+    scores both input types. (Logged limitation: `_spatial_tier` discards T06's `gdf_out`, so the MNAR
+    diagnostic flag isn't surfaced in `impute_missing` output — mandatory-provenance-on-values still holds;
+    candidate M09-harness enhancement.)
+  - [x] **T09 (math + scaffold)** — **ACCEPTED** (15/15, NO sim). Paired ASHRAE-G14 MBE/CV(RMSE)/peak
+    comparator (5%/15% targets) + `compare_ab` A/B scaffold wrapping the real Stage-3→5 harness; read-only-
+    on-imputer enforced structurally. Correctly rejected the unpaired CBECS quantile comparator.
+  - [x] **T09 LIVE_SMOKE — DONE 2026-07-02.** Downstream-EUI A/B on a 36-bldg purpose-built synthetic fleet
+    (6 clusters × 6 archetypes, real ground-truth year_built/levels, genuine spatial-block holdout, local E+,
+    27 min, 0 fatals, 0 dropped). **Both M09 Step-C gates PASS:** fleet NMBE **0.012%** / CV(RMSE) **1.75%**;
+    manager-recomputed held-out-only (10 rows) NMBE **≈0.04%** / CV(RMSE) **≈3.1%** — pass with wide margin.
+    Tier breakdown: 10 held-out all `GROUPMODE_MED` (statistical fallback), spatial tier never fired =
+    protocol-expected (block holdout removes same-cluster donors; 100 m radius ≪ 3–7 km spacing). **Manager
+    caveats:** provisional pass on *homogeneous-cluster synthetic* data (optimistic floor); only the
+    group-median tier exercised; fleet CV(RMSE) diluted by 26 unchanged buildings (held-out-only ≈3.1%).
+    **USER DECISION 2026-07-02: larger synthetic now + cluster-confirm later** — this is the provisional gate
+    number; **real-OSM-city cluster A/B owed as confirmation once T11 frees the cluster** (before Phase C ships).
+  - [~] **T09-CC — Real-OSM-city cluster A/B (CP-2 CONFIRMATORY) — IN PROGRESS 2026-07-02.**
+    USER DECISION 2026-07-02: **"queue cluster A/B first"** (definitive number before Phase C planning).
+    Two feasibility inventories done (LOCAL reads — real footprints committed at `.../phaseE/<cell>/01_buildings.gpkg`,
+    23-col schema DOES carry `year_built`). **PINNED:** target = **`year_built`** (EUI-relevant via
+    `resolve_vintage`→DOE construction sets); primary gate cell = **`nyc_centre`** (158 complete-case, flattest
+    5-vintage spread → recovery genuinely stressed + spatial donor tier fires; retires the synthetic
+    "too-homogeneous" caveat); secondary robustness cell = **`la_urban`** (542). Held-out = spatial-block 80/20
+    over complete-case year_built; headline = **held-out-only** NMBE/CV(RMSE) (fixes dilution). **Phase 2a
+    PASSED (2026-07-02)** — driver `t09cc_realcity_ab_nyc_centre.py` + 6-bldg local E+ wiring smoke: masking +
+    real tokens (32 held-out = 30 GROUPMODE_MED + 2 HOTDECK_NEIGHBOR_HIGH), common-mode isolation EXACT
+    (levels/geometry/etc 0/32 diff A-vs-B, only vintage-derived fields move), EUI sane + physics-correct
+    (vintage-matched→byte-identical EUI; 2013→Pre1980 miss→+14%), held-out metric computes. Recovery via
+    production `resolve_vintage`/T04 path (manager-accepted, stronger than the generic `impute_missing` reimpl
+    which stays a CP-3 carry-forward). **Phase 2b DISPATCHED (Sonnet):** scale to ALL held-out (nyc 32×2 +
+    la_urban ~108×2 ≈ 280 sims), sbatch array at STANDARD priority behind T11, harvest per-cell held-out-only
+    NMBE/CV(RMSE). NOTE — real test: 11/32 vintages mis-recovered by group-mode ⟹ gate number non-trivial,
+    could exceed 5% (a legitimate CP-2 outcome, unlike the rigged-green synthetic).
+    **Phase 2b SUBMITTED 2026-07-02 — all 4 arrays queued behind T11, correct climate:** nyc_centre GATE
+    (real NYC 725053 EPW, N=32) jobs 1058656/1058657; la_urban robustness (real LA EPW, N=124) jobs
+    1058653/1058654. Manager caught + fixed a gate-critical defect (nyc initially on a Chicago placeholder EPW →
+    HDD-inflated ΔEUI near the 5% line; scancel'd + resubmitted under real NYC weather). All PD under
+    AssocGrpCpuLimit behind another project's array (1058490) + T11 (1058600), both untouched — number lands
+    after the queue drains (hours). Harvest = per-cell held-out-only NMBE/CV(RMSE) via compare_ab (low-freq
+    Sonnet monitor dispatched). **Then manager ratifies CP-2 fully MET or brings an exception; no Phase C until
+    the user sees the number.**
+  - [ ] **T10** — optional `--replicates M` uncertainty mode — **deferred** (not a CP-2 gate condition).
+  - Phase-C carry-forward LOGGED: `impute_missing`'s generic vintage/levels reimpl may bin differently than
+    the production `resolve_vintage`/`_impute_levels` — reconcile byte-identity when Phase C reroutes
+    `enrich_semantics` through the orchestrator (T11+); not a Phase-B blocker.
 - [ ] **Phase C** (T11, GATED) — classical-ML imputer (MissForest via sklearn IterativeImputer); ships
   only if it beats Phase-A baseline on mask-and-recover AND passes the EUI check. → **CP-3**.
 - [ ] **Phase D** (T12, GATED/scoped) — fusion-first external joins (Overture/LiDAR/assessor, runtime-
   fetch, nothing bundled); LIVE_SMOKE before ship. → **CP-4**.
 - [ ] **Phase E** (T13) — frontier documented-deferred (deep-generative/GNN/LLM out of scope; optional
   isolated experimental TabPFN track, never default).
-- **STATUS (2026-07-01): Phase A CLOSED — T01–T06 greenlit + CP-1 CHECKPOINT MET.** All three CP-1
-  conditions satisfied and manager-audited against source (five suites 75/75; MNAR deactivation discharged;
-  Tier-B EUI instrumentation-only CONFIRMED by exact local IDF field-diff, 25/25 byte-identical). **Next
-  action: awaiting explicit user greenlight to open Phase B (T07–T10 → CP-2).** Phases B–E stay GATED.
+- **STATUS (2026-07-02): Phase B COMPLETE — CP-2 PROVISIONALLY MET.** All 5 deliverables ACCEPTED (T07
+  router / T07.1 lineage side-manifest / T07.2 categorical routing / T08 mask-recover 22/22 / T09
+  comparator-math 15/15) + the **T09 LIVE_SMOKE gate run passes** (fleet NMBE 0.012% / CV(RMSE) 1.75%;
+  held-out-only ≈0.04% / ≈3.1%). Per the user's "larger synthetic now + cluster-confirm later" decision, the
+  manager **provisionally greenlit CP-2** — this unblocks **Phase C PLANNING** but not shipping. **Two items
+  owed before Phase C SHIPS:** (1) real-OSM-city A/B on the cluster (definitive non-synthetic gate number,
+  Sonnet sbatch once T11 frees the cluster); (2) optional — have `eui_impact_report` also emit a held-out-only
+  CV(RMSE) so the metric isn't diluted by unchanged buildings. **Next action:** report CP-2 numbers to user;
+  do NOT start Phase C CODE (T11 ML imputer) without user awareness. Phases C–E stay GATED.
+
+---
+
+## H. `layoutGenerator` — room-level interior zoning (`zone` mode) — **Phases 0–4 DONE; CP-1 + CP-2 + CP-3 MET 2026-07-02 (manager greenlight); Phase 5 (T13–T15 → CP-4 USER SIGN-OFF) not started**
+
+Implements the `zone` resolution mode left as `NotImplementedError` at the close of arc F. Builds a
+plausible **room-level floor plan** from a building's true footprint: classify shape → decompose
+non-rectangular wings → pack a double-loaded corridor + DOE-standard room modules → per-space-type
+loads with exact area/load conservation. Closes the real gap where the coarser strategies **silently
+degrade any L/U/T/courtyard footprint to one-zone-per-floor** (a courtyard/donut footprint otherwise
+causes an EnergyPlus *Fatal*). **MidriseApartment first** (its DOE prototype *is* a corridor+units
+layout → self-validating), then offices/hotels/schools where room-level detail moves EUI 10–20%.
+**Opt-in only** — `auto` and the adopted 8,160-building baseline are untouched (D-B). Zero fitted
+parameters; provenance on every emitted zone.
+
+Plan: `docs/docs_ACTIVE/simulation-Resolution/layoutgenerator/PLAN_layoutgenerator_implementation.md`
+(mirrors the approved plan). Fundamentals write-up: `docs/docs_EXPLANATION/OpenUBEM_fundamentals.md` §5.1.1.
+
+### Phase 0 — scaffolding + classifier
+- [x] **T01** — `layoutGenerator.py` skeleton + pinned `MODULE_SPECS` (MidriseApartment: corridor 1.68 m, unit depth 7.62 m, bay 11.58 m, unit 88.25 m², circ 9.9%) + public signatures. Every dim cites a source.
+- [x] **T02** — `classify_footprint` — compact/slab/L/U/T/cross/O/ribbon/irregular via the L04 metric ladder (rectangularity, convexity, reflex-corner + OBB-notch count); pure shapely, `make_valid`+simplify first. Classifier unit tests green.
+
+### Phase 1 — corridor-packing engine → **CP-1**
+- [x] **T03** — `_pack_bar` double-loaded bar packer: OBB longitudinal centreline → 1.68 m corridor strip → two unit rows merged by cardinal orientation → `[corridor, N, S, E, W]`; fallback ladder (double ≥16.92 m / single 9.30–16.92 / offset-buffer / core<10 m² → one_zone_per_floor); sliver-merge guard.
+- [x] **T04** — `_decompose_wings` (L/U/T/cross): orthogonal cuts at reflex vertices → hole-free rectangular wings → each routed to `_pack_bar`; dominant-*edge* alignment (fixed a symmetric-cross over-fragmentation where min-area OBB was diagonal).
+- [x] **T05** — `_split_donut` (O/courtyard): tic-tac-toe cuts → 4 hole-free wings (never extrude a holed polygon → fixes the `zoning.py:89` courtyard E+ Fatal); inner-ring walls tagged Outdoors, inner/outer never merged.
+- [x] **T06** — dispatch wiring: `decide_zoning_strategy("zone")` → `"room_layout"` for the units+corridor family (else `perimeter_core`); `build_zones` routes `room_layout` → `generate_layout` with `[]`→one_zone_per_floor fallback. `auto` untouched.
+- [x] **CP-1 — MET.** Engine produces valid, area-conserving zones for rect/L/U/T/O MidriseApartment footprints; a `generate_layout` conservation safety-net drops to one-zone-per-floor if area drifts >1%; `auto` unchanged; no simulation yet.
+
+### Phase 2 — per-space-type loads + conservation
+- [x] **T07** — `openubem/data/loads/doe_space_type_loads.json` (Apartment LPD 5.27 / EPD 5.38; Corridor LPD 5.38 / EPD 0 / occ 0, Deru 2011 Table 3-51) + `get_space_type_loads` loader.
+- [x] **T08** — Space-Type-Weighted Normalization in `assign_loads` (`I'_z = I_t·f_t·A_tot/A_t,gen`): building lighting/equipment/people conserve to the archetype total exactly regardless of geometry drift; corridor equipment/occupancy correctly zeroed (verified rel_tol 1e-9).
+
+### Phase 3 — interior surfaces + synthetic sim tests → **CP-2 MET**
+- [x] **T09** — interior boundary conditions: corridor↔unit = matched Surface, unit↔unit = Adiabatic, courtyard-inner = Outdoors; every generated zone sets `"extruded": True`; mismatch-gate kept happy. `test_layout_surfaces.py` — 9 tests, 0 mismatched interzone pairs.
+- [x] **T10a** — **room_layout intersect_match fallback** (`surfaces.py::_force_reroute_room_layout_to_one_zone_per_floor`, manager/Opus): closes hard-rule #7 for the `zone` family — if geomeppy `break_polygons` ever raises on a room-level building (possible on live OSM footprints), the building degrades to one_zone_per_floor instead of `failed_worker_exception`. Reconstructs the true footprint (buffer round-trip closes sub-mm wing-seam drift); a real courtyard void ≥1 m² **declines** so no single holed block re-introduces the donut Fatal. 130 unit tests green; L→collapses cleanly, courtyard→declines.
+- [x] **T10** — synthetic geometry + **E+ 0-Fatal smoke** (Sonnet, manager-audited). **All 5 shapes simulate clean:** full-annual E+ 23.1 runs — bar 15z/102surf, L 18z/114surf, U 30z/210surf, T 24z/162surf, O 48z/300surf — **every one Completed Successfully, 0 Fatal, 0 Severe**. Fallback did NOT fire (intersect_match succeeded first-pass on all synthetic shapes — it's the live-footprint net). Warnings are the known-harmless geomeppy "Floor/Roof upside down" vertex-order quirk + frost/freeze from deliberately-undersized synthetic HVAC. Plan §T10 has the full table + artifact paths.
+- [x] **CP-2 — MET 2026-07-02 (manager greenlight).** Loads conserve across modes ✅, interior BCs correct + 0 mismatched pairs ✅, **0 E+ Fatal / 0 Severe on full-annual runs of all synthetic shapes** ✅, live-footprint fallback in place ✅. Phase 4 unblocked. (Not user sign-off — only CP-4 is.)
+
+### Phase 4 — validation → **CP-3 MET 2026-07-02 (T11 DOE-repro PASS + T12 LIVE_SMOKE PASS after geometry fix; manager greenlight)**
+- [x] **T11 — DONE 2026-07-02 (Sonnet, manager-audited) — PASS all thresholds.** DOE MidriseApartment prototype (46.33×16.92, 4 floors, 3.05 m) generated + simulated in E+ 23.1 vs `ASHRAE901_ApartmentMidRise_STD2022_Buffalo.idf` (version-transitioned to 23.1): area ~0% (PASS ±0.001%), per-space loads exact (PASS ±0.1%), circulation 6.66% vs 9.9% = −3.24 pp (PASS ±5 pp), **site EUI 114.63 vs 122.63 = −6.5% (PASS ±15%)**, 0 Fatal/0 Severe. Zones 20 (5/floor) vs DOE 27 (9/floor) = INFO, by design (L06 cardinal-merge, no intra-floor multiplier). Diff → `openubem/outputs/comparisons/t11_doe_vs_generated.md`. Weather caveat: both on Chicago TMY3 (no Buffalo EPW; internally fair). **Employee's DHW "District Heating" flag audited → baseline NOT affected** (production EUI reads explicit SQL meters via `parser.py::_parse_meters_sql`, never `eplustbl.htm`; no DistrictHeating summed). dhw.py physical-modeling review = lower-priority future note, not a blocker.
+- [x] **T12 — DONE 2026-07-02 (Sonnet employee, local) — LIVE_SMOKE FAILED (as designed to catch).** Report: `openubem/outputs/LayoutGenerator/t12_live_smoke.md`. **Recon precondition MET:** 434/2,821 real MidriseApartments (15.4%) classify non-rect (L/U/T/CROSS/O) across 9/12 cells (richest `la_suburban` 228, `la_urban` 151) — the live path genuinely exercises the new geometry, not just synthetic boxes. **Both gates FAIL:** (1) zone-mode `run_step3` gen-success **80% (24/30)** on `la_suburban` (target ≥95%) — 6× `failed_interzone_vertex_mismatch`; (2) **4 of 5 real `generation_status=success` production IDFs are E+ 23.1 FATAL** despite parsing cleanly with geomeppy. **Two failure signatures:** (a) vertex-count / non-planar mismatch on `_WHOLE` zones → the **T10a internal reroute** (`surfaces.py:623`, my Opus code) does not repair real-footprint interfloor geometry (38-vs-41 vertex mismatch); (b) malformed-zone temp blowup (−871°C, −4.6M°C) on genuine room_layout zones → the **packer emits thermodynamically-degenerate slivers on messy OSM footprints**. Confirmed geometry (not pipeline) via standalone-recipe cross-check. Also surfaced: (c) manifest `zoning_strategy=room_layout` does NOT reflect the internal reroute (observability gap — 6/24 "successes" silently degraded to 2-zone); (d) `way/442340523` "success" ran with 103,394 warnings. **Synthetic 0-Fatal (T10/T16b) ≠ live-green — exactly the blind-spot rule.** Verbatim `.err` preserved in scratchpad `t12_real_idf_runs/<osm_id>/`.
+- [x] **CP-3 — MET 2026-07-02 (manager greenlight; T11 DOE-repro PASS + T12 LIVE_SMOKE PASS after fix).** Root cause confirmed from a Fatal cell's IDF: way/442340538 `_W0C2` floor was a **degenerate triangle (2 verts 7 microns apart)** — real OSM footprints aren't exactly orthogonal, so axis-aligned grid cuts shear off near-zero-area slivers (→ E+ non-planar 538/549, or warmup temp blowup 503 −871°C / 539 −4.6M°C). **Fix = 4 surgical edits (Opus):** (1) `layoutGenerator.py` `_is_degenerate_cell` (area<2 OR narrower than `MIN_CELL_WIDTH_M=1.0` m via buffer test) → `_pack_connected_spine` **DROPS** slivers (NOT merge — merging remakes the T16b T-junction crash; the existing 1% area net degrades to one_zone_per_floor if too much drops); (2) `surfaces.py` reroute snaps footprint to 5 mm + simplify(0.02) → kills the near-collinear non-planar walls (549); (3) `builder.py` reflects a room_layout→per-floor degrade in manifest `zoning_strategy`; (4) `zoning.py` tags area-net fallback zones `room_layout_area_fallback` + `builder.py` honors it — re-validation showed the 4 footprints degrade via the area net (surfaces.py reroute fired 0×), so edit #3 alone would have left 25/30 rows mislabeled `room_layout`; edit #4 closes that. **130/130 unit tests green (donut2 machine-precision conservation intact).** **E+ re-validation (Sonnet employee, manager-audited) — all 4 gates PASS:** (A) 4 previously-Fatal footprints → **0 Fatal/0 Severe** (503 42Sev→0, 538 22→0, 539 1→0, 549 16→0; 523 warning storm 103,394→152); (B) synthetic bar/L/U/T/O/cross **STAY 0 Fatal/0 Severe**, reroute NO, room-level zoning intact (15–144 zones); (C) fresh la_suburban n=30 = **100% gen-success** (was 80%), 0 `failed_`; (D) 5 real non-rect footprints → **0 Fatal/0 Severe**. Report: `openubem/outputs/LayoutGenerator/t12_live_smoke.md`. **Intended graceful-degrade behavior:** most messy la_suburban non-rect MidriseApartments now legitimately fall back to per-floor rather than emit a broken room layout (correctness > coverage on adversarial live geometry).
+
+### Phase 5 — expansion + full sim + DOE-vs-generated comparison → **CP-4 (USER SIGN-OFF)**
+- [ ] **T13** — expand `MODULE_SPECS` + classifier routing to complex/high-value archetypes: SmallHotel/LargeHotel (units+corridor — **reconcile the L06-vs-L08 hotel-dim conflict first**, stop-and-quote if unresolved), LargeOffice (corridor+core), School (hybrid: pack classroom wings, single-zone gym/cafeteria).
+- [ ] **T14** — cluster pilot (`sbatch` fire-and-forget): real-cell subset in `zone` vs `floor` vs `building`, harvest EUI/runtime → `openubem/outputs/comparisons/`; cheap-model monitor ≥30-min.
+- [ ] **T15** — DOE-vs-generated comparison report + plots (zones, loads, EUI, runtime) → report + `.png`s in `openubem/outputs/`.
+- [ ] **CP-4 — USER SIGN-OFF.** No production `auto` change and no baseline promotion without explicit user sign-off.
+
+### Visual deliverable
+- [x] **T16** — layout visual grid: DOE MidriseApartment single-floor reference panel + generated floor plans (bar/L/U/T/courtyard/rotated/wide-bar/cross), colored by space type. `scripts/plot_layout_grid.py` → **`openubem/outputs/LayoutGenerator/layoutgenerator_doe_vs_generated.png`** (all layoutGenerator figures now live under `openubem/outputs/LayoutGenerator/` per user directive 2026-07-02).
+- [x] **T16b — continuous corridor spine (manager/Opus, delicate) — DONE 2026-07-02, CP-2 RE-CONFIRMED.** User reviewed the T16 grid: DOE has one continuous central corridor but the generated L/U/T/O/Cross had a disconnected corridor stub per wing. Rebuilt so multi-wing + O route to `_pack_connected_spine` — wing midlines joined by orthogonal L-bridges into ONE network, `corridor = spine.buffer(c/2) ∩ footprint`, then a full-span `_grid_cut` (corridor-edge + wing-bound lines) into simple hole-free cells. **Conforming by construction → no merge step**, so the O-loop is cut at corners (donut Fatal cannot re-form) and geomeppy `intersect_match` never hits its coplanar-containment IndexError. (An earlier aggressive-merge cut looked cleaner at 8–15 zones but created T-junctions that crashed geomeppy on L → reroute → degenerate surfaces; removed it.) Single-wing (compact/slab) path UNCHANGED → T11 stays valid. Corridors now continuous & turn corners; zones/floor bar 5 / L 15 / U 27 / T 18 / O 48 / cross 21 (honest conforming count for continuous-corridor non-rect footprints); **area drift +0.00000%, min edge 1.68 m, intersect_match OK direct (no reroute); 130/130 unit tests green.** **E+ 23.1 re-verify DONE (Sonnet full-annual, Chicago TMY3): bar/L/U/T/O/cross all Completed Successfully, 0 Fatal / 0 Severe, reroute-fired=NO. L kept room-level zones (45, `_w0c0…`), O courtyard loop clean (144 zones). Extruded zone counts L 3→45, U 30→81, T 30→54, O 45→144, cross 36→63; bar 15 unchanged. → CP-2 RE-CONFIRMED for the revised geometry.**

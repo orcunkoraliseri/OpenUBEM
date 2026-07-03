@@ -570,6 +570,104 @@ def _force_reroute_coreperim_to_one_zone_per_floor(
     return True
 
 
+def _force_reroute_room_layout_to_one_zone_per_floor(
+    idf: GeomIDF, zones: list[dict], reason: str
+) -> bool:
+    """Collapse a room_layout building to one_zone_per_floor when intersect_match fails.
+
+    layoutGenerator emits many corridor/unit sub-zones per footprint; on live OSM
+    footprints geomeppy's break_polygons can still raise (near-coincident shared wing
+    edges → empty difference → IndexError). The core/perim reroute cannot help — these
+    are room_layout zones — so this is room_layout's own safety net: rebuild the true
+    footprint as a single stacked block. Returns True if the rebuild succeeded.
+
+    A hole-free reconstructed footprint (L/U/T/cross) becomes one block per floor. A
+    holed reconstruction (courtyard) must NOT become a single holed block — that is the
+    donut E+ Fatal _split_donut exists to avoid — so it is left untouched (re-raise).
+    """
+    import shapely
+    from shapely.ops import unary_union
+
+    rl_zones = [z for z in zones if z.get("mode") == "room_layout"]
+    if not rl_zones:
+        return False
+
+    sample = rl_zones[0]
+    osm_id = sample["name"].rsplit("_F", 1)[0] if "_F" in sample["name"] else sample["name"]
+    floor_h = sample["height_m"]
+    archetype_id = sample.get("archetype_id", "")
+    floor_indices = {_get_floor_idx(z["name"]) for z in rl_zones if _get_floor_idx(z["name"]) is not None}
+    n = len(floor_indices) if floor_indices else 1
+
+    from shapely.geometry import Polygon
+
+    floor0 = [z["floor_polygon"] for z in rl_zones if (_get_floor_idx(z["name"]) or 0) == 0]
+    # Close sub-mm seams from per-wing rotation round-trip drift (1 cm buffer bridges the
+    # ~0.4 mm gaps that leave the wing union a MultiPolygon) without filling real voids.
+    merged = unary_union([p.buffer(0.01, join_style=2) for p in floor0]).buffer(-0.01, join_style=2)
+    footprint = shapely.make_valid(merged).buffer(0)
+    if footprint.geom_type == "MultiPolygon":
+        footprint = max(footprint.geoms, key=lambda g: g.area)
+    if footprint.is_empty or footprint.geom_type != "Polygon":
+        return False  # multipart/degenerate — cannot safely collapse
+    # Keep real courtyard voids (single holed block = the donut E+ Fatal); drop sliver rings.
+    if any(Polygon(r).area >= 1.0 for r in footprint.interiors):
+        return False
+    if list(footprint.interiors):
+        footprint = Polygon(footprint.exterior)
+
+    # The buffer(0.01)/buffer(-0.01) round-trip leaves near-collinear vertices along the
+    # reconstructed exterior; geomeppy merges each near-collinear run into one wall that E+
+    # CheckConvexity then rejects as non-planar (→ Severe → Fatal on live footprints). Snap
+    # to a 5 mm grid and drop collinear points so every extruded wall is planar.
+    footprint = shapely.set_precision(footprint, 0.005)
+    if footprint.geom_type == "MultiPolygon":
+        footprint = max(footprint.geoms, key=lambda g: g.area)
+    if footprint.is_empty or footprint.geom_type != "Polygon":
+        return False
+    footprint = footprint.simplify(0.02, preserve_topology=True)
+    if footprint.geom_type != "Polygon" or footprint.is_empty:
+        return False
+
+    coords = list(footprint.exterior.coords)[:-1]
+    total_height = n * floor_h
+
+    logger.warning(
+        "rerouting room_layout to one_zone_per_floor (%s): osm_id=%s, n_floors=%d", reason, osm_id, n,
+    )
+
+    _purge_idf_geometry(idf)
+    for z in list(rl_zones):
+        if z in zones:
+            zones.remove(z)
+
+    block_name = f"{osm_id}_whole"
+    fallback_zones: list[dict] = []
+    try:
+        idf.add_block(name=block_name, coordinates=coords, height=total_height, num_stories=n)
+        for i in range(n):
+            zone_name = f"{osm_id}_F{i}_whole"
+            _rename_geomeppy_zone(idf, f"Block {block_name} Storey {i}", zone_name)
+            fallback_zones.append({
+                "name": zone_name,
+                "mode": "room_layout",
+                "floor_polygon": footprint,
+                "coords_m": coords,
+                "height_m": floor_h,
+                "archetype_id": archetype_id,
+                "extruded": True,
+                "narrow_fallback": True,
+                "generation_status_note": "room_layout_intersect_fallback",
+            })
+    except Exception as e:
+        logger.warning("block %s room_layout reroute failed (%s) — skipping", osm_id, e)
+        return False
+
+    for z in reversed(fallback_zones):
+        zones.insert(0, z)
+    return True
+
+
 def _rebuild_degenerate_coreperim(idf: GeomIDF, zones: list[dict]) -> bool:
     """After intersect_match: detect degenerate/tiny core/perim surfaces and reroute.
 
@@ -691,9 +789,10 @@ def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> No
         logger.warning(
             "intersect_match raised %s — rerouting to one_zone_per_floor", type(_exc_im).__name__
         )
-        did_reroute = _force_reroute_coreperim_to_one_zone_per_floor(
-            idf, zones, f"intersect_match exception: {type(_exc_im).__name__}"
-        )
+        reason = f"intersect_match exception: {type(_exc_im).__name__}"
+        did_reroute = _force_reroute_coreperim_to_one_zone_per_floor(idf, zones, reason)
+        if not did_reroute:
+            did_reroute = _force_reroute_room_layout_to_one_zone_per_floor(idf, zones, reason)
         if did_reroute:
             try:
                 idf.intersect_match()

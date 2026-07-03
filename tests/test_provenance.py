@@ -88,19 +88,23 @@ class TestLineageSummary:
         })
 
     def test_counts_and_confidence(self):
+        # Row 3 ("ASHRAE_STANDARD" | "") is now imputed-LOW-0.1, not observed-1.0
+        # (LEGACY_TOKEN_WEIGHT reweight, T07.1): count 0->1, conf 1.0 -> (0.1+1.0)/2.
         out = prov.add_lineage_summary(self._frame())
-        assert list(out["imputed_fields_count"]) == [0, 1, 2, 0, 2]
-        expected = [1.0, (0.1 + 1.0) / 2, (0.5 + 1.0) / 2, 1.0, (0.1 + 0.1) / 2]
+        assert list(out["imputed_fields_count"]) == [0, 1, 2, 1, 2]
+        expected = [1.0, (0.1 + 1.0) / 2, (0.5 + 1.0) / 2, (0.1 + 1.0) / 2, (0.1 + 0.1) / 2]
         np.testing.assert_allclose(out["mean_imputation_confidence"].to_numpy(), expected)
 
     def test_observed_only_rows_score_one(self):
+        # "ASHRAE_STANDARD" is now imputed-LOW-0.1 (LEGACY_TOKEN_WEIGHT, T07.1), so row 1
+        # is no longer observed-only: count 0->1, conf 1.0 -> (0.1+1.0)/2 = 0.55.
         df = pd.DataFrame({
             "provenance_a": ["", "ASHRAE_STANDARD"],
             "provenance_b": [None, ""],
         })
         out = prov.add_lineage_summary(df)
-        assert list(out["imputed_fields_count"]) == [0, 0]
-        assert list(out["mean_imputation_confidence"]) == [1.0, 1.0]
+        assert list(out["imputed_fields_count"]) == [0, 1]
+        np.testing.assert_allclose(out["mean_imputation_confidence"].to_numpy(), [1.0, (0.1 + 1.0) / 2])
 
     def test_no_provenance_columns_default_one(self):
         df = pd.DataFrame({"x": [1, 2]})
@@ -116,3 +120,22 @@ class TestLineageSummary:
         out = prov.add_lineage_summary(df, prov_cols=["provenance_x"])
         assert out.loc[0, "imputed_fields_count"] == 1
         assert out.loc[0, "mean_imputation_confidence"] == 0.1
+
+    def test_legacy_token_weights_pinned(self):
+        # Ratified T07.1 grades: KDE_IMPUTED/HEURISTIC -> MED 0.5; PDE_GENERATED/
+        # ASHRAE_STANDARD -> LOW 0.1 (all imputed, none observed-grade 1.0).
+        expected = {
+            "KDE_IMPUTED": 0.5,
+            "HEURISTIC": 0.5,
+            "PDE_GENERATED": 0.1,
+            "ASHRAE_STANDARD": 0.1,
+        }
+        for token, weight in expected.items():
+            assert prov._field_score(token) == (True, weight)
+
+        df = pd.DataFrame({"provenance_a": list(expected.keys())})
+        out = prov.add_lineage_summary(df, prov_cols=["provenance_a"])
+        assert list(out["imputed_fields_count"]) == [1, 1, 1, 1]
+        np.testing.assert_allclose(
+            out["mean_imputation_confidence"].to_numpy(), list(expected.values())
+        )
