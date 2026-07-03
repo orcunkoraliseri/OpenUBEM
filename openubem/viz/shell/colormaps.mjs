@@ -5,6 +5,8 @@
 // far exceeds any 8-colour ceiling. One neutral grey is reserved for no-data,
 // kept OFF every ramp.
 
+import { classifyQuantile, normalizeContinuous } from "./viewer_logic.mjs";
+
 export const NO_DATA_GREY = [176, 176, 176]; // distinct from every ramp colour
 
 // 10-stop anchors (matplotlib), linearly interpolated.
@@ -82,4 +84,41 @@ export function archetypeColor(archetypeId) {
 
 export function archetypeSector(archetypeId) {
   return ARCHETYPE_SECTOR[archetypeId] || "Fallback";
+}
+
+// ---- T22 (Phase F) constants — UNUSED since the debug fix (D01, PLAN_3dviz_
+// debug_representation.md §6.2): kept exported so the diff stays minimal, but
+// no longer read by `buildingFillColor` / `buildingFillOpacity`. Footprint-only
+// buildings now show their real EUI/archetype fill; "no OSM height" is
+// conveyed only by the dashed outline overlay + detail-pane badge, not fill.
+export const FOOTPRINT_ONLY_MUTED = [228, 223, 214]; // #E4DFD6
+export const FOOTPRINT_ONLY_OPACITY = 0.45;
+
+// One source of truth for per-building fill colour (T10/T11). Debug fix
+// (docs/docs_ACTIVE/3D/debug/PLAN_3dviz_debug_representation.md D01): the
+// former T22 footprint-only mute short-circuited here BEFORE the EUI/archetype
+// lookup, painting a flat beige over real simulation output for any building
+// whose OSM height was missing (up to 100% of buildings in some cells). EUI
+// and archetype are real and bound in `attrs` regardless of height provenance
+// — footprint-only buildings now flow through to the same lookup as every
+// other building. The "no OSM height" fact is conveyed ONLY by the dashed
+// outline overlay (`viewer_app.mjs::_buildFlatFootprintOverlay`) and the
+// detail-pane badge (`flatFootprintBadge`), never by fill colour/opacity.
+// `attrs` = the bound CityJSON attributes for one building; `opts` = { mode,
+// classified, rampName, breaks, min, max } from the Viewer's current view state.
+export function buildingFillColor(attrs, opts) {
+  if (opts.mode === "archetype") {
+    // routes unmapped ids to the distinct Fallback swatch, never no-data grey.
+    return attrs.archetype_id === undefined ? NO_DATA_GREY.slice() : archetypeColor(attrs.archetype_id);
+  }
+  const v = attrs.total_eui_kwh_m2;
+  if (typeof v !== "number" || Number.isNaN(v)) return NO_DATA_GREY.slice();
+  if (opts.classified) {
+    return classColor(opts.rampName, classifyQuantile(v, opts.breaks), 5);
+  }
+  return sampleRamp(opts.rampName, normalizeContinuous(v, opts.min, opts.max));
+}
+
+export function buildingFillOpacity(attrs) {
+  return 1.0;
 }

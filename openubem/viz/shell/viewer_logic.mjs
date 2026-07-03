@@ -92,3 +92,57 @@ export function displayToken(value) {
   if (value === null || value === undefined || value === "") return "not recorded";
   return String(value);
 }
+
+// ---- T17 (Phase E, F1): basemap ground-plane placement (pure geometry, no
+// THREE/DOM, so it is unit-testable without a browser) ----
+// `extentLocal` = [minx, miny, maxx, maxy], scene-local metres (UTM minus
+// `+common_origin_utm`) — the SAME frame T04's `context` is emitted in.
+// `center` is the loader's recenter offset expressed in that same frame
+// (viewer_app.mjs derives it exactly like `_buildContext` derives its own
+// `center` from `this.boundingBox.getCenter()` — the documented proxy for
+// `this.loaderMatrix`, PLAN Phase-E "Scene seam"). Returns the plane's local
+// centre + size so the textured quad registers exactly like `context` does.
+export function basemapPlaneLayout(extentLocal, center) {
+  const [minx, miny, maxx, maxy] = extentLocal;
+  const cx = center && typeof center.x === "number" ? center.x : 0;
+  const cy = center && typeof center.y === "number" ? center.y : 0;
+  return {
+    width: maxx - minx,
+    height: maxy - miny,
+    x: (minx + maxx) / 2 - cx,
+    y: (miny + maxy) / 2 - cy,
+  };
+}
+
+// A basemap is rendered only when the scene payload actually carries one
+// (T19 graceful-degrade: no cached raster for this run -> `scene.basemap` is
+// omitted entirely, never a placeholder/fabricated tile).
+export function shouldRenderBasemap(basemap) {
+  return !!(basemap && Array.isArray(basemap.extent_local)
+    && basemap.extent_local.length === 4 && typeof basemap.image === "string"
+    && basemap.image.length > 0);
+}
+
+// ---- T18 (Phase E, F2): flat-footprint clarity — derived from EXISTING
+// bound provenance (`data_quality_flag` / `provenance_height_m`), NEVER a new
+// fabricated attribute. Geometry stays unchanged (Phase-E binding constraint
+// 1) — this only flags a distinct visual treatment + a detail-pane line. ----
+const NO_HEIGHT_BADGE_TEXT =
+  "Height: not in OSM — footprint only (no above-ground massing).";
+
+export function heightMissing(attrs) {
+  if (!attrs) return false;
+  const flag = attrs.data_quality_flag;
+  // Real runs mix "," (Step-1 osm_fetcher tokens) and "|" (Step-2 provenance
+  // append) separators in the SAME string — verified on the pilot's own
+  // flagged buildings (relation/11171793 / relation/11171765):
+  // "no_floors,no_height,no_year|VINTAGE_NAN_PERMISSIVE_DEFAULT". No other
+  // token in the vocabulary contains "no_height" as a substring, so a plain
+  // substring test is exact and separator-agnostic.
+  if (typeof flag === "string" && flag.includes("no_height")) return true;
+  return attrs.provenance_height_m === "OSM_MISSING";
+}
+
+export function flatFootprintBadge(attrs) {
+  return heightMissing(attrs) ? NO_HEIGHT_BADGE_TEXT : null;
+}

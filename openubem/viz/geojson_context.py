@@ -47,17 +47,32 @@ def _translate_ring(coords, ox, oy):
     return [[float(x) - ox, float(y) - oy] for (x, y, *_) in coords]
 
 
+def _translate_coords(coords, ox, oy):
+    """Recursively translate a GeoJSON `"coordinates"` array by (-ox, -oy).
+
+    Works for ANY geometry nesting depth (Point/LineString/Polygon/Multi*)
+    since a leaf coordinate is always a `[x, y, ...]` list of numbers — the
+    recursion just walks down until it hits one. Shared scene-frame helper
+    (PLAN Phase-G T24 §How: "factor a shared `_to_scene_frame`") so T04's
+    footprint placeholders and T23/T24's road/green/block context layers
+    translate UTM -> scene-local metres identically.
+    """
+    if not coords:
+        return coords
+    if isinstance(coords[0], (int, float)):
+        return [float(coords[0]) - ox, float(coords[1]) - oy]
+    return [_translate_coords(c, ox, oy) for c in coords]
+
+
+def translate_geojson_geometry(gj, ox, oy) -> dict:
+    """Translate any GeoJSON geometry dict's coordinates into scene-local
+    metres (UTM − origin). Used by T04 (footprints), T24 (roads/green/blocks)."""
+    return {"type": gj["type"], "coordinates": _translate_coords(gj["coordinates"], ox, oy)}
+
+
 def _footprint_to_scene(geom, ox, oy):
     """Translate a footprint polygon into scene-local metres (UTM − origin)."""
-    gj = mapping(geom)
-    if gj["type"] == "Polygon":
-        gj = {"type": "Polygon",
-              "coordinates": [_translate_ring(r, ox, oy) for r in gj["coordinates"]]}
-    elif gj["type"] == "MultiPolygon":
-        gj = {"type": "MultiPolygon",
-              "coordinates": [[_translate_ring(r, ox, oy) for r in poly]
-                              for poly in gj["coordinates"]]}
-    return gj
+    return translate_geojson_geometry(mapping(geom), ox, oy)
 
 
 def build_context_geojson(buildings_gdf, emitted_osm_ids, common_origin) -> dict:

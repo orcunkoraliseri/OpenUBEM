@@ -9,11 +9,12 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
 import {
   NO_DATA_GREY, RAMPS, sampleRamp, classColor, archetypeColor, archetypeSector,
-  SECTOR_COLOR,
+  SECTOR_COLOR, buildingFillColor, buildingFillOpacity,
 } from "./colormaps.mjs";
 import {
-  quantileBreaks, classifyQuantile, normalizeContinuous,
+  quantileBreaks,
   lodZGate, trustBadge, resolutionBorder, displayToken,
+  basemapPlaneLayout, shouldRenderBasemap, heightMissing, flatFootprintBadge,
 } from "./viewer_logic.mjs";
 
 // Loader semantic-type indices (defaults/colors.js key order) — windows/doors get
@@ -57,6 +58,8 @@ class Viewer {
     this._initThree();
     this._loadGeometry();
     this._buildContext();
+    this._buildBasemap();
+    this._buildFlatFootprintOverlay();
     this._buildLegendData();
     this.recolor();
     this._frameNeighbourhood();
@@ -149,11 +152,17 @@ class Viewer {
       triLod[t] = lodid.getX(t * 3);
     }
 
+    // itemSize 4 (RGBA): three.js auto-enables per-vertex alpha (USE_COLOR_ALPHA)
+    // whenever the "color" attribute has 4 components + material.transparent —
+    // the only way to mute individual footprint-only buildings (T22) translucent
+    // while the rest stay opaque, since the whole neighbourhood is one merged
+    // draw call (T02 measurement 3: per-surface identity survives via attributes,
+    // not separate meshes/materials per building).
     geom.setAttribute("color",
-      new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+      new THREE.BufferAttribute(new Float32Array(n * 4), 4));
 
     const material = new THREE.MeshBasicMaterial({
-      vertexColors: true, side: THREE.DoubleSide,
+      vertexColors: true, side: THREE.DoubleSide, transparent: true,
     });
     mesh.material = material;
 
@@ -176,42 +185,47 @@ class Viewer {
   }
 
   // ---- colouring (T10/T11) ----
+  // Delegates to the pure, unit-tested `buildingFillColor` (colormaps.mjs) —
+  // one source of truth shared with the node test suite, gated by T22's
+  // footprint-only mute (`heightMissing`) BEFORE the EUI/archetype lookup.
   _colorForBuilding(objIdx) {
     const a = this.attrs(objIdx);
-    if (this.mode === "archetype") {
-      // Diverge the two paths: truly-absent id -> reserved no-data grey; any
-      // PRESENT id (incl. OpenUBEMUnknown / unmapped) -> archetypeColor, which
-      // routes unmapped ids to the distinct Fallback swatch, never no-data grey.
-      return a.archetype_id === undefined ? NO_DATA_GREY : archetypeColor(a.archetype_id);
-    }
-    // EUI (default)
-    const v = a.total_eui_kwh_m2;
-    if (typeof v !== "number" || Number.isNaN(v)) return NO_DATA_GREY;
-    if (this.classified) {
-      return classColor(this.rampName, classifyQuantile(v, this.euiBreaks), 5);
-    }
-    return sampleRamp(this.rampName, normalizeContinuous(v, this.euiMin, this.euiMax));
+    return buildingFillColor(a, {
+      mode: this.mode, classified: this.classified, rampName: this.rampName,
+      breaks: this.euiBreaks, min: this.euiMin, max: this.euiMax,
+    });
+  }
+
+  // T22: footprint-only buildings render translucent (opacity ~0.45); every
+  // other building stays fully opaque (1.0) — never fabricates a colour, only
+  // mutes the confident one.
+  _opacityForBuilding(objIdx) {
+    return buildingFillOpacity(this.attrs(objIdx));
   }
 
   recolor() {
     for (const rec of this.meshes) {
       const color = rec.geom.getAttribute("color");
-      // Cache per-building colour to avoid recomputing per vertex.
+      // Cache per-building colour+opacity to avoid recomputing per vertex.
       const cache = new Map();
       for (let v = 0; v < rec.n; v++) {
         const obj = rec.objectid.getX(v);
         const st = rec.surfacetype.getX(v);
-        let rgb;
+        let rgb, alpha;
         if (st === SURFTYPE_WINDOW || st === SURFTYPE_DOOR) {
-          rgb = GLASS_RGB;
+          rgb = GLASS_RGB; alpha = 1.0;
         } else if (this.selected !== null && obj === this.selected) {
-          rgb = HIGHLIGHT_RGB;
+          rgb = HIGHLIGHT_RGB; alpha = 1.0;
         } else {
-          rgb = cache.get(obj);
-          if (!rgb) { rgb = this._colorForBuilding(obj); cache.set(obj, rgb); }
+          let cached = cache.get(obj);
+          if (!cached) {
+            cached = { rgb: this._colorForBuilding(obj), alpha: this._opacityForBuilding(obj) };
+            cache.set(obj, cached);
+          }
+          rgb = cached.rgb; alpha = cached.alpha;
         }
         const c = srgbToLinearColor(rgb);
-        color.setXYZ(v, c.r, c.g, c.b);
+        color.setXYZW(v, c.r, c.g, c.b, alpha);
       }
       color.needsUpdate = true;
     }
@@ -245,6 +259,84 @@ class Viewer {
     }
     this.scene.add(group);
     this.contextGroup = group;
+  }
+
+  // ---- basemap ground-plane (T17, Phase E F1): offline georeferenced quad ----
+  // `scene.basemap` is embedded ONCE at generation time as a data-URI (T19) —
+  // no runtime fetch here, TextureLoader decodes the inline data-URI in place.
+  // Absent `scene.basemap` (no cache for this run, PLAN §T16 non-fatal) -> no
+  // mesh, current behaviour preserved.
+  _buildBasemap() {
+    const basemap = this.payload.basemap;
+    if (!shouldRenderBasemap(basemap)) { this.basemapMesh = null; return; }
+
+    // Same recenter proxy `_buildContext` uses for `this.loaderMatrix`
+    // (PLAN Phase-E "Scene seam": context/basemap both pass through it).
+    const center = new THREE.Vector3();
+    if (this.boundingBox) this.boundingBox.getCenter(center);
+    center.z = 0;
+
+    const layout = basemapPlaneLayout(basemap.extent_local, center);
+    const geom = new THREE.PlaneGeometry(layout.width, layout.height);
+    const texture = new THREE.TextureLoader().load(basemap.image);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    // Row 0 of the cached PNG = north (top, T16); three.js's default
+    // flipY=true already matches a standard top-down PNG onto a +Z-facing
+    // PlaneGeometry (XY plane, our Z-up scene needs no extra rotation).
+    const material = new THREE.MeshBasicMaterial({ map: texture, side: THREE.FrontSide });
+    const mesh = new THREE.Mesh(geom, material);
+    // Just under the building masses (z=0 floor) to avoid z-fighting; drawn
+    // first so building geometry always wins the depth test above it.
+    mesh.position.set(layout.x, layout.y, -0.1);
+    mesh.renderOrder = -1;
+    this.scene.add(mesh);
+    this.basemapMesh = mesh;
+    this.basemapAttribution = basemap.attribution || "";
+  }
+
+  // ---- flat-footprint clarity (T18, Phase E F2) ----
+  // Geometry is UNCHANGED (Phase-E binding constraint 1: never raise the
+  // roof) — this draws a distinct dashed-outline overlay, on top of the exact
+  // fallback extrusion, for buildings whose OSM height is missing
+  // (`heightMissing`, derived from EXISTING bound provenance). Distinct from
+  // BOTH the no-data hatch (failed buildings, solid grey wire) and the
+  // Fallback archetype fill (slate-violet) — a bright dashed magenta line.
+  _buildFlatFootprintOverlay() {
+    const group = new THREE.Group();
+    const mat = new THREE.LineDashedMaterial({
+      color: 0xff5fb0, dashSize: 0.6, gapSize: 0.4,
+    });
+    for (let i = 0; i < this.objectKeys.length; i++) {
+      if (!heightMissing(this.attrs(i))) continue;
+      const positions = this._lodNPositionsFor(i);
+      if (!positions || positions.length < 9) continue;
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+      const edges = new THREE.EdgesGeometry(geom);
+      const line = new THREE.LineSegments(edges, mat);
+      line.computeLineDistances();
+      group.add(line);
+    }
+    this.scene.add(group);
+    this.flatFootprintGroup = group;
+  }
+
+  // Read LOD-N (mass) triangle vertex positions for one building straight off
+  // the resident loader buffer — no re-fetch, no new geometry synthesized.
+  _lodNPositionsFor(objIdx) {
+    for (const rec of this.meshes) {
+      const pos = rec.geom.getAttribute("position");
+      const out = [];
+      for (let t = 0; t < rec.triCount; t++) {
+        if (rec.triObj[t] !== objIdx || rec.triLod[t] !== 0) continue;
+        for (let k = 0; k < 3; k++) {
+          const v = t * 3 + k;
+          out.push(pos.getX(v), pos.getY(v), pos.getZ(v));
+        }
+      }
+      if (out.length) return out;
+    }
+    return null;
   }
 
   _geojsonToShape(geometry, center) {
@@ -332,9 +424,30 @@ class Viewer {
     window.addEventListener("keydown", (e) => { if (e.key === "Escape") this._backToNeighbourhood(); });
 
     this._buildControls();
+    this._buildBasemapUI();
     this._buildLegend();
     this._buildCompassScale();
     this._buildDetailPane();
+  }
+
+  // ---- basemap toggle + always-visible attribution (T17) ----
+  _buildBasemapUI() {
+    if (!this.basemapMesh) return; // no cached raster for this run (graceful)
+    const el = document.createElement("div");
+    el.className = "ubem-basemap-ui";
+    el.innerHTML = `
+      <label><input type="checkbox" id="ubem-basemap-toggle" checked> Basemap</label>
+      <div class="ubem-attribution" id="ubem-basemap-attribution">${this.basemapAttribution}</div>
+    `;
+    this.mount.appendChild(el);
+    el.querySelector("#ubem-basemap-toggle")
+      .addEventListener("change", (e) => this._toggleBasemap(e.target.checked));
+  }
+
+  _toggleBasemap(visible) {
+    if (this.basemapMesh) this.basemapMesh.visible = visible;
+    const attr = this.mount.querySelector("#ubem-basemap-attribution");
+    if (attr) attr.style.display = visible ? "" : "none";
   }
 
   _buildControls() {
@@ -384,6 +497,15 @@ class Viewer {
     return `<span class="ubem-swatch" style="background:rgb(${rgb[0]},${rgb[1]},${rgb[2]})"></span>`;
   }
 
+  // Footprint-only legend cue (D02): a dashed line, not a fill swatch — the
+  // fill is no longer muted (D01), so the only remaining visual cue is the
+  // dashed-magenta outline overlay (`_buildFlatFootprintOverlay`, #ff5fb0).
+  _dashedLegendRow() {
+    return `<div class="ubem-legrow">
+      <span class="ubem-swatch ubem-swatch-dashed" style="border-top:2px dashed #ff5fb0"></span>
+      <span class="ubem-leglabel">footprint only (no OSM height) — dashed outline</span></div>`;
+  }
+
   _buildLegend() {
     let el = this.mount.querySelector(".ubem-legend");
     if (!el) { el = document.createElement("div"); el.className = "ubem-legend"; this.mount.appendChild(el); }
@@ -393,7 +515,8 @@ class Viewer {
           <span class="ubem-leglabel">${id}</span>
           <span class="ubem-legsub">${archetypeSector(id)}</span></div>`).join("");
       el.innerHTML = `<div class="ubem-panel-title">Archetype (by sector)</div>${rows}
-        <div class="ubem-legrow">${this._swatch(NO_DATA_GREY)}<span class="ubem-leglabel">no data</span></div>`;
+        <div class="ubem-legrow">${this._swatch(NO_DATA_GREY)}<span class="ubem-leglabel">no data</span></div>
+        ${this._dashedLegendRow()}`;
     } else {
       const breaks = this.euiBreaks;
       let body = "";
@@ -409,7 +532,8 @@ class Viewer {
           <div class="ubem-legrow"><span class="ubem-leglabel">${this.euiMin.toFixed(0)} → ${this.euiMax.toFixed(0)} kWh/m²</span></div>`;
       }
       el.innerHTML = `<div class="ubem-panel-title">Annual EUI (kWh/m²)</div>${body}
-        <div class="ubem-legrow">${this._swatch(NO_DATA_GREY)}<span class="ubem-leglabel">no data</span></div>`;
+        <div class="ubem-legrow">${this._swatch(NO_DATA_GREY)}<span class="ubem-leglabel">no data</span></div>
+        ${this._dashedLegendRow()}`;
     }
   }
 
@@ -484,9 +608,13 @@ class Viewer {
     const border = resolutionBorder(a.resolution_mode);
     const trust = trustBadge(a.trust_confidence === undefined ? null : a.trust_confidence);
     const glyphChar = { solid: "●", half: "◐", hollow: "○", not_recorded: "—" }[trust.glyph];
+    // T18 (Phase E F2): footprint-only disclosure, read from EXISTING bound
+    // provenance — never a new fabricated field, geometry is unchanged.
+    const flatBadge = flatFootprintBadge(a);
     this._detailEl.querySelector("#ubem-detail-badges").innerHTML = `
       <span class="ubem-badge ubem-border-${border.weight}">resolution: ${border.label}</span>
-      <span class="ubem-badge">trust: <b>${glyphChar}</b> ${trust.label}</span>`;
+      <span class="ubem-badge">trust: <b>${glyphChar}</b> ${trust.label}</span>
+      ${flatBadge ? `<span class="ubem-badge ubem-badge-flat">${flatBadge}</span>` : ""}`;
 
     // Verbatim field table (absent => "not recorded", never blank/fabricated).
     const rows = DETAIL_FIELDS.map((f) =>

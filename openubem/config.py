@@ -84,3 +84,22 @@ RECONSTRUCT_SERVICE_LOADS: bool = bool(int(os.environ.get("OPENUBEM_RECONSTRUCT_
 # fusion/ml stay OUT of the default tuple until Phase D/C ship (plan §6 T07 PINNED CONTRACT).
 IMPUTE_STRICT_MODE: bool = False
 IMPUTE_ENABLED_TIERS: tuple = ("spatial", "statistical")
+
+# ── Input-Imputation arc T11.3 — ML tier opt-in surface (Phase C) ─────────────
+# `ml` stays OUT of IMPUTE_ENABLED_TIERS above until CP-3 passes + user
+# sign-off (T11.7); reached only via ImputeConfig.per_input_tiers (opt-in).
+IMPUTE_ML_METHOD_BY_TARGET: dict = {
+    "year_built": "missforest",
+    "levels": "missforest",
+    "height": "missforest",
+    "height_m": "missforest",
+    "use_class": "missforest",
+}
+IMPUTE_ML_FLOORS: dict = {
+    "missforest": 1000,
+    "mice": 200,
+    "knn": 200,
+    "rf": 1000,
+    "histgbm": 5000,
+    "linear": 1000,
+}

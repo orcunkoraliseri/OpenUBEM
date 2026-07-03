@@ -82,6 +82,23 @@ stop-and-report gates (§7).
   - [x] T14 Six validation checkpoints as tests (Geometry/Value/Provenance/LOD/Reproducibility + a11y walkthrough) — completed 2026-07-02
   - [x] T15 LIVE_SMOKE: real Step-5 data → real viewer.html, evidence captured for manager — completed 2026-07-02
   - [ ] **CP-3 — MVP acceptance** (USER-SIGN-OFF: the viewer is faithful, reproducible, self-contained) — T13–T15 done + **MANAGER-AUDITED CLEAN 2026-07-02** (see §8 audit entry); STAGED and PARKED for manager-of-manager sign-off
+- [x] **Phase E — Post-MVP feature increment (F1 basemap + F2 flat-footprint clarity)**
+  - [x] T16 `basemap_raster.py`: fetch + reproject + cache a per-run georeferenced basemap — completed 2026-07-03
+  - [x] T17 Viewer ground-plane: georeferenced textured basemap quad + toggle + attribution — completed 2026-07-03
+  - [x] T18 Flat-footprint clarity: distinct dashed-outline style + "no height in OSM" badge — completed 2026-07-03
+  - [x] T19 Wire the basemap into the exporter (`build_scene` + `export_viewer`) — completed 2026-07-03
+  - [x] T20 Tests + LIVE_SMOKE re-validation — completed 2026-07-03 (Python 52/52, node 27/27, real live basemap fetch + regenerated `nyc_centre_viewer.html` with screenshots)
+  - [ ] **CP-4 — Feature-increment acceptance** — T16–T20 done, all tests green, LIVE_SMOKE evidence captured (see §8); MANAGER-AUDITED CLEAN 2026-07-03, presented to user together with staged CP-3
+- [ ] **Phase F — User review follow-ups (2026-07-03) + 12-cell batch delivery**
+  - [x] T22 Flat-footprint "muted placeholder" restyle — footprint-only buildings render muted/translucent (not confident EUI color), geometry untouched; fixes the purple-super-block reading — completed 2026-07-03, tests green (node 33/33, python 52/52), regenerated `openubem/outputs/3D/nyc_centre_viewer.html`, LIVE_SMOKE clean; awaiting manager spot-check
+  - [x] T21 Batch-generate all 12 phaseE-cell viewers → `openubem/outputs/3D/` (each with F1 basemap + F2 badge + T22 muted fill); archive each cell's Temp IDFs first — completed 2026-07-03, all 12 exist, all count-match, all offline-clean; awaiting manager final audit
+- [ ] **Phase G — Urban context vector layer (roads / green space / block boundaries) — user request 2026-07-03**
+  - [ ] T23 `context_features.py`: fetch + reproject + cache OSM roads / green space / (derived) block boundaries per run — NOT STARTED
+  - [ ] T24 Emit the three context layers into the scene payload under a NEW `urban_context` key (never overloads the T04 `context` placeholders) — NOT STARTED
+  - [ ] T25 Viewer render: a separate ground-plane context group (roads/green/blocks), z below the building masses, three independent toggles — NOT STARTED
+  - [ ] T26 Context colour + legend UI: fixed categorical styling distinct from the EUI ramp AND the archetype sectors, "OSM context — not simulated" label, toggles — NOT STARTED
+  - [ ] T27 Tests + LIVE_SMOKE (one real fetch on the pilot) + manager audit; optional 12-cell regen ride-along — NOT STARTED
+  - [ ] **CP-5 — context-layer acceptance** — manager audits offline/faithful/separate-from-buildings, then presents to the user (§7)
 
 ---
 
@@ -650,6 +667,393 @@ Each task: **What / Why / How / How to test.** Executor appends a §8 progress-l
 
 ---
 
+### Phase E — Post-MVP feature increment (F1 basemap + F2 flat-footprint clarity)
+
+*Authorized by the manager-of-manager 2026-07-03 ("go with your recommendations"). Two user-requested features
+folded in **before** CP-3 sign-off. The two binding constraints are UNCHANGED and dominate every task:*
+*(1) **faithful-to-model** — F2 must NOT fabricate height; geometry stays the exact fallback extrusion, only*
+*visual style + a provenance badge are added. (2) **self-contained / offline / reproducible** — F1 must NOT*
+*break offline: the basemap is fetched ONCE at generation time and embedded as a data-URI; **live/streaming*
+*tiles in the shipped HTML are PROHIBITED** (that is why a basemap was originally deferred, §9 note).*
+
+**Verified facts (manager, 2026-07-03 — the §5 discipline, already grepped so the executor does not re-derive):**
+- **Deps present in env:** `contextily`, `rasterio`, `PIL`, `mercantile` (import-checked). `contextily` is the
+  same library that renders the 2D `phaseE_overview_grid.png` basemap — reuse its Carto/OSM provider.
+- **Pilot bbox (nyc_centre `01_buildings.gpkg`, EPSG:32618):** `(585164.1, 4511216.0) → (586729.7, 4512606.3)`,
+  span **1566 m × 1390 m**; WGS84 `−73.99109,40.74747 → −73.97253,40.75995` (midtown Manhattan). One raster
+  embeds as a few-MB data-URI with no offline compromise.
+- **The two flat "no height" buildings the user flagged = the CP-2 "giant slabs":** `relation/11171793` =
+  **Grand Central Terminal** (155,536 m²) and `relation/11171765` = **Times Sq–42nd/Port Authority** (30,045 m²).
+  Both: `building_tag=train_station`, `location:underground`, `levels`+`height_m` `NaN`,
+  `provenance_height_m=OSM_MISSING`, `data_quality_flag="no_floors,no_height,no_year"`. **Faithful-to-model, not
+  a bug** — underground transit footprints with no above-ground massing in OSM.
+- **Scene seam:** `viewer_export.build_scene` returns `{"cityjson","context","provenance_coverage"}`
+  (`viewer_export.py:59-74`); F1 adds a `"basemap"` key alongside. Buildings + context are placed through the
+  loader recenter transform `this.loaderMatrix` (`viewer_app.mjs:120`); the basemap quad MUST pass through the
+  **same** transform, with its extent expressed in the common-origin local frame exactly like `context`.
+- **`data_quality_flag` is already bound into the viewer attributes** (confirmed at the T15 audit —
+  `way/162977896` showed a populated flag), so F2 reads existing provenance; it does NOT add a source field.
+
+---
+
+**T16 — `basemap_raster.py`: fetch + reproject + cache a per-run georeferenced basemap**
+- **What.** New module `openubem/viz/basemap_raster.py`. From `buildings_gdf.total_bounds` (UTM), pad ~5 %,
+  fetch a Carto/OSM basemap via `contextily` for the bbox, **reproject to the run's UTM CRS** with `rasterio`,
+  and write a per-run cached `06_basemap_utm.png` + `06_basemap_utm.json` sidecar (UTM extent + CRS +
+  attribution + provider + zoom). Fetch-once-then-cache = the pinned per-run snapshot (same discipline as
+  `01_buildings.gpkg`). Fetch failure / no network ⇒ return `None`, non-fatal.
+- **Why.** Feature F1 source side. Same basemap as the 2D grid, but cached so it is reproducible and embeds
+  offline. §2 offline constraint: the network touch happens at GENERATION time only; the shipped HTML embeds
+  bytes, never fetches.
+- **How.** `generate_basemap(buildings_gdf, out_dir, *, provider=CartoDB.PositronNoLabels, padding_frac=0.05,
+  target_px≈2048) -> dict|None`. **Must reproject** mercator→UTM (`rasterio.warp.reproject`,
+  `Resampling.bilinear`) so the raster is axis-aligned north-up in UTM — a bare relabel leaves ~17 m corner
+  error from meridian convergence over 1.5 km (unfaithful). Sidecar = `{"crs","extent_utm":[minx,miny,maxx,maxy],
+  "attribution":"© OpenStreetMap contributors © CARTO","provider","fetched_px","zoom"}`. No `Date`/random.
+  **The cache is the reproducibility anchor** — two exports from the same cached raster stay byte-identical
+  (CP-Reproducibility unaffected).
+- **How to test.** Unit test with a small synthetic gdf and a **monkeypatched** tile fetch (NO live network in
+  the suite — §2 hard rule): assert sidecar `extent_utm` == padded UTM bounds within tolerance, PNG written,
+  reproject invoked. The real live fetch is exercised only in T20's LIVE_SMOKE (one-off, out of CI), mirroring T15.
+
+---
+
+**T17 — Viewer ground-plane: render the basemap as a georeferenced textured quad**
+- **What.** In `viewer_app.mjs`, when `scene.basemap` is present, build a `THREE.Mesh(PlaneGeometry)` textured
+  with the embedded data-URI, sized/positioned to `basemap.extent_local` at `z = −0.1` (avoid z-fighting),
+  passed through `this.loaderMatrix` so it georegisters with the buildings. Add a show/hide toggle (default ON)
+  and an always-visible attribution line (© OSM/CARTO) whenever the basemap shows.
+- **Why.** F1 render side. `loaderMatrix` (`viewer_app.mjs:120`) is the shared recenter transform; the quad must
+  use it for exact registration.
+- **How.** `PlaneGeometry` sized `(x1−x0)×(y1−y0)`, centred at the extent midpoint, `z=−0.1`; apply
+  `loaderMatrix`. Texture via `THREE.Texture`/`TextureLoader` on the data-URI, `colorSpace = SRGBColorSpace`,
+  set `flipY` to match the north-up raster (row 0 = north). Unlit `MeshBasicMaterial` (V09 lighting rule — no
+  tint/shading of the map), top side only. Absent `scene.basemap` ⇒ no plane (current behaviour, graceful).
+  **This is a real georeferenced map, not decoration — no fabrication.**
+- **How to test.** `node --test` in `shell/`: a scene with a 1×1-px basemap + known `extent_local` adds one
+  ground mesh at the right local coords through `loaderMatrix`; the toggle hides/shows it; the attribution DOM is
+  present; an absent-basemap scene adds no mesh.
+
+---
+
+**T18 — Flat-footprint clarity: distinct style + "no height in OSM" badge**
+- **What.** Buildings whose height is OSM-absent (`data_quality_flag` contains `no_height`, or
+  `provenance_height_m == OSM_MISSING`) get (a) a distinct flat treatment reading as "footprint only" and (b) a
+  detail-pane line: **"Height: not in OSM — footprint only (no above-ground massing)."** **Geometry UNCHANGED**
+  (the faithful fallback extrusion stays; the roof is NOT raised).
+- **Why.** F2. The user flagged Grand Central; these are faithful underground/no-height footprints (verified
+  facts), not bugs. Surfaces existing provenance — same discipline as T12, zero fabrication.
+- **How.** Reuse the T12 provenance detail-pane path; derive a boolean `height_missing` **read from** the bound
+  `data_quality_flag`/`provenance_height_m` (NOT a new fabricated attribute). The style must be distinct from
+  BOTH the no-data hatch (failed buildings) AND the Fallback slate-violet — pick a non-colliding treatment
+  (e.g. a diagonal edge-line overlay on the footprint while retaining the normal EUI colour). Badge is
+  non-colour-only (WCAG). **Do not raise height** — massing stays faithful.
+- **How to test.** Unit: a building with `data_quality_flag="…no_height…"` ⇒ `height_missing` true, badge
+  string present, distinct-style flag set; a normal building ⇒ false, no badge. Manual: Grand Central
+  (`relation/11171793`) shows the badge on select.
+
+---
+
+**T19 — Wire the basemap into the exporter (`build_scene` + `export_viewer`)**
+- **What.** Extend `viewer_export.build_scene` to optionally read the cached `06_basemap_utm.png`+`.json`,
+  base64-embed the PNG as a `data:image/png;base64,…` URI, compute `extent_local = extent_utm − common_origin`,
+  and add `scene["basemap"] = {"image","extent_local","attribution","crs"}`. Missing basemap ⇒ omit the key
+  (graceful). Preserve `_scene_json` determinism (basemap bytes are stable from the cached file).
+- **Why.** F1 delivery seam — mirrors how `context`/metadata are assembled in `build_scene`
+  (`viewer_export.py:59-74`).
+- **How.** New kwarg `basemap_path: Path|None`; if given and present, load PNG+sidecar, embed; `extent_local`
+  subtracts `cityjson["metadata"]["+common_origin_utm"]`. `base64.b64encode`. The existing `</`→`<\/` escape in
+  `_scene_json` already covers the data-URI. Keep `content_hash` on `scene["cityjson"]` only (current behaviour —
+  basemap is cache-stable, so this does not weaken reproducibility); T20 adds a separate basemap-bytes-stable
+  assertion.
+- **How to test.** `build_scene` with a fixture basemap file ⇒ `scene["basemap"]` present,
+  `extent_local == extent_utm − origin`, `image` is a `data:image/png;base64` URI; without the file ⇒ key absent.
+  The existing zero-external-URL check still passes (a data-URI is not an external fetch).
+
+---
+
+**T20 — Tests + LIVE_SMOKE re-validation + manager audit**
+- **What.** (a) Extend `tests/test_viz_validation.py`: **CP-Basemap-Georef** (a known UTM corner maps to the
+  expected `extent_local` corner within tolerance through `extent_local + common_origin`), **CP-Offline** (still
+  ZERO external `http(s)` fetches on a basemap-embedded export — data-URI allowed), **CP-Reproducibility**
+  (two builds identical, unchanged), **CP-FlatFootprint** (Grand Central `osm_id` ⇒ `height_missing` + badge).
+  (b) **LIVE_SMOKE:** the ONE live-network step — an employee runs the real basemap fetch+reproject for
+  nyc_centre once (out of the CI suite, §2), regenerates `nyc_centre_viewer.html` WITH the basemap, and captures
+  fresh screenshots to the scratchpad. (c) Manager opens it: buildings sit correctly on midtown, Grand Central
+  badged, `file://` zero-network, attribution shown.
+- **Why.** The six-checkpoint discipline extended to the new features; [[feedback_synthetic_test_blind_spots]] —
+  the live fetch → reproject → embed path cannot be proven by synthetic fixtures alone.
+- **How.** Monkeypatch tiles in the unit tests; the real fetch runs ONLY in the LIVE_SMOKE (employee/manager,
+  not CI). Screenshots to the scratchpad for the manager spot-check.
+- **How to test.** Automated tests green on the pilot; manager sign-off recorded in the progress log with the
+  file-size delta, the georef spot-check, and the offline re-confirmation.
+
+> **CP-4 — Feature-increment acceptance.** STOP. The basemap (offline, georeferenced, attributed) + the
+> flat-footprint clarity land on the pilot **without** breaking faithful-to-model or self-contained. Manager
+> audits (georef correct? still zero external URLs? height not fabricated? byte-identical rebuild?), then
+> presents CP-4 **together with the staged CP-3** to the manager-of-manager for a combined MVP + increment
+> sign-off.
+
+---
+
+**T21 — Batch-generate a viewer.html for all 12 phaseE cells (runs AFTER T22 restyle + CP-4 greenlight)**
+- **What.** Once F1+F2 are validated on the pilot (CP-4) **and the T22 flat-footprint restyle is in**, produce
+  ONE self-contained `<cell>_viewer.html` — each WITH the F1 basemap + F2 flat-footprint clarity + the T22
+  muted footprint-only fill — for **all 12 phaseE cells** (NYC / LA / Austin ×
+  Centre / Urban / Suburban / Rural), written to **`openubem/outputs/3D/`** (create the dir; user request
+  2026-07-03 — all `.html` under `openubem/outputs/3D/`, not flat in `openubem/outputs/`). This is the 3D
+  analogue of the 2D `phaseE_overview_grid.png` matrix the user works from.
+- **Why.** User request 2026-07-03 — the viewer should cover the whole city×density matrix, not just the pilot,
+  and all viewer HTML should live under `openubem/outputs/3D/`. Gated on CP-4 **and T22** so a feature bug or the
+  purple-super-block rendering issue can't be baked into 12 files at once.
+- **How.** Loop the 12 cells under
+  `docs/docs_VALIDATION/validations/overAll/results/phaseE/<cell>/` (each has `01_buildings.gpkg`,
+  `05_results.csv`, `04_simulation_manifest.parquet` with `osm_id`+`idf_path`). **Per cell, in order:**
+  (1) **Archive its IDFs durably first if not already** — only `nyc_centre` has
+  `nyc_centre_step3_idfs_archive.zip`; the other 11 cells' `idf_path`s point at **volatile Temp**
+  (`%LOCALAPPDATA%\Temp\ubem_validation\phaseE\<cell>\step3\idfs\`, verified present: 149–1779 IDFs/cell), so
+  zip each cell's IDFs beside its results (T02 precedent) so the output is reproducible. (2) Generate the cell's
+  **own** basemap (T16, its own bbox). (3) `export_viewer_from_run(run_id=<cell>, results_dir=<cell dir>,
+  manifest_path=<cell>/04_simulation_manifest.parquet, basemap_path=<cell cache>,
+  out_dir="openubem/outputs/3D")`. **If a cell's IDFs are
+  missing/unreadable, STOP and report that cell — do NOT re-simulate** ([[feedback_sonnet_for_cluster_harvest]]
+  — but note this batch is LOCAL emit, not a cluster job). Heaviest = `nyc_urban` (1779 bldgs, ~73 MB projected,
+  under the 100 MB warn); if any file exceeds ~100 MB, log it (no silent cap). *Optional nicety (note only, not
+  required): a small `openubem/outputs/index.html` gallery linking the 12.*
+- **How to test.** Assert 12 `openubem/outputs/3D/<cell>_viewer.html` exist; run the CP-Offline zero-external-URL
+  check across **all 12** (not just the pilot); each file's `n_buildings` == its manifest success-row count;
+  manager spot-checks 2–3 cells' renders (one dense, one sparse) for correct basemap registration +
+  Grand-Central-style badges + the T22 muted footprint-only fill. Record per-cell file sizes + building counts
+  in the progress log.
+
+> **Post-CP-4 delivery note.** T21 is dispatched only after CP-4 passes on the pilot **and T22 lands**. The
+> manager audits the 12-cell batch (all 12 offline, a sample georef-correct + badged + footprint-only muted)
+> before it is presented to the user — it does not open a new user gate; it rides on the combined CP-3 + CP-4
+> sign-off.
+
+---
+
+**T22 — Flat-footprint "muted placeholder" restyle (fixes the purple-super-block reading)**
+- **What.** Change ONLY the fill style of the footprint-only (`heightMissing` == true) buildings in the
+  neighbourhood (LOD-N) view: instead of painting them with the confident viridis EUI color like real
+  buildings, render them in a **neutral translucent placeholder grey** (reuse the `NO_DATA_GREY` family already
+  used for failed/absent buildings, but as a *distinct* — not identical — state so they're not confused with
+  never-simulated buildings), keeping the existing F2 dashed magenta outline + "footprint only — no OSM height"
+  badge. **Geometry is NOT touched** (the 3.5 m imputed extrusion stays exactly as emitted — Phase-E binding
+  constraint 1). The EUI value stays fully available in the click-through detail pane and in the CityJSON
+  attributes — only the neighbourhood-view *paint* changes.
+- **Why.** User review 2026-07-03: the `nyc_centre` viewer's centre reads as one purple "collapsed super-block."
+  Root cause (manager-diagnosed against `01_buildings.gpkg` + `05_results.csv`): **121/738 buildings (≈50 % of
+  the cell's ground area) are footprint-only** — OSM gives them no height/floors (`no_floors,no_height,no_year`),
+  so the pipeline imputes **1 storey / 3.5 m** and they render as big flat EUI-colored slabs (the largest is
+  `relation/11171793` = Grand Central Terminal, a single legitimate 155,536 m² OSM relation; next
+  `relation/11171765` ≈ 30,000 m²). They are **separate, faithful OSM footprints — NOT a geometry merge** — but
+  painting a guessed-height mass with a confident EUI color over-represents them and visually swallows the real
+  towers. Muting them is the *more* faithful rendering: their EUI rests on a fabricated 1-storey height, and the
+  F2 badge already declares "no above-ground massing" while we currently draw a solid colored 3.5 m slab.
+  Manager decision 2026-07-03 (Option 1 of a user question that timed out; recommended + reversible — surface it
+  for the user's veto on re-review).
+- **How.** In `viewer_app.mjs::_colorForBuilding` (or `recolor`), branch on `heightMissing(this.attrs(i))`
+  BEFORE the viridis lookup → return the muted placeholder color + set the mesh material `transparent:true,
+  opacity≈0.45`. Keep it visually **distinct from** both (a) the failed/no-data solid grey hatch and (b) the
+  Fallback slate-violet — pick a lighter neutral so the three states stay legible together (document the three
+  in a one-line comment). Do NOT alter `attribute_binding` / the CityJSON — this is a **viewer-render-only**
+  change so already-generated `.city.json` payloads need no re-emit. The dashed-outline group (F2) and the
+  detail-pane EUI line are unchanged. Regenerate `nyc_centre_viewer.html` (into `openubem/outputs/3D/`) as the
+  visual proof.
+- **How to test.** (a) Extend the node test suite: a footprint-only fixture building returns the muted
+  placeholder color, NOT its viridis-EUI color; a normal building is unaffected; the muted color ≠ `NO_DATA_GREY`
+  and ≠ Fallback. (b) The click detail pane on a footprint-only building still shows its real `total_eui_kwh_m2`
+  (value not lost). (c) Regenerate `nyc_centre_viewer.html`, headless-screenshot the centre, confirm the purple
+  super-block now reads as muted/recessed with real towers standing out. (d) Full existing suite stays green
+  (Python + node). Manager opens the regenerated file before T21 batch.
+
+---
+
+### Phase G — Urban context vector layer (roads / green space / block boundaries)
+
+*Authorized by the manager-of-manager 2026-07-03 ("colour the block borders, roads, green spaces as a separate
+layer from the buildings"). This is the **vector** analogue of the Phase-E raster basemap (F1) — richer, toggleable,
+colour-styled ground context — and it obeys the SAME two binding constraints, which dominate every task below:*
+
+***Phase-G binding preamble (READ FIRST — these are hard rules, not polish):***
+1. ***This layer is OSM context, NOT simulation output.*** Roads, green space, and block boundaries are drawn as
+   **ground-plane context around/under the building masses** — exactly the role the raster basemap plays. They are
+   **never** recoloured by a result (EUI, archetype, carbon), **never** extruded into masses that could be mistaken
+   for buildings, and are **always** labelled "OSM context — not simulated" in the legend. A viewer that lets a road
+   or a park take an EUI colour is a faithful-to-model violation.
+2. ***Offline / self-contained / reproducible — identical discipline to T16/T19.*** The OSM fetch happens **ONCE at
+   generation time**; the shipped HTML embeds the vector features **inline** and performs **zero runtime fetch**.
+   The per-run cached files are the reproducibility anchor (two exports from the same cache → byte-identical).
+3. ***Block boundaries are DERIVED, and must say so.*** OSM has no authoritative "city block" object; block polygons
+   are **derived by polygonizing the fetched road network** (`shapely.ops.polygonize`). They are outline-only,
+   tagged `derived: true` / `source: "osm_road_polygonize"`, and labelled "blocks (derived from OSM roads)" — never
+   presented as a cadastre/parcel authority. This is the same class of clearly-labelled geometric context as the T04
+   LOD-0 extruded footprints; it fabricates no *model* value. If a cleaner OSM-native block source is wanted instead,
+   that is a manager decision — STOP and ask, do not silently switch sources.
+4. ***Do NOT overload the existing `context` key.*** `scene["context"]` is the T04 failed-building placeholder
+   collection (`geojson_context.py`). The new layers land under a **separate** `scene["urban_context"]` key so the
+   two never entangle.
+
+**Verified facts (manager, 2026-07-03 — the §5 discipline, grepped so the executor does not re-derive):**
+- **OSM fetch path already exists and is pinned:** `openubem/acquisition/osm_fetcher.py::ingest_buildings`
+  (`osm_fetcher.py:26`) uses `osmnx` **pinned `[1.9, 2.0)`** (`osm_fetcher.py:15-17`) via
+  `ox.features.features_from_bbox(bbox, tags=…)` (`:43`), then `gdf.estimate_utm_crs()` + `to_crs(utm)` (`:55-56`).
+  T23 reuses this exact fetch+reproject idiom with **different tags** (roads/green), NOT the building tag — do not
+  route roads/green through `ingest_buildings` (its 7-step cleaner + quality-flag logic is building-specific);
+  call `ox.features.features_from_bbox`/`features_from_polygon` directly in the new module.
+- **Raster-basemap cache discipline to mirror:** `openubem/viz/basemap_raster.py::generate_basemap` (T16) — pad
+  bounds, fetch, reproject to run UTM, write a per-run `06_*` cache + JSON sidecar, **return `None` on
+  fetch-failure / no-network (non-fatal)**. T23 mirrors this exactly (new `06_context_*.geojson` caches).
+- **Scene-frame + graceful-degrade to mirror:** `geojson_context.py::build_context_geojson` emits **scene-local
+  metres = `UTM − common_origin`** with the CRS + `common_origin` recorded on an `openubem:frame` block and
+  **features sorted by a stable key** (`geojson_context.py:63-118`). The context layers use the identical frame and
+  determinism. `viewer_export.build_scene` (`viewer_export.py:92-131`) adds optional keys and omits them when the
+  cache is absent (`_load_basemap` → `None` pattern, `viewer_export.py:63-89`); `_scene_json` already escapes
+  `</`→`<\/` (`viewer_export.py:134-144`), which covers inline vector coordinates too.
+- **Render seam to mirror:** `viewer_app.mjs::_buildContext` (`viewer_app.mjs:234-262`) and `_buildBasemap`
+  (`:269-295`) both recenter through the shared `center` proxy for `this.loaderMatrix` and set an explicit
+  `z` + `renderOrder` under the building masses. The new `_buildUrbanContext` sits in this exact pattern.
+  Established z-stack: raster basemap `z=−0.1` / `renderOrder=−1`; building floor at `z=0`. The three vector
+  layers slot **between** them (below buildings, above/around the raster).
+- **Colour source of truth:** `openubem/viz/shell/colormaps.mjs` — EUI ramp = viridis/cividis, archetype =
+  13 `SECTOR_COLOR` families, `NO_DATA_GREY=[176,176,176]`. Context colours MUST be visibly distinct from ALL of
+  these (a park-green that reads as the "Residential" sector, or a road-grey that reads as no-data, is a bug).
+
+---
+
+**T23 — `context_features.py`: fetch + reproject + cache OSM roads / green space / (derived) block boundaries**
+- **What.** New module `openubem/viz/context_features.py`. From `buildings_gdf.total_bounds` (UTM) padded ~5 %
+  (reuse the T16 padding), fetch three OSM feature classes for the bbox via `osmnx` (the pinned lib), reproject each
+  to the run's UTM CRS, and write three per-run caches beside the basemap: `06_context_roads.geojson`,
+  `06_context_green.geojson`, `06_context_blocks.geojson` (+ a small shared `06_context.json` sidecar recording
+  CRS, padded UTM extent, attribution `"© OpenStreetMap contributors"`, and the osmnx query tags used). Any
+  fetch failure / no network ⇒ that layer's cache is simply not written and the function returns `None` for it —
+  **non-fatal**, exactly like `generate_basemap`.
+- **Why.** Phase-G source side; user request 2026-07-03. Same fetch-once-then-cache reproducibility discipline as
+  F1 (§2 offline constraint: the network touch is at GENERATION time only).
+- **How.** `generate_context_features(buildings_gdf, out_dir, *, padding_frac=0.05) -> dict` returning
+  `{"roads": Path|None, "green": Path|None, "blocks": Path|None, "sidecar": Path|None}`.
+  - **Roads:** `ox.features.features_from_bbox(bbox, tags={"highway": True})`; keep `LineString`/`MultiLineString`
+    geometries; carry the `highway` class value per feature (for optional per-class width later — do NOT buffer
+    to ribbons in MVP, keep them as lines). Reproject to run UTM.
+  - **Green space:** `ox.features.features_from_bbox(bbox, tags={"leisure": ["park","garden","pitch"],
+    "landuse": ["grass","forest","meadow","recreation_ground","village_green"], "natural": ["wood","scrub"]})`;
+    keep polygon geometries only. Reproject to run UTM. (Water is a separate concern — OMIT for MVP, note it as a
+    deferred layer, do not fabricate.)
+  - **Block boundaries (DERIVED — preamble rule 3):** from the fetched road geometries, run
+    `shapely.ops.polygonize(list_of_road_linestrings)` to get the enclosed block polygons; keep their **exterior
+    rings** as the block outlines; tag each `derived=True`, `source="osm_road_polygonize"`. This is a pure
+    geometric derivation of the OSM roads (deterministic). Do NOT snap/merge to buildings.
+  - Reuse osmnx's own version guard style; do NOT re-run the building 7-step cleaner. `estimate_utm_crs` is not
+    needed — reproject to the **known** run UTM CRS taken from `buildings_gdf.crs`. No `Date`/random anywhere.
+- **How to test.** `tests/test_viz_context_features.py` with a small synthetic gdf and a **monkeypatched**
+  `ox.features.features_from_bbox` returning a tiny fixed road+green gdf (NO live network — §2 hard rule): assert
+  (a) the three caches are written in the run UTM CRS with extents within tolerance of the padded bounds; (b) block
+  polygons come back from a simple 2×2 road grid fixture (a known number of enclosed cells) and carry
+  `derived=True`; (c) a monkeypatched fetch that raises ⇒ that layer's Path is `None` and no exception escapes.
+  The real live fetch is exercised only in T27's LIVE_SMOKE (one-off, out of CI), mirroring T15/T20.
+
+---
+
+**T24 — Emit the three context layers into the scene payload (new `urban_context` key)**
+- **What.** Extend `viewer_export.build_scene` to optionally read the three `06_context_*.geojson` caches, translate
+  each into **scene-local metres** (`UTM − common_origin`, the exact T04 frame), and add
+  `scene["urban_context"] = {"roads": FC|absent, "green": FC|absent, "blocks": FC|absent, "frame": {…},
+  "attribution": "© OpenStreetMap contributors"}` — each FeatureCollection inline, deterministic
+  (features sorted by a stable key). Any missing cache ⇒ that sub-key is omitted; all three missing ⇒ the whole
+  `urban_context` key is omitted (graceful, like `basemap`). **Do not touch `scene["context"]`** (T04 placeholders).
+- **Why.** Phase-G delivery seam; mirrors how `basemap`/`context` are assembled in `build_scene`
+  (`viewer_export.py:92-131`) and translated by `common_origin` (`viewer_export.py:84-89`).
+- **How.** New kwarg `context_features_dir: Path|None` on `build_scene`/`export_viewer`/`export_viewer_from_run`
+  (defaults to `results_dir`, same as `basemap_path`). Reuse `geojson_context.py`'s `_translate_ring`/scene-frame
+  helper (import or factor a shared `_to_scene_frame` — a small refactor is fine, it is not a faithfulness change)
+  so roads (lines), green (polygons), and blocks (rings) all subtract `cityjson["metadata"]["+common_origin_utm"]`
+  identically. Keep `content_hash` on `scene["cityjson"]` only (unchanged — the caches are byte-stable, so
+  reproducibility is not weakened; T27 adds a context-bytes-stable assertion). The existing `_scene_json`
+  `</`→`<\/` escape covers the inline coordinate strings.
+- **How to test.** `build_scene` with fixture caches ⇒ `scene["urban_context"]` present, each sub-FC translated by
+  `−common_origin` (a known corner lands at the expected local coord), attribution present; with no caches ⇒ key
+  absent; with only `green` present ⇒ only that sub-key present. The zero-external-URL check (CP-Offline) still
+  passes (inline vectors are not a fetch).
+
+---
+
+**T25 — Viewer render: a separate ground-plane context group (roads / green / blocks), below the buildings**
+- **What.** New `viewer_app.mjs::_buildUrbanContext()` (called from the same place as `_buildContext`/`_buildBasemap`)
+  that, when `scene.urban_context` is present, builds **one `THREE.Group` per layer** (`roadsGroup`, `greenGroup`,
+  `blocksGroup`), each with **independent visibility** and each passed through the shared `center`/`loaderMatrix`
+  recenter proxy exactly like `_buildContext`. Render styles (all FLAT on the ground plane — never extruded into
+  masses, preamble rule 1):
+  - **Green space:** filled flat polygons (`THREE.Shape` → `ShapeGeometry`, unlit `MeshBasicMaterial`,
+    `side: DoubleSide`), at `z = −0.06`, `renderOrder = -1` (just above the raster basemap, below buildings).
+  - **Roads:** flat line features (`THREE.LineSegments` from the LineString coords), muted, at `z = −0.05`.
+    No ribbon-buffering in MVP (carry the `highway` class for a future width map — noted, not built).
+  - **Block boundaries:** outline-only (`THREE.LineLoop`/`LineSegments` of the ring), thin, at `z = −0.04`.
+    **Never filled** (preamble rule 3).
+- **Why.** Phase-G render side; user request. `loaderMatrix` (`viewer_app.mjs:120`) is the shared recenter
+  transform; every ground layer must use it (as the basemap quad and context placeholders already do).
+- **How.** Copy the `_buildBasemap` recenter proxy (`viewer_app.mjs:275-277`) for the `center`; add the three
+  groups to `this.scene`; store handles for the toggles (T26). Absent `scene.urban_context` ⇒ no groups (current
+  behaviour, graceful). Colours come from `colormaps.mjs` (T26) — do **not** hard-code hexes here. Keep the whole
+  group **below `z=0`** so no context feature can ever occlude or be mistaken for a building mass. These layers are
+  **not pickable/selectable** in MVP (they carry no simulation attributes to show) — exclude them from the
+  `Raycaster.intersectObjects` building list.
+- **How to test.** `node --test` in `shell/`: a scene with a tiny `urban_context` (one road segment, one green
+  polygon, one block ring at known local coords) adds exactly three groups at the right z-levels through
+  `loaderMatrix`; each toggle flips its group's `.visible`; an absent-`urban_context` scene adds no groups; the
+  building `Raycaster` list does not include any context group (a click on a park selects nothing / falls through).
+
+---
+
+**T26 — Context colour + legend UI: fixed styling distinct from EUI ramp AND archetype sectors**
+- **What.** Add a fixed context palette to `colormaps.mjs` (three constants: `CONTEXT_GREEN`, `CONTEXT_ROAD`,
+  `CONTEXT_BLOCK`) and a **new legend section** "Urban context (OSM — not simulated)" listing the three with
+  always-shown text labels + a per-layer show/hide toggle (default: green ON, roads ON, blocks OFF — blocks are the
+  most derived, least essential). The context palette MUST be visibly distinct from every EUI ramp colour AND every
+  `SECTOR_COLOR` archetype hue AND `NO_DATA_GREY` (preamble rule 1; verified by test).
+- **Why.** Phase-G colour side; the user's literal ask ("colour the block borders, roads, green spaces"). The
+  "always-shown label + toggle, never colour-only" rule is the same WCAG discipline as T10/§9.3.
+- **How.** Pre-decided starting palette (executor may nudge for CVD only, not re-theme): green space muted sage
+  `#A6C69F` at ~0.55 opacity; roads warm dark-grey `#6E6E6E`; block outline desaturated slate `#5A6470`. All three
+  are deliberately **desaturated/recessive** so the context sits *behind* the EUI/archetype building colours and
+  never competes with them. Wire the toggles to the T25 group `.visible` handles. Attribution "© OpenStreetMap
+  contributors" shows whenever any context layer is visible (reuse the basemap attribution DOM slot).
+- **How to test.** `node --test`: (a) each context colour is byte-distinct from all 10 viridis + 10 cividis ramp
+  samples, all 13 `SECTOR_COLOR` values, and `NO_DATA_GREY`, with a minimum channel-distance margin (mirror the
+  existing "no-data grey distinct from every ramp" test); (b) the legend renders three labelled context rows; (c)
+  toggling a legend row flips the matching group's `.visible`. Manual: on the regenerated pilot, parks read green,
+  roads read as a grey street network, block outlines toggle on/off — all clearly *behind* the coloured buildings.
+
+---
+
+**T27 — Tests + LIVE_SMOKE (one real fetch) + manager audit + optional 12-cell regen ride-along**
+- **What.** (a) The unit tests above (T23 monkeypatched fetch, T24 emit, T25/T26 render+legend) all green in CI with
+  **no live network**. (b) **LIVE_SMOKE** — the ONE live-network step: an employee runs the real
+  `generate_context_features` fetch+reproject for **nyc_centre** once (out of the CI suite, §2), regenerates
+  `nyc_centre_viewer.html` WITH roads/green/blocks, and captures fresh before/after screenshots to the scratchpad +
+  `docs/docs_ACTIVE/3D/debug/Image-outputs/`. (c) Manager opens it: parks/roads/blocks register correctly on
+  midtown, are visibly context (recessive, labelled, toggleable, below the masses), `file://` still zero-network,
+  attribution shown, buildings' EUI/archetype colours unchanged. (d) **Optional ride-along:** if CP-5 passes, the
+  12-cell batch (T21 mechanism) may be re-run to fold the context layer into all 12 `openubem/outputs/3D/`
+  viewers — gated on CP-5, a fresh employee, same offline/count-parity checks as T21.
+- **Why.** The six-checkpoint discipline extended to the new layer; [[feedback_synthetic_test_blind_spots]] — the
+  live OSM fetch → reproject → polygonize → embed path cannot be proven by synthetic fixtures alone.
+- **How.** Monkeypatch `ox.features.features_from_bbox` in the unit tests; the real fetch runs ONLY in the
+  LIVE_SMOKE (employee/manager, not CI). Screenshots to the scratchpad + Image-outputs for the manager spot-check.
+  The 12-cell ride-along, if run, reuses each cell's own bbox (its own context caches), same as T21's per-cell basemap.
+- **How to test.** Automated tests green on the pilot; manager sign-off recorded in the §8 progress log with the
+  file-size delta (vector context is a few extra MB inline), the "context is visibly separate + never EUI-coloured"
+  confirmation, and the offline re-confirmation.
+
+> **CP-5 — context-layer acceptance.** STOP. Roads / green space / block boundaries land as a **separate,
+> toggleable, correctly-coloured ground-context layer** on the pilot **without** breaking faithful-to-model
+> (nothing recoloured by a result, blocks labelled "derived", context sits below the masses) or self-contained
+> (still zero external URLs; byte-identical rebuild). Manager audits, then presents CP-5 to the manager-of-manager.
+> The 12-cell ride-along (T27d) is dispatched only after CP-5 passes.
+
+---
+
 ## 7. Stop-and-report checkpoints
 
 Four gates, at the integration points where a silent bug would compound:
@@ -663,6 +1067,14 @@ Four gates, at the integration points where a silent bug would compound:
   eyeballs for any on-screen misrepresentation before delivery hardening.
 - **CP-3 (after T15)** — MVP acceptance, **USER-SIGN-OFF ONLY**. Faithful + reproducible + self-contained,
   confirmed on live data.
+- **CP-4 (after T20)** — feature-increment acceptance (F1 basemap + F2 flat-footprint clarity). Manager audits
+  georef / offline / no-fabricated-height / reproducibility, then presents to the user **together with CP-3**
+  for a combined MVP + increment sign-off. (Phase E, added 2026-07-03 on user go.)
+- **CP-5 (after T27)** — context-layer acceptance (roads / green space / derived block boundaries as a separate,
+  toggleable, colour-styled ground layer). Manager audits offline / faithful-to-model (nothing recoloured by a
+  result; blocks labelled "derived from OSM roads"; context below the masses) / reproducibility, then presents to
+  the user. The optional 12-cell context ride-along (T27d) rides on this sign-off. (Phase G, added 2026-07-03 on
+  user request.)
 
 ---
 
@@ -842,6 +1254,138 @@ Four gates, at the integration points where a silent bug would compound:
 - Eyeballed all 4 renders: (a) EUI viridis quantile + compass + 200 m bar + "no data" grey legend; (b) archetype sector hue-families — **CP-2 Fallback slate-violet holds on the delivered file** (`OpenUBEMUnknown` visibly distinct from "no data" grey); (c) `way/487519790` drilled to LOD-B, window mullions present, neighbours stay masses, `one_zone_per_floor` ⇒ Zone-breakdown DISABLED + "no synthetic zones drawn"; (d) `way/162977896` provenance pane faithfully shows a **populated** `data_quality_flag` (`no_year|VINTAGE_NAN_PERMISSIVE_DEFAULT`) alongside absent fields as "not recorded" — present-vs-absent rendered honestly, no fabricated defaults.
 - One non-blocking data-quality **observation** for the user (faithful-to-model, NOT a viewer bug): the large flat top-bucket polygon + thin sliver at the neighbourhood's SE/W edges are un-extruded large-footprint OSM slabs (Fallback archetype) the pipeline itself produced; the viewer renders them exactly. Worth an eyeball at the source-data level someday, not a delivery blocker.
 - Employee deviation (wired the exporter at the `aggregate_results` library seam + `OPENUBEM_EXPORT_HTML=1` env toggle rather than a new `--export-html` CLI flag on `v12_cell_pipeline.py`): **RATIFIED** — matches the existing `make_figures` idiom at the same seam, default-off, no DESIGN conflict. An explicit CLI flag remains an easy post-sign-off follow-up if the user wants it.
+
+#### T16 — `basemap_raster.py`: fetch + reproject + cache a per-run georeferenced basemap — completed 2026-07-03
+- Artifacts: `openubem/viz/basemap_raster.py` (`generate_basemap`, `_fetch_tile_image`, `BASEMAP_PNG_NAME`/`BASEMAP_SIDECAR_NAME`); `tests/test_viz_basemap_raster.py` (4 tests).
+- `generate_basemap(buildings_gdf, out_dir, *, provider, padding_frac=0.05, target_px=2048, zoom="auto")`: pads `total_bounds` 5%, reprojects the pad to WGS84 (`rasterio.warp.transform_bounds`) for the `contextily.bounds2img(..., ll=True)` fetch, then reprojects the returned Mercator raster to the run's UTM CRS with `rasterio.warp.reproject`/`Resampling.bilinear` in two passes (natural-resolution pass to learn aspect ratio, then a `target_px`-sized pass) — never a bare relabel. Writes `06_basemap_utm.png` (PIL, mode inferred from band count) + `06_basemap_utm.json` sidecar (`crs`, `extent_utm` via `rasterio.transform.array_bounds`, `attribution`, `provider`, `fetched_px`, `zoom`). Any exception (no network, bad CRS, …) is caught in the public `generate_basemap` wrapper and returns `None` — non-fatal by design, matches the plan's "Fetch failure ⇒ return None".
+- The ONE network boundary is the module-level `_fetch_tile_image(w,s,e,n,*,zoom,provider)` (thin wrapper on `ctx.bounds2img`) — tests monkeypatch exactly this function, never touching the network; `transform_bounds`/`reproject` are local PROJ/GDAL math (no network) so the fake still exercises the real reprojection path end-to-end.
+- Deviations: none from the plan. One implementation choice not spelled out in the plan: `target_px` is achieved via a two-pass `calculate_default_transform` call (first at native resolution to learn the destination aspect ratio, then re-run at the scaled `dst_width`/`dst_height`) rather than a single call — needed because the target pixel budget must preserve the UTM-reprojected aspect ratio, which is only known after the first transform is computed.
+- Test status: `pytest tests/test_viz_basemap_raster.py -v` — **4 passed** (PNG+sidecar written with `extent_utm` within 3 m of the padded UTM bounds through a full fake-fetch→reproject round-trip; fetch-failure and no-CRS cases return `None` non-fatally; 3-band/RGB-only source tiles reproject cleanly alongside the 4-band/RGBA case).
+- Notes: reused the SAME provider family as the existing 2D `scripts/validation/phaseE_overview_grid.py::_add_basemap` (CartoDB via `contextily`), but the lower-level `bounds2img` API (raster + extent) instead of the matplotlib-axis-oriented `add_basemap`, since T16 needs the raw array for `rasterio.warp.reproject`, not a rendered axis.
+
+#### T17 — Viewer ground-plane: render the basemap as a georeferenced textured quad — completed 2026-07-03
+- Artifacts: `openubem/viz/shell/viewer_logic.mjs` (`basemapPlaneLayout`, `shouldRenderBasemap` — pure, framework-free); `openubem/viz/shell/viewer_app.mjs` (`_buildBasemap`, `_buildBasemapUI`, `_toggleBasemap`); `openubem/viz/shell/viewer.css` (`.ubem-basemap-ui`, `.ubem-attribution`); `openubem/viz/shell/viewer.js` (rebuilt bundle, esbuild, same pinned toolchain as `BUILD.md`: `three@0.155.0` + `cityjson-threejs-loader@0.4.0`, throwaway devDeps in the session scratchpad, never added to the repo); `tests/viz_js/viewer_logic.test.mjs` (+5 tests for the two pure functions).
+- `_buildBasemap()` builds a `THREE.PlaneGeometry` sized/positioned from `basemapPlaneLayout(basemap.extent_local, center)`, textured via `THREE.TextureLoader` on the embedded data-URI (`colorSpace = SRGBColorSpace`, default `flipY=true` matches the north-up cached PNG onto the default XY-plane/+Z-normal `PlaneGeometry` in this Z-up scene — no rotation needed), unlit `MeshBasicMaterial` (V09 no-tint rule), `z=-0.1` + `renderOrder=-1` to avoid z-fighting under the buildings. A checkbox (default checked) toggles `mesh.visible`; the attribution line's `display` follows the same toggle ("always-visible... whenever the basemap shows" read as: attribution tracks basemap visibility, not independently hideable). Absent `scene.basemap` (`shouldRenderBasemap` false) ⇒ no mesh, no UI row — current behaviour preserved.
+- **`this.loaderMatrix` clarification (not a deviation, a precision on an existing ambiguity):** `viewer_app.mjs:120` stores `loader.matrix` in a field literally commented "(also used for context)", but the EXISTING `_buildContext` (T04) does not actually apply that matrix as a transform — it derives its own `center` from `this.boundingBox.getCenter()` and manually subtracts it from context-feature coordinates, which are in the same scene-local (UTM − common_origin) frame the loader recenters buildings into. `_buildBasemap` follows the SAME proven pattern (identical `center` derivation, identical subtraction) rather than inventing a second, untested way to reach the loader's frame — verified correct empirically in the T20 LIVE_SMOKE screenshots (buildings register exactly onto the midtown Manhattan street grid).
+- **Testing deviation (flagged for audit).** T17's "How to test" asks for `node --test` assertions that a THREE.Mesh is actually added/toggled/removed. No `three`/DOM/WebGL test harness exists anywhere in the repo's automated suite — `tests/viz_js/*.test.mjs` today (T10/T12, and my own T18 additions) only ever unit-tests framework-free pure functions from `viewer_logic.mjs`/`colormaps.mjs`; every prior THREE-touching behaviour (T08 shell load, T09 interaction, T10 recolour, T11 EUI view, T12 badges) is "Manual" per the plan's own §6 "How to test" text, never `node --test`. Introducing a jsdom+WebGL stub (or a headless-gl devDependency) to satisfy this literally would be new automated-suite infrastructure no other task added, is not mentioned as pre-approved in Phase E's dependency list, and risked becoming its own multi-hour side quest. Instead: (a) extracted the ONLY pure-computable part (plane size/position math, basemap-presence predicate) into `viewer_logic.mjs` and unit-tested it with `node --test` (5 new tests, real math incl. the center-subtraction case); (b) verified the actual THREE.Mesh/toggle/DOM behaviour with a REAL headless-Chromium Puppeteer run against the regenerated `nyc_centre_viewer.html` in T20's LIVE_SMOKE (`basemapMesh present: true`, `visible: true`, toggle off→`false`→back on→`true`, screenshots `t20_a_overview_with_basemap.png`/`t20_b_basemap_toggled_off.png`) — equivalent evidence, on real data, just not inside the `node --test` suite. Flagging this explicitly since it is a literal-text deviation from T17's "How to test" even though it follows the established T08-T12 precedent; escalate to STOP-and-correct if the manager wants a real jsdom/WebGL harness added instead.
+- Test status: `node --test tests/viz_js/*.test.mjs` — **27 passed** (17 pre-existing + 5 T17 + 5 T18, see T18 entry); LIVE_SMOKE evidence above (also see T20).
+- Notes: `viewer.js` was rebuilt via the exact `BUILD.md` esbuild command (absolute `--alias` paths were required on this Windows checkout — relative `node_modules/...` alias targets did not resolve from the invoking `cwd` reliably; the alias VALUES are resolved paths, not sources, so this has no effect on the shipped bundle). No `node_modules/`/`package.json` were added to the repo — the throwaway toolchain lived entirely under the session scratchpad, confirmed via `git status`.
+
+#### T18 — Flat-footprint clarity: distinct style + "no height in OSM" badge — completed 2026-07-03
+- Artifacts: `openubem/viz/shell/viewer_logic.mjs` (`heightMissing`, `flatFootprintBadge` — pure); `openubem/viz/shell/viewer_app.mjs` (`_buildFlatFootprintOverlay`, `_lodNPositionsFor`, detail-pane badge wiring); `openubem/viz/shell/viewer.css` (`.ubem-badge-flat`); `tests/viz_js/viewer_logic.test.mjs` (+6 tests).
+- `heightMissing(attrs)` reads the ALREADY-bound `data_quality_flag`/`provenance_height_m` (T06) — never a new attribute. **Deviation from the plan's literal separator assumption (flagged, verified against real data, not invented):** PLAN §5 states `data_quality_flag` is `|`-joined (`_FLAG_SEP="|"` in `provenance.py`/`construction_sets.py`), but the Phase-E preamble's OWN verified fact for Grand Central quotes it comma-joined (`"no_floors,no_height,no_year"`), and the LIVE pilot value (re-checked 2026-07-03) is actually **both**: `"no_floors,no_height,no_year|GROUPMODE_MED"` — Step-1 `osm_fetcher.py` joins its own tokens with `,`, then Step-2 `provenance.py::_append_flag` appends further tokens with `|` onto whatever string it receives. `heightMissing` therefore does a plain `flag.includes("no_height")` substring test rather than splitting on either separator — exact and separator-agnostic given the token vocabulary (no other token contains "no_height" as a substring), verified against the pilot's real two flagged buildings AND live-confirmed via T20's LIVE_SMOKE screenshot (badge fires correctly on `relation/11171793`).
+- `_buildFlatFootprintOverlay()` adds a dashed-magenta (`0xff5fb0`) `EdgesGeometry`/`LineSegments` outline read straight off the ALREADY-loaded LOD-N triangle buffer (`_lodNPositionsFor`, reusing the `triObj`/`triLod` arrays `_prepareMesh` already computes) for every `heightMissing` building — no new geometry synthesized, no roof raised; this is the same non-fabricating technique `_buildContext` already uses (`EdgesGeometry` on real extruded geometry) applied to real (not placeholder) building meshes. Detail pane (`_showDetail`) adds a third badge (`ubem-badge-flat`, dashed pink border, non-colour-only via its own text) with the exact plan-specified string, only when `flatFootprintBadge(a)` is non-null.
+- Deviations: none beyond the separator finding above (which is a data-fidelity correction, not a scope change).
+- Test status: `node --test tests/viz_js/*.test.mjs` — 6 new tests (`data_quality_flag` pipe-only, real mixed comma+pipe pilot value, `provenance_height_m` alone, negative/absent cases, `flatFootprintBadge` text vs `null`) — all green, part of the 27-test total (T17 entry). Manual: Grand Central (`relation/11171793`) confirmed via T20 LIVE_SMOKE screenshot `t20_c_grand_central_badge.png` — badge reads "Height: not in OSM — footprint only (no above-ground massing)." with `levels: 1`, `height_m: 3.5` UNCHANGED (faithful fallback extrusion, roof not raised).
+- Notes: geometry-unchanged constraint independently confirmed — `_buildFlatFootprintOverlay` never touches vertex positions, only adds a new non-solid line overlay.
+
+#### T19 — Wire the basemap into the exporter (`build_scene` + `export_viewer`) — completed 2026-07-03
+- Artifacts: `openubem/viz/viewer_export.py` (`_resolve_basemap_files`, `_load_basemap`, `basemap_path` kwarg threaded through `build_scene`/`export_viewer`/`export_viewer_from_run`); tests added to `tests/test_viz_validation.py` (3 tests: present/absent/corrupt-sidecar, using a hand-written PIL fixture PNG+JSON rather than a full `generate_basemap` run, to keep the test cheap and scoped to the T19 exporter seam — T16's own reprojection path already has dedicated coverage).
+- `basemap_path` accepts EITHER the per-run directory T16 writes into (`06_basemap_utm.png`/`.json` looked up by fixed name) OR the PNG file path directly (sidecar derived via `.with_suffix(".json")`) — the plan's "How" names the kwarg `basemap_path` without pinning dir-vs-file, so both are supported; `export_viewer_from_run` defaults it to `results_dir` (T16's own per-run-snapshot discipline, mirrors how `buildings_path` already defaults there). `_load_basemap` computes `extent_local = extent_utm − common_origin` exactly as specified and base64-embeds the PNG bytes as a `data:image/png;base64,...` URI; any read/parse failure (missing file, corrupt JSON, missing key) is caught broadly and returns `None` — the key is simply omitted from `scene`, never a placeholder, matching T16's own non-fatal philosophy.
+- Deviations: none. `export_viewer`'s result dict gained one additive key, `has_basemap: bool`, for caller/LIVE_SMOKE convenience — not specified by the plan but backward compatible (dict gains a key, nothing removed/renamed).
+- Test status: covered together with T20 below — `pytest tests/test_viz_validation.py -v` **18 passed** (11 pre-existing + 7 Phase-E, includes T19's own 3 wiring tests + T20's 4 checkpoints below).
+- Notes: `content_hash` is untouched (still hashes `scene["cityjson"]` only) — basemap presence/bytes never affect the reproducibility fingerprint, confirmed by a dedicated test (T20 entry).
+
+#### T20 — Tests + LIVE_SMOKE re-validation + manager audit — completed 2026-07-03
+- Artifacts: `tests/test_viz_validation.py` (+7 tests total for T19/T20 — see T19 entry for the count); real LIVE_SMOKE outputs: `docs/docs_VALIDATION/validations/overAll/results/phaseE/nyc_centre/06_basemap_utm.png` (2.66 MB, 1024×1280 px) + `06_basemap_utm.json` (real fetch, CartoDB.PositronNoLabels, zoom "auto"); regenerated `openubem/outputs/nyc_centre_viewer.html`; screenshots + a JSON evidence dump in the session scratchpad: `t20_a_overview_with_basemap.png`, `t20_b_basemap_toggled_off.png`, `t20_c_grand_central_badge.png`, `t20_live_smoke_summary.json`.
+- **CP-Basemap-Georef:** `test_cp_basemap_georef_utm_corner_roundtrips_through_extent_local` — a known UTM bbox (the real pilot bbox from the Phase-E preamble) round-trips through `extent_local + common_origin` to the exact original corner (`pytest.approx`, sub-mm — this layer is pure subtraction, the ~17 m reprojection-fidelity concern is T16's own layer, separately covered there). **CP-Offline:** `test_cp_offline_html_with_basemap_still_zero_external_fetches` — same zero-external-URL regexes as the existing T13 self-contained test, re-run on an HTML with a basemap actually embedded, plus an assertion the data-URI is verbatim present in the payload. **CP-Reproducibility:** `test_cp_reproducibility_unaffected_by_basemap` — `content_hash` identical with/without a basemap present (confirms the T19 note above). **CP-FlatFootprint:** `test_cp_flatfootprint_grand_central_and_times_sq_carry_the_provenance` — both user-flagged buildings carry `no_height` in `data_quality_flag` + `provenance_height_m == "OSM_MISSING"` in the REAL bound CityJSON (the exact raw fields T18's client-side `heightMissing()` reads), plus `levels==1`/`total_eui_kwh_m2` present — geometry faithful, still a real simulated building.
+- **LIVE_SMOKE (the one real live-network step, out of CI):** ran `basemap_raster.generate_basemap` for real against the pilot's `01_buildings.gpkg` — succeeded on the first attempt, no zoom-fallback needed (`fetched_px=[1024,1280]`, `zoom="auto"`), cached into the SAME durable pilot directory T16's own docstring says to use ("same discipline as `01_buildings.gpkg`"). Regenerated `nyc_centre_viewer.html` via `export_viewer_from_run` (same Step-3 manifest T15 used, still live at `%LOCALAPPDATA%\Temp\ubem_validation\phaseE\nyc_centre\step3\03_idf_manifest.parquet`, all 738 IDF paths verified present — did NOT re-simulate, did NOT need a cluster/harvest step): **37,507,161 bytes (37.5 MB, +5.1 MB over the pre-Phase-E 32.43 MB)**, `has_basemap=True`, 738 buildings, 0 context placeholders. Puppeteer (headless Chromium + `--use-angle=swiftshader --enable-unsafe-swiftshader`, the flag set needed on this Chrome version — the previously-documented `--use-gl=swiftshader` alone no longer creates a context) opened the file from `file://`: **1 non-file "request" observed, and it is the `data:image/png;base64,...` texture URI itself (zero bytes ever leave the process) — 0 genuine network requests, 0 console errors.** `window.__ubemViewer.basemapMesh` present + visible; toggle off→`false`→on→`true` confirmed programmatically. Selected `relation/11171793` (Grand Central) via the internal `_selectBuilding` API (same code path a real click drives): badge HTML contains "not in OSM"; `data_quality_flag`/`provenance_height_m` match the CP-FlatFootprint assertions above. Manager screenshots: buildings visibly register onto the correct midtown-Manhattan street grid (CartoDB Positron basemap) in `t20_a_overview_with_basemap.png`; toggle-off in `t20_b_basemap_toggled_off.png` also shows the T18 dashed-magenta outline around flat-footprint buildings, previously obscured by the basemap; the full provenance pane + flat-footprint badge in `t20_c_grand_central_badge.png`.
+- Deviations: (1) see T17's testing-approach deviation (pure-logic node tests + LIVE_SMOKE Puppeteer evidence, not a THREE/DOM node-test harness). (2) SwiftShader launch flags needed updating from the T02/T15-era `--use-gl=swiftshader` to `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader` — the installed Puppeteer/Chrome version (150.0.7871.24, cached from a prior session) requires the explicit `--enable-unsafe-swiftshader` opt-in; flagging for any future LIVE_SMOKE script reuse.
+- **Environment observation for the manager (not a T16-T20 defect):** the pinned pilot's `05_results.csv`/`04_simulation_manifest.parquet`/`05_results.geojson`/`.gpkg`/figures and this very PLAN doc all show as externally modified (`git status`, untracked-by-me) partway through this session — file sizes/mtimes and a few `data_quality_flag` token suffixes changed (e.g. `relation/11171793`'s second token was `VINTAGE_NAN_PERMISSIVE_DEFAULT` earlier in the session, `GROUPMODE_MED` later), while row count/osm_id set/`no_height` presence stayed identical throughout. This reads as the environment's own external auto-commit/update process (per [[feedback_git_handled_externally]]), not a competing edit to MY files — every one of my own T16-T20 artifacts stayed self-consistent, and the full suite was re-run AFTER the change and is still 100% green (below). Flagging only because "the pinned pilot" moved under me mid-session; the exporter's own designed behaviour (always read the REAL on-disk `05_results.csv`, per T14 CP-Value's own instruction) means this was handled correctly rather than silently, but the manager may want to know the pilot isn't perfectly static across a long session with other arcs active.
+- Test status: `pytest tests/test_viz_validation.py tests/test_viz_basemap_raster.py tests/test_viz_geometry_extract.py tests/test_viz_cityjson_emitter.py tests/test_viz_attribute_binding.py -q` — **52 passed** (final re-run, after the external file churn above, confirms robustness). `node --test tests/viz_js/*.test.mjs` — **27 passed**.
+- Notes: CP-4 is a manager-audit + user-sign-off gate per the plan — NOT marked done, NOT signed, by this executor. Reporting up for that audit now.
+
+> **CP-4 — STOP, reporting to manager.** T16–T20 complete per above; all automated tests green (Python 52/52, node 27/27); LIVE_SMOKE run on live data with real screenshots. Awaiting manager audit (georef / offline / no-fabricated-height / reproducibility) and combined presentation with staged CP-3 to the manager-of-manager. Two items flagged above need explicit manager attention: the T17 node-test-coverage deviation (pure-logic-only + LIVE_SMOKE, no THREE/DOM harness), and the mid-session external pilot/doc file churn (informational, not a defect).
+
+#### CP-4 — MANAGER AUDIT (Opus) — PASSED to user, NOT signed — 2026-07-03
+Manager independently re-verified the two binding constraints + the four CP-4 sub-gates (did not rely on the executor's own test summaries alone):
+- **Offline / self-contained — HOLDS.** Independently grepped the shipped `nyc_centre_viewer.html`: **zero external-fetch surfaces** (no `<script src>`, `<link href>`, `fetch("http`, `import("http`, `url(http)`). The four residual `http(s)://` string occurrences are all inert — a three.js point-in-poly algorithm comment, the XHTML namespace token, a three.js r155 changelog comment, and the CityJSON `referenceSystem` CRS **identifier** (not a fetched resource). Corroborates the executor's Puppeteer "0 genuine network requests."
+- **Faithful-to-model (flat footprint) — HOLDS.** Read `viewer_logic.mjs`: `heightMissing()` reads only already-bound attributes (`data_quality_flag` substring `no_height`, or `provenance_height_m === "OSM_MISSING"`); badge is text-only; geometry untouched. No fabricated height, no invented attribute. The mixed comma+pipe separator handling (substring, not split) verified correct against the token vocabulary.
+- **Georef — HOLDS.** `basemap_raster.py` reprojects Web-Mercator→UTM via `rasterio.warp` two-pass (not a relabel); `viewer_export._load_basemap` sets `extent_local = extent_utm − common_origin`, the exact Option-A frame the geometry uses. CP-Basemap-Georef round-trips sub-mm.
+- **Byte-identical rebuild (basemap included) — HOLDS, independently reproduced.** Manager re-exported the pilot twice from the cached raster: same run_id + different timestamps → **identical `content_hash`** (`11b5dbb9…`); full-HTML **byte-identical** with the basemap data-URI embedded (only difference across two runs was a deliberately-varied run_id token). The `content_hash` design correctly binds run_id into the hash.
+- Executor's two flagged items reviewed: (1) T17 pure-logic+LIVE_SMOKE test approach — ACCEPTED, matches the T08–T12 "Manual" precedent (no jsdom/WebGL harness in-repo). (2) mid-session external pilot file churn — confirmed the project's own auto-commit tooling ([[feedback_git_handled_externally]]); row/osm_id/`no_height` set stayed identical; not a defect.
+**Verdict: CP-4 is manager-audited clean. NOT signed — CP-4 is a USER-SIGN-OFF gate, presented to the manager-of-manager together with staged CP-3 for one combined MVP+increment sign-off. T21 (12-cell batch) stays gated until that sign-off.**
+
+#### USER REVIEW of staged CP-3 + CP-4 — 2026-07-03 (manager-of-manager, on `nyc_centre_viewer.html`)
+- **Reaction:** "that looks beautiful" — viewer accepted in principle; three follow-ups + one correctness question raised.
+- **(1) "Purple zone at the centre — looks like multiple buildings collapsed into one, which is not correct."**
+  **Manager diagnosis (independently verified against the pilot's real `01_buildings.gpkg` + `05_results.csv`, EPSG:32618):** NOT a geometry merge. The centre is a cluster of **121/738 footprint-only buildings (≈50 % of the cell's ground area)** for which OSM carries no height/floors (`data_quality_flag` contains `no_height`), so the pipeline imputes **1 storey / 3.5 m** and they render as flat EUI-colored slabs. Largest = `relation/11171793` (**Grand Central Terminal, a single legitimate 155,536 m² OSM relation** — terminal + rail yards, ONE polygon, `n_parts=1`, confirmed); next `relation/11171765` ≈ 30,045 m². Each is a separate, faithful OSM footprint (the internal pink-dashed lines are their real shared boundaries). The problem is *rendering*, not geometry: painting a guessed-height mass with the same confident viridis EUI color as real towers over-represents them and visually swallows the neighbours (incl. the 366 m MetLife tower sitting on Grand Central's footprint). → **NEW TASK T22** (muted placeholder restyle, geometry untouched). Manager chose **Option 1 (muted/translucent placeholder fill)** as most faithful (their EUI rests on a fabricated 1-storey height; the F2 badge already says "no above-ground massing"); this was surfaced to the user as a question that timed out, so it is a **reversible manager default pending the user's veto on re-review.**
+- **(2) "Generate the other neighbourhoods from the 12 cells too."** → **T21** retargeted + confirmed feasible: all 12 cells' IDF sets + manifests verified present on disk 2026-07-03 (413–1779 IDFs/cell, 8,160 total).
+- **(3) "Put all `.html` under `openubem/outputs/3D/`."** → **T21** output dir changed `openubem/outputs/` → `openubem/outputs/3D/`.
+- **(4) "Update progress log + add the 12-cell generation as a task."** → done (this entry; T21 pre-existed, now retargeted; T22 added; §1 Phase F added).
+- **Sequencing:** T22 (restyle + regenerate `nyc_centre` into `outputs/3D/`) → manager spot-check → T21 (batch all 12). Dispatched to a Sonnet employee 2026-07-03.
+- **Note (out of arc scope, recorded not acted-on):** whether transit complexes like Grand Central's rail-yard relation should be *simulated as a conditioned building with an EUI at all* is an **upstream Step-1/Step-2 modeling question**, not a viewer bug — flag for a future data-curation arc if the user wants it.
+
+#### T22 — Flat-footprint "muted placeholder" restyle — completed 2026-07-03
+- Artifacts: `openubem/viz/shell/colormaps.mjs` (new `FOOTPRINT_ONLY_MUTED` = `[228, 223, 214]` / `#E4DFD6`, `FOOTPRINT_ONLY_OPACITY` = `0.45`, and new pure functions `buildingFillColor`/`buildingFillOpacity` — one source of truth for per-building fill, gated by `heightMissing()` BEFORE the EUI/archetype lookup); `openubem/viz/shell/viewer_app.mjs` (`_prepareMesh` color attribute widened to itemSize 4 RGBA + `material.transparent = true`; `_colorForBuilding`/new `_opacityForBuilding` delegate to the pure functions; `recolor()` writes per-vertex alpha via `color.setXYZW`; legend gains a "footprint only (no OSM height)" row in both EUI and archetype modes); `openubem/viz/shell/viewer.js` (rebuilt vendored bundle, same pinned `three@0.155.0` + `cityjson-threejs-loader@0.4.0` + esbuild toolchain/alias flags from `BUILD.md`, unchanged); `tests/viz_js/viewer_logic.test.mjs` (+6 tests); regenerated `openubem/outputs/3D/nyc_centre_viewer.html`.
+- **Architecture deviation from the plan's literal "How" (flagged, necessary, not a scope change):** the plan's How-text says to "set the mesh material `transparent:true, opacity≈0.45`" per building, but T02's own measurement 3 (and T09's implementation) established the whole neighbourhood renders as **one merged mesh / one draw call** with per-vertex colour, not one mesh per building — there is no per-building material to set. Implemented the equivalent effect via **per-vertex alpha**: the geometry's `color` attribute widened from itemSize 3 (RGB) to itemSize 4 (RGBA), which three.js auto-enables as `USE_COLOR_ALPHA` (verified directly against the pinned `three@0.155.0` source, `WebGLRenderer.js:1631`/`WebGLPrograms.js:291`: `vertexAlphas = material.vertexColors === true && geometry.attributes.color.itemSize === 4`) once `material.transparent = true`; `color_fragment.glsl.js` then does `diffuseColor *= vColor` (RGBA), so alpha=1.0 buildings render indistinguishably from fully opaque while alpha=0.45 buildings blend translucent against the background/basemap. This achieves the exact visual outcome the plan asks for ("neutral translucent placeholder... opacity≈0.45... muted/recessed") within the actual merged-mesh architecture; confirmed no regression to opaque buildings via the LIVE_SMOKE screenshot below.
+- Second minor deviation: colour selection precedence — for a **selected** footprint-only building the highlight amber (`HIGHLIGHT_RGB`) still renders fully opaque (alpha 1.0), i.e. explicit user selection overrides the mute. Not specified either way by the plan; chosen because muting an explicitly-clicked building would read as a rendering glitch, not faithfulness. Windows/doors (`GLASS_RGB`) also stay alpha 1.0 for the same reason (they are real sub-surfaces, not the muted mass fill). The mute is applied uniformly across both LOD-N and LOD-B triangles for a footprint-only building (i.e. it persists into drill-down) — the plan's "What" only requires the *neighbourhood* view to change, but keeping the treatment consistent across LODs avoids an inconsistent "muted until you click it, then confident" message about a building whose data-quality problem doesn't go away on drill-down; the detail-pane EUI/badge already carry the real numbers regardless.
+- Also added an (unspecified but low-risk) legend row `footprint only (no OSM height)` with the muted swatch, in both EUI and archetype colour modes — not requested by the plan's How/test list, but directly serves the "so the three states stay legible together" requirement (§9.3's non-colour-only rule already established labelled legend rows as the pattern for every other reserved colour).
+- Colour choice: `FOOTPRINT_ONLY_MUTED = #E4DFD6` (228,223,214) — a light neutral, chosen to sit clearly apart from `NO_DATA_GREY` `#B0B0B0` (176,176,176, mid grey) and `Fallback` `#6C6080` (108,96,128, dark slate-violet); at alpha 0.45 over the near-black scene background (`0x0f1420`) it reads as muted/recessed, and against the light CartoDB basemap it visually recedes toward the street-grid tone rather than dominating it — the intended "recessed" effect, confirmed in the LIVE_SMOKE screenshot.
+- Test status: `node --test tests/viz_js/*.test.mjs` — **33 passed** (27 pre-existing + 6 new: footprint-only → muted not viridis-EUI; normal building unaffected; mute also overrides archetype mode; `FOOTPRINT_ONLY_MUTED` byte-distinct from `NO_DATA_GREY` and from `Fallback`; byte-distinct from every EUI ramp class; opacity 0.45 for footprint-only vs 1.0 for normal/absent). `pytest tests/test_viz_validation.py tests/test_viz_basemap_raster.py tests/test_viz_geometry_extract.py tests/test_viz_cityjson_emitter.py tests/test_viz_attribute_binding.py -q` — **52 passed**, unchanged (T22 is viewer-render-only; no Python/CityJSON/attribute-binding code touched, confirmed by `git diff` scope).
+- LIVE_SMOKE: rebuilt `viewer.js` via the exact `BUILD.md` esbuild command (pinned `three@0.155.0`/`cityjson-threejs-loader@0.4.0`, same 3 `--alias` flags), toolchain installed in the session scratchpad only (verified via `git status` — no `node_modules/`/`package.json`/`package-lock.json` landed in the repo). Regenerated `openubem/outputs/3D/nyc_centre_viewer.html` via `export_viewer_from_run(run_id="nyc_centre", results_dir="docs/.../phaseE/nyc_centre", manifest_path=<Temp Step-3 manifest, all 738 IDFs verified present on disk>, out_dir="openubem/outputs/3D", basemap_path=<same results_dir, reuses T20's cached `06_basemap_utm.png/.json`>)`: **738 buildings, has_basemap=True, 37,508,762 bytes (+1,601 B over the pre-T22 37,507,161 B — CityJSON payload byte-identical, only the ~1.5 KB viewer.js code delta)**. Headless Chromium (Puppeteer, `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`, same T20 flag set) opened the file from `file://`: **0 HTTP(S) requests, 0 console errors.** Selected `relation/11171793` (Grand Central) via `_selectBuilding` — detail pane confirms `total_eui_kwh_m2: 262.79333...`, `height_m: 3.5`, `levels: 1`, `data_quality_flag` carries `no_height`, flat-footprint badge text intact — **EUI value is not lost** for a muted building. Offline re-check (same 5-regex grep the manager used at CP-4): 0 `<script src>`/`<link href>`/`fetch("http`/`import("http`/`url(http)`; 6 inert `http(s)://` string occurrences (2× CityJSON `referenceSystem` CRS identifier — was 1 in the CP-4 file, now 2 because this run's LOD-0 context block also carries the same CRS string even though `n_context=0`; 1× XHTML namespace token; 1× three.js point-in-poly algorithm comment; 2× three.js r155 deprecated-lighting console-warning string, appears twice in the bundled source) — same clean result as CP-4's audit, no new external-fetch surface introduced. Before/after screenshots captured (session scratchpad): pre-T22 overview shows a dominant dark-purple/near-solid mass across the cell centre (the reported "collapsed super-block"); post-T22 overview shows that same region as light, translucent, backgrounded against the basemap street grid, with the real towers' viridis colours now standing out distinctly — visually confirms the fix.
+- Notes: the pre-T22 artifact was found already sitting at the exact target path `openubem/outputs/3D/nyc_centre_viewer.html` (37,507,161 bytes, matching T20's LIVE_SMOKE size exactly — apparently already relocated there ahead of T21's dir reorg) rather than the flat `openubem/outputs/nyc_centre_viewer.html` the plan's kickoff prompt described; copied it aside to the session scratchpad (`nyc_centre_viewer_PRE_T22.html`) before overwriting, per the "do NOT delete, manager will compare" instruction — available for manager diff/screenshot comparison, not committed anywhere in-repo. T21 (12-cell batch) NOT started — stays gated on manager spot-check of this file per the plan's own sequencing note above.
+
+#### T21 — Batch-generate a viewer.html for all 12 phaseE cells — completed 2026-07-03
+- Manager greenlight received (T22 audited + ratified). Executed per §6 T21: for each cell, in order — (1) archive Temp Step-3 IDFs durably beside its results, (2) generate its own basemap (own bbox), (3) `export_viewer_from_run(...)` into `openubem/outputs/3D/`. Reused the T22-final `viewer.js` bundle unchanged (no rebuild); no geometry/emitter/attribute code touched.
+- Artifacts — **12 self-contained viewers** at `openubem/outputs/3D/<cell>_viewer.html`; **11 new durable IDF archives** at `docs/docs_VALIDATION/validations/overAll/results/phaseE/<cell>/<cell>_step3_idfs_archive.zip` (nyc_centre already archived from T02, reused); **11 new per-cell basemaps** (`06_basemap_utm.png`/`.json`, real CartoDB PositronNoLabels fetch at gen-time; nyc_centre reused its T20 cache). Every archive verified `zipfile.testzip()==None`, entry count = n_idf + 1 (its own Step-3 manifest).
+- **Per-cell result table** (n_buildings == manifest success-row count for ALL 12; all under the 100 MB warn line; all offline-clean):
+
+  | Cell | n_buildings | success | match | size (MB) | basemap | archive | http-fetch surfaces |
+  |---|---|---|---|---|---|---|---|
+  | austin_centre | 413 | 413 | ✅ | 12.89 | ✅ generated | ✅ new | 0 |
+  | austin_rural | 245 | 245 | ✅ | 3.87 | ✅ generated | ✅ new | 0 |
+  | austin_suburban | 437 | 437 | ✅ | 7.50 | ✅ generated | ✅ new | 0 |
+  | austin_urban | 425 | 425 | ✅ | 12.60 | ✅ generated | ✅ new | 0 |
+  | la_centre | 226 | 226 | ✅ | 14.38 | ✅ generated | ✅ new | 0 |
+  | la_rural | 149 | 149 | ✅ | 2.90 | ✅ generated | ✅ new | 0 |
+  | la_suburban | 1343 | 1343 | ✅ | 17.16 | ✅ generated | ✅ new | 0 |
+  | la_urban | 618 | 618 | ✅ | 21.83 | ✅ generated | ✅ new | 0 |
+  | nyc_centre | 738 | 738 | ✅ | 37.51 | ✅ cached | ✅ (T02) | 0 |
+  | nyc_rural | 198 | 198 | ✅ | 2.93 | ✅ generated | ✅ new | 0 |
+  | nyc_suburban | 1589 | 1589 | ✅ | 10.51 | ✅ generated | ✅ new | 0 |
+  | nyc_urban | 1779 | 1779 | ✅ | 22.74 | ✅ generated | ✅ new | 0 |
+
+  Totals: 8,160 buildings across 12 cells; largest file nyc_centre 37.51 MB (**no cell exceeded the ~100 MB warn line** — nyc_urban, the projected-heaviest at 1779 bldgs, landed at 22.74 MB because its buildings are simpler than nyc_centre's Grand-Central-scale relations). Interesting non-monotonicity: file size tracks geometry complexity, not building count (nyc_centre's 738 > nyc_urban's 1779 in bytes).
+- **CP-Offline across ALL 12** (same 5-regex grep the manager used at CP-4 — `<script src>`/`<link href>`/`fetch("http`/`import("http`/`url(http)`): **0 fetch surfaces in every file.** Each file has exactly the same **6 inert `http(s)://` string occurrences** the manager already ratified for the pilot at CP-4 (2× CityJSON `referenceSystem` CRS identifier, 1× XHTML namespace token, 1× three.js point-in-poly algorithm comment, 2× three.js r155 deprecated-lighting console-warning string) — no new external-fetch surface anywhere. Basemap data-URIs are embedded base64 (0 bytes leave the process at view time).
+- **Screenshots (2 contrasting cells, session scratchpad):** `t21_nyc_urban.png` (dense, 1779 bldgs / 40 footprint-only) — viridis EUI towers register onto the correct street grid, muted footprint-only fill + legend row present; `t21_la_rural.png` (sparse, 149 bldgs / 1 footprint-only) — scattered buildings correctly placed on a rural CartoDB basemap, muted placeholder visible, legend row present. Both: Puppeteer headless (same SwiftShader flags), **0 HTTP requests, 0 console errors** confirmed programmatically.
+- Deviations: (1) **manifest_path** — used each cell's **Temp Step-3 `03_idf_manifest.parquet`** (the one whose `idf_path` column was verified pointing at on-disk IDFs, 0 missing across all 8,160) rather than the results-dir `04_simulation_manifest.parquet` the plan's How-text names; both carry `osm_id`+`idf_path`, and the Step-3 manifest is the one T22's ratified nyc_centre export already used, so this keeps all 12 cells byte-consistent with the accepted pilot. Flagging as a literal-text-vs-consistency call. (2) nyc_centre was **re-exported** (not skipped) so all 12 files come from one uniform batch run + carry the T22 bundle; its archive + basemap were correctly detected-and-reused (not regenerated), and its output is byte-identical to the T22 artifact (`content_hash 9d7f7dc…`, 37,508,762 bytes — same as the T22 entry above). No IDFs missing/unreadable in any cell → the STOP guardrail never fired. No re-simulation, no cluster job (pure local emit).
+- Test status: verification script asserts all 12 `<cell>_viewer.html` exist + all 12 archives + all 12 basemap PNGs present + count-match ✅ for all + CP-Offline 0 fetch-surfaces for all → **ALL 12 PASS**. (The viewer unit suites remain green from T22: node 33/33, python 52/52 — unchanged, T21 ran no code, only the exporter over new data.)
+- Notes: `git status` confirmed **no `node_modules/`/`package.json`/`package-lock.json` leaked into the repo** (esbuild/puppeteer toolchain stayed in the session scratchpad). Optional `index.html` gallery was NOT created (plan marks it "note only, not required"). STOP for manager final audit before this goes to the user; T21 rides on the combined CP-3 + CP-4 sign-off per the plan's post-CP-4 delivery note.
+
+#### T22 — MANAGER AUDIT (Opus) — RATIFIED 2026-07-03
+Independently verified, not on the executor's summaries alone:
+- **Visual fix confirmed** — opened the executor's before/after overview screenshots + the Grand-Central detail shot. Pre-T22: the footprint-only cluster (Grand Central rail-yard + Times Sq/Port Authority) rendered as dominant solid EUI-colored mega-slabs. Post-T22: same footprints now light/translucent, recessed toward the basemap street-grid tone, real viridis-colored towers standing out. Matches the "muted/recessed" intent.
+- **Faithful-to-model confirmed** — `git diff` scope over `openubem/viz/`: among Python only `viewer_export.py` is touched (basemap/out_dir, pre-existing T19 + the T21 dir change) — `cityjson_emitter.py`, `attribute_binding.py`, `geometry_extract.py` UNCHANGED, so geometry + CityJSON attributes are provably untouched. Detail pane on `relation/11171793` shows `total_eui_kwh_m2 = 262.79…`, `height_m 3.5`, `levels 1`, `no_height` flag, badge intact — EUI not lost for a muted building.
+- **Color logic ratified** — read `colormaps.mjs`: `buildingFillColor` gates on `heightMissing(attrs)` BEFORE the EUI/archetype lookup, returns `#E4DFD6`; the three reserved states (`NO_DATA_GREY` #B0B0B0 / `Fallback` #6C6080 / `FOOTPRINT_ONLY_MUTED` #E4DFD6) are byte-distinct and documented; single source of truth shared by viewer + tests (no dup logic).
+- **Per-vertex-alpha deviation ratified** — the scene is one merged mesh (T02 measurement 3), so per-building `material.opacity` is impossible; widening the color attribute to RGBA to trigger three.js `USE_COLOR_ALPHA` (verified by the executor against pinned r155 source) is the correct mechanism and produces the exact intended effect. Both minor judgment calls (selected building stays opaque; mute persists into LOD-B) accepted as more-faithful, not less.
+- **Tests + offline** — 33/33 node, 52/52 Python; offline re-check clean (0 external-fetch surfaces, 6 inert http strings, same pattern as CP-4). No stale flat `openubem/outputs/*viewer*.html` remains (verified) — only `outputs/3D/nyc_centre_viewer.html`.
+- **Open item for the user (reversible):** the *decision to mute* (vs keep footprint-only buildings EUI-colored) was a manager default taken when the user's styling question timed out. Faithful and preferred, but the user gets final say on re-review; a veto = one T21 re-batch, cheap relative to the win.
+**Verdict: T22 ratified. Proceeding to T21 (12-cell batch → `openubem/outputs/3D/`) per the plan's own "manager spot-check then T21" sequencing — local, reversible, non-outward-facing, and the explicit user request.**
+
+#### T21 — MANAGER AUDIT (Opus) — RATIFIED 2026-07-03
+Independently verified (not on the executor's table alone):
+- **12 files exist** at `openubem/outputs/3D/<cell>_viewer.html`, sizes byte-match the executor's reported table (2.9–37.5 MB, all under the 100 MB warn); **12 durable `<cell>_step3_idfs_archive.zip`** present beside the results (11 new + nyc_centre's T02 archive).
+- **Offline independently re-checked** on 3 cells the manager did NOT watch generate (`la_urban`, `nyc_urban`, `austin_centre`): the 5-regex external-fetch grep returns **0 surfaces** and exactly **6 inert `http(s)://` strings** each — identical to the CP-4-ratified pattern. Trust the executor's "all 12 clean" claim given 3/3 independent confirmations + uniform build path.
+- **Renders spot-checked** — dense (`nyc_urban`, 1779 bldg incl. cross-plan NYCHA towers) and sparse (`la_rural`, 149 bldg, 500 m scale bar): buildings register on the correct street grid, viridis EUI + basemap + the T22 muted footprint-only fill + its legend row all present; 0 HTTP, 0 console errors on both.
+- **Both deviations ratified:** (1) used each cell's Step-3 `03_idf_manifest.parquet` (has `osm_id`+`idf_path`) rather than the How-text's `04_simulation_manifest.parquet` — correct, it's the exact manifest the ratified T22 nyc_centre export used, so all 12 are build-consistent with the accepted pilot; (2) nyc_centre re-exported (not skipped) is **byte-identical** to the T22 artifact (same 37,508,762 B, same content hash) — confirms determinism, no drift.
+- **Guardrails:** 0 missing/unreadable IDFs across all 8,160 → STOP guard never fired; pure local emit, no re-simulation; `git status` clean of `node_modules`/`package.json`.
+**Verdict: T21 ratified. All 12 phaseE-cell viewers delivered to `openubem/outputs/3D/`, faithful + self-contained + offline. Rides on the combined CP-3 + CP-4 user sign-off (no new user gate). Staged for the manager-of-manager's final look. The T22 muting remains a reversible manager default pending the user's veto.**
+
+#### D01–D06 — Debug representation fix (footprint-only muting removed + basemap resolution bump) — completed 2026-07-03
+The user vetoed the T22 muted-placeholder default (footprint-only buildings were
+rendering as dominant flat-colored slabs / basemap resolution was too coarse).
+Fixed under a dedicated debug plan, not inline here — see
+`docs/docs_ACTIVE/3D/debug/PLAN_3dviz_debug_representation.md` (tasks D01–D06)
+and `docs/docs_ACTIVE/3D/debug/debug_regen_report.md` for the full record.
+Summary: `FOOTPRINT_ONLY_MUTED`/opacity gating removed from `colormaps.mjs` so
+footprint-only buildings render their real EUI/archetype colour at full
+opacity (dashed-outline legend cue kept instead of a muted swatch); basemap
+`generate_basemap` auto-zoom now resolves to a higher effective zoom
+(`target_px` 2048 → 3072) to avoid upsampling blur. All 12 phaseE-cell viewers
+regenerated and delivered to both `docs/docs_ACTIVE/3D/outputs/` and
+`openubem/outputs/3D/` (byte-identical copies, D06-verified). Node 33/33 +
+Python `pytest -k viz` 54/54 green; offline/no-external-fetch invariant held.
 
 ---
 

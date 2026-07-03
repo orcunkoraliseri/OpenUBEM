@@ -46,6 +46,7 @@ MODULE_SPECS: dict[str, dict] = {
         "circulation_fraction": 0.099,   # 9.9% corridor share
         "unit_space_type": "Apartment",
         "corridor_space_type": "Corridor",
+        "complex_shapes_supported": True,  # validated 0-Fatal/0-Severe on L/U/T/O (T10/T16b/T12)
         "source": "Deru et al. 2011 (DOE Prototype) Table 3.1.15; IBC 2021 §1020.3",
     },
     "SmallHotel": {
@@ -727,15 +728,20 @@ def generate_layout(
     poly = _largest_polygon(shapely.make_valid(footprint_poly))
     poly = poly.simplify(CLEANUP_SIMPLIFY_TOL_M, preserve_topology=True)
 
-    multi_wing = False
+    multi_wing = shape in (ShapeClass.L, ShapeClass.U, ShapeClass.T, ShapeClass.CROSS, ShapeClass.O)
+    # Complex footprints fragment into interior corridor cells. Small-module archetypes (hotels)
+    # produce cells too small for HVAC autosizing → E+ Fatal/Severe (T13a). Only archetypes
+    # validated on complex shapes pack them; the rest degrade to one_zone_per_floor via the caller
+    # (correctness > coverage, per the apartment arc). Simple/bar footprints still pack for all.
+    if multi_wing and not spec.get("complex_shapes_supported", False):
+        return []
+
     if shape in (ShapeClass.COMPACT, ShapeClass.SLAB, ShapeClass.POINT):
         wings = [Polygon(poly.exterior)]
     elif shape in (ShapeClass.L, ShapeClass.U, ShapeClass.T, ShapeClass.CROSS):
         wings = _decompose_wings(poly)
-        multi_wing = True
     elif shape is ShapeClass.O:
         wings = _split_donut(poly)
-        multi_wing = True
     else:  # RIBBON / IRREGULAR → let caller fall back
         return []
 

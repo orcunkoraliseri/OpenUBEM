@@ -368,6 +368,28 @@ No further action is prescribed beyond updating the checklist and memory. Next a
 
 ---
 
+## 14. E-R3-3 addendum — classifier fix folded into the baseline (2026-07-03)
+
+**Status:** the committed Phase-E baseline data (`docs/docs_VALIDATION/.../phaseE/<cell>/05_results.csv` × 12) and the figures referenced by this report were **regenerated** on 2026-07-03 to fold in the user-ratified **E-R3-3** archetype-classification fix (office size bins → `< 2322 / < 9290 m²`; school tier → level count; hotel tier → `≥ 5` levels; see `docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` §4). This is an **erratum-style addendum, not a rewrite**: the §0–§13 numbers above stand as the *as-first-adopted* Phase-E record; the numbers below are the *current* (post-E-R3-3) baseline. The full reader-facing results presentation is `docs/docs_EXPLANATION/OpenUBEM_results_archetypeClassification.md`.
+
+E-R3-3 introduces **no fitted parameters** (published-source literal swap only), so the zero-fitted-parameters discipline is preserved. Geometry was **frozen** (re-classify off the committed `01_buildings.gpkg`, no OSM re-fetch), isolating the classifier.
+
+**Headline shift — city-Overall median total EUI (before = §3 above, after = current baseline):**
+
+| City | Before | After | Measured | Δ% before | Δ% after |
+|---|---|---|---|---|---|
+| NYC | 165.7 | **149.3** | 219.2 | −24.4% | **−31.9%** |
+| LA | 107.2 | **106.6** | 113.6 | −5.6% | **−6.2%** |
+| Austin | 120.4 | **112.2** | 162.0 | −25.7% | **−30.7%** |
+
+CBECS gates move as expected: NMBE ~4 pp more negative (NYC −10.5→−14.7, LA −21.5→−25.5, Austin −11.9→−16.2); **R² essentially flat** (0.890→0.888 / 0.925→0.920 / 0.718→0.720). CV(RMSE)/KS report-only (V-R5-5).
+
+**Mechanism:** the fix down-tiers ~660 offices MediumOffice→SmallOffice (fleet office mix 2,848/948/390 → 3,504/412/270, count conserved at 4,186). Each flip drops ~72 kWh/m², dominated by an HVAC-template discontinuity — MediumOffice VAV fans (~40) → SmallOffice PSZ fans (~10), plus lower plug/heating — so the median steps down a cliff rather than sliding. Decomposition of the shift: **89–100% is the classifier fix**, with a ≤11% (NYC-only) same-signed code-drift tail from commits since the 2026-06-27 harvest. The widening of the measured gap is the *correct* classification exposing the pre-existing DOE-SmallOffice-template gap (§9 / "Other" residual philosophy), accepted under correctness-over-proximity + zero-fitted-params.
+
+**Fleet integrity:** the automated re-run lands 8,154/8,160; the 6 drops are exactly the §7 limitation-#6 inverted-geometry-winding buildings (5 la_rural + la_urban `way/402215469`) whose baseline 8,160/8,160 required the post-hoc `debugs/10_fails_solution.md` remediation, not re-applied in the per-cell re-run. Pre-existing, geometry-related, not an E-R3-3 effect.
+
+---
+
 *Re-score driver: `scripts/validation/phaseE_rescore.py`*
 *Results: `docs/docs_VALIDATION/validations/overAll/results/phaseE/<cell>/05_results.gpkg` × 12*
 *Figures: `openubem/outputs/comparisons/phaseE_city_comparison.png`, `phaseE_enduse_breakdown.png`, `phaseE_cbecs_scatter.png`*

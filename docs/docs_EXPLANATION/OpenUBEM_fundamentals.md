@@ -51,7 +51,7 @@ next stage reads, so any stage can be re-run on its own.
 | **2** | Semantic Enrichment | Classifies each building into an archetype, assigns a climate zone + weather file, and attaches envelope / loads / schedules → `02b_buildings_enriched.gpkg` |
 | **3** | IDF Generation | Builds one EnergyPlus input file (`.idf`) per building — geometry, zoning, constructions, loads, schedules, HVAC, shading → `idfs/*.idf` |
 | **4** | EnergyPlus Simulation | Runs EnergyPlus on the whole fleet in parallel → `04_simulation_manifest.parquet` |
-| **5** | Results, Carbon & Validation | Parses outputs into EUI, converts to carbon, aggregates to neighbourhood level, validates against measured data → `05_results.gpkg` + figures |
+| **5** | Results, Carbon & Validation | Parses outputs into EUI, converts to carbon, aggregates to neighbourhood level, validates against measured data → `05_results.gpkg` + figures + interactive 3D viewer (§8) |
 
 ---
 
@@ -242,7 +242,58 @@ in all three regions — using a **zero-fitted-parameter** model.
 
 ---
 
-## 8. Two properties worth knowing
+## 8. Visualizing results — the interactive 3D viewer
+
+Alongside the static 2D EUI choropleths (`openubem/outputs/comparisons/phaseE_overview_grid.png`), OpenUBEM
+produces an interactive, browser-based **3D viewer** of a simulated neighbourhood — the navigable 3D analogue
+of that flat grid. Each building is extruded to its real massing and colour-coded by simulated energy use; you
+can orbit the neighbourhood, click a building, and drill into its surfaces. It ships as **one self-contained
+HTML file** you open by double-clicking: no server, no install, no network. (Reference: `openubem/viz/`; pilot
+output `openubem/outputs/nyc_centre_viewer.html`.)
+
+### 8.1 The two constraints it never breaks
+
+1. **Faithful-to-model.** It renders *exactly* what the pipeline produced — real IDF geometry, real
+   `05_results.csv` values — and never fabricates geometry or interpolates a value. Where a fact is *absent* in
+   the source (e.g. a legacy run with no confidence field), it shows **"not recorded"**, never a made-up default.
+2. **Self-contained / offline / reproducible.** The 3D engine, styles, scene data, and map background are all
+   inlined; the file opens from `file://` with **zero external network requests**, and rebuilding it from the
+   same run gives a byte-identical file.
+
+### 8.2 What it shows
+
+| Layer | Detail |
+|---|---|
+| **Energy colouring** | Per-building `total_eui_kwh_m2` extruded + shaded on a sequential viridis/cividis ramp (quantile-5 / continuous toggle) — the same quantity as the 2D grid, in 3D. |
+| **Two levels of detail** | *Neighbourhood:* buildings as masses for fast navigation. *Building:* on select, a building drills into its individual surfaces **and windows/doors**. |
+| **Provenance** | Per-building lineage in the same panel — resolution-mode border, trust badge, a hatch for failed buildings, and a detail pane with the raw `data_quality_flag` tokens. (Novel — no comparable UBEM viewer ships per-building provenance.) |
+| **Zone honesty** | A building's interior "zone breakdown" opens **only** when the pipeline made real zone geometry (`perimeter_core` / `room_layout`, §5.1). Synthetic zones are prohibited. |
+
+### 8.3 Map basemap + flat-footprint clarity *(added 2026-07-03)*
+
+- **Map basemap.** Buildings sit on a real street map (© OpenStreetMap contributors © CARTO), so each
+  neighbourhood's exact location is visible — the same context as the 2D grid. Faithfulness is kept by baking
+  the map **once at export time** (fetched, reprojected to the run's UTM frame, embedded as an image) rather
+  than streaming live tiles, so the shipped file stays fully offline.
+- **Flat-footprint clarity.** Some very large footprints render nearly flat because OpenStreetMap carries no
+  above-ground height for them — the clearest case is **Grand Central Terminal** (an underground train station:
+  no floors/height in OSM). These now get a distinct style and a **"Height: not in OSM — footprint only"** badge
+  so they read as an honest data gap, not a broken building. Their geometry is left untouched — no height is
+  invented.
+
+### 8.4 How it's produced, and coverage
+
+The viewer is a **Step-5 post-processor**: after a run's `05_results.*` exist, it reads the run's geometry
+(`01_buildings.gpkg` + archived IDFs), values, and provenance, assembles a CityJSON scene in one shared UTM
+frame (EPSG:32618), and injects it — with the vendored 3D engine — into a frozen HTML shell, writing
+`openubem/outputs/<run_id>_viewer.html`. The per-run step is pure Python; the engine is built once and vendored.
+It is built and validated on the **nyc_centre** pilot first, then batch-generated for all **12 phaseE cells**
+(NYC / LA / Austin × Centre / Urban / Suburban / Rural). Full engineering detail:
+`docs/docs_ACTIVE/3D/PLAN_3dviz_implementation.md`.
+
+---
+
+## 9. Two properties worth knowing
 
 - **Deterministic & reproducible.** All stochastic operations use a seeded RNG; artifacts
   carry provenance columns and versioned schemas. The same inputs give the same outputs.
@@ -251,11 +302,12 @@ in all three regions — using a **zero-fitted-parameter** model.
 
 ---
 
-## 9. Where to go next
+## 10. Where to go next
 
 | You want… | Read |
 |---|---|
 | The full feature reference | `README.md` (root) |
+| The interactive 3D viewer (§8) design + tasks | `docs/docs_ACTIVE/3D/PLAN_3dviz_implementation.md` |
 | The simulated-vs-reconstructed energy method | `docs/docs_EXPLANATION/simulated_vs_reconstructed_methodology.md` |
 | The binding design specs | `docs/docs_main/` (cross-cutting) + `docs/docs_stepN/` (per step) |
 | The validation record | `docs/validations/` |
@@ -264,4 +316,4 @@ in all three regions — using a **zero-fitted-parameter** model.
 ---
 
 *OpenUBEM — fundamentals overview. Plain-language orientation; the design docs remain the
-binding source of truth. 2026-07-01.*
+binding source of truth. 2026-07-01 (§8 interactive 3D viewer added 2026-07-03).*

@@ -44,12 +44,12 @@ conflict the executor STOPS and quotes it.**
 - [x] **T09 (math + scaffold)** — comparator math (paired ASHRAE-G14 MBE/CV(RMSE)/peak) + A/B `compare_ab` scaffold, read-only-on-imputer (structural) — **ACCEPTED** *(15/15; NO sim run)*
 - [x] **T09 LIVE_SMOKE** — downstream-EUI A/B, MBE/CV(RMSE). **DONE 2026-07-02:** 36-bldg purpose-built synthetic fleet A/B, both M09 Step-C gates PASS (fleet NMBE 0.012% / CV(RMSE) 1.75%; held-out-only ≈0.04% / ≈3.1%; 0 dropped; 10 held-out all `GROUPMODE_MED`, spatial tier didn't fire = protocol-expected). **USER DECISION 2026-07-02: larger synthetic now + cluster-confirm later** — this is the provisional gate number; **real-OSM-city cluster A/B owed as confirmation once T11 frees the cluster** (before Phase C ships).
 - [ ] **T10** — optional uncertainty mode `--replicates M` (`config.py`, orchestrator) — *deferred (not a CP-2 gate condition)*
-- [~] **CP-2 — PROVISIONALLY MET 2026-07-02** — routing/strict-mode ✓ + mask-and-recover green ✓ + T09 comparator math ✓ + LIVE_SMOKE run & gates pass ✓. Provisional manager greenlight given (synthetic fleet); **unblocks Phase C PLANNING. Real-city cluster confirmation owed before Phase C SHIPS.**
+- [x] **CP-2 — fully MET 2026-07-03 (real-OSM-city cluster-confirmed)** — routing/strict-mode ✓ + mask-and-recover green ✓ + T09 comparator math ✓ + LIVE_SMOKE ✓ + **real-city cluster A/B ✓ (nyc_centre N=32: NMBE +0.49% / CV(RMSE) 1.71%; la_urban N=124: NMBE +0.08% / CV(RMSE) 0.61% — both PASS 5%/15%).** Phase C SHIP now unblocked; **Phase C start awaits user scope greenlight.**
 - [~] **T09-CC** — real-OSM-city cluster A/B (CP-2 CONFIRMATORY gate). **USER 2026-07-02: queue this FIRST (before Phase C planning).** Feasibility-first: Phase 1 = inventory observed `year_built`/`levels` coverage of cluster-side real cities (scp down + inspect locally; NO login-node python), report + STOP; manager picks target set (levels-only if year_built too sparse); Phase 2 = build+submit sbatch A/B. **SUBMITTED 2026-07-02:** target PINNED = `year_built` (real OSM carries it well; levels too sparse); cells = nyc_centre GATE (real NYC 725053 EPW, N=32, jobs 1058656/1058657) + la_urban robustness (real LA EPW, N=124, jobs 1058653/1058654). Phase-2a wiring smoke PASSED; manager caught+fixed a Chicago-placeholder-EPW defect on the gate. All 4 PD behind T11 (untouched) behind another project's CPU-cap array; low-freq Sonnet monitor harvesting per-cell held-out-only NMBE/CV(RMSE) on completion. Never touch T11.
 
-**Phase C — classical-ML imputer (user tier 3) → CP-3**  ⛔ *gated on CP-2*
-- [ ] **T11** — implement `build_ml_imputer` / §3E ML tier, MissForest (`imputation.py`)
-- [ ] **CP-3** — ships only if it beats the Phase-A baseline on T08 mask-and-recover AND does not worsen the T09 EUI check
+**Phase C — classical-ML imputer (user tier 3) → CP-3**  🟢 *DISPATCHED 2026-07-03 (Sonnet executor on T11.1→CP-3a; awaiting build-complete report)*
+- [~] **T11** — implement `build_ml_imputer` / §3E ML tier (`imputation.py`). **Detailed execution plan: `PLAN_phaseC_ml_imputer.md`** (decomposes T11 into T11.1–T11.7 + CP-3a/CP-3; user 2026-07-03 set scope = full M04 six-method menu behind one registry, EUI check = local IDF field-diff primary / cluster on divergence). **Sonnet executor DISPATCHED 2026-07-03 for T11.1–T11.5 → hard-stop at CP-3a for manager audit.**
+- [ ] **CP-3** — ships only if it beats the Phase-A baseline on T08 mask-and-recover AND does not worsen the EUI check
 
 **Phase D — fusion-first external joins (research-driven) → CP-4**  ⛔ *gated / scoped*
 - [ ] **T12** — external-data fusion precedence layer (Overture/LiDAR/assessor, runtime-fetch; expand to full tasks after CP-2)
@@ -290,6 +290,9 @@ against the live tree 2026-07-01.)*
 | `SPATIAL_CLUSTER_MNAR_BLOCKED` | `spatial_impute.py` (`MNAR_BLOCKED_FLAG`, both `neighbour_vote`+`knn_fill`) | `gdf_out['data_quality_flag']` (4-tuple return) | *(flag)* | local missingness R ≥ 0.60 → spatial value structurally never produced |
 | `HEURISTIC_DEFAULT` | **RETIRED emit-side at T05** (read-side-only in `_READ_SIDE_TOKENS` for old archives) | — | — | never emitted by live code |
 | `ASHRAE_STANDARD` / `HEURISTIC` / `KDE_IMPUTED` / `PDE_GENERATED` | legacy canonical vocabulary (DESIGN §12), tier-less | `provenance_*` columns | **undecided lineage weight — T07 must decide** (currently scored observed-grade 1.0 by `add_lineage_summary`, which would overstate confidence once wired) | pre-existing enrichment paths |
+| `ML_<METHOD>_<TIER>` — literal `ML_MISSFOREST_HIGH`/`_MED`, `ML_MICE_*`, `ML_KNN_*`, `ML_RF_*`, `ML_HISTGBM_*`, `ML_LINEAR_*` (`<METHOD>`=`method.upper()`; `<TIER>`∈{`HIGH`,`MED`}) | `imputation.py::_ml_tier` (Phase C, opt-in) | `provenance_<attr>` + `append_flag` | HIGH / MED (**LOW never stamped** — discarded, `_spatial_tier` precedent) | ML tier enabled for `attr` **and** above the per-target complete-case floor: morphology/semantic fill (`year_built`/`levels`/`height`/`use_class`) accepted at HIGH/MED confidence |
+
+**⚠️ Phase-C token ratification (manager, 2026-07-03 — CP-3a audit):** the `ML_<METHOD>_<TIER>` row above is the **manager-ratified** T11.2 vocabulary (executor recorded the exact strings + cut-points in `PLAN_phaseC_ml_imputer.md` §8 T11.2 for approval; added here per that plan's §5-F protocol). **Cut-points (fixed, cited, never swept):** classifier — top-class `predict_proba` share ≥0.8→HIGH, ≥0.5→MED, else LOW; regressor — `score=1/(1+cv)`, `cv=|dispersion/prediction|`, same ≥0.8/≥0.5 thresholds — **identical formula/thresholds to `spatial_impute._confidence_tier` (T06)**, reused not invented. Audit caveat carried to CP-3: for `year_built` the `cv=std/|mean|` score is near-insensitive at a ~2000 baseline (empirically all-HIGH — an inherited `spatial_impute` property), so LOW-discard effectively never fires for `year_built` and the ML fill always wins over statistical when enabled+above-floor; the CP-3 leaderboard (not the confidence gate) is therefore the operative discriminator.
 
 **Known residuals / out-of-arc items (documented, deliberately not scheduled as tasks):**
 - **R1 — `_emit_wlhp` vestigial `heating_efficiency` read** (`idf/hvac.py`): converted to `.get(k,d)` but emits NO token because the value is discarded (loop boiler uses hardcoded 0.80) — provenance must reflect values that reach the model (T02 log, deviation 3). Correct as-is.
@@ -753,6 +756,14 @@ against the live tree 2026-07-01.)*
   default run byte-identical to pre-T10.
 
 ### Phase C — Classical-ML imputer (user tier 3) — **GATED (see §7 CP-2)**
+
+> **📄 Detailed execution plan: `PLAN_phaseC_ml_imputer.md`** (manager-authored 2026-07-03). It
+> decomposes the T11 summary below into executable sub-tasks **T11.1–T11.7** with two stop-checkpoints
+> (CP-3a build-complete, CP-3 gate) + the T11.7 user-sign-off gate, and pins the load-bearing
+> architecture (canonical-tier reorder so ML precedes group-median; `_ml_tier` HIGH/MED-only contract;
+> pooled-frame evaluation to clear the RF floor; §3E `method='auto'`/`model_path` reconcile; the
+> ratified DESIGN "MICE-rejected" non-conflict). The summary below stays as the scope statement; the
+> executor works from `PLAN_phaseC_ml_imputer.md`.
 
 #### T11 — Implement `build_ml_imputer` / §3E ML tier (`imputation.py`)
 - **What:** Replace the `NotImplementedError` stub with a MissForest-equivalent
@@ -1805,6 +1816,40 @@ notes.)*
 - **Next manager action:** harvest when the 4 arrays reach COMPLETED (low-frequency Sonnet monitor dispatched),
   compute per-cell held-out-only numbers, audit → **ratify CP-2 fully MET or bring a documented exception.** No
   Phase C code ships until the user has seen the number.
+
+#### Manager audit — T09-CC cluster A/B HARVESTED; CP-2 CONFIRMED fully MET (real OSM cities) — 2026-07-03
+- **All 4 gate arrays COMPLETED clean** (`sacct` ExitCode 0:0 every task): nyc_centre A **1058656**×32 / B
+  **1058657**×32, la_urban A **1058653**×124 / B **1058654**×124. Per-building verify across every out-dir:
+  `task.rc`=0, non-empty `eplusout.sql`, `eplusout.end` "Successfully", 0 Fatal; **0 dropped, 0 parse-fail**;
+  N_paired = 32 (nyc) / 124 (la) = the full held-out set (simulated set == held-out set).
+- **Held-out-only paired ASHRAE-G14** — computed with the module's own `eui_impact.py::nmbe`/`cv_rmse`
+  (EUI col `total_eui_kwh_m2`, observed=A / imputed=B, paired by osm_id, thresholds 5% / 15% from module
+  constants — nothing hand-rolled, nothing tuned):
+  - **nyc_centre (GATE): N=32, NMBE = +0.49% (PASS |5%|), CV(RMSE) = 1.71% (PASS 15%).** mean EUI A 146.23 /
+    B 146.94 kWh/m²/yr; 19/32 exact-vintage-recovered (A=B), worst ΔEUI +12.5 (way/260180778).
+  - **la_urban (corroboration): N=124, NMBE = +0.08% (PASS), CV(RMSE) = 0.61% (PASS).** mean EUI A 111.10 /
+    B 111.18; 109/124 exact, worst +7.4 (way/401907383).
+- **EPW audit — harvester caveat REFUTED (favourable direction).** Harvester footnoted a "Chicago placeholder"
+  (stale read of the `t09cc_phase2b_cluster_submit.py` docstring). Verified the ACTUAL gate fleet dirs via
+  login-node `find`: nyc A+B both ran `...New.York-Central.Park...725053_TMYx...epw` (real NYC), la ran
+  `...722874_TMYx...` (real LA) — the prior-session EPW correction (Chicago 1058650/1058651 scancel'd →
+  resubmitted 1058656/1058657) held. Absolute nyc EUI is real-climate; paired metric unaffected either way
+  (EPW common-mode A=B). Harvester numbers valid; only its interpretive footnote was wrong.
+- **Corroborates the synthetic provisional:** real-city CV(RMSE) 1.71% ≈ 36-bldg synthetic 1.75% — independent
+  evidence the year_built router's downstream-EUI impact is small on real OSM stock.
+- **Zero-fitted-params intact:** cell / target / seed / mask-fraction all pinned pre-harvest; canonical metric
+  functions reused; no threshold or hyperparameter touched against the gate number.
+- **VERDICT: CP-2 fully MET (real-OSM-city confirmed), no longer provisional.** The definitive number owed
+  before Phase C ships is in hand and passes both gates on both cells with wide margin.
+- **Phase C (T11 MissForest) still NOT started** — awaiting user greenlight on scope. Artifacts: harvest scratch
+  under `scratchpad/t09cc_harvest/`; drivers `scratchpad/t09cc_phase2b_cluster_submit.py` +
+  `scratchpad/t09cc_nyc_centre_epwfix.py`.
+
+#### Manager — Phase-C plan doc authored (T11 decomposed) — 2026-07-03
+- Artifacts: NEW `docs/docs_ACTIVE/input/imputation/PLAN_phaseC_ml_imputer.md`; this file — §0 Phase-C block + §6 T11 header now point to it.
+- Deviations: none (planning only). User set scope 2026-07-03: **full M04 six-method sklearn menu** behind one pluggable estimator registry (not MissForest-only); EUI do-no-harm check = **local IDF field-diff primary, cluster A/B only on material fill divergence** (the CP-1 ratified method).
+- Test status: n/a (plan doc).
+- Notes: T11 decomposed into T11.1–T11.7 (registry+floors → confidence/tokens → `_ml_tier` wiring+canonical-order reorder → `impute_column` §3E `auto`/`model_path` reconcile → joblib persistence → CP-3 gate → user-sign-off ship). Two stop-checkpoints: **CP-3a** (imputer built+wired+unit-green+no-ML-path byte-identical) and **CP-3** (attribute-recovery leaderboard vs Phase-A + EUI do-no-harm → report+STOP). Load-bearing decisions pinned in the sub-plan §5: reorder `_CANONICAL_TIER_ORDER`→`(fusion,spatial,ml,statistical)` (proven behaviour-preserving for all non-ml routing) so ML is the primary morphology tier with group-median as its below-floor/abstain fallback; `_ml_tier` obeys the `(value,token)` contract, HIGH/MED-only (mirrors `_spatial_tier`); CP-3 headline = **attribute-recovery** delta since CP-2 exhausted the EUI headroom; DESIGN "MICE-rejected" ratified as a scoped non-conflict (physics KDE/PDE doctrine ≠ the deferred morphology ML tier) so the executor does not STOP; evaluation on a **pooled** real-city complete-case frame to clear the RF≥1000 floor with honest single-city below-floor fallback; opt-in only, `enrich_semantics`/default run untouched until the T11.7 USER-SIGN-OFF (carries the parent CP-2 byte-identity reconcile). **NOT dispatched — awaiting user go to hand to a Sonnet executor.**
 
 #### TXX — <title> — completed YYYY-MM-DD
 - Artifacts: <paths>

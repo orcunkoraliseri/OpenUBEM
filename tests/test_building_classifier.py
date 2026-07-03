@@ -1100,6 +1100,36 @@ class TestDoePrototypeSelfClassification:
         )
 
 
+# ── TestHotelBuildingTagFallback (T14-HOTELFIX) ───────────────────────────────
+
+@pytest.mark.parametrize("case_kwargs,levels_val,expected_archetype", [
+    # SmallHotel via building_tag=hotel, non-lodging/empty function_tag, 3-story (< 5 levels)
+    ({"building_tag": "hotel", "function_tag": "",
+      "provenance_levels": "OSM_OBSERVED"}, 3, "SmallHotel"),
+    # LargeHotel via building_tag=hotel, non-lodging/empty function_tag, 6-story (>= 5 levels)
+    ({"building_tag": "hotel", "function_tag": "",
+      "provenance_levels": "OSM_OBSERVED"}, 6, "LargeHotel"),
+    # Ordering guard: building_tag=hotel maps to commercial use_class; 25-story (20<=levels<40)
+    # must still hit rule 1b TallBuilding before rule 3a/3b lodging tier.
+    ({"building_tag": "hotel", "function_tag": "",
+      "provenance_levels": "OSM_OBSERVED"}, 25, "TallBuilding"),
+], ids=[
+    "SmallHotel_via_building_tag", "LargeHotel_via_building_tag",
+    "TallBuilding_precedes_hotel_building_tag",
+])
+class TestHotelBuildingTagFallback:
+    """E-R3-3/T14-HOTELFIX: rules 3a/3b mirror rule 5a Hospital's ft-or-bt guard."""
+
+    def test_hotel_building_tag_fallback(self, case_kwargs, levels_val, expected_archetype):
+        kw = dict(case_kwargs)
+        kw["levels"] = pd.array([levels_val], dtype="Int64")[0]
+        r = _row(**kw)
+        aid, _conf, _src = classify_building(r)
+        assert aid == expected_archetype, (
+            f"building_tag=hotel (levels={levels_val}) → expected {expected_archetype}, got {aid}"
+        )
+
+
 # ── TestSchoolLevelsAndMissingDefault (T12) ───────────────────────────────────
 
 @pytest.mark.parametrize("case_kwargs,levels_val,expected_archetype,expected_source", [

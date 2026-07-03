@@ -8,10 +8,12 @@ import assert from "node:assert/strict";
 import {
   quantileBreaks, classifyQuantile, normalizeContinuous,
   lodZGate, trustBadge, resolutionBorder, displayToken,
+  basemapPlaneLayout, shouldRenderBasemap, heightMissing, flatFootprintBadge,
 } from "../../openubem/viz/shell/viewer_logic.mjs";
 import {
   NO_DATA_GREY, sampleRamp, classColor, archetypeColor, archetypeSector,
-  SECTOR_COLOR,
+  SECTOR_COLOR, FOOTPRINT_ONLY_MUTED, FOOTPRINT_ONLY_OPACITY,
+  buildingFillColor, buildingFillOpacity,
 } from "../../openubem/viz/shell/colormaps.mjs";
 
 // ---- T10: quantile classification is deterministic + pinned ----
@@ -146,4 +148,120 @@ test("OpenUBEMUnknown (present) routes to Fallback, NOT to no-data grey", () => 
   // an unmapped-but-present id must also land on Fallback, never no-data grey.
   assert.deepEqual(archetypeColor("SomeFutureArchetype"), SECTOR_COLOR.Fallback);
   assert.notDeepEqual(archetypeColor("SomeFutureArchetype"), NO_DATA_GREY);
+});
+
+// ---- T17 (Phase E, F1): basemap ground-plane placement ----
+test("basemapPlaneLayout: size + centre derived from extent_local, no center offset", () => {
+  const layout = basemapPlaneLayout([0, 0, 100, 40], null);
+  assert.deepEqual(layout, { width: 100, height: 40, x: 50, y: 20 });
+});
+
+test("basemapPlaneLayout: subtracts the loader recenter offset (same frame as context)", () => {
+  const layout = basemapPlaneLayout([1000, 2000, 1100, 2040], { x: 1000, y: 2000, z: 0 });
+  assert.equal(layout.width, 100);
+  assert.equal(layout.height, 40);
+  assert.equal(layout.x, 50); // (1000+1100)/2 - 1000
+  assert.equal(layout.y, 20); // (2000+2040)/2 - 2000
+});
+
+test("basemapPlaneLayout: center with only some numeric fields degrades safely", () => {
+  const layout = basemapPlaneLayout([0, 0, 10, 10], {});
+  assert.equal(layout.x, 5);
+  assert.equal(layout.y, 5);
+});
+
+test("shouldRenderBasemap: present + well-formed scene.basemap -> true", () => {
+  assert.equal(shouldRenderBasemap({
+    image: "data:image/png;base64,AAAA", extent_local: [0, 0, 1, 1],
+  }), true);
+});
+
+test("shouldRenderBasemap: absent/malformed -> false, never a fabricated placeholder", () => {
+  assert.equal(shouldRenderBasemap(undefined), false);
+  assert.equal(shouldRenderBasemap(null), false);
+  assert.equal(shouldRenderBasemap({}), false);
+  assert.equal(shouldRenderBasemap({ image: "data:...", extent_local: [0, 0, 1] }), false);
+  assert.equal(shouldRenderBasemap({ image: "", extent_local: [0, 0, 1, 1] }), false);
+});
+
+// ---- T18 (Phase E, F2): flat-footprint clarity ----
+test("heightMissing: data_quality_flag containing no_height (pipe-joined) -> true", () => {
+  assert.equal(heightMissing({ data_quality_flag: "no_year|no_height" }), true);
+});
+
+test("heightMissing: real pilot value — mixed comma+pipe separators -> true", () => {
+  // Verbatim from the pilot's relation/11171793 (Grand Central Terminal):
+  assert.equal(heightMissing({
+    data_quality_flag: "no_floors,no_height,no_year|VINTAGE_NAN_PERMISSIVE_DEFAULT",
+  }), true);
+});
+
+test("heightMissing: provenance_height_m OSM_MISSING alone -> true", () => {
+  assert.equal(heightMissing({ provenance_height_m: "OSM_MISSING", data_quality_flag: "" }), true);
+});
+
+test("heightMissing: normal building (neither signal) -> false", () => {
+  assert.equal(heightMissing({ data_quality_flag: "no_year", provenance_height_m: "OSM_OBSERVED" }), false);
+  assert.equal(heightMissing({}), false);
+  assert.equal(heightMissing(undefined), false);
+});
+
+test("flatFootprintBadge: text only when height is missing, null otherwise", () => {
+  assert.match(flatFootprintBadge({ data_quality_flag: "no_height" }), /not in OSM/);
+  assert.equal(flatFootprintBadge({ data_quality_flag: "no_year" }), null);
+});
+
+// ---- Debug fix D03 (docs_ACTIVE/3D/debug/PLAN_3dviz_debug_representation.md):
+// footprint-only buildings still show their real value ----
+// The former T22 mute painted a flat beige over real EUI/archetype output for
+// ANY building with missing OSM height (up to 100% of buildings in some
+// cells). Corrected contract: footprint-only buildings flow through to the
+// SAME colour lookup as every other building, at full opacity; "no OSM
+// height" is conveyed only by the dashed outline overlay + detail-pane badge.
+const EUI_OPTS = { mode: "eui", classified: true, rampName: "viridis", breaks: quantileBreaks([50, 100, 150, 200, 250], 5), min: 50, max: 250 };
+
+test("buildingFillColor: footprint-only building still gets its real viridis EUI colour, NOT the old muted placeholder", () => {
+  const footprintOnly = { data_quality_flag: "no_floors,no_height,no_year", total_eui_kwh_m2: 180 };
+  const color = buildingFillColor(footprintOnly, EUI_OPTS);
+  const expected = classColor("viridis", classifyQuantile(180, EUI_OPTS.breaks), 5);
+  assert.deepEqual(color, expected, "footprint-only must flow through to the same EUI ramp as any other building");
+  assert.notDeepEqual(color, FOOTPRINT_ONLY_MUTED, "must not paint over the real value with the retired beige");
+});
+
+test("buildingFillColor: normal building (real OSM height) is unaffected — same EUI colour path", () => {
+  const normal = { data_quality_flag: "no_year", total_eui_kwh_m2: 180 };
+  const color = buildingFillColor(normal, EUI_OPTS);
+  const expected = classColor("viridis", classifyQuantile(180, EUI_OPTS.breaks), 5);
+  assert.deepEqual(color, expected);
+  assert.notDeepEqual(color, FOOTPRINT_ONLY_MUTED);
+});
+
+test("buildingFillColor: footprint-only building still gets its real archetype sector colour in archetype mode", () => {
+  const footprintOnly = { data_quality_flag: "no_height", archetype_id: "MediumOffice" };
+  const color = buildingFillColor(footprintOnly, { mode: "archetype" });
+  assert.deepEqual(color, archetypeColor("MediumOffice"));
+  assert.notDeepEqual(color, FOOTPRINT_ONLY_MUTED);
+});
+
+test("FOOTPRINT_ONLY_MUTED constant (kept but unused) is still byte-distinct from NO_DATA_GREY and Fallback", () => {
+  assert.notDeepEqual(FOOTPRINT_ONLY_MUTED, NO_DATA_GREY,
+    "must not be confused with never-simulated / failed buildings");
+  assert.notDeepEqual(FOOTPRINT_ONLY_MUTED, SECTOR_COLOR.Fallback,
+    "must not be confused with present-but-unclassified archetype");
+});
+
+test("FOOTPRINT_ONLY_MUTED constant (kept but unused) is still byte-distinct from every EUI ramp class colour", () => {
+  for (const ramp of ["viridis", "cividis"]) {
+    for (let i = 0; i < 5; i++) {
+      assert.notDeepEqual(FOOTPRINT_ONLY_MUTED, classColor(ramp, i, 5),
+        `collides with ${ramp} class ${i}`);
+    }
+  }
+});
+
+test("buildingFillOpacity: footprint-only AND normal buildings both fully opaque (1.0) — fill is never muted", () => {
+  assert.equal(buildingFillOpacity({ data_quality_flag: "no_height" }), 1.0);
+  assert.equal(buildingFillOpacity({ data_quality_flag: "no_year" }), 1.0);
+  assert.equal(buildingFillOpacity({}), 1.0);
+  assert.ok(FOOTPRINT_ONLY_OPACITY > 0 && FOOTPRINT_ONLY_OPACITY < 1, "retired constant shape unchanged (kept but unused)");
 });

@@ -178,11 +178,17 @@ class TestForceEnabledSkeletonStubs:
         with pytest.raises(NotImplementedError, match="fusion tier is Phase D"):
             impute_missing(df, cfg=cfg)
 
-    def test_ml_force_enabled_raises_not_implemented(self):
+    def test_ml_force_enabled_below_floor_falls_through(self):
+        # Phase C is now built (T11.3): a 1-row all-NaN `levels` frame is
+        # sub-floor for `missforest` (floor=1000) -- `_ml_tier` catches
+        # `BelowFloorError` internally and returns an all-null (value, token)
+        # tier result (fall-through), not an exception. With enabled_tiers=
+        # ("ml",) only, no other tier can fill the gap either, so the row
+        # stays NaN and impute_missing must NOT raise.
         df = pd.DataFrame({"levels": [float("nan")]})
         cfg = ImputeConfig(enabled_tiers=("ml",))
-        with pytest.raises(NotImplementedError):
-            impute_missing(df, cfg=cfg)
+        out = impute_missing(df, cfg=cfg)
+        assert pd.isna(out.loc[0, "levels"])
 
     def test_default_tiers_never_touch_fusion_or_ml(self):
         # Zero observed values anywhere -> statistical tier cannot help either;
