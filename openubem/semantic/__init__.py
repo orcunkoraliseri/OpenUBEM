@@ -18,6 +18,7 @@ from openubem.semantic.construction_sets import (
 )
 from openubem.semantic.loads import _LOADS_PROV_COLS, _LOADS_VALUE_COLS, get_loads
 from openubem.semantic.imputation import impute_column
+from openubem.semantic.provenance import add_lineage_summary
 from openubem.semantic.schedules import build_schedule_library
 
 logger = logging.getLogger(__name__)
@@ -419,6 +420,15 @@ def enrich_semantics(
             json.dumps(schedule_lib, indent=2),
             encoding="utf-8",
         )
+
+    # ── side manifest: lineage summary (T07.1) ────────────────────────────────
+    # Reporting-only rollup, kept OFF the GeoDataFrame (57-col validate_schema
+    # contract forbids appending columns) — additive in the returned dict only.
+    lineage = add_lineage_summary(out)
+    schedule_lib["lineage_summary"] = {
+        "imputed_fields_count": lineage["imputed_fields_count"],
+        "mean_imputation_confidence": lineage["mean_imputation_confidence"],
+    }
 
     return out, schedule_lib
 

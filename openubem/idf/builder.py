@@ -36,6 +36,7 @@ from openubem.idf.cooking import assign_cooking
 from openubem.idf.refrigeration import assign_refrigeration
 from openubem.idf.outputs import write_outputs
 from openubem.semantic.schedules import write_schedules_to_idf
+from openubem.semantic.loads import get_space_type_loads
 
 logger = logging.getLogger("openubem.idf")
 
@@ -101,6 +102,44 @@ def _coerce_to_polygon(geom, dq_flag: str) -> tuple:
         logger.warning("MultiPolygon footprint coerced to largest part (area=%.2f m²)", largest.area)
         return largest, dq_flag
     return geom, dq_flag
+
+
+def normalized_space_loads(
+    zones: list[dict], lpd_arch: float, epd_arch: float,
+    occ_m2_per_person: float, space_table: dict,
+) -> dict[str, dict]:
+    """Space-Type-Weighted Normalization (RESULT_L11): per-zone absolute loads that
+    differentiate by space type (e.g. corridor EPD/occupancy = 0) yet still sum to the
+    archetype-average building totals (lpd_arch·A, epd_arch·A, A/occ_m2).
+
+    Returns {zone_name: {"lights", "equip", "people"}} in absolute W / count.
+    """
+    zs = [z for z in zones if z.get("space_type") and z.get("floor_area_m2")]
+    a_tot = sum(z["floor_area_m2"] for z in zs)
+    if a_tot <= 0:
+        return {}
+
+    def si(z):  # per-space intensities for this zone's space type
+        return space_table.get(z["space_type"], {})
+
+    denom_l = sum(z["floor_area_m2"] * si(z).get("lighting_w_m2", 0.0) for z in zs)
+    denom_e = sum(z["floor_area_m2"] * si(z).get("equipment_w_m2", 0.0) for z in zs)
+    occ_area = sum(z["floor_area_m2"] for z in zs if si(z).get("has_occupancy"))
+    alpha_l = (lpd_arch * a_tot / denom_l) if denom_l > 0 else 0.0
+    alpha_e = (epd_arch * a_tot / denom_e) if denom_e > 0 else 0.0
+    total_people = (a_tot / occ_m2_per_person) if occ_m2_per_person else 0.0
+
+    out: dict[str, dict] = {}
+    for z in zs:
+        area = z["floor_area_m2"]
+        s = si(z)
+        out[z["name"]] = {
+            "lights": alpha_l * s.get("lighting_w_m2", 0.0) * area,
+            "equip": alpha_e * s.get("equipment_w_m2", 0.0) * area,
+            "people": (total_people * area / occ_area)
+                      if (s.get("has_occupancy") and occ_area > 0) else 0.0,
+        }
+    return out
 
 
 class BuildingIDF:
@@ -215,10 +254,53 @@ class BuildingIDF:
         arch = row["archetype_id"]
         people_per_m2 = 1.0 / float(row["occupant_m2_per_person"])
 
+        # Space-type differentiation for room_layout zones (corridor vs unit), alpha-
+        # normalized so building totals still equal the archetype-average totals (T08).
+        norm = None
+        if any(z.get("space_type") for z in zones):
+            space_table = get_space_type_loads(arch)
+            if space_table:
+                norm = normalized_space_loads(
+                    zones, float(row["lighting_w_m2"]), float(row["equipment_w_m2"]),
+                    float(row["occupant_m2_per_person"]), space_table,
+                )
+
         for z in zones:
             zname = z["name"]
             floor_area_m2 = z.get("floor_area_m2")
-            if floor_area_m2 is not None:
+            if norm is not None and zname in norm:
+                nl = norm[zname]
+                if nl["people"] > 0:
+                    idf.newidfobject(
+                        "PEOPLE",
+                        Name=f"People_{zname}",
+                        Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
+                        Number_of_People_Schedule_Name=f"Occupancy_Schedule_{arch}",
+                        Number_of_People_Calculation_Method="People",
+                        Number_of_People=nl["people"],
+                        Activity_Level_Schedule_Name="Activity_Level",
+                        Fraction_Radiant=0.3,
+                    )
+                idf.newidfobject(
+                    "LIGHTS",
+                    Name=f"Lights_{zname}",
+                    Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
+                    Schedule_Name=f"Lighting_Schedule_{arch}",
+                    Design_Level_Calculation_Method="LightingLevel",
+                    Lighting_Level=nl["lights"],
+                    Fraction_Radiant=0.42,
+                )
+                if nl["equip"] > 0:
+                    idf.newidfobject(
+                        "ELECTRICEQUIPMENT",
+                        Name=f"Equipment_{zname}",
+                        Zone_or_ZoneList_or_Space_or_SpaceList_Name=zname,
+                        Schedule_Name=f"Equipment_Schedule_{arch}",
+                        Design_Level_Calculation_Method="EquipmentLevel",
+                        Design_Level=nl["equip"],
+                        Fraction_Radiant=0.5,
+                    )
+            elif floor_area_m2 is not None:
                 idf.newidfobject(
                     "PEOPLE",
                     Name=f"People_{zname}",
@@ -333,6 +415,14 @@ class BuildingIDF:
         # 3E: extrude geometry + intersect_match + shading blocks (R2: one add_block per
         # unique footprint with num_stories=N; Z_Origin patch removed — geomeppy stacks at true z)
         extrude_geometry(self.idf, zones, context)
+
+        # Reflect a room_layout→one_zone_per_floor degrade in the manifest, whichever path took
+        # it — surfaces.py's intersect_match reroute (generation_status_note) or generate_layout's
+        # 1% area-conservation net (room_layout_area_fallback). Otherwise a silently-degraded build
+        # still reports zoning_strategy=room_layout, masking that room-level zoning was abandoned.
+        if any(z.get("generation_status_note") == "room_layout_intersect_fallback"
+               or z.get("room_layout_area_fallback") for z in zones):
+            strategy = "one_zone_per_floor"
 
         # Generation-time gate: any surviving vertex-count mismatch → reroute to
         # one_zone_per_floor (comprehensive: must simulate, not drop).

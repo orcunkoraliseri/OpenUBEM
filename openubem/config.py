@@ -79,3 +79,8 @@ EUI_PLAUSIBILITY_BOUNDS: tuple[float, float] = (25.0, 1000.0)  # kWh/m²/yr
 # When True, reconstruct_frame applies the Table-4 fraction-split uplift (pre-Phase-E).
 # False (default in Phase-E): service loads are physically modelled; reconstruction is a no-op.
 RECONSTRUCT_SERVICE_LOADS: bool = bool(int(os.environ.get("OPENUBEM_RECONSTRUCT_SERVICE_LOADS", "0")))
+
+# ── Input-Imputation arc T07 — imputation routing config (Phase B) ────────────
+# fusion/ml stay OUT of the default tuple until Phase D/C ship (plan §6 T07 PINNED CONTRACT).
+IMPUTE_STRICT_MODE: bool = False
+IMPUTE_ENABLED_TIERS: tuple = ("spatial", "statistical")

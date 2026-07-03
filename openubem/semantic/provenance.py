@@ -43,6 +43,16 @@ CONFIDENCE_WEIGHT = {"HIGH": 1.0, "MEDIUM": 0.5, "LOW": 0.1}
 _OBSERVED_METHOD = "OBSERVED"
 _OBSERVED_SCORE = 1.0
 
+# Legacy tier-less provenance tokens (Stage-2.2 DESIGN §12 / CANONICAL_PROVENANCE) are
+# imputed, not observed, and must not fall through to the observed-grade 1.0 default
+# (T07 carry-forward #2, ratified by manager audit 2026-07-02 — T07.1).
+LEGACY_TOKEN_WEIGHT = {
+    "KDE_IMPUTED": CONFIDENCE_WEIGHT["MEDIUM"],
+    "HEURISTIC": CONFIDENCE_WEIGHT["MEDIUM"],
+    "PDE_GENERATED": CONFIDENCE_WEIGHT["LOW"],
+    "ASHRAE_STANDARD": CONFIDENCE_WEIGHT["LOW"],
+}
+
 
 # ── token builder / parser (M09 §3A) ─────────────────────────────────────────
 
@@ -142,14 +152,17 @@ def _field_score(cell) -> tuple[bool, float]:
     """(is_imputed, field_score) for one provenance-column cell (M09 §3B).
 
     A `{METHOD}_{SOURCE}_{TIER}` token with METHOD != OBSERVED is an imputed
-    field scored by its tier weight; empty / `OBSERVED` / a legacy standards
-    value (no tier) is an observed-grade field scored 1.0.
+    field scored by its tier weight; empty / `OBSERVED` is an observed-grade
+    field scored 1.0. A legacy tier-less token in `LEGACY_TOKEN_WEIGHT` (exact
+    match, checked before `parse_token`) is imputed, scored by its ratified tier.
     """
     if _is_missing(cell):
         return False, _OBSERVED_SCORE
     s = str(cell).strip()
     if not s:
         return False, _OBSERVED_SCORE
+    if s in LEGACY_TOKEN_WEIGHT:
+        return True, LEGACY_TOKEN_WEIGHT[s]
     parsed = parse_token(s)
     if parsed is None:
         return False, _OBSERVED_SCORE

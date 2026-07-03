@@ -3,6 +3,8 @@ import logging
 
 import shapely
 
+from openubem.geometry import layoutGenerator
+
 logger = logging.getLogger("openubem.geometry")
 
 _ONE_PER_FLOOR = {"MidriseApartment", "HighriseApartment", "TallBuilding", "SuperTallBuilding"}
@@ -19,10 +21,14 @@ def decide_zoning_strategy(
     if resolution_mode == "fast_zone":
         return "perimeter_core"
     if resolution_mode == "zone":
-        raise NotImplementedError(
-            "resolution_mode='zone' (detailed DOE layout) is not yet implemented; "
-            "use 'fast_zone' for generic core/perimeter"
-        )
+        # Opt-in room-level layout (layoutGenerator). Units+corridor archetypes get
+        # corridor-spine room packing; every other archetype degrades to generic
+        # core/perimeter (a superset of fast_zone), so requesting 'zone' fleet-wide
+        # never raises — the pipeline's dummy-archetype mode check stays valid.
+        spec = layoutGenerator.MODULE_SPECS.get(archetype_id)
+        if spec and spec.get("family") == "units_corridor":
+            return "room_layout"
+        return "perimeter_core"
     if resolution_mode != "auto":
         raise ValueError(f"unknown resolution_mode: {resolution_mode!r}")
     # single_zone only for genuine 1-floor buildings (DESIGN §262 restricted to num_floors==1;
@@ -73,6 +79,26 @@ def build_zones(
             }
             for i in range(num_floors)
         ]
+
+    if strategy == "room_layout":
+        zones = layoutGenerator.generate_layout(
+            osm_id, footprint_poly, archetype_id, num_floors, floor_to_floor_m,
+        )
+        if not zones:
+            logger.warning(
+                "osm_id=%s room_layout unsupported (shape/archetype) → one_zone_per_floor",
+                osm_id,
+            )
+            fallback = build_zones(
+                osm_id, footprint_poly, archetype_id, num_floors,
+                "one_zone_per_floor", floor_to_floor_m, perimeter_depth_m,
+            )
+            # Mark so the manifest reports the effective strategy, not the requested one:
+            # generate_layout's 1% area-conservation net degraded this footprint.
+            for z in fallback:
+                z["room_layout_area_fallback"] = True
+            return fallback
+        return zones
 
     if strategy == "perimeter_core":
         core_poly = footprint_poly.buffer(-perimeter_depth_m)

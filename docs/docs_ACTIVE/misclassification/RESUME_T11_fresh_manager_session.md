@@ -1,22 +1,49 @@
-# RESUME PROMPT — T11 Phase-E 8,160-building re-run (fresh manager / Opus session)
+# RESUME PROMPT — T11 Phase-E 8,160-building re-run (fresh Sonnet manager session)
 
-> **Purpose.** Paste-to-resume briefing so a fresh **Opus manager** session can take over monitoring
+> **Purpose.** Paste-to-resume briefing so a fresh **Sonnet manager** session can take over monitoring
 > and finishing task **T11** (fold the E-R3-3 classifier fix into the closed Phase-E baseline) without
-> re-deriving anything. You are the *manager* (plan/audit/validation-analysis + gate decisions), not an
-> executor — cluster ops run in a **Sonnet** employee.
-> **Authored:** 2026-07-01 by the dispatching Opus session. **User is away** and authorized autonomous
+> re-deriving anything. You are the *manager* for these runs: monitor the fan-out to completion, recover it
+> if it stalls, keep the bookkeeping current, and produce the CP-3 before/after table — then STOP at the
+> user-sign-off gate (§7). You own the turn-surviving fan-out **directly** from your main session
+> (`run_in_background` task); you do **not** need a separate Sonnet employee for it.
+> **Role note (user-directed, 2026-07-02):** the user chose **Sonnet as manager** for this monitoring +
+> completion work (cost discipline — babysitting sims is cheap-model work). This is a deliberate exception to
+> the usual "Opus manager / Sonnet executor" split. Keep the analysis plain and numeric; defer all
+> interpretation and the promotion decision to the user (§7).
+> **Authored:** 2026-07-01 (dispatching Opus session). **Updated:** 2026-07-02 ~02:45 — fleet 7/11 done +
+> pilot, nyc_centre in flight; retargeted to a Sonnet manager. **User is away** and authorized autonomous
 > handling of the *process* up to — but **not including** — baseline promotion (see §7, the hard gate).
 
 ---
 
 ## 0. TL;DR — where things stand
 
-- **T11 is GREENLIT + RUNNING.** User un-parked it 2026-07-01 ("go go go" → confirmed "un-park & run T11").
-- A **Sonnet cluster employee** (agentId `a1be68fe17bb0e21e`) is re-running all 12 Phase-E cells (8,160
-  buildings) on Speed with the corrected classifier, **geometry frozen**, output to a **fresh throwaway
-  tree** `phaseE_er33` (baseline never touched).
-- Structure: **pilot `la_centre` first → self-verify 5 checks → auto-launch the other 11 cells** (~7–8 h).
-- **Your job when the fleet lands:** run the CP-3 before/after validation compare (§6), append the T11
+- **T11 is RUNNING.** User un-parked it 2026-07-01. Geometry frozen, output to a **fresh throwaway tree**
+  `phaseE_er33` (committed baseline never touched).
+- **Pilot `la_centre` is DONE + CLEAN** (226/226 sim, 0 dropped; all 5 self-verify checks pass; office
+  down-tier confirmed; baseline verified untouched). Numbers: total EUI 130.1→129.4, R² 0.884→0.885, NMBE
+  −25.3→−28.5, KS 0.330→0.326.
+- **Fan-out progress (as of 2026-07-02 ~02:45): 7 of 11 cells DONE + pilot.** Done: la_rural, nyc_rural,
+  austin_rural, austin_suburban, austin_centre, austin_urban, la_urban (each `rc=0`, `05_results.csv`
+  written) — plus the la_centre pilot = **8 completed cell dirs on disk**. **nyc_centre (#8) is in flight**
+  (local IDF-gen on this box; had not dispatched its cluster array yet). **Remaining: nyc_suburban,
+  la_suburban, nyc_urban** — the three largest, deliberately ordered last. ETA **~07:00–11:00**.
+- **The fan-out runs as a turn-surviving `run_in_background` task** (`scratchpad/fanout_11_cells.sh`) —
+  sequential, idempotent (skips cells with an existing `final_dir/05_results.csv` → resumable),
+  continue-on-failure, ordered small→large. **As the Sonnet *manager main session* you own this directly** —
+  a main-session bg task survives your turns. The earlier 3× la_centre driver death was a *launch-lifecycle
+  bug*: it was launched as a **subagent / employee-turn child**, which gets torn down when that subagent's
+  turn ends. **Never launch the driver from inside a subagent** — launch it from your own main session.
+- **Notification state:** the prior Opus session re-armed a session-owned completion waiter
+  (`scratchpad/await_fanout_11_complete.sh`, task `bm7fvn6y2`) that fires on `FANOUT_ALL_DONE`. A fresh
+  Sonnet session will **not** own that waiter, so **re-arm your own** (§5): `bash
+  scratchpad/await_fanout_11_complete.sh` as a `run_in_background` task, so the CP-3 trigger reaches you.
+- **A real regression was found + fixed** (2026-07-01): the post-sim reroute monkey-patch stub at
+  `v12_cell_pipeline.py:520` was a 3-arg lambda, but commit `e063865` (resolution-mode switch) added a 4th arg
+  to the `decide_zoning_strategy` call at `builder.py:325` → **every cell reaching reroute crashed**. Fixed to
+  `lambda arch, area, floors, *_a, **_k: "one_zone_per_floor"`. This fix is fan-out-critical (all 12 cells) and
+  is already in the script the fan-out runs — do not revert it.
+- **Your job when the fleet lands:** run the CP-3 before/after validation compare (§6), finalize the T11
   progress-log entry, and **STOP at the user-sign-off gate** (§7). Do NOT promote the baseline.
 
 ---
@@ -34,20 +61,30 @@ Verified mechanics M1–M6 + Execution recipe T11.1–T11.7).
 
 ---
 
-## 2. What is running + IDs (as of 2026-07-01 dispatch)
+## 2. What is running + IDs (as of 2026-07-02 ~02:45)
+
+Task IDs below were created by the **prior Opus session** — a fresh Sonnet session will NOT own them
+(TaskList looks empty). The underlying OS processes (bash driver + watcher + the live per-cell python) are
+still alive and will finish the work regardless; **re-derive live state from disk (§4)** and **re-arm your
+own waiter (§5)**. Do not assume any completion ping reaches you unless you re-arm it.
 
 | Thing | ID / path |
 |---|---|
-| Sonnet cluster employee (resume via SendMessage `to: <id>`) | `a1be68fe17bb0e21e` |
-| Employee's tracked completion wait (pilot) | bash job `bwpzi8szt` |
-| Manager-side backstop watch (pilot terminal artifact / hang) | bash job `b6d1yw5af` |
-| Explore agent that mapped the machinery (done) | `a5931c23a9009b4b4` |
+| Fan-out driver (11 cells, turn-surviving bg task; prior session) | bash task `bcjz97x9w` → `scratchpad/fanout_11_cells.sh` |
+| Fan-out progress/stall watcher (prior session) | bash task `b6h8c1jin` → `scratchpad/watch_fanout_11.sh` |
+| Session-owned completion waiter (re-armed 02:45; **re-arm your own**) | bash task `bm7fvn6y2` → `scratchpad/await_fanout_11_complete.sh` |
+| Fan-out status file (per-cell START/DONE/FAIL + `FANOUT_ALL_DONE`) | `scratchpad/fanout_11.status` |
+| Per-cell logs (`PYTHONUNBUFFERED=1`, flush live) | `scratchpad/phaseE_er33_<cell>.log` |
+| Pilot (DONE) log | `scratchpad/phaseE_er33_la_centre_resume5.log` |
 | Output subdir (fresh, throwaway) | `phaseE_er33` |
 | Remote fleet dirs (fresh per cell) | `/speed-scratch/o_iseri/fleets/phaseE_er33_<cell>` |
 
-If those background jobs have expired by the time you read this, re-derive state from disk (§4) and, if the
-employee is dead, either resume it (`SendMessage to: a1be68fe17bb0e21e`) or drive the remaining cells
-yourself by dispatching a **new Sonnet** cluster employee against §6 of the plan.
+If those background tasks have expired by the time you read this, re-derive state from disk (§4). **To resume
+the fan-out, just re-launch it** — `bash scratchpad/fanout_11_cells.sh` as a manager-owned
+`run_in_background` task; it is idempotent (skips cells that already have `final_dir/05_results.csv`) and will
+pick up where it left off. Do NOT revive the old Sonnet employee `a1be68fe17bb0e21e` or its jobs
+(`bwpzi8szt`/`b6d1yw5af`) — those are dead and the employee-turn-child launch pattern is what caused the 3×
+driver death; use the manager-owned turn-surviving launch instead.
 
 ---
 
@@ -104,24 +141,36 @@ committed `docs/docs_VALIDATION/…/phaseE/la_centre/` baseline unchanged; (5) r
 
 ## 5. Recovery — if the employee stalled or died
 
-- **Passive-wait failure mode (watch for it):** this employee already once ended its turn as an untracked
-  "I'll resume when notified" wait — nothing woke it. If it goes silent with the run unfinished, resume it
-  (`SendMessage to: a1be68fe17bb0e21e`) and insist it arm a **tracked** wait (Bash `run_in_background` until-loop
-  that exits on success OR failure markers) before ending a turn.
-- **Cells are resumable/idempotent:** re-running `v12_cell_pipeline.py <cell> --output-subdir phaseE_er33`
+- **Primary recovery = re-launch the idempotent fan-out.** If the fan-out task died (session/OS restart) with
+  cells unfinished, re-run `bash scratchpad/fanout_11_cells.sh` as a **manager-owned `run_in_background`
+  task**. It skips cells that already have `final_dir/05_results.csv`, so it resumes without redoing work.
+  Re-arm the watcher `bash scratchpad/watch_fanout_11.sh` too.
+- **Launch-lifecycle lesson (load-bearing):** the 3× la_centre driver death was caused by launching drivers as
+  **subagent / employee-turn children** — they get torn down when that subagent's turn ends, orphaning the run
+  mid-`verify_and_repair`. **Launch drivers from your own main session as turn-surviving `run_in_background`
+  tasks** (they survive your turns and notify on exit). As the Sonnet *manager main session* you launch and own
+  the driver directly — do **not** spawn a sub-employee to run it, or you reintroduce the teardown bug.
+- **Individual cell resume:** re-running `v12_cell_pipeline.py <cell> --output-subdir phaseE_er33`
   regenerates IDFs and, if the remote fleet already holds complete results, `_remote_results_complete`
-  skips re-sim and just harvests. Re-seed the frozen `01_buildings.gpkg` first if `%TEMP%` was wiped.
-- **Never run E+/Python compute on the login node.** If you must drive cells yourself, dispatch a **Sonnet**
-  employee — do not run the cluster loop in the Opus manager session.
+  skips re-sim and just harvests. Re-seed the frozen `01_buildings.gpkg` first if `%TEMP%` was wiped (source:
+  `docs/docs_VALIDATION/validations/overAll/results/phaseE/<cell>/01_buildings.gpkg`).
+- **Transient ssh/scp mid-run:** the pilot needed several restarts partly from transient ssh wedges; the v12
+  pipeline has its own ssh retries and is resumable, so a plain re-run (as above) clears them. Verify the
+  reroute lambda fix (`v12_cell_pipeline.py:520`, `*_a, **_k`) is present before concluding a crash is transient.
+- **Never run E+/Python compute on the login node** — login-node ops are `squeue`/`sacct`/`scp`/`mkdir`/`tar`
+  only; all compute is `sbatch` (the pipeline handles this internally).
 
 ---
 
 ## 6. CP-3 validation compare (T11.6) — YOUR manager deliverable when the fleet lands
 
 Goal: a **before/after** table, `phaseE_er33` (after) vs the committed `phaseE` baseline (before), on the
-same metrics as `REPORT_phaseE_final.md`. This is validation analysis → do it in the **Opus manager
-session** (like the CP-2 diagnostic). Do **not** just run `scripts/validation/phaseE_rescore.py` — it
-hardcodes the `phaseE` baseline path and would overwrite `REPORT_phaseE_final.md`.
+same metrics as `REPORT_phaseE_final.md`. Per the user's 2026-07-02 direction, you (the **Sonnet manager**)
+run this compare yourself. Do **not** just run `scripts/validation/phaseE_rescore.py` — it hardcodes the
+`phaseE` baseline path and would overwrite `REPORT_phaseE_final.md`. **Keep it numeric and plain:** produce
+the table, state the observed deltas, and stop — do **not** editorialize a verdict or touch the baseline. The
+interpretation and the promotion decision are the user's (§7); if a gate moves in an unexpected direction or
+anything looks surprising, **flag it for the user** rather than reasoning yourself to a conclusion.
 
 **Inputs:**
 - After: `docs/validations/overAll/results/phaseE_er33/<cell>/05_results.csv` × 12.
@@ -202,12 +251,16 @@ replacing the baseline. Park at the sign-off gate and wait.
 
 ---
 
-## 10. Kick-off line for the fresh session (what to tell the user / yourself)
+## 10. Kick-off line for the fresh Sonnet manager session
 
-> "Resuming T11 (Phase-E 8,160 re-run, E-R3-3). Read `docs/RESUME_T11_fresh_manager_session.md` and the plan
-> §6 T11. Check fleet state on disk (§4) + cluster (`squeue -u o_iseri`). If cells still running, monitor
-> event-driven (≥30-min). When all 12 land, run the CP-3 before/after compare (§6), report the table, and
-> STOP at the user-sign-off gate (§7) — do not promote the baseline. Cluster ops via a Sonnet employee only;
-> never login-node compute."
+> "Resuming T11 (Phase-E 8,160 re-run, E-R3-3) as the **Sonnet manager**. Read
+> `docs/RESUME_T11_fresh_manager_session.md` and the plan §6 T11. Re-derive fleet state from disk (§4) —
+> 7/11 + pilot were done as of 02:45, nyc_centre in flight, nyc_suburban/la_suburban/nyc_urban remain — and
+> check the cluster (`squeue -u o_iseri`, login-node I/O only). Re-arm my own completion waiter (§5: `bash
+> scratchpad/await_fanout_11_complete.sh` as a `run_in_background` task); if the fan-out itself died, re-launch
+> the idempotent `scratchpad/fanout_11_cells.sh` from my main session (never from a subagent). Monitor
+> event-driven, ≥30-min self-checks. When all 12 land, run the CP-3 before/after compare (§6), report the
+> table plainly, and STOP at the user-sign-off gate (§7) — do not promote the baseline. Never run compute on
+> the login node; all sim compute is `sbatch` (the pipeline handles it)."
 
-*OpenUBEM — manager handoff. E-R3-3 / T11. 2026-07-01.*
+*OpenUBEM — manager handoff. E-R3-3 / T11. Authored 2026-07-01 (Opus); retargeted to Sonnet manager 2026-07-02.*

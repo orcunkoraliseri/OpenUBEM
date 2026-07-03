@@ -299,14 +299,19 @@ class TestResolutionModes:
             shutil.rmtree(tmpdir_base, ignore_errors=True)
             shutil.rmtree(tmpdir_auto, ignore_errors=True)
 
-    def test_zone_mode_raises_before_fleet(self, synthetic_10_gdf, synthetic_schedule_library):
-        """resolution_mode='zone' must raise NotImplementedError before the fleet loop (fail-fast)."""
+    def test_zone_mode_runs_and_uses_room_layout(self, synthetic_10_gdf, synthetic_schedule_library):
+        """resolution_mode='zone' (PLAN layoutgenerator T06) runs the fleet: units+corridor
+        archetypes get room_layout, others degrade to perimeter_core — never raises."""
+        import pandas as pd
         tmpdir = tempfile.mkdtemp()
         try:
-            with pytest.raises(NotImplementedError):
-                run_step3(
-                    synthetic_10_gdf, synthetic_schedule_library, Path(tmpdir), resolution_mode="zone"
-                )
+            manifest = run_step3(
+                synthetic_10_gdf, synthetic_schedule_library, Path(tmpdir), resolution_mode="zone"
+            )
+            df = pd.DataFrame(manifest) if not isinstance(manifest, pd.DataFrame) else manifest
+            assert (df["resolution_mode"] == "zone").all()
+            # at least one MidriseApartment building resolved to room_layout
+            assert (df["zoning_strategy"] == "room_layout").any()
         finally:
             shutil.rmtree(tmpdir, ignore_errors=True)
 

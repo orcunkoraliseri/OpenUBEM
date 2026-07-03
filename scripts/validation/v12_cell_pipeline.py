@@ -517,7 +517,7 @@ def verify_and_repair(osm_ids: list[str], sim_out_dir: Path, step3_dir: Path,
             orig_dzs = _dzs.__module__
             import openubem.idf.builder as _builder_mod
             _orig = _builder_mod.decide_zoning_strategy
-            _builder_mod.decide_zoning_strategy = lambda arch, area, floors: "one_zone_per_floor"
+            _builder_mod.decide_zoning_strategy = lambda arch, area, floors, *_a, **_k: "one_zone_per_floor"
             try:
                 result = BuildingIDF(row).build(gdf, schedule_library, step3_dir)
             finally:

@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 _LOADS_TABLE: dict | None = None
 _OS_TABLE: dict | None = None
+_SPACE_TYPE_TABLE: dict | None = None
 
 
 def _load_json(pkg_path: str, fname: str) -> dict:
@@ -31,6 +32,20 @@ def _get_os_table() -> dict:
     if _OS_TABLE is None:
         _OS_TABLE = _load_json("openubem.data.loads", "openstudio_loads.json")
     return _OS_TABLE
+
+
+def get_space_type_loads(archetype_id: str) -> dict | None:
+    """Per-space-type intensity table for a units+corridor archetype (or None).
+
+    Returns {space_type: {lighting_w_m2, equipment_w_m2, has_occupancy}} used by
+    layoutGenerator room_layout zones. Intensities are relative; assign_loads
+    alpha-normalizes them to conserve the archetype-average building totals.
+    """
+    global _SPACE_TYPE_TABLE
+    if _SPACE_TYPE_TABLE is None:
+        _SPACE_TYPE_TABLE = _load_json("openubem.data.loads", "doe_space_type_loads.json")
+    entry = _SPACE_TYPE_TABLE.get(archetype_id)
+    return entry["space_types"] if entry else None
 
 
 def _build_flat_loads(custom_table: dict | None = None) -> pd.DataFrame:
