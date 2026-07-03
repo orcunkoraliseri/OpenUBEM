@@ -48,6 +48,28 @@ MODULE_SPECS: dict[str, dict] = {
         "corridor_space_type": "Corridor",
         "source": "Deru et al. 2011 (DOE Prototype) Table 3.1.15; IBC 2021 §1020.3",
     },
+    "SmallHotel": {
+        "family": "units_corridor",
+        "corridor_width_m": 1.83,        # 6 ft (L06 DOE-Small-Hotel spec; IBC 2021 §1020.3)
+        "unit_depth_m": 7.32,            # 24 ft guest-room depth (DOE Small Hotel)
+        "bay_width_m": 3.66,             # 12 ft bay (DOE Small Hotel)
+        "unit_area_m2": 26.79,           # =7.32x3.66 guest-room module
+        "circulation_fraction": 0.23,    # 23% corridor share (77% eff, L06; reference-only)
+        "unit_space_type": "GuestRoom",
+        "corridor_space_type": "Corridor",
+        "source": "Deru et al. 2011 (DOE Small Hotel) Table 3-51; corridor per L06 DOE Small Hotel spec; IBC 2021 §1020.3",
+    },
+    "LargeHotel": {
+        "family": "units_corridor",
+        "corridor_width_m": 2.44,        # 8 ft (PNNL 2020 Large Hotel; IBC 2021 §1020.3)
+        "unit_depth_m": 7.32,            # 24 ft guest-room depth (PNNL Large Hotel L08 Table 1)
+        "bay_width_m": 4.11,             # 13.5 ft bay (PNNL Large Hotel L08 Table 1)
+        "unit_area_m2": 30.09,           # =7.32x4.11 guest-room module
+        "circulation_fraction": 0.29,    # 29% corridor share (71% eff, L06; reference-only)
+        "unit_space_type": "GuestRoom",
+        "corridor_space_type": "Corridor",
+        "source": "PNNL Commercial Prototype Models 2020 (Large Hotel); depth/bay/corridor per L08 Table 1; IBC 2021 §1020.3",
+    },
 }
 
 

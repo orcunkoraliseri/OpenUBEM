@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import warnings
 from pathlib import Path
 from typing import Any
@@ -68,6 +69,7 @@ def aggregate_results(
     climate_sidecar: "pd.DataFrame | Path | None" = None,
     state: str | None = None,
     make_figures: bool = True,
+    export_html: bool = False,
     ep_version: str | None = None,
 ) -> gpd.GeoDataFrame:
     """Orchestrate Steps 3A-3G for a neighbourhood fleet (DESIGN §3F / PLAN P3/P4).
@@ -81,6 +83,9 @@ def aggregate_results(
     climate_sidecar : 02a_climate_epw.parquet (primary state source, F8)
     state        : explicit 2-letter state code (used when climate_sidecar is None)
     make_figures : render the three observability figures (Module 16)
+    export_html  : optionally emit the self-contained 3D viewer HTML (T13).
+        Off by default (adds ~geometry-parse cost); also enabled by the env
+        toggle OPENUBEM_EXPORT_HTML=1. Non-fatal, mirrors make_figures.
     ep_version   : EnergyPlus version string for summary metadata
     """
     output_dir = Path(output_dir)
@@ -202,6 +207,21 @@ def aggregate_results(
             render_all_figures(results_gdf, output_dir / "figures")
         except Exception as exc:
             warnings.warn(f"Figure rendering failed (non-fatal): {exc}")
+
+    # ── T13: optional self-contained 3D viewer HTML (flag-gated, non-fatal) ────
+    if export_html or bool(int(os.environ.get("OPENUBEM_EXPORT_HTML", "0"))):
+        try:
+            from openubem.viz.viewer_export import export_viewer
+            run_id = output_dir.resolve().parent.name or "run"
+            export_viewer(
+                idf_manifest, enriched_gdf, results_gdf,
+                run_id=run_id,
+                source_refs={"results": "05_results.csv",
+                             "buildings": "enriched_gdf",
+                             "manifest": "03_idf_manifest.parquet"},
+            )
+        except Exception as exc:
+            warnings.warn(f"Viewer HTML export failed (non-fatal): {exc}")
 
     return results_gdf
 

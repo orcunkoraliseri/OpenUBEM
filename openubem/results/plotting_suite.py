@@ -641,7 +641,7 @@ def plot_overview_grid(output_path: Path | None = None) -> tuple[Path, float, fl
 
 _CBECS_DIR = _BASE / "inputs" / "reports"
 _CITY_TO_REGION = {"nyc": "middle_atlantic", "la": "pacific", "austin": "west_south_central"}
-_R7_CSV = _BASE / "docs" / "validations" / "overAll" / "results" / "r7_service_loads.csv"
+_R7_CSV = _BASE / "docs" / "docs_VALIDATION" / "step1" / "overAll" / "results" / "r7_service_loads.csv"
 
 
 def _build_comparison_df() -> pd.DataFrame:

@@ -238,7 +238,7 @@ class TestSummaryCsvPresence:
     def test_summary_csv_has_12_rows(self):
         """r6_rescore_summary.csv must have exactly 12 rows (one per cell)."""
         summary_path = (
-            REPO / "docs" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
+            REPO / "docs" / "docs_VALIDATION" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
         )
         assert summary_path.exists(), f"Summary CSV not found: {summary_path}"
         df = pd.read_csv(summary_path)
@@ -246,7 +246,7 @@ class TestSummaryCsvPresence:
 
     def test_summary_csv_has_required_columns(self):
         summary_path = (
-            REPO / "docs" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
+            REPO / "docs" / "docs_VALIDATION" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
         )
         df = pd.read_csv(summary_path)
         required = {
@@ -284,7 +284,7 @@ class TestArchetypeAwarePctGeqGeneric:
     """For every cell in the summary CSV, archetype_pct >= generic_pct."""
     def test_all_cells(self):
         summary_path = (
-            REPO / "docs" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
+            REPO / "docs" / "docs_VALIDATION" / "validations" / "overAll" / "results" / "r6_rescore_summary.csv"
         )
         df = pd.read_csv(summary_path)
         for _, row in df.iterrows():
