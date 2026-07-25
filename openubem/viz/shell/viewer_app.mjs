@@ -15,6 +15,7 @@ import {
   quantileBreaks,
   lodZGate, trustBadge, resolutionBorder, displayToken,
   basemapPlaneLayout, shouldRenderBasemap, heightMissing, flatFootprintBadge,
+  shouldRenderUtciLayer,
 } from "./viewer_logic.mjs";
 
 // Loader semantic-type indices (defaults/colors.js key order) — windows/doors get
@@ -59,6 +60,7 @@ class Viewer {
     this._loadGeometry();
     this._buildContext();
     this._buildBasemap();
+    this._buildUtciLayer();
     this._buildFlatFootprintOverlay();
     this._buildLegendData();
     this.recolor();
@@ -294,6 +296,41 @@ class Viewer {
     this.basemapAttribution = basemap.attribution || "";
   }
 
+  // ---- UTCI ground-plane layer (T25): optional, additive, OFF BY DEFAULT ----
+  // `scene.utci_layer` is embedded ONCE at generation time exactly like
+  // `scene.basemap` (T25 "How": bake as an embedded image exactly as
+  // basemap_raster.py bakes the basemap) -- no runtime fetch here either.
+  // Absent `scene.utci_layer` (the default for every run that never passed
+  // `utci_layer_path`, plan §6a) -> no mesh, current behaviour preserved.
+  // Non-negotiable per plan §6a / T25: this NEVER colours a building and is
+  // NEVER a co-equal mode with `mode` (eui/archetype) -- it is a ground plane
+  // drawn above the basemap, below the buildings, and starts `visible = false`.
+  _buildUtciLayer() {
+    const utciLayer = this.payload.utci_layer;
+    if (!shouldRenderUtciLayer(utciLayer)) { this.utciLayerMesh = null; return; }
+
+    const center = new THREE.Vector3();
+    if (this.boundingBox) this.boundingBox.getCenter(center);
+    center.z = 0;
+
+    const layout = basemapPlaneLayout(utciLayer.extent_local, center);
+    const geom = new THREE.PlaneGeometry(layout.width, layout.height);
+    const texture = new THREE.TextureLoader().load(utciLayer.image);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    const material = new THREE.MeshBasicMaterial({
+      map: texture, side: THREE.FrontSide, transparent: true,
+    });
+    const mesh = new THREE.Mesh(geom, material);
+    // Above the basemap (-0.1) so it paints over it when both are visible,
+    // still below the building masses (z=0 floor).
+    mesh.position.set(layout.x, layout.y, -0.05);
+    mesh.renderOrder = -1;
+    mesh.visible = false; // OFF BY DEFAULT -- non-negotiable, plan §6a / T25
+    this.scene.add(mesh);
+    this.utciLayerMesh = mesh;
+    this.utciLayerAttribution = utciLayer.attribution || "";
+  }
+
   // ---- flat-footprint clarity (T18, Phase E F2) ----
   // Geometry is UNCHANGED (Phase-E binding constraint 1: never raise the
   // roof) — this draws a distinct dashed-outline overlay, on top of the exact
@@ -425,6 +462,7 @@ class Viewer {
 
     this._buildControls();
     this._buildBasemapUI();
+    this._buildUtciLayerUI();
     this._buildLegend();
     this._buildCompassScale();
     this._buildDetailPane();
@@ -447,6 +485,29 @@ class Viewer {
   _toggleBasemap(visible) {
     if (this.basemapMesh) this.basemapMesh.visible = visible;
     const attr = this.mount.querySelector("#ubem-basemap-attribution");
+    if (attr) attr.style.display = visible ? "" : "none";
+  }
+
+  // ---- UTCI layer toggle (T25): unchecked by default -- the checkbox has no
+  // `checked` attribute, unlike `_buildBasemapUI`'s. Buildings keep their
+  // energy colouring regardless of this toggle (plan §6a) -- it only ever
+  // shows/hides the ground-plane mesh built in `_buildUtciLayer`. ----
+  _buildUtciLayerUI() {
+    if (!this.utciLayerMesh) return; // no cached UTCI raster for this run (graceful)
+    const el = document.createElement("div");
+    el.className = "ubem-utci-ui";
+    el.innerHTML = `
+      <label><input type="checkbox" id="ubem-utci-toggle"> UTCI (Stage 6, unvalidated)</label>
+      <div class="ubem-attribution" id="ubem-utci-attribution" style="display:none">${this.utciLayerAttribution}</div>
+    `;
+    this.mount.appendChild(el);
+    el.querySelector("#ubem-utci-toggle")
+      .addEventListener("change", (e) => this._toggleUtciLayer(e.target.checked));
+  }
+
+  _toggleUtciLayer(visible) {
+    if (this.utciLayerMesh) this.utciLayerMesh.visible = visible;
+    const attr = this.mount.querySelector("#ubem-utci-attribution");
     if (attr) attr.style.display = visible ? "" : "none";
   }
 

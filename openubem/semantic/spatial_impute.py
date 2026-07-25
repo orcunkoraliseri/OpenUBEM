@@ -20,6 +20,13 @@ the row is DEACTIVATED for spatial fill (`value` stays unset) and
 `provenance` module so the caller falls back to the aspatial (statistical/
 group-wise) tier.
 
+Zero-neighbour rows (E-UTCI-09 sub-plan T09, fixes E-UTCI-10): a row whose
+neighbourhood query returns NO neighbours at all within `radius` is a
+different failure mode from an MNAR-blocked row -- "no neighbourhood exists
+to query" vs. "a neighbourhood exists but is too sparse in `col` to trust" --
+so it is recorded distinctly via `NO_NEIGHBOUR_FLAG`
+(`SPATIAL_NO_NEIGHBOUR_SKIPPED`) rather than silently `continue`d.
+
 Centroids assumed already in a projected (metric) CRS — reprojection is the
 caller's responsibility, out of scope here.
 """
@@ -41,6 +48,17 @@ MNAR_THRESHOLD = 0.60
 _K_SEARCH_MULTIPLIER = 3  # candidate pool oversampled vs k, so R is measured on a stable set
 
 MNAR_BLOCKED_FLAG = "SPATIAL_CLUSTER_MNAR_BLOCKED"
+
+# E-UTCI-09 height-backfill sub-plan T09 (fixes E-UTCI-10): a row whose
+# neighbourhood query returns ZERO neighbours within `radius` is a distinct
+# failure mode from an MNAR-blocked row -- "no neighbourhood exists to query"
+# vs. "a neighbourhood exists but is itself too sparse in `col` to trust".
+# Both leave `value` unset and fall through to the next tier, but only the
+# MNAR case says anything about `col`'s local missingness; a zero-neighbour
+# row says nothing about missingness at all (it may have zero neighbours of
+# ANY kind, e.g. an isolated rural parcel). Recorded distinctly rather than
+# silently `continue`d (previously invisible in `data_quality_flag`).
+NO_NEIGHBOUR_FLAG = "SPATIAL_NO_NEIGHBOUR_SKIPPED"
 
 _HIGH_THRESHOLD = 0.8
 _MED_THRESHOLD = 0.5
@@ -126,12 +144,13 @@ def neighbour_vote(
     agreement_ratio = pd.Series(np.nan, index=gdf.index, dtype=float)
     confidence = pd.Series([None] * n, index=gdf.index, dtype=object)
     blocked_mask = np.zeros(n, dtype=bool)
+    no_neighbour_mask = np.zeros(n, dtype=bool)
 
     missing_mask = gdf[col].isna().to_numpy()
     if n < 2 or not missing_mask.any():
-        return value, agreement_ratio, confidence, provenance.append_flag(
-            gdf, MNAR_BLOCKED_FLAG, mask=blocked_mask
-        )
+        out = provenance.append_flag(gdf, MNAR_BLOCKED_FLAG, mask=blocked_mask)
+        out = provenance.append_flag(out, NO_NEIGHBOUR_FLAG, mask=no_neighbour_mask)
+        return value, agreement_ratio, confidence, out
 
     tree, xy = _build_tree(gdf)
     bounds = gdf.total_bounds
@@ -140,6 +159,7 @@ def neighbour_vote(
     for i in np.flatnonzero(missing_mask):
         nbr_idx, nbr_dist = _query_neighbours(tree, xy, i, k, radius, n)
         if len(nbr_idx) == 0:
+            no_neighbour_mask[i] = True
             continue
         nbr_missing = pd.isna(col_values[nbr_idx])
         r_missing = nbr_missing.mean()
@@ -168,6 +188,7 @@ def neighbour_vote(
         confidence.iat[i] = tier
 
     gdf_out = provenance.append_flag(gdf, MNAR_BLOCKED_FLAG, mask=blocked_mask)
+    gdf_out = provenance.append_flag(gdf_out, NO_NEIGHBOUR_FLAG, mask=no_neighbour_mask)
     return value, agreement_ratio, confidence, gdf_out
 
 
@@ -203,13 +224,14 @@ def knn_fill(
     dispersion = pd.Series(np.nan, index=gdf.index, dtype=float)
     confidence = pd.Series([None] * n, index=gdf.index, dtype=object)
     blocked_mask = np.zeros(n, dtype=bool)
+    no_neighbour_mask = np.zeros(n, dtype=bool)
 
     col_numeric = gdf[col].astype(float)
     missing_mask = col_numeric.isna().to_numpy()
     if n < 2 or not missing_mask.any():
-        return value, dispersion, confidence, provenance.append_flag(
-            gdf, MNAR_BLOCKED_FLAG, mask=blocked_mask
-        )
+        out = provenance.append_flag(gdf, MNAR_BLOCKED_FLAG, mask=blocked_mask)
+        out = provenance.append_flag(out, NO_NEIGHBOUR_FLAG, mask=no_neighbour_mask)
+        return value, dispersion, confidence, out
 
     tree, xy = _build_tree(gdf)
     bounds = gdf.total_bounds
@@ -218,6 +240,7 @@ def knn_fill(
     for i in np.flatnonzero(missing_mask):
         nbr_idx, nbr_dist = _query_neighbours(tree, xy, i, k, radius, n)
         if len(nbr_idx) == 0:
+            no_neighbour_mask[i] = True
             continue
         nbr_missing = np.isnan(col_values[nbr_idx])
         r_missing = nbr_missing.mean()
@@ -249,4 +272,5 @@ def knn_fill(
         confidence.iat[i] = tier
 
     gdf_out = provenance.append_flag(gdf, MNAR_BLOCKED_FLAG, mask=blocked_mask)
+    gdf_out = provenance.append_flag(gdf_out, NO_NEIGHBOUR_FLAG, mask=no_neighbour_mask)
     return value, dispersion, confidence, gdf_out

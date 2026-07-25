@@ -74,6 +74,12 @@ Do not propose alternatives — execute the plan. If the DESIGN is ambiguous, ST
 
 For first runs of an unfamiliar executor, prefer narrower ranges (one to two tasks). Once Sonnet has shown it executes cleanly, widen the range to the next stop checkpoint.
 
+## Agent dispatch: fresh session per task, state lives in the plan doc
+
+- Default to a **new** employee-agent session for each dispatch, even if the same agent has been used before on this arc. Resuming/re-waking a prior agent session requires re-reading its full accumulated context, which burns as much (or more) token budget as just starting fresh.
+- Never rely on an agent's own running memory/conversation history to carry task state across dispatches. The plan doc (`docs/docs_stepN/PLAN_step-N-implementation.md`) is the single source of state — task list, decisions, and progress log. A fresh agent reads that doc and has everything it needs; it does not need the prior session's history.
+- Exception: only continue an existing agent session mid-task, when it is still actively working on the same not-yet-reported task and re-reading context would be cheaper than losing in-flight progress.
+
 ## Auditing Sonnet's reports
 
 When Sonnet returns, check in this order:

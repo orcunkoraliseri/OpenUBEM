@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 from pathlib import Path
 
 import geopandas as gpd
@@ -31,6 +32,7 @@ from openubem.viz.cityjson_emitter import build_cityjson
 from openubem.viz.context_features import BLOCKS_NAME, GREEN_NAME, ROADS_NAME
 from openubem.viz.geojson_context import build_context_geojson, translate_geojson_geometry
 from openubem.viz.metadata_block import add_metadata_block, content_hash
+from openubem.viz.utci_layer import UTCI_LAYER_PNG_NAME, UTCI_LAYER_SIDECAR_NAME
 
 _CONTEXT_ATTRIBUTION = "© OpenStreetMap contributors"
 
@@ -89,6 +91,50 @@ def _load_basemap(basemap_path: Path | str | None, origin) -> dict | None:
         "extent_local": [minx - ox, miny - oy, maxx - ox, maxy - oy],
         "attribution": sidecar.get("attribution", ""),
         "crs": sidecar.get("crs", ""),
+    }
+
+
+def _resolve_utci_layer_files(utci_layer_path: Path) -> tuple[Path, Path] | None:
+    """Same accept-dir-or-file convention as `_resolve_basemap_files` (T25)."""
+    p = Path(utci_layer_path)
+    if p.is_dir():
+        png_path, json_path = p / UTCI_LAYER_PNG_NAME, p / UTCI_LAYER_SIDECAR_NAME
+    elif p.suffix.lower() == ".png":
+        png_path, json_path = p, p.with_suffix(".json")
+    else:
+        return None
+    if png_path.exists() and json_path.exists():
+        return png_path, json_path
+    return None
+
+
+def _load_utci_layer(utci_layer_path: Path | str | None, origin) -> dict | None:
+    """T25: an OPTIONAL, additive ground-plane layer -- `openubem.viz.utci_layer.bake_utci_layer`
+    cache -> the scene's `"utci_layer"` entry (embedded data-URI, no runtime fetch, same
+    zero-network guarantee as `_load_basemap`). §6a: UTCI is a separate, unvalidated analysis
+    product -- never a co-equal colouring mode, never colours a building; this is a ground-plane
+    image only. Missing/unreadable cache, or `utci_layer_path=None` (the default for every
+    existing caller) -> the key is simply omitted -- purely additive, never blocking."""
+    if utci_layer_path is None:
+        return None
+    files = _resolve_utci_layer_files(Path(utci_layer_path))
+    if files is None:
+        return None
+    png_path, json_path = files
+    try:
+        sidecar = json.loads(json_path.read_text(encoding="utf-8"))
+        image_bytes = png_path.read_bytes()
+        minx, miny, maxx, maxy = (float(v) for v in sidecar["extent_utm"])
+    except (OSError, ValueError, KeyError, json.JSONDecodeError):
+        return None
+    ox, oy, _ = origin
+    data_uri = "data:image/png;base64," + base64.b64encode(image_bytes).decode("ascii")
+    return {
+        "image": data_uri,
+        "extent_local": [minx - ox, miny - oy, maxx - ox, maxy - oy],
+        "attribution": sidecar.get("attribution", ""),
+        "crs": sidecar.get("crs", ""),
+        "field": sidecar.get("field", ""),
     }
 
 
@@ -158,10 +204,12 @@ def build_scene(
     timestamp: str | None = None,
     basemap_path: Path | str | None = None,
     context_features_dir: Path | str | None = None,
+    utci_layer_path: Path | str | None = None,
 ) -> dict:
     """Assemble the full scene payload dict: geometry + values + provenance +
     metadata + failed/absent placeholders + an optional cached basemap (T16)
-    + optional cached urban-context vectors (T23/T24).
+    + optional cached urban-context vectors (T23/T24) + an optional cached
+    UTCI ground-plane layer (T25).
 
     Returns `{"cityjson", "context", "provenance_coverage"}` (+ `"basemap"`
     when a cached raster is found at `basemap_path` — T16's per-run directory
@@ -169,7 +217,11 @@ def build_scene(
     simply omitted, never a placeholder) (+ `"urban_context"` when any of the
     `06_context_{roads,green,blocks}.geojson` caches are found at
     `context_features_dir` — T23's per-run directory; absent/unreadable ->
-    the whole key is omitted). `timestamp` is forwarded to the metadata block
+    the whole key is omitted) (+ `"utci_layer"` when a cached raster from
+    `openubem.viz.utci_layer.bake_utci_layer` is found at `utci_layer_path` —
+    `utci_layer_path=None` is the default for every existing caller, so the
+    key is omitted and the scene is byte-identical to before T25 unless a
+    caller explicitly opts in). `timestamp` is forwarded to the metadata block
     (pass a fixed value to compare two builds).
     """
     cityjson = build_cityjson(manifest_df, buildings_gdf)
@@ -195,7 +247,31 @@ def build_scene(
     urban_context = _load_urban_context(context_features_dir, origin, reference_system)
     if urban_context is not None:
         scene["urban_context"] = urban_context
+    utci_layer = _load_utci_layer(utci_layer_path, origin)
+    if utci_layer is not None:
+        scene["utci_layer"] = utci_layer
     return scene
+
+
+# T25 conditional-injection markers: the vendored `viewer.js`/`viewer.css`
+# shell is a single frozen blob inlined WHOLE into every export (see
+# `_inject`), so a runtime `if (!mesh) return` guard inside the bundle is not
+# enough to satisfy the byte-identical regression guard -- the marked bytes
+# must be physically absent from the HTML whenever no UTCI layer was baked.
+# `_UTCI_BLOCK_RE` deletes marker + payload + one trailing newline (works for
+# both `\n` and `\r\n` source files) and reconstructs the pre-T25 bundle
+# exactly; `_UTCI_MARKER_RE` strips only the marker tokens, keeping the UTCI
+# code, for the enabled path. Any future rebuild of `viewer.js` from
+# `viewer_app.mjs`/`viewer_logic.mjs` (see shell/BUILD.md) MUST re-wrap the
+# UTCI-only additions with these same `/*T25UTCI*/ ... /*T25UTCI!*/` markers.
+_UTCI_BLOCK_RE = re.compile(r"/\*T25UTCI\*/.*?/\*T25UTCI!\*/\r?\n", re.DOTALL)
+_UTCI_MARKER_RE = re.compile(r"/\*T25UTCI!?\*/")
+
+
+def _apply_utci_markers(text: str, *, keep: bool) -> str:
+    if keep:
+        return _UTCI_MARKER_RE.sub("", text)
+    return _UTCI_BLOCK_RE.sub("", text)
 
 
 def _scene_json(scene: dict) -> str:
@@ -215,6 +291,9 @@ def _inject(scene: dict, run_id: str) -> str:
     template = _TEMPLATE.read_text(encoding="utf-8")
     bundle = _BUNDLE.read_text(encoding="utf-8")
     style = _STYLE.read_text(encoding="utf-8")
+    has_utci_layer = "utci_layer" in scene
+    bundle = _apply_utci_markers(bundle, keep=has_utci_layer)
+    style = _apply_utci_markers(style, keep=has_utci_layer)
     payload = _scene_json(scene)
     # Fill the controlled slots first, the large untrusted payload LAST so an
     # earlier replacement can never match inside it.
@@ -237,16 +316,17 @@ def export_viewer(
     repo_dir: str | None = None,
     timestamp: str | None = None,
     basemap_path: Path | str | None = None,
+    utci_layer_path: Path | str | None = None,
 ) -> dict:
     """Build the scene and write `<out_dir>/<run_id>_viewer.html`.
 
     Returns a small result dict: `html_path`, `content_hash` (timestamp-excluded),
-    `n_buildings`, `n_context`, `size_bytes`, `has_basemap`.
+    `n_buildings`, `n_context`, `size_bytes`, `has_basemap`, `has_utci_layer`.
     """
     scene = build_scene(
         manifest_df, buildings_gdf, results_df,
         run_id=run_id, source_refs=source_refs, repo_dir=repo_dir,
-        timestamp=timestamp, basemap_path=basemap_path)
+        timestamp=timestamp, basemap_path=basemap_path, utci_layer_path=utci_layer_path)
     html = _inject(scene, run_id)
 
     out = Path(out_dir) if out_dir is not None else _OUTPUTS_DIR
@@ -261,6 +341,7 @@ def export_viewer(
         "n_context": len(scene["context"]["features"]),
         "size_bytes": path.stat().st_size,
         "has_basemap": "basemap" in scene,
+        "has_utci_layer": "utci_layer" in scene,
     }
 
 
@@ -274,6 +355,7 @@ def export_viewer_from_run(
     repo_dir: str | None = None,
     timestamp: str | None = None,
     basemap_path: Path | str | None = None,
+    utci_layer_path: Path | str | None = None,
 ) -> dict:
     """Convenience wrapper resolving the standard per-run artifact paths.
 
@@ -284,6 +366,16 @@ def export_viewer_from_run(
     same per-run-snapshot discipline); pass `basemap_path=None` explicitly via
     a caller that overrides this wrapper if a run has no basemap on disk —
     `_load_basemap` already degrades gracefully when the files are absent.
+
+    `utci_layer_path` (T25) has NO default inference, unlike `basemap_path`:
+    Stage 6 is invoked separately from Stage 1-5 (plan §6a) and its output_dir
+    routinely differs from `results_dir` (e.g. an archived `docs_VALIDATION`
+    cell vs. `openubem/outputs/stage6/<cell>/`, see
+    `openubem/microclimate/__init__.py`'s own run_dir/output_dir docstring) —
+    a caller must pass the directory holding `openubem.viz.utci_layer`'s own
+    cache explicitly. Leaving it `None` (every pre-T25 call site, unchanged)
+    omits the layer entirely, exactly like `basemap_path=None` omits the
+    basemap.
     """
     results_dir = Path(results_dir)
     results_df = pd.read_csv(results_dir / _RESULTS_CSV)
@@ -298,4 +390,5 @@ def export_viewer_from_run(
         run_id=run_id, out_dir=out_dir,
         source_refs={"results": _RESULTS_CSV, "buildings": bpath.name,
                      "manifest": Path(manifest_path).name},
-        repo_dir=repo_dir, timestamp=timestamp, basemap_path=bmpath)
+        repo_dir=repo_dir, timestamp=timestamp, basemap_path=bmpath,
+        utci_layer_path=utci_layer_path)

@@ -613,11 +613,56 @@ class ImputeConfig:
         return bool(config.IMPUTE_STRICT_MODE)
 
 
+# E-UTCI-09 height-backfill sub-plan T07(c) -- minimum-height sanity floor.
+# 2.1 m = 7 ft, the IRC/IBC (International Residential/Building Code) R305.1
+# minimum finished-ceiling height for a habitable storey -- a cited physical
+# constant, never swept against any simulated EUI/UTCI output (hard rule 7).
+# A fused height/height_m below this floor (e.g. the 0.216 m Overture outlier
+# found in the nyc_suburban slice, CP-B ruling) is left NaN for a later tier
+# rather than filled -- fusion must never land a physically-impossible value.
+_MIN_HEIGHT_FLOOR_M = 2.1
+_HEIGHT_FUSION_ATTRS = ("height", "height_m")
+
+
 def _fusion_tier(gdf, attr: str, mask: pd.Series, rng: np.random.Generator):
-    """Phase-D skeleton hook (external-data fusion precedence layer, T12) --
-    NOT built. Raises when force-enabled; never called by default (`fusion`
-    is excluded from `config.IMPUTE_ENABLED_TIERS`)."""
-    raise NotImplementedError("fusion tier is Phase D")
+    """T07 -- external-data fusion tier (Phase D). Routes `attr` through
+    `fusion.fuse` (F-A/F-B: registered `overture`/`lidar`/`assessor` sources,
+    precedence read from `config.FUSION_SOURCES_BY_TARGET`). With the default
+    config (`FUSION_SOURCES_BY_TARGET = {}`), `precedence_for` returns `[]`
+    and this tier is a guaranteed no-op -- `fuse()` never raises and never
+    calls out to any source (see F-C'/CP-A).
+
+    Fills only rows in `mask` that fusion resolves to a non-null value,
+    carrying the `FUSED_<SOURCE>_HIGH`/`_MED` provenance token `fuse()`
+    already stamps (hard rule 6: no value lands without a token). For
+    `height`/`height_m`, a fused value below `_MIN_HEIGHT_FLOOR_M` is
+    discarded here (left NaN) so a later tier gets a chance instead of a
+    physically-impossible height silently landing (CP-B ruling on T07(c)).
+    """
+    is_numeric = (
+        pd.api.types.is_numeric_dtype(gdf[attr]) if attr in gdf.columns else True
+    )
+    value = (
+        pd.Series(np.nan, index=gdf.index, dtype=float) if is_numeric
+        else pd.Series([None] * len(gdf), index=gdf.index, dtype=object)
+    )
+    token = pd.Series([None] * len(gdf), index=gdf.index, dtype=object)
+    if not mask.any():
+        return value, token
+
+    from openubem.semantic import fusion
+
+    fused_value, fused_token = fusion.fuse(gdf, attr)
+    hit = mask & fused_value.notna()
+    if attr in _HEIGHT_FUSION_ATTRS and hit.any():
+        below_floor = hit & (pd.to_numeric(fused_value, errors="coerce") < _MIN_HEIGHT_FLOOR_M)
+        hit = hit & ~below_floor
+    if not hit.any():
+        return value, token
+
+    value.loc[hit] = fused_value.loc[hit]
+    token.loc[hit] = fused_token.loc[hit]
+    return value, token
 
 
 _ML_TOKEN_HIGH = "HIGH"

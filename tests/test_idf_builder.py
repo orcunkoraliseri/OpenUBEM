@@ -23,6 +23,7 @@ from openubem.idf.builder import (
     TEMPLATE_ROUTING,
     BuildingIDF,
     _parse_epw_location,
+    _repair_oversized_epbunch_objls,
 )
 
 
@@ -190,6 +191,110 @@ class TestBuildingIDFInit:
         loc = bidf.idf.idfobjects["SITE:LOCATION"][0]
         assert loc.Name == "Montreal"
         assert abs(float(loc.Latitude) - 45.47) < 1e-4
+
+
+# ── structural-fixes T03 — thermal_mass default resolution (E-LA-07-class-2/E-LA-08) ──
+
+class TestThermalMassDefaultResolution:
+    def test_layout_assign_defaults_thermal_mass_true(self):
+        row = _make_row("MediumOffice", SYNTHETIC_EPW)
+        assert BuildingIDF(row, resolution_mode="layout_assign").thermal_mass is True
+
+    def test_layout_assigner_alias_also_defaults_true(self):
+        row = _make_row("MediumOffice", SYNTHETIC_EPW)
+        assert BuildingIDF(row, resolution_mode="layout_assigner").thermal_mass is True
+
+    def test_auto_mode_defaults_thermal_mass_false(self):
+        row = _make_row("MediumOffice", SYNTHETIC_EPW)
+        assert BuildingIDF(row, resolution_mode="auto").thermal_mass is False
+
+    def test_building_mode_defaults_thermal_mass_false(self):
+        row = _make_row("MediumOffice", SYNTHETIC_EPW)
+        assert BuildingIDF(row, resolution_mode="building").thermal_mass is False
+
+    def test_default_constructor_call_defaults_thermal_mass_false(self):
+        """No resolution_mode passed at all -> falls back to 'auto' -> False, unchanged behavior."""
+        row = _make_row("MediumOffice", SYNTHETIC_EPW)
+        assert BuildingIDF(row).thermal_mass is False
+
+    def test_explicit_false_override_respected_for_layout_assign(self):
+        row = _make_row("MediumOffice", SYNTHETIC_EPW)
+        bidf = BuildingIDF(row, thermal_mass=False, resolution_mode="layout_assign")
+        assert bidf.thermal_mass is False
+
+    def test_explicit_true_override_respected_for_auto(self):
+        row = _make_row("MediumOffice", SYNTHETIC_EPW)
+        bidf = BuildingIDF(row, thermal_mass=True, resolution_mode="auto")
+        assert bidf.thermal_mass is True
+
+
+class TestOversizedEpBunchRepair:
+    """E-LA-09/E-LA-13: eppy's EpBunch.__repr__ zip-truncates any object whose
+    stored value count (obj) exceeds its field-name/comment list (objls),
+    silently dropping the excess AND the correctly ';'-terminated final line.
+    """
+
+    def _make_idf(self):
+        row = _make_row("MediumOffice", SYNTHETIC_EPW)
+        return BuildingIDF(row).idf
+
+    def test_repair_pads_objls_to_match_oversized_obj(self):
+        idf = self._make_idf()
+        obj = idf.newidfobject("CONTROLLER:MECHANICALVENTILATION", Name="Test_DCV")
+        obj.objls[:] = obj.objls[:4]
+        obj.obj.extend(["ExtraZone0", "ExtraZone1", "ExtraZone2"])
+        assert len(obj.obj) > len(obj.objls)
+
+        n_repaired = _repair_oversized_epbunch_objls(idf)
+
+        assert n_repaired >= 1
+        assert len(obj.objls) >= len(obj.obj)
+
+    def test_repair_is_a_noop_for_well_formed_objects(self):
+        idf = self._make_idf()
+        obj = idf.newidfobject("CONTROLLER:MECHANICALVENTILATION", Name="Test_DCV")
+        before = list(obj.objls)
+
+        n_repaired = _repair_oversized_epbunch_objls(idf)
+
+        assert n_repaired == 0
+        assert obj.objls == before
+
+    def test_oversized_object_no_longer_truncates_on_save(self, tmp_path):
+        idf = self._make_idf()
+        obj = idf.newidfobject("CONTROLLER:MECHANICALVENTILATION", Name="Test_DCV")
+        # Simulate the general E-LA-13 bug shape (objls shorter than obj) directly,
+        # per T08's own test instruction ("construct or load an object where
+        # len(obj.obj) > len(obj.objls)").
+        obj.objls[:] = obj.objls[:4]
+        sentinel = "SENTINEL_LAST_VALUE"
+        obj.obj.extend(["ExtraZone0", "ExtraZone1", sentinel])
+
+        _repair_oversized_epbunch_objls(idf)
+        out_path = tmp_path / "oversized_repaired.idf"
+        idf.save(str(out_path))
+        text = out_path.read_text(encoding="utf-8", errors="replace")
+
+        idx = text.find(sentinel)
+        assert idx != -1, "sentinel value dropped by idf.save() -- repair did not fix truncation"
+        line = text[idx: idx + 80].split("\n")[0]
+        value_part = line.split("!-")[0].strip()
+        assert value_part.endswith(";"), f"expected ';' terminator, got: {value_part!r}"
+
+    def test_without_repair_oversized_object_truncates_on_save(self, tmp_path):
+        """Negative control: confirms the synthetic repro is meaningful (the bug
+        is real without the fix), not a tautology."""
+        idf = self._make_idf()
+        obj = idf.newidfobject("CONTROLLER:MECHANICALVENTILATION", Name="Test_DCV")
+        obj.objls[:] = obj.objls[:4]
+        sentinel = "SENTINEL_UNFIXED"
+        obj.obj.extend(["ExtraZone0", "ExtraZone1", sentinel])
+
+        out_path = tmp_path / "oversized_unfixed.idf"
+        idf.save(str(out_path))
+        text = out_path.read_text(encoding="utf-8", errors="replace")
+
+        assert sentinel not in text, "expected the unrepaired object to silently drop the sentinel"
 
 
 class TestConstructions:

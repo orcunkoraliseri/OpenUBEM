@@ -3,7 +3,7 @@ import logging
 
 import shapely
 
-from openubem.geometry import layoutGenerator
+from openubem.geometry import layoutGenerator, layout_assigner
 
 logger = logging.getLogger("openubem.geometry")
 
@@ -20,6 +20,8 @@ def decide_zoning_strategy(
         return "one_zone_per_floor"
     if resolution_mode == "fast_zone":
         return "perimeter_core"
+    if resolution_mode in ("layout_assign", "layout_assigner"):
+        return "layout_assign"
     if resolution_mode == "zone":
         # Opt-in room-level layout (layoutGenerator). Units+corridor archetypes get
         # corridor-spine room packing; every other archetype degrades to generic
@@ -133,5 +135,11 @@ def build_zones(
             "perim_depth_m": perimeter_depth_m,
             "archetype_id": archetype_id,
         }]
+
+    if strategy == "layout_assign":
+        assigned_layout = layout_assigner.assign_baseline_layout(
+            osm_id, footprint_poly, archetype_id, num_floors, floor_to_floor_m
+        )
+        return [assigned_layout]
 
     return build_zones(osm_id, footprint_poly, archetype_id, num_floors, "single_zone", floor_to_floor_m, perimeter_depth_m)

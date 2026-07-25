@@ -15,8 +15,9 @@ Load-bearing properties under test:
       is honoured by a default (`cfg=None`) call;
   (4) strict mode fills nothing and raises `StrictImputationError` listing every
       residual (attribute, row_index) gap; no gaps -> returns unchanged;
-  (5) force-enabling `fusion`/`ml` (both Phase C/D skeleton stubs) raises
-      `NotImplementedError` -- surfaced, never caught-and-swallowed;
+  (5) force-enabling `fusion` (E-UTCI-09 T07 landed its body) or `ml` under
+      an inert/below-floor config is a no-op -- the gap is left unfilled,
+      never a raise;
   (6) real (non-mocked) end-to-end fills: a genuine T06 spatial-donor hit via
       geometry, and a genuine T04/T05-style group-median statistical fallback --
       proving the router is wired to real primitives, not mocks only.
@@ -169,14 +170,24 @@ class TestStrictMode:
         assert out is not df  # a copy, not the same object
 
 
-# ── (5) force-enabled Phase C/D skeleton stubs raise, never swallowed ────────
+# ── (5) force-enabled Phase C/D tiers: fusion is now implemented (E-UTCI-09
+# T07) and is a no-op under the default inert config; ml's below-floor path
+# is likewise a no-op, never a raise ─────────────────────────────────────────
 
 class TestForceEnabledSkeletonStubs:
-    def test_fusion_force_enabled_raises_not_implemented(self):
+    def test_fusion_force_enabled_is_noop_under_default_inert_config(self):
+        # E-UTCI-14: `_fusion_tier` is no longer a `NotImplementedError` stub
+        # (T07 implemented its body). With the default, unmodified
+        # `config.FUSION_SOURCES_BY_TARGET = {}`, `precedence_for` returns
+        # `[]` and `fuse()` is a guaranteed no-op regardless of `fusion`
+        # being force-enabled here -- so this 1-row, no-geometry, all-NaN
+        # frame falls through fusion -> spatial (no-op, no geometry) ->
+        # statistical (no-op, no other observed value) and impute_missing
+        # must NOT raise; the row stays NaN.
         df = pd.DataFrame({"levels": [float("nan")]})
         cfg = ImputeConfig(enabled_tiers=("fusion", "spatial", "statistical"))
-        with pytest.raises(NotImplementedError, match="fusion tier is Phase D"):
-            impute_missing(df, cfg=cfg)
+        out = impute_missing(df, cfg=cfg)
+        assert pd.isna(out.loc[0, "levels"])
 
     def test_ml_force_enabled_below_floor_falls_through(self):
         # Phase C is now built (T11.3): a 1-row all-NaN `levels` frame is

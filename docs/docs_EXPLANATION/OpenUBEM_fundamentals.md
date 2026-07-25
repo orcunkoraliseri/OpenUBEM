@@ -53,6 +53,13 @@ next stage reads, so any stage can be re-run on its own.
 | **4** | EnergyPlus Simulation | Runs EnergyPlus on the whole fleet in parallel → `04_simulation_manifest.parquet` |
 | **5** | Results, Carbon & Validation | Parses outputs into EUI, converts to carbon, aggregates to neighbourhood level, validates against measured data → `05_results.gpkg` + figures + interactive 3D viewer (§8) |
 
+> **A sixth stage exists, and it is deliberately not part of this spine.** **Stage 6 — Outdoor
+> Microclimate & Thermal Comfort** (§11) answers a different question — *what does it feel like to
+> stand outside in this neighbourhood?* — and is **invoked explicitly, never as part of a standard
+> run**. It reads Stages 1–5's artifacts read-only and writes its own `06_*` artifacts. It is a
+> separate analysis product, not a sixth step every run pays for; §11 explains why that separation
+> is a credibility decision rather than a technical one.
+
 ---
 
 ## 4. What gets simulated
@@ -127,12 +134,24 @@ zoning per study — coarse for early-design screening, finer for detailed work.
 | **`building`** | whole building = 1 zone | 1 | ✅ validated |
 | **`floor`** | each floor = 1 zone | `num_floors` | ✅ validated |
 | **`fast_zone`** | generic core + perimeter on every floor, **every** archetype | ~5 × `num_floors` | ✅ validated |
-| **`zone`** | **room-level layout** — a generated corridor + packed dwelling/room modules per floor, with per-archetype per-space loads (see §5.1.1) | many (footprint-dependent) | 🚧 in development (MidriseApartment first) |
+| **`layout_assign`** | **archetype prototype substitution & area scaling** — assigns a validated DOE/ASHRAE 90.1 baseline IDF (E+ 23.1 library) and scales it (√S geometry, S loads) to the real building's floor area | Real DOE-prototype zone count (6–256, archetype-specific) | ✅ implemented & validated (LIVE_SMOKE + 6-archetype local leg) — 2 open limitations, see below |
+| **`zone`** | room-level polygon layout generation (deferred; see `layoutAssigner` for standardized replacement) | many | ⏸ replaced by `layout_assign` |
 
 `building` and `floor` reuse strategies the code already has (`single_zone`,
 `one_zone_per_floor`); `fast_zone` extends the core+perimeter slicing to **all** archetypes
 regardless of area. `auto` is the validated baseline that produced the 8,160-building
 benchmark (§7.2).
+
+`layout_assign` was validated separately from the four modes below, not as part of the
+8,160-building cluster matrix: one full real EnergyPlus 23.1 run (LIVE_SMOKE-LA, no Fatal,
+plausible EUI) plus a 6-archetype single-building local-leg sample (all `status=success`,
+EUI 60–886 kWh/m²/yr, all plausible). Two open limitations are documented, not hidden: (1)
+fixed-capacity auxiliary equipment — transformers, DHW tanks, HVAC coils — is not yet scaled
+with the building, which produces large real EnergyPlus warning/severe-error counts at
+non-identity scale factors; (2) the baseline's native Buffalo CZ 6A envelope is not yet
+climate-patched to the target city. Neither affects the other four modes. Full record, real
+EUI numbers, and comparison figures:
+[`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/OpenUBEM_results_LayoutAssigner.md`](../docs_ACTIVE/simulation-Resolution/layoutAssigner/OpenUBEM_results_LayoutAssigner.md).
 
 All four active modes were validated across the full 12-cell / 8,160-building matrix
 (2026-07-01): internal loads **conserve** across modes — the same building simulated at any
@@ -307,6 +326,7 @@ It is built and validated on the **nyc_centre** pilot first, then batch-generate
 | You want… | Read |
 |---|---|
 | The full feature reference | `README.md` (root) |
+| **Outdoor analysis — UTCI, microclimate, site measurements** *(the outdoor counterpart to this document; §11 below, Stage 6 is built and live-run-verified on real geometry)* | [`OpenUBEM_outdoor_analysis_reference.md`](OpenUBEM_outdoor_analysis_reference.md) |
 | The interactive 3D viewer (§8) design + tasks | `docs/docs_ACTIVE/3D/PLAN_3dviz_implementation.md` |
 | The simulated-vs-reconstructed energy method | `docs/docs_EXPLANATION/simulated_vs_reconstructed_methodology.md` |
 | The binding design specs | `docs/docs_main/` (cross-cutting) + `docs/docs_stepN/` (per step) |
@@ -315,5 +335,76 @@ It is built and validated on the **nyc_centre** pilot first, then batch-generate
 
 ---
 
+## 11. Outdoor microclimate & thermal comfort (Stage 6)
+
+Stages 1–5 answer *"how much energy does this neighbourhood's buildings use?"* Stage 6 answers the
+complementary question: **what does it feel like to stand outside in it?** It is a **separate
+analysis product, not a headline OpenUBEM output alongside EUI and carbon** — EUI is validated
+against measured data (LL84, EBEWE, CBECS); Stage 6's numbers are not validated against any
+measurement, so they are kept out of `05_results.*` and the neighbourhood summary rather than
+sitting beside validated numbers with borrowed authority. Stage 6 is invoked explicitly, by its
+own runner (`scripts/run_step6_microclimate.py`); it never runs as part of a standard pipeline
+run, and it reads Stage 5's outputs read-only.
+
+Given a run's buildings, resolved weather file, and (optionally) real EnergyPlus exterior surface
+temperatures, Stage 6 computes four physical driver fields at pedestrian height (1.1 m) over a
+selected analysis window — air temperature, humidity, wind speed, and mean radiant temperature —
+and combines them into the **Universal Thermal Climate Index (UTCI)**, an equivalent temperature
+on a standard 10-class hot/cold stress scale. It also derives sky-view-factor and shadow geometry,
+ground and facade surface temperatures, and two population-exposure metrics (person/area-hours of
+extreme heat, cumulative thermal stress). Outputs are per-hour GeoTIFF rasters plus a
+per-building GeoPackage that joins outdoor heat exposure onto each building's own energy results —
+the question a plain microclimate tool cannot ask: *which buildings sit in the worst outdoor heat?*
+
+### 11.1 What Stage 6 computes
+
+Everything below is **built and live-run-verified on real geometry**, not designed-and-pending.
+
+| Layer | What it is | Where it comes from |
+|---|---|---|
+| **Radiative geometry** | Sky view factor `Ψsky` (how much sky a point can see) and 32-azimuth horizon angles; per-hour building and vegetation shadow rasters | Computed once per site from the building massing — the dominant cost of a run |
+| **Surface temperatures** | Ground temperature and facade temperature | Empirical tier by default; an optional tier reads **real EnergyPlus exterior surface temperatures** back out of Stage 4 |
+| **Four driver fields** | Air temperature `Ta`, humidity, wind speed `v`, mean radiant temperature `Tmrt` | `Tmrt` from a 6-directional radiant flux balance on a standing person; wind downscaled from the EPW's 10 m reading to pedestrian height |
+| **UTCI** | The four fields synthesised into one equivalent temperature on the official 10-class cold/heat stress scale | The COST-730 Bröde 210-term operational polynomial, transcribed from the canonical Fortran source and matched to the reference table at `1e-6` |
+| **Exposure metrics** | **CTSI** (cumulative thermal stress, °C·h above the comfort threshold) and **PHEH** (person-hours above 46 °C), aggregated per parcel | Joined onto each building's own energy results |
+| **Mitigation scenarios** | Tree canopy, PV canopy, cool pavement, cool roof, high-albedo facade — each a *domain-layer* edit (albedo, canopy), never a physics change | Compared against published effect sizes |
+
+Outputs are per-hour **GeoTIFF rasters**, figures on the official palette, and a per-building
+GeoPackage — which lets Stage 6 ask the question a standalone microclimate tool cannot: **which
+buildings sit in the worst outdoor heat, and what is their energy use?** UTCI can also be switched
+on as an optional layer in the interactive 3D viewer (§8); it is **off by default**, and a run
+without it rebuilds the viewer byte-identically.
+
+### 11.2 What has actually been run, and what is honestly limited
+
+Stage 6 has run on **all 12 validated cells** (NYC / LA / Austin × centre / urban / suburban /
+rural, 8,160 buildings) and in depth on `nyc_centre` (738 buildings), producing physically
+plausible results — peak UTCI **44.6 °C**, *"very strong heat stress"*, on a hot July week, with a
+domain-mean CTSI of 780 °C·h. Four limitations are worth knowing before quoting any number:
+
+- **None of it is validated against measurement.** There is no outdoor thermal-comfort measurement
+  campaign for any of the twelve cells. Every gate in Stage 6 is internal-consistency or
+  behavioural. This is exactly why UTCI is kept out of `05_results.*` — see above.
+- **The optional `macdonald` wind tier is safe, not accurate.** After two rounds of fixes it
+  produces zero physically-impossible values across 113 million checked cell-hours, but it does so
+  by falling back to the default `cost730` tier for 31.6 % of cell-hours on a real mid/high-rise
+  domain — outside the low-rise regime it was built for. The default tier was never affected.
+- **Cool pavements can make pedestrians worse off.** Raising pavement albedo genuinely cools the
+  ground and the air, but reflects the shortwave load onto the human body, so UTCI *rises*. This is
+  a real, literature-backed result, not a model artifact — and it doubles as a correctness test.
+- **Buildings with no known height cannot cast shade.** Cells where upstream `height_m` is missing
+  compute as a flat open field rather than an urban canyon. Four cells were affected; a follow-up
+  fix cleared the three worst by routing height through a multi-source fusion tier, and a residual
+  remains in two rural cells (36.4 % and 19.2 % of buildings still unknown), documented and
+  forwarded to a future data-acquisition arc.
+
+**How to run it:** `scripts/run_step6_microclimate.py`, pointed at a completed run. It never runs
+implicitly. Full detail, every measured range, and the current status of each field:
+[`OpenUBEM_outdoor_analysis_reference.md`](OpenUBEM_outdoor_analysis_reference.md).
+
+---
+
 *OpenUBEM — fundamentals overview. Plain-language orientation; the design docs remain the
-binding source of truth. 2026-07-01 (§8 interactive 3D viewer added 2026-07-03).*
+binding source of truth. 2026-07-01 (§8 interactive 3D viewer added 2026-07-03, §11 outdoor
+microclimate added 2026-07-24, §11 expanded to the completed Stage-6 feature set 2026-07-25 on
+arc closure).*
