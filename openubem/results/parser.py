@@ -188,6 +188,7 @@ def _check_zone_integrity(
     df: pd.DataFrame,
     osm_id: str,
     num_zones: int,
+    resolution_mode: str | None = None,
 ) -> tuple[str | None, str | None]:
     """Return (parse_status, error_summary) based on zone integrity checks.
 
@@ -195,6 +196,11 @@ def _check_zone_integrity(
     or raises RuntimeError for I2 breach (foreign osm_id → caller aborts whole run).
     Phase-D: uses Zone Lights Electricity Energy to find zone keys (PTAC has no Ideal Loads).
     Falls back to Zone Ideal Loads if Lights variable absent (backward-compat).
+
+    resolution_mode=None (default) preserves the exact pre-T14 behavior for every mode
+    other than layout_assign/layout_assigner (E-LA-05). For those two, ZONE_RX/resolve_zone
+    matching (and therefore the I2 foreign-osm_id check) is skipped entirely and replaced by
+    a light key-presence sanity check (see T14 in the LayoutAssigner plan).
     """
     lights_mask = df["variable_name"] == "Zone Lights Electricity Energy"
     if lights_mask.any():
@@ -202,6 +208,17 @@ def _check_zone_integrity(
     else:
         ideal_loads_mask = df["variable_name"].str.startswith("Zone Ideal Loads")
         zone_keys = df.loc[ideal_loads_mask, "key_value"].str.upper().unique()
+
+    if resolution_mode in ("layout_assign", "layout_assigner"):
+        # DOE baseline zone names (e.g. "G SW APARTMENT") never encode an osm_id, so
+        # ZONE_RX/resolve_zone (and the I2 foreign-osm_id check built on it) cannot apply here.
+        distinct_keys = [kv for kv in zone_keys if isinstance(kv, str) and kv.strip() != ""]
+        if len(distinct_keys) == 0:
+            return (
+                "failed_zone_mismatch",
+                "layout_assign: zero zone-level keys found in SQL (corrupt/empty result)",
+            )
+        return None, None
 
     # Resolve and check for foreign osm_id (I2 breach)
     foreign: list[str] = []
@@ -509,6 +526,7 @@ def parse_building(
     osm_id: str = str(manifest_row["osm_id"])
     num_zones: int = int(manifest_row.get("num_zones", 1))
     dq_flag: str = str(manifest_row.get("data_quality_flag", "") or "")
+    resolution_mode: str | None = manifest_row.get("resolution_mode")
 
     parse_status = "success"
     error_summary = ""
@@ -537,7 +555,7 @@ def parse_building(
 
     # §3B: zone integrity
     try:
-        status, msg = _check_zone_integrity(df, osm_id, num_zones)
+        status, msg = _check_zone_integrity(df, osm_id, num_zones, resolution_mode=resolution_mode)
     except RuntimeError as exc:
         # I2 breach: re-raise to abort whole run
         raise

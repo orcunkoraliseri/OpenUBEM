@@ -3,7 +3,13 @@
 > Single-glance tracker. Past = one line each. **Current** and **Future** carry the detail.
 > Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[!]` blocked / needs decision
 >
-> **Last updated:** 2026-07-03 (**E-R3-3 sub-arc CLOSED — CP-3 ACCEPTED + T11.7 PROMOTED**: the committed `phaseE` baseline is now the E-R3-3-corrected fleet; move-away diagnosed [662 Medium→Small office flips cross a VAV→PSZ HVAC cliff, 89–100% classifier]; REPORT §14 addendum + new explanation doc authored. Prior: arc **G. input-parameter imputation** Phase B COMPLETE + CP-2 FULLY MET [real-city cluster A/B]; Phase C plan authored, not dispatched.)
+> **Last updated:** 2026-07-25 (**E-UTCI-09 height-backfill CP-C SIGNED** — E-UTCI-09 dispositioned
+> *materially fixed with a documented residual*, NOT closed; the flat-open-field `svf_mean = 1.0000`
+> artefact is gone from all 3 cells that carried it, `austin_centre` densified 84.5 % → 2.7 % excluded,
+> and a material rural residual [`nyc_rural` 36.4 %, `austin_rural` 19.2 % still `NaN`] is forwarded to
+> a future Stage-1 acquisition arc. Detail in §I. Prior header entry, still accurate, below.)
+>
+> **Previously:** 2026-07-03 (**E-R3-3 sub-arc CLOSED — CP-3 ACCEPTED + T11.7 PROMOTED**: the committed `phaseE` baseline is now the E-R3-3-corrected fleet; move-away diagnosed [662 Medium→Small office flips cross a VAV→PSZ HVAC cliff, 89–100% classifier]; REPORT §14 addendum + new explanation doc authored. Prior: arc **G. input-parameter imputation** Phase B COMPLETE + CP-2 FULLY MET [real-city cluster A/B]; Phase C plan authored, not dispatched.)
 >
 > **CURRENT BASELINE (adopted; E-R3-3-corrected 2026-07-03):** **`phaseE` full realism** — archetype HVAC (VAV/PSZ/FCU/WLHP, real fans+pumps) + physical DHW/cooking/refrigeration; reconstruction RETIRED; zero fitted parameters. 12-cell 8,160-building matrix. **As of the E-R3-3 fold-in:** city-Overall **−31.9% NYC / −6.2% LA / −30.7% Austin** vs measured; R²=**0.888/0.920/0.720** (shape held); CBECS NMBE **−14.7%/−25.5%/−16.2%**. (As-first-adopted 2026-06-27: −24.4/−5.6/−25.7%; R² 0.895/0.924/0.718; NMBE −10.6/−20.5/−11.9% — preserved in `REPORT_phaseE_final.md` §0–§13; the E-R3-3 shift + mechanism is §14 addendum + `docs/docs_EXPLANATION/OpenUBEM_results_archetypeClassification.md`.) The added under-prediction is the correct office down-tier exposing the DOE-SmallOffice-template gap (accept-and-report per zero-fitted-params). Phase-D2 is the prior superseded baseline; figures regenerated 2026-07-03.
 >
@@ -14,6 +20,14 @@
 > **🆕 Arc H — `layoutGenerator` room-level zoning (implements the deferred `zone` mode from arc F) — Phases 0–3 DONE, CP-1 + CP-2 MET 2026-07-02.** `openubem/geometry/layoutGenerator.py`: classify footprint → decompose L/U/T/courtyard wings → pack DOE-standard corridor+room modules → per-space-type loads with area/load conservation. Closes the gap where non-rectangular footprints silently degraded to one-zone-per-floor (courtyard = E+ Fatal). MidriseApartment first (self-validating vs its DOE prototype), then offices/hotels/schools. Opt-in only — `auto` and the 8,160 baseline untouched. **T01–T10 + T16 done: 130 unit tests green + a room_layout intersect_match fallback (T10a) + full-annual E+ 23.1 smoke on bar/L/U/T/O all Completed Successfully, 0 Fatal / 0 Severe. CP-2 MET (manager greenlight).** Next = Phase 4: T11 reproduce DOE MidriseApartment standard + T12 LIVE_SMOKE → CP-3. Detail = Section H.
 >
 > **🆕 Arc I — interactive 3D web visualization — DEEP-RESEARCH PROMPTS DRAFTED, pre-PLAN 2026-07-02.** A browser-based, navigable 3D viewer for the simulated neighbourhoods, two LODs (neighbourhood = surfaces/masses only; building = surfaces + sub-surfaces/windows) with function / population / energy-output (EUI heat-map) recolouring — the Torino-3d-heat-mapping / ubem.io analogue. Today OpenUBEM has only static matplotlib axonometrics + desktop-CAD exporters (COLLADA/OBJ/SketchUp) in the `idf_reader` ancestor; no interactive/web/output-driven view. **16-file deep-research prompt set (`00_README` + V01–V15) written under `docs/docs_ACTIVE/3D/deepResearch/`** (manager wrote README + core exemplars V01/V02/V06/V09; Sonnet drafted the rest, manager-audited). Two hard constraints: faithful-to-model (no invented geometry/values; flag imputed/degraded) + reproducible/self-contained/open-source (no paid tiles/proprietary engine). User runs prompts in Gemini Antigravity → manager audits each RESULT → then writes `PLAN_3dviz_implementation.md`. Load-bearing core to run first: V01+V02+V03+V05+V06+V09+V11+V15. **UPDATE 2026-07-03 — DEBUG REPRESENTATION FIX DELIVERED (D01–D06, `docs/docs_ACTIVE/3D/debug/PLAN_3dviz_debug_representation.md` + `debug_regen_report.md`):** user reported most Austin buildings rendering as transparent beige volumes with no EUI/archetype + low-res basemap. Root cause = T22 footprint-only muting (2806/8160 = 34% of buildings, up to 100% in some cells) painting beige `#E4DFD6`/opacity-0.45 over real EUI+archetype, overriding faithful colour; blur = basemap `zoom="auto"` upsampling. **Fix A** (`colormaps.mjs`) removed the mute short-circuit → every building shows its real EUI/archetype fill at full opacity; "no OSM height" now conveyed ONLY by dashed-magenta outline + detail-pane badge. **Fix B** (`basemap_raster.py` new `_resolve_zoom` + `target_px` 2048→3072) fetches high-enough native tiles, never upsamples. **All 12 cells regenerated** into `docs/docs_ACTIVE/3D/outputs/` AND copied byte-identical to `openubem/outputs/3D/`; 12/12 count-parity vs `05_results.csv`, 0 network requests / 0 console errors, no HTML ≥45MB. Tests: node 33/33, python `pytest -k viz` 54/54. Before/after screenshots in `docs/docs_ACTIVE/3D/debug/Image-outputs/`. **Awaiting user sign-off.**
+>
+> **🆕 Arc L — `layoutAssigner` (prototype-substitution resolution mode) — 🔒 T01–T10 DONE + CP-A/B/C SIGNED 2026-07-22 (autonomous director run); T11 DEFERRED by design; T12 PARTIAL (local leg only).** New `resolution_mode="layout_assign"` fully implemented end-to-end: registry/scaling engine (T01-T05), output-purge + location patch + full `builder.py` integration (T06-T07), E+ 22.1→23.1 library transition to a new 25-file `00.BaselineBuildings_NUs_v231` sibling (T08, original untouched), test portability + **LIVE_SMOKE-LA real EnergyPlus 23.1 run PASSED** (T09: MidriseApartment S=4.78, 0 severe, 411,303 kWh annual electricity), `compare_layout_assign.py` footgun fixes — fabricated ×1.01 EUI removed, real zone counts, MD-overwrite gated behind `--write-md` (T10). **T12 local leg:** 6 representative archetypes (apartment/office/hotel/school/retail/restaurant) built + simulated with REAL EnergyPlus, real EUI harvested (60–886 kWh/m²/yr, all plausible) — full 12-cell cluster leg deliberately out of scope for this run. **Two genuine OPEN-BLOCKED findings surfaced and carried forward** (director-verified from raw evidence, not just employee reports): E-LA-05 (`results/parser.py`'s zone-integrity gate is structurally incompatible with `layout_assign`'s DOE-native zone names — affects any future harvesting) and E-LA-06 (`scale_baseline_idf()` doesn't scale fixed-capacity auxiliary equipment — transformers/DHW tanks/HVAC coil ratings — causing real warning/severe floods, e.g. 73,803 Severe "Transformer Overloaded" on MediumOffice at S=1.60; only near-native-scale MidriseApartment stayed clean). En-route also corrected a real measurement error inherited from the v2.1 plan itself (E-LA-01: true zone counts are MidRise 27/Hospital 55, not the previously-cited 92/58 — a naive-grep contamination, independently re-verified by the director). Full report: `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/COMPLETION_REPORT.md` (now superseded by later phases below, kept for history).
+
+> **UPDATE 2026-07-23 — 🔒 ARC L CLOSED, CP-E SIGNED** (Phases 4–6, T13–T17). T14 fixed E-LA-05 (parser zone-integrity gate now `layout_assign`-aware). T15 partially fixed E-LA-06 (transformer/DHW-tank/DX-coil capacity now scaled; 4/6 T12 archetypes reach Severe=0, 2 residual autosize-interaction Severes left OPEN-BLOCKED-PARTIAL). T16 built `envelope_patcher.py` (cross-CZ construction patching; honest negative finding — moves EUI only −0.43%, not the dominant gap driver). **T17 ran the full 12-cell/8,160-building cluster sweep** (12 `sbatch --array` jobs) and harvested it: **7,887/8,160 succeed (96.65%)**. 273 failures cleanly attributed to 3 classes: E-LA-07 (`LargeOffice`'s unscaled `FluidCooler:TwoSpeed` capacity, 221 buildings; plus `TallBuilding`/`SuperTallBuilding` warmup-instability Fatal in a small marginal zone), E-LA-08 (same warmup-instability class, confirmed to also hit `SmallOffice`/`MediumOffice`/`Hospital`, 46 total across 5 archetypes), E-LA-09 (`Outpatient` 100% Fatal fleet-wide, missing Controller List reference, 6 buildings). **Most consequential finding: E-LA-10** — `WaterHeater:Mixed.Peak_Use_Flow_Rate` is never scaled by S, a *silent* (non-Fatal) defect that produces a plausible-looking but wrong `dhw_eui` (~1/S) for `MidriseApartment`+`SmallOffice`, 80.1% of the successfully-simulated fleet (77.4% of the entire fleet) — explains anomalous `nyc_suburban`/`la_suburban` medians. Manager's CP-E audit independently re-verified the harvest CSV/sacct/spot-checked EUI values from scratch (all exact matches) and corrected 2 prose-only precision errors (a "5 of 12 cells at 100%" miscount, and the E-LA-10 percentage's denominator) directly in both docs. **`layout_assign` is adopted for its intended use (high-fidelity zone/HVAC-topology studies) but explicitly NOT production-grade for fleet-level EUI reporting** until a future arc fixes E-LA-10 (priority 1), then E-LA-07/08 and E-LA-09. Full record: `implementation_plan.md` §8/§9, results in `OpenUBEM_results_LayoutAssigner.md` (now under `figures/`).
+
+> **UPDATE 2026-07-23 — 🔒 ARC L DEBUG-FIXES PLAN CLOSED, CP-E (v2) SIGNED** (autonomous director run, `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/PLAN_debug_implementation.md`). Picked up 2 of the 4 residual defects the arc above closed with, in priority order. **T01–T03 fixed E-LA-10** (`WaterHeater:Mixed.Peak_Use_Flow_Rate` + 4 sibling parasitic/loss-coefficient fields added to the scaling engine) — confirmed at 5-building local retest: distorted `dhw_eui` (up to 1643 kWh/m²) collapses to the scale-invariant ≈39.4 (MidriseApartment)/13.6 (SmallOffice) value the undistorted part of the fleet already showed. **T04–T05 fixed E-LA-07-class-1** (`FluidCooler:TwoSpeed` capacity fields on `LargeOffice`) — but surfaced a **new** Fatal, **E-LA-11** (WSHP coil autosize → `INF`/`NaN` on shrunk DataCenter zones → plant-loop runaway), on 2 of 3 retested buildings. **T06–T07 root-caused (but did not fix) both E-LA-07-class-2/E-LA-08** (root: `envelope_patcher`'s `MATERIAL:NOMASS` zero-thermal-mass construction swap) **and E-LA-11** (structural HVAC-autosize issue) — both correctly STOP-AND-REPORTed as out of this plan's additive-scaling-tuple scope; also surfaced **E-LA-12** (`Daylighting:ReferencePoint` not scaled, currently latent/masked). **T08–T09 fully root-caused E-LA-09**: not a baseline defect, not a `purge_baseline_outputs()` casualty — a third-party **eppy `IDF.save()` serialization bug** (`EpBunch.__repr__` zip-truncation corrupts `Outpatient`'s 2 oversized `Controller:MechanicalVentilation` objects, exactly 1/25 baselines affected) → logged as **E-LA-13**; STOP-AND-REPORTed, no safe fix available without regression-testing all 25 baselines. **T10 local regression found 1 new non-blocking regression, E-LA-14** (`SecondarySchool`-family `CheckWarmupConvergence` Severes, a side effect of T01/T02's fix — Severe-count only, `status` stays `success`) — accepted, not fixed. **T11 ran the full 12-cell/8,160-building cluster re-sweep** (fresh `t18_*` job set/harvest, `t17_*` originals untouched): **fleet success rose from 96.65% (T17) to 98.81% (T18)**, 273→97 failures, **zero new failures anywhere, 176 buildings recovered** (all `LargeOffice`). `LargeOffice` alone: 18.15%→83.33%. `n_warmup_convergence` (E-LA-14) confirmed fleet-wide at 1.29% (105/8,160), non-blocking. Director's CP-E audit independently re-derived every headline number from the raw T17/T18 CSVs (sacct cross-check, archetype breakdowns, failure-set diff) — all exact matches, zero discrepancies. **Net: `layout_assign` recommended for PARTIAL production use** — usable for fleet EUI aggregation with two explicit caveats: `Outpatient` (0/6, 100% data-absent) and `LargeOffice` (83%, not 100%, 45/270 still missing). `TallBuilding`/`SuperTallBuilding`/`SmallOffice`/`MediumOffice`/`Hospital` failure rates are unchanged from the arc above (E-LA-07-class-2/E-LA-08, still OPEN-BLOCKED). Three defects (E-LA-11, E-LA-07-class-2/E-LA-08, E-LA-09/E-LA-13) are now **fully root-caused with proposed fix shapes**, ready for a future arc to implement as one unit of structural work. Full record: `debug/COMPLETION_REPORT_debug.md`, results in `OpenUBEM_results_LayoutAssigner.md`'s new `## 5.` section, raw CSVs also archived under `docs_ACTIVE/simulation-Resolution/layoutAssigner/results/`.
+
+> **UPDATE 2026-07-24 — 🔒 ARC L STRUCTURAL-FIXES PLAN CLOSED, CP-E SIGNED WITH CAVEAT** (autonomous director run, `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/structural-fixes/PLAN_structural-fixes_implementation.md`). Implemented all 3 defects the debug-fixes plan left OPEN-BLOCKED, plus latent E-LA-12. **T01–T09 fixed E-LA-12** (`Daylighting:ReferencePoint` scaled by √S), **E-LA-11** (WSHP autosize-resolve-then-scale), and **E-LA-09/E-LA-13** (`objls` comment-padding around eppy's serialization bug) — **T10's full local regression found these 3 fully clean, zero new regressions.** **T11 ran the full 12-cell/8,160-building cluster re-sweep** (fresh `t19_*` job set/harvest, `t17_*`/`t18_*` originals untouched) and harvested it: `Outpatient` 0%→100%, `SuperTallBuilding` 50%→100%, `Hospital` 80%→100%, `LargeOffice` 83.3%→100% — all 3 targeted fixes verify clean at fleet scale. **But fleet-wide success rate went DOWN, 98.81% (T18) → 97.92% (T19)**, because the debug-fixes plan's own `thermal_mass=True` default (E-LA-07-class-2/E-LA-08's fix) unmasked a brand-new defect, **candidate E-LA-20**: 150/154 (97.4%) of `nyc_rural` `SmallOffice` buildings newly Fatal on a `LA_ROOF_CONSTRUCTION` CTF-convergence failure, invisible in every prior local retest sample, costing more buildings (150) than all 4 fixes recovered combined (64). `n_warmup_convergence` (E-LA-14/E-LA-19) roughly doubled to 2.49% fleet-wide, still cosmetic/non-blocking. Manager's CP-E audit independently re-derived the fleet success rates and the 150-building new-failure count directly from the raw `t17_`/`t18_`/`t19_` harvest CSVs — exact match, zero discrepancies. **CP-E signed WITH CAVEAT, not an unqualified pass: `layout_assign` is not yet unconditionally production-grade fleet-wide — E-LA-20 must be root-caused/fixed, or `thermal_mass=True` scoped away from the small-scale-factor regime that triggers it, before that claim can be made.** E-LA-20 logged OPEN (no candidate fix yet), carried forward as the seed of a likely future follow-up arc. Full record: plan's own §7 progress log (T01–T11, CP-A–E, E-LA-20's entry), results in `OpenUBEM_results_LayoutAssigner.md`'s new `## 6.` section.
 
 ---
 
@@ -440,3 +454,229 @@ Plan: `docs/docs_ACTIVE/simulation-Resolution/layoutgenerator/PLAN_layoutgenerat
 - [x] **T16** — layout visual grid: DOE MidriseApartment single-floor reference panel + generated floor plans (bar/L/U/T/courtyard/rotated/wide-bar/cross), colored by space type. `scripts/plot_layout_grid.py` → **`openubem/outputs/LayoutGenerator/layoutgenerator_doe_vs_generated.png`** (all layoutGenerator figures now live under `openubem/outputs/LayoutGenerator/` per user directive 2026-07-02).
 - [x] **T17** — per-archetype layout grids (the T16 figure **for every supported building type**), user-requested 2026-07-03. `plot_layout_grid.py` refactored to loop archetypes; **`layoutgrid_SmallHotel.png` + `layoutgrid_LargeHotel.png` DONE** (manager-verified by eye): bar shapes room-level GuestRoom/Corridor (5 zones), all 6 complex shapes honest "(degrades to per-floor)" panels (no `complex_shapes_supported`); CVD-validated colors. **T17b (user feedback "hotels look like recolored apartments"): panels now draw individual room modules — subdivide each band by `bay_width_m` → SmallHotel/LargeHotel bar = 24 rooms vs MidriseApartment 8 (3×), guest-room granularity now visible; corridor undivided; degraded panels unchanged; viz-only, model unchanged.** **T17c (user feedback "the two hotel grids are exactly the same"): hotels now draw compact+wide bars on a COMMON plate LENGTH (45 m / 60 m, viz-only) with per-archetype real width → SmallHotel 24 rooms + thin 1.83 m corridor vs LargeHotel 22 rooms + thicker 2.44 m corridor (wide 32 vs 30); manager-verified by eye, apartment untouched, viz-only. Difference is modest by nature (the two archetypes' floor-plate modules genuinely are similar).** **LargeOffice/Primary/SecondarySchool grids blocked on T13b/T13c** (script extends when their MODULE_SPECS land). **Open items flagged, NOT started (await user go): (a) T18-DIAG sliver zones on complex apartments — real geometry from full-span grid-cut bleed, needs E+ re-validation, Opus-delicate; (b) T13b/T13c offices+schools — not built (different geometry families); (c) "un-merge" hotels into per-guest-room thermal zones — real modeling change, E+ re-validation.**
 - [x] **T16b — continuous corridor spine (manager/Opus, delicate) — DONE 2026-07-02, CP-2 RE-CONFIRMED.** User reviewed the T16 grid: DOE has one continuous central corridor but the generated L/U/T/O/Cross had a disconnected corridor stub per wing. Rebuilt so multi-wing + O route to `_pack_connected_spine` — wing midlines joined by orthogonal L-bridges into ONE network, `corridor = spine.buffer(c/2) ∩ footprint`, then a full-span `_grid_cut` (corridor-edge + wing-bound lines) into simple hole-free cells. **Conforming by construction → no merge step**, so the O-loop is cut at corners (donut Fatal cannot re-form) and geomeppy `intersect_match` never hits its coplanar-containment IndexError. (An earlier aggressive-merge cut looked cleaner at 8–15 zones but created T-junctions that crashed geomeppy on L → reroute → degenerate surfaces; removed it.) Single-wing (compact/slab) path UNCHANGED → T11 stays valid. Corridors now continuous & turn corners; zones/floor bar 5 / L 15 / U 27 / T 18 / O 48 / cross 21 (honest conforming count for continuous-corridor non-rect footprints); **area drift +0.00000%, min edge 1.68 m, intersect_match OK direct (no reroute); 130/130 unit tests green.** **E+ 23.1 re-verify DONE (Sonnet full-annual, Chicago TMY3): bar/L/U/T/O/cross all Completed Successfully, 0 Fatal / 0 Severe, reroute-fired=NO. L kept room-level zones (45, `_w0c0…`), O courtyard loop clean (144 zones). Extruded zone counts L 3→45, U 30→81, T 30→54, O 45→144, cross 36→63; bar 15 unchanged. → CP-2 RE-CONFIRMED for the revised geometry.**
+
+---
+
+## I. UTCI outdoor microclimate — new Stage 6 — **T01-T26 COMPLETE, CP-1 THROUGH CP-5 ALL SIGNED — ARC CLOSED (2026-07-24)**
+
+New perspective, orthogonal to everything above: OpenUBEM currently answers *"how much energy does
+this building stock use?"*; this arc adds *"what does it feel like to stand outside in it?"* —
+spatial pedestrian thermal stress (UTCI) at 1.1 m from the four driver fields (air temperature,
+humidity, wind speed, mean radiant temperature), exported as GeoTIFF rasters plus parcel-level
+exposure metrics.
+
+- **Plan doc:** `docs/docs_DONE/OUTDOOR/UTCI/implementation/PLAN_utci_microclimate_implementation.md`
+  **v1.1 (2026-07-23): 26 tasks, 5 phases, 5 checkpoints CP-1…CP-5 — the WHOLE arc is now in
+  autonomous executor scope.** v1.0 had excluded Phase 5, the EnergyPlus facade coupling, and
+  CP-4's signature. Re-examination showed two were manager conservatism and one rested on a
+  false premise: Tier-2 wall coupling never needed a production re-run — it patches *copies* of
+  the archived IDFs and runs a short-window side-leg locally, touching no production module.
+  With production structurally untouched, CP-4 became manager-signable. Plan §13 has the full
+  before/after. Scope widened; every hard gate unchanged.
+- **Research corpus:** `docs/docs_DONE/OUTDOOR/UTCI/DeepResearches/` (U01–U06) — **research input, NOT a
+  binding spec.** Manager audit found **7 load-bearing defects** in it, each of which would silently
+  produce wrong UTCI values; §4 of the plan overrides the research on every one. The two worst: the
+  UTCI polynomial code printed in U05 §3 and U06 §3 is **fabricated** (7 hand-written terms vs the
+  real 210-coefficient Bröde polynomial), and the 6-directional weighting factors in U03 §2.3 don't
+  sum to 1.0 (0.08 printed, 0.06 correct).
+- **Three architectural commitments (pre-decided, not open for re-debate):** native in-repo engine
+  implementing SOLWEIG's *published algorithms* (SOLWEIG stays a validation reference, never a
+  runtime dep — it is a QGIS plugin and cannot run headless under `sbatch`); analysis-window scoped
+  (default = hottest contiguous 7 days, not 8760 h); zero fitted parameters, same rule as Stages 1–5.
+- **The scientific contribution:** every peer 2.5D tool assumes facade temperature ≈ air temperature.
+  OpenUBEM has real EnergyPlus exterior surface temperatures, worth +5…+15 °C mean radiant
+  temperature near sunlit walls. That coupling is Tier-2 of task T13.
+- **New deps:** `rasterio` promoted from implicit-transitive to explicit (it is already imported in
+  3 modules today — a latent bug independent of this arc). Rejected: `numba`, `pvlib`, `xarray`;
+  `pythermalcomfort` dev-extra only.
+- **Outdoor measurement registry (new, standing doc):**
+  `docs/docs_EXPLANATION/OpenUBEM_outdoor_analysis_reference.md` — the single lookup for everything
+  OpenUBEM measures outdoors (definitions, units, measurement heights, valid ranges, status). UTCI
+  is its first entry; every future outdoor analysis gets registered there first. Linked from
+  `OpenUBEM_fundamentals.md` §10. Plan task **T23** promotes its statuses once the arc really runs.
+- **Executor kickoff prompt:** `docs/docs_DONE/OUTDOOR/UTCI/prompt/KICKOFF_utci_full_arc.md` — paste-ready,
+  runs a fresh Sonnet T01→T23 through CP-1/2/3 autonomously and stops at CP-4. Includes a narrower
+  T01–T07 first-run variant for an unproven executor.
+- **Status 2026-07-24: arc COMPLETE, all 26 tasks and all 5 checkpoints done.** CP-1/CP-2/CP-3
+  self-signed on schedule (four real physics adjudication rounds along the way, all resolved —
+  plan §10 E-UTCI-01 through 06). T22's live smoke test on `nyc_centre` found a real wind-tier
+  defect (E-UTCI-07/08, macdonald tier only); adjudicated and fixed, re-verified clean, 0 bound
+  violations domain-wide — **CP-4 self-signed**. Phase 5 then ran: **T24** (mitigation scenarios,
+  domain-layer-only) done; **T25** (3D viewer UTCI layer, default-off) done — required a real fix
+  (byte-identical regression guard had genuinely failed at handoff; root-caused and fixed, now
+  hashed-identical, not eyeballed); **T26** (12-cell cluster sweep, 8,160 buildings across
+  NYC/LA/Austin × centre/urban/suburban/rural) done — all 12 array tasks completed, harvested into
+  a cross-city comparison table + figure. **CP-5 self-signed 2026-07-24 — arc closed.** One honest
+  finding carried forward, not blocking: 3-4/12 cells have an upstream Stage-1 `height_m` data gap
+  (zero/near-zero building massing for those cells specifically) — logged as **E-UTCI-09** (plan
+  §10), forwarded to a future Stage-1 data-acquisition arc, not a UTCI-arc defect. Full write-up:
+  `docs/docs_DONE/OUTDOOR/UTCI/results/OpenUBEM_results_UTCI_microclimate.md`.
+- **🔎 E-UTCI-09 INVESTIGATION COMPLETE 2026-07-25 — investigated, NOT fixed.** An investigation-only
+  plan (`docs/docs_DONE/OUTDOOR/UTCI/e-utci-09/PLAN_e-utci-09_investigation.md`, tasks I01-I04) ran to
+  CP-INV. **It implements no fix and adopts no candidate; it stays OPEN**, handed back for scoping of
+  a follow-up Stage-1 implementation plan. Full write-up:
+  `docs/docs_DONE/OUTDOOR/UTCI/e-utci-09/COMPLETION_REPORT_e-utci-09-investigation.md`.
+  - **What it found.** The gap is genuinely narrow and upstream: across all 12 cells / 12,809
+    buildings, geometry validity, row counts, footprint areas and `building_tag` are healthy
+    everywhere; only `height_m`/`levels` are hit, cleanly bimodal (8 cells 0.67-26.09 %, a 58 pp gap,
+    then 4 cells 84.50-100.00 %), no borderline case. Cause is differential live OSM tagging density
+    at those coordinates, not a code defect (F-07: identical call path for all 12 cells).
+  - **Decisive negative result.** The platform's existing but unwired height-imputation
+    infrastructure **cannot** fix it: `spatial_impute.py`'s `knn_fill` fills exactly **0** rows in the
+    3 fully-affected cells at every radius from 100 m to 1000 m — every candidate donor is itself
+    missing `height_m` by construction. That is the MNAR guard working as designed. Widening the
+    radius is inert. Verified by two independent executions (employee + manager re-run).
+  - **Two framing corrections.** `nyc_suburban` and `nyc_rural` are geographically **outside New York
+    City** (Nassau County and the Catskills) despite their names — NYC municipal data cannot serve
+    them. And `austin_centre` (84.5 %, 64 observed values, already partially fillable today) is
+    structurally unlike the 3 fully-NaN cells → a **split strategy** is indicated, not one uniform fix.
+  - **Candidate fix shapes, ranked, none adopted:** (b) ingest Microsoft Global ML Building Footprints
+    (CDLA Permissive 2.0, nationwide, one-off enrichment script) > (f) wire `impute_column`'s existing
+    KDE path for `austin_centre`-class cells > (d) structural cross-cell donor pooling > (c) zone-type
+    median borrow > (a) targeted OSM re-fetch > (e) accept-and-document.
+  - **New defect, logged OPEN, deliberately unfixed: E-UTCI-10** — `spatial_impute.py` silently skips
+    zero-neighbour rows without MNAR-flagging them (6 rows in `nyc_rural`, 13 in `austin_rural`).
+    Observability gap, not a correctness gap; matters only once spatial imputation is wired into a
+    production path.
+- **~~Next action~~ — SUPERSEDED 2026-07-25 by the height-backfill fix plan below** (the user granted
+  the scoped one-off exception; the count came back 80.2/45.0/92.0/62.0 %, i.e. *not* thin, and the
+  adopted fix was the existing `fusion` tier via Overture rather than candidate (b)'s new script).
+  Original text kept for the record: a manager decision, then a new plan. The follow-up Stage-1 plan's ranking hinges on
+  one fact this investigation could not obtain under its own local-only rules: **how densely Microsoft
+  Global ML's height sub-attribute actually populates these 4 bounding boxes.** That must be *counted*
+  from downloaded data, so it needs the user to either unblock CLAUDE.md's §5.3 live-network gate or
+  grant a scoped one-off exception. If density is low, candidate (b) drops and (a)/(d) rise.
+- **🔧 E-UTCI-09 HEIGHT-BACKFILL FIX PLAN — 🔒 CP-C SIGNED 2026-07-25, plan COMPLETE (T01-T07, T09-T13; T08 closed unbuilt at CP-B).**
+  `docs/docs_DONE/OUTDOOR/UTCI/implementation/sub-plans/DONE-PLAN_e-utci-09_height_backfill.md`. CP-A (mechanism
+  proven offline) and CP-B (coverage measured — 80.2/45.0/92.0/62.0% of each cell's gap, not thin
+  anywhere — ruling: CONTINUE) both signed. The platform's existing-but-unwired `fusion` tier
+  (source registry landed Phase D; router `_fusion_tier` was a stub, E-UTCI-11) was completed and
+  routed `height_m` through Overture for the 4 affected cells, with a 2.1 m minimum-height sanity
+  floor (IRC/IBC R305.1) and a spatial-tier fallback for fusion misses. E-UTCI-10's silent
+  zero-neighbour skip was fixed alongside (distinct `SPATIAL_NO_NEIGHBOUR_SKIPPED` token, never
+  conflated with `SPATIAL_CLUSTER_MNAR_BLOCKED`). 8 unaffected cells confirmed byte-identical /
+  zero observed-value overwrites. Full detail and numbers in the sub-plan's own progress log and
+  `docs/docs_DONE/OUTDOOR/UTCI/UTCI_CHECKLIST.md` §3b.
+- **✅ T11 Stage-6 re-run COMPLETE 2026-07-25 — the flat-open-field signature is gone from every cell
+  that carried it.** Precise statement (the manager corrected the executor's "all 4 cells" phrasing at
+  CP-C): **three** cells carried `svf_mean = 1.0000` and all three left it — `nyc_suburban` 1.0000 →
+  **0.9619**, `nyc_rural` 1.0000 → **0.9972**, `austin_rural` 1.0000 → **0.9935**; `zero_building_massing`
+  flips `True → False` on exactly those three. `austin_centre` **never carried the signature** (0.9474,
+  84.5 % excluded, not 100 %) and is judged on a different basis: exclusion 84.5 % → **2.7 %** and
+  `svf_mean` 0.9474 → **0.8426**, the most enclosed value in the fleet, corroborated by a 216 m fused
+  max matching downtown Austin's real skyline. Manager re-derived all four `svf_mean` directly from
+  each `06_mc_svf.tif` with `rasterio` — agreement to 6 dp with `06_mc_manifest.parquet`; per-cell
+  minima 0.0023–0.2409 (a flat field cannot produce a 0.0023 pixel) and the density ordering
+  `austin_centre` < `nyc_suburban` < `austin_rural` < `nyc_rural` tracks fabric correctly. Before/after
+  table for all 12 cells (8 unchanged, 4 changed, clearly flagged) and figure at
+  `openubem/outputs/comparisons/t11_e_utci_09_before_after_comparison.csv` /
+  `t11_e_utci_09_svf_before_after.png` (copies under
+  `docs/docs_DONE/OUTDOOR/UTCI/implementation/sub-plans/figures/`). T13 (docs/registry) done alongside —
+  `docs/docs_EXPLANATION/OpenUBEM_outdoor_analysis_reference.md` §3.3.1 (new) and
+  `OpenUBEM_imputation_methods.md` §4.1 both updated.
+- **🔒 CP-C SIGNED 2026-07-25 — E-UTCI-09 dispositioned MATERIALLY FIXED WITH A DOCUMENTED RESIDUAL,
+  deliberately NOT closed.** Sub-plan §9 carries the full signature. **What is fixed:** no cell computes
+  as a flat open field any more and the 12-cell fleet is internally comparable in a way it was not on
+  2026-07-24; the 8 previously-healthy cells are byte-identical with **0** observed values overwritten;
+  no EUI baseline moved (structural argument — only `config.py`, `imputation.py`, `spatial_impute.py`
+  plus 2 new files touched; no Stage 1-5 module). **The residual, stated plainly:** post-fusion
+  `height_m` stays `NaN` for 15/1589 rows in `nyc_suburban` (0.9 %, negligible), 11/413 in
+  `austin_centre` (2.7 %, negligible), **47/245 in `austin_rural` (19.2 %, material)** and **72/198 in
+  `nyc_rural` (36.4 %, material)** — those two cells' UTCI fields are computed on roughly four-fifths
+  and two-thirds of their real building stock and **must not be quoted as complete**. Closing that
+  residual needs better *sources* (LiDAR / municipal data for the Catskills and rural Travis County),
+  not another imputation tier: the prior investigation proved the spatial imputer cannot close it and
+  this plan proved fusion cannot either → **forwarded to a future Stage-1 acquisition arc.** Restated
+  post-floor: the 2.1 m minimum-height floor (IRC/IBC R305.1) rejected 3 sub-metre Overture rows, moving
+  `nyc_suburban`'s pre-floor 80.18 % gap-filled to **79.99 %** — a deliberate NaN over a physically
+  absurd fill (the source contains a 0.216 m "building").
+- **Full suite at CP-C: `67 failed, 1746 passed, 9 skipped, 36 errors`** — CP-B's prediction (67 + 36)
+  landed exactly, no file outside the written 10-file known-bad baseline appears, and the two
+  imputation-adjacent live-risk files (`test_debias.py`, `test_impute_montage.py`) held at exactly 5 and
+  5. `tests/test_fusion.py` 4 → **0** as mandated (29/29), `tests/test_height_backfill.py` 15/15,
+  `tests/test_imputation_routing.py` 23/23. **The §5.3 live-network gate stays CLOSED** — T05's one-off
+  cached Overture pull is spent, test-guarded, and explicitly **not** precedent.
+- **Defects leaving the sub-plan:** E-UTCI-10 ✅ fixed (T09), E-UTCI-14 ✅ fixed (obsolete stub-raise
+  test, fixed by manager overrule rather than dumped on a later owner), E-UTCI-15 ✅ resolved (process
+  incident — two concurrent Stage-6 runs raced on one output dir; both trees killed, both contaminated
+  dirs destroyed, single clean re-run; **no shipped artifact affected**). Still OPEN and forwarded:
+  **E-UTCI-11** (half-landed Phase-D fusion ship), **E-UTCI-12** (`test_draw_methods.py` aborts the
+  whole suite at *collection*), **E-UTCI-13** (the height cache stores post-normalization output, so
+  `levels`/`use_class` silently come back null on re-read — harmless today, a trap for the next arc
+  that reuses it). **Standing lesson: the half-landed ship is a repo pattern, not an accident** — three
+  instances in one arc of spec tests committed ahead of their implementation. Any future arc touching
+  Stage-2 imputation should expect more, and must *run* a module's tests before letting "already exists
+  and is tested" be load-bearing in a plan's §4.
+- **📋 POST-CP-C COMPLETENESS PASS 2026-07-25 — the manager audited the plan *document* rather than the
+  work, and found 5 traceability gaps.** None changed a number, a verdict, or the E-UTCI-09 disposition.
+  Four fixed in place, one forwarded (sub-plan §9.8 has the table):
+  - **The load-bearing one: the backfill is NOT reproducible from a clean checkout, and the plan never
+    said so.** `config.FUSION_SOURCES_BY_TARGET` ships as `{}` and the Overture cache lives uncommitted
+    at `~/.openubem/heights/` — so a fresh clone running Stage 6 on the 4 cells reproduces the **old**
+    flat-field result (`svf_mean = 1.0000`). **That is not a regression and must not be diagnosed as
+    one.** The fix lives in the *mechanism*, not in the committed data: fused heights were never
+    written back into `01_buildings.gpkg`. New sub-plan **§10** documents the 4-step reproduction
+    (re-pull → wire per-cell slice path via env var → `impute_missing` → Stage 6), flags that the
+    endpoint is pinned to Overture release `2026-06-17.0` so the census percentages are release-bound,
+    and notes a re-pull needs **its own** network authorization — §5.3 is still closed and T05's
+    exception is spent, not inheritable. Two persistence options are sketched for a future arc
+    (freeze the snapshot into the fixtures, or commit a slice + config profile); neither is adopted,
+    both exceed this plan's mandate — and **neither moves the rural residual**, which is a source-
+    coverage limit.
+  - **New defect E-UTCI-16 — logged, forwarded, then ✅ FIXED the same day after the user challenged
+    the forwarding.** The challenge was right: the comment was not inherited debt, **T07 of this plan
+    made it false**. The plan had already ruled on this exact case at E-UTCI-14 ("cleaning up a test
+    your own change invalidated is not scope creep; leaving it is debt-dumping") — §8 was applying to
+    E-UTCI-16 the disposition it condemns two entries above. Fixed by Sonnet dispatch (comment-only,
+    2 lines); manager re-read `config.py:90-150` directly to confirm `IMPUTE_ENABLED_TIERS` and all
+    six `FUSION_*` defaults untouched; `pytest test_fusion + test_imputation_routing +
+    test_height_backfill -q` → **67 passed**. *(The dispatch brief's own `git diff --stat` verification
+    step was faulty — it assumed a clean tree against a repo carrying ~22 pre-existing modified files.
+    The executor stopped on the false premise instead of reporting a misleading diff; the error was
+    the manager's, in the brief.)* Original text of the defect: `openubem/config.py:139-140` still said
+    "`fusion` itself stays OUT of `IMPUTE_ENABLED_TIERS`" while line 100 now ships
+    `("fusion", "spatial", "statistical")` — the file states both the right thing (lines 95-98) and its
+    negation, ~40 lines apart. Comment-only, zero behavioural effect, but it is the exact failure mode
+    E-UTCI-11/12/14 documented, and CP-A's F-D′ ruling turned on trusting this very comment over a
+    test's. Needs one short Sonnet dispatch; deliberately not self-fixed (manager writes no code).
+  - Three housekeeping fixes: E-UTCI-14's fix had **no progress-log entry** and its cross-reference
+    dangled (entry now written); §2's file layout omitted `tests/test_imputation_routing.py`; §9.3
+    credited a "T07/T08" invariant when T08 was closed unbuilt.
+  - **Lesson:** the three housekeeping gaps are all *the plan describing itself wrongly while its
+    measurements were right*. CP-C verified the work and did not re-read the document. Both passes are
+    needed and they are not the same pass.
+- **🔒 SUB-PLAN CLOSED 2026-07-25 — closing statement in its §11.** Nothing awaiting a decision.
+  Leaving it: the rural source-coverage residual (→ future Stage-1 acquisition arc), three open
+  defects **E-UTCI-11 / E-UTCI-12 / E-UTCI-13** (→ whichever arc next owns Stage-2 imputation or
+  `height_cache.py`), and the §10 reproducibility constraint. Closed inside the plan and forwarded to
+  nobody: E-UTCI-09, E-UTCI-10, E-UTCI-14, E-UTCI-15, E-UTCI-16. The parent plan's §10 heading —
+  which still read `OPEN — 2026-07-24` while carrying the CP-C disposition beneath it — was corrected
+  to match.
+- **🧹 Hard-rule violation found and fixed 2026-07-25:** `sub-plans/figures/t09_zero_neighbour_fix_check.py`
+  was sitting under `docs/`, against CLAUDE.md's "no `.py` under `docs/` ever" — and T13's own progress
+  log had reported that criterion clean. Verified byte-identical to its scratchpad original, deleted;
+  `docs/docs_ACTIVE/` is now `.py`-free. **A larger pre-existing violation remains, and it is not
+  cosmetic:** 12 `.py` files under `docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/` are collected
+  by pytest and account for **59 of the 107** known-bad test results in the CP-B baseline table
+  (`test_elevators.py` 24, `test_step3_orchestrator.py` 17, `test_outputs.py` 10,
+  `test_parser_elevators.py` 8). Moving or excluding them would cut the repo's known-bad count by more
+  than half. Flagged for a repo-hygiene pass; out of scope for the UTCI arc.
+- **🗂 Figure re-organisation (user, 2026-07-25):** the arc's `docs_ACTIVE` figure copies moved out of
+  `implementation/` into **`docs/docs_DONE/OUTDOOR/UTCI/results/UTCI-maps/`** (5 spatial/raster panels) and
+  **`docs/docs_DONE/OUTDOOR/UTCI/results/UTCI-figures/`** (3 plotted charts). `openubem/outputs/` remains the
+  canonical flat home per the standing rule and every `openubem/outputs/...png` path in the docs is
+  still correct. The two stale `docs_DONE/OUTDOOR/UTCI/implementation/` pointers — one in
+  `OpenUBEM_results_UTCI_microclimate.md` §5.4, one in the parent plan's CP-3 entry — were updated, and
+  §5.4 now carries a short "where the figures live" box.
+- **✅ USER DECISION 2026-07-23 — Q-04 CLOSED, Option A: UTCI is a SEPARATE ANALYSIS PRODUCT**, not a
+  headline output alongside EUI and carbon. Rationale: EUI is validated against measured data (LL84 /
+  EBEWE / CBECS); UTCI will not be validated against anything measured in this arc, and an
+  unvalidated number sitting in a validated table borrows authority it has not earned. Now binding —
+  plan **§6a** converts it into five hard constraints (no UTCI columns in `05_results.*`, nothing in
+  the neighbourhood summary, Stage 6 never part of a standard run, viewer keeps energy colouring with
+  the UTCI layer default-off, never described as "validated"). Promotion stays available as a *future*
+  decision on new evidence — after a measurement campaign, or for anchored cells only.
+- **Remaining open questions** (plan §11): reachability of the official `UTCI_a002.f90` source
+  (mitigated — §11 has a 3-rung ladder ending at ladybug-comfort / pythermalcomfort coefficients);
+  and whether real tree-canopy data exists for NYC/LA/Austin. Neither blocks execution.
+  *(Q-03 was closed in v1.1 as a false premise; Q-04 closed by the user 2026-07-23.)*

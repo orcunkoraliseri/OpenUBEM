@@ -81,6 +81,28 @@ building OSM left blank. First-hit-wins across sources, always tagged `FUSED_<SO
 never `LOW`. When no source is configured (the common case), the tier is a structural no-op and
 the run is byte-identical to fusion-off. *(Arc Phase D — see §5.)*
 
+The router half of this tier (`imputation.py::_fusion_tier`) shipped with the **E-UTCI-09
+height-backfill sub-plan** (`docs/docs_DONE/OUTDOOR/UTCI/implementation/sub-plans/DONE-PLAN_e-utci-09_height_backfill.md`,
+T07) — the fusion tier's *source registry* had existed since Phase D, but the function that
+actually routes an attribute through it was an unimplemented stub until this sub-plan (E-UTCI-11).
+`height_m`/`height` additionally carry a **minimum-height sanity floor**
+(`_MIN_HEIGHT_FLOOR_M = 2.1` m — IRC/IBC R305.1's minimum finished-ceiling height, 7 ft): a fused
+value below the floor is discarded (left `NaN` for a later tier) rather than landed, because the
+cached Overture source is real-world data and can contain physically absurd values (a 0.216 m
+"building" height was found in one cell's slice). `FUSION_SOURCES_BY_TARGET` remains a per-cell,
+per-run opt-in (there is no global Overture coverage) — it was configured for `height_m` on the
+4 E-UTCI-09-affected validation cells only, never turned on platform-wide.
+
+**Measured coverage and residual, per cell** (fusion fill, floor-applied, then the `spatial` tier's
+in-cell donor pass; percentages of each cell's original gap): `nyc_suburban` 1271 fused + 303
+spatial-filled, **15 (0.9 %) still `NaN`**; `nyc_rural` 89 fused + 37 spatial-filled, **72 (36.4 %)
+still `NaN`**; `austin_centre` 321 fused + 17 spatial-filled, **11 (3.2 %) still `NaN`**;
+`austin_rural` 152 fused + 46 spatial-filled, **47 (19.2 %) still `NaN`**. This is reported as
+**materially fixed with a documented residual, not a full close** — the flat-open-field DSM defect
+(§3.3.1 of `OpenUBEM_outdoor_analysis_reference.md`) is gone in all 4 cells, but rural coverage in
+particular stays partial, and those still-`NaN` rows remain excluded from Stage 6's building massing
+exactly as any other genuinely-missing height would be.
+
 ### 4.2 `spatial` — borrow from the neighbours
 For a building missing an attribute, find its **observed spatial neighbours** and take a
 **distance-weighted average of their real values** (`_spatial_tier`). This is a *donor* method:
@@ -119,7 +141,7 @@ subject of the user's question — are **arc phases**, not pipeline stages:
 | **A** | The base cascade (`spatial` + `statistical`) + the mask-and-recover validation harness | KDE / PDE / group-mode / spatial donor | ✅ shipped (CP-1) |
 | **B** | **Downstream-EUI validation** of the base cascade on real cities | same as A (`spatial` + `statistical`) | ✅ shipped (CP-2): NYC NMBE **+0.49%**, LA **+0.08%** |
 | **C** | The **`ml` tier** — the 6-method registry, gated on a do-no-harm test | `knn` / `missforest` / `rf` / `histgbm` / `mice` / `linear` | ⏸ **built-but-off / opt-in** (CP-3 not fully met) |
-| **D** | The **`fusion` tier** — external-data fusion (Overture/LiDAR/assessor) | source registry | ✅ shipped + enabled by default (CP-4) |
+| **D** | The **`fusion` tier** — external-data fusion (Overture/LiDAR/assessor) | source registry | ✅ source registry (`fusion.py`) shipped; router (`_fusion_tier`) + default-tier enablement completed by the **E-UTCI-09 height-backfill sub-plan** (2026-07-25), closing the gap logged as E-UTCI-11 |
 | **E** | Frontier methods (deep-generative, GNN, LLM, TabPFN) | — | ⛔ documented-deferred (none enter the default pipeline) |
 
 So **Phase-B methods = the `spatial` + `statistical` tiers**, and **Phase-C methods = the `ml`

@@ -123,6 +123,21 @@ export function shouldRenderBasemap(basemap) {
     && basemap.image.length > 0);
 }
 
+// ---- T25: UTCI ground-plane layer -- same well-formed-payload shape check as
+// `shouldRenderBasemap`, kept as its own function (not an alias) so a caller
+// reading this file finds the UTCI-layer contract documented on its own,
+// distinct from the basemap's. `scene.utci_layer` is OMITTED entirely (never
+// a placeholder) whenever no run passed `utci_layer_path` to
+// `viewer_export.build_scene` (plan §6a: Stage 6 is invoked explicitly, never
+// part of a standard run) -- this predicate is what lets the viewer degrade
+// to "no UTCI layer at all", same as `shouldRenderBasemap` degrades for a run
+// with no cached basemap.
+export function shouldRenderUtciLayer(utciLayer) {
+  return !!(utciLayer && Array.isArray(utciLayer.extent_local)
+    && utciLayer.extent_local.length === 4 && typeof utciLayer.image === "string"
+    && utciLayer.image.length > 0);
+}
+
 // ---- T18 (Phase E, F2): flat-footprint clarity — derived from EXISTING
 // bound provenance (`data_quality_flag` / `provenance_height_m`), NEVER a new
 // fabricated attribute. Geometry stays unchanged (Phase-E binding constraint

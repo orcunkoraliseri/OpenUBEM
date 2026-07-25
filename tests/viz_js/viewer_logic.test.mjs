@@ -9,6 +9,7 @@ import {
   quantileBreaks, classifyQuantile, normalizeContinuous,
   lodZGate, trustBadge, resolutionBorder, displayToken,
   basemapPlaneLayout, shouldRenderBasemap, heightMissing, flatFootprintBadge,
+  shouldRenderUtciLayer,
 } from "../../openubem/viz/shell/viewer_logic.mjs";
 import {
   NO_DATA_GREY, sampleRamp, classColor, archetypeColor, archetypeSector,
@@ -182,6 +183,23 @@ test("shouldRenderBasemap: absent/malformed -> false, never a fabricated placeho
   assert.equal(shouldRenderBasemap({}), false);
   assert.equal(shouldRenderBasemap({ image: "data:...", extent_local: [0, 0, 1] }), false);
   assert.equal(shouldRenderBasemap({ image: "", extent_local: [0, 0, 1, 1] }), false);
+});
+
+// ---- T25: UTCI ground-plane layer -- same shape contract as the basemap,
+// but its own predicate (distinct function, not shared) -- see PLAN §6a /
+// T25 "never a co-equal colouring mode, never colours a building" ----
+test("shouldRenderUtciLayer: present + well-formed scene.utci_layer -> true", () => {
+  assert.equal(shouldRenderUtciLayer({
+    image: "data:image/png;base64,AAAA", extent_local: [0, 0, 1, 1],
+  }), true);
+});
+
+test("shouldRenderUtciLayer: absent/malformed -> false, never a fabricated placeholder", () => {
+  assert.equal(shouldRenderUtciLayer(undefined), false);
+  assert.equal(shouldRenderUtciLayer(null), false);
+  assert.equal(shouldRenderUtciLayer({}), false);
+  assert.equal(shouldRenderUtciLayer({ image: "data:...", extent_local: [0, 0, 1] }), false);
+  assert.equal(shouldRenderUtciLayer({ image: "", extent_local: [0, 0, 1, 1] }), false);
 });
 
 // ---- T18 (Phase E, F2): flat-footprint clarity ----

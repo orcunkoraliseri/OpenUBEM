@@ -3,6 +3,7 @@ import logging
 import traceback
 from importlib.resources import files
 from pathlib import Path
+from typing import Optional
 
 import geopandas as gpd
 import pandas as pd
@@ -21,6 +22,8 @@ from openubem.geometry.footprint import (
 )
 from openubem.geometry.zoning import build_zones, decide_zoning_strategy
 from openubem.geometry.context import discover_context
+from openubem.geometry import layout_assigner
+from openubem.geometry import envelope_patcher
 from openubem.idf.surfaces import (
     extrude_geometry,
     find_mismatched_interzone_pairs,
@@ -60,6 +63,24 @@ TEMPLATE_ROUTING: dict[str, str] = {
 }
 
 
+def _layout_assign_baseline_path(resolution_mode: str, archetype_id: str) -> Path | None:
+    """Returns the baseline IDF path if this row should take the layout_assign
+    engine path (T07: `BuildingIDF.idf` loads the baseline instead of a blank
+    template); None if `resolution_mode` isn't layout_assign or there is no
+    baseline for `archetype_id` (T03 fallback case — the caller falls through
+    to the standard template pipeline). Same check used by both `__init__`
+    (no footprint available yet) and `build()`, so the two never diverge.
+    """
+    if resolution_mode not in ("layout_assign", "layout_assigner"):
+        return None
+    reg = layout_assigner.get_registry()
+    baseline_path = reg.get_baseline_idf(archetype_id)
+    baseline_area = reg.get_baseline_area(archetype_id)
+    if baseline_path is None or baseline_area is None:
+        return None
+    return baseline_path
+
+
 def _parse_epw_location(epw_path: Path) -> tuple[str, float, float, float, float]:
     """Read EPW line 1 and return (city, lat, lon, time_zone, elevation)."""
     with open(epw_path, encoding="utf-8", errors="replace") as f:
@@ -71,6 +92,29 @@ def _parse_epw_location(epw_path: Path) -> tuple[str, float, float, float, float
     tz = float(parts[8])
     elev = float(parts[9])
     return (city, lat, lon, tz, elev)
+
+
+def _repair_oversized_epbunch_objls(idf: GeomIDF) -> int:
+    """E-LA-09/E-LA-13: pad EpBunch.objls (cosmetic per-instance field-name/comment
+    list) to len(obj.obj) for any object whose stored value count exceeds it, before
+    idf.save(). eppy's EpBunch.__repr__ zips lines[1:] (from obj) against
+    comments[1:] (from objls); when objls is shorter, zip silently truncates,
+    dropping the excess extensible fields AND the correctly ';'-terminated final
+    line, corrupting the saved IDF text. Generic across every class (not hardcoded
+    to Controller:MechanicalVentilation) since the same eppy bug can affect any
+    extensible IDD class. Only mutates the per-instance objls list (never
+    model.dtls/objidd/eppy's public increaseIDDfields trigger). Returns the count
+    of objects repaired.
+    """
+    repaired = 0
+    for objs in idf.idfobjects.values():
+        for obj in objs:
+            deficit = len(obj.obj) - len(obj.objls)
+            if deficit > 0:
+                start = len(obj.objls)
+                obj.objls.extend(f"Extensible_Field_{start + i}" for i in range(deficit))
+                repaired += 1
+    return repaired
 
 
 def _populate_site_location_from_epw(idf: GeomIDF, epw_path: Path) -> None:
@@ -143,17 +187,25 @@ def normalized_space_loads(
 
 
 class BuildingIDF:
-    def __init__(self, row: pd.Series, thermal_mass: bool = False, resolution_mode: str = "auto",
+    def __init__(self, row: pd.Series, thermal_mass: Optional[bool] = None, resolution_mode: str = "auto",
                  trim_outputs: bool = False) -> None:
         self.row = row
-        self.thermal_mass = thermal_mass
+        # E-LA-07-class-2/E-LA-08: layout_assign defaults to mass-bearing MATERIAL
+        # (not MATERIAL:NOMASS) unless a caller explicitly overrides.
+        self.thermal_mass = thermal_mass if thermal_mass is not None else (
+            resolution_mode in ("layout_assign", "layout_assigner")
+        )
         self.resolution_mode = resolution_mode
         self.trim_outputs = trim_outputs
-        template_name = TEMPLATE_ROUTING.get(row["archetype_id"], "commercial_base.idf")
-        template_path = str(
-            files("openubem.idf").joinpath("templates").joinpath(template_name)
-        )
-        self.idf = GeomIDF(template_path)
+        baseline_idf_path = _layout_assign_baseline_path(resolution_mode, row["archetype_id"])
+        if baseline_idf_path is not None:
+            self.idf = GeomIDF(str(baseline_idf_path))
+        else:
+            template_name = TEMPLATE_ROUTING.get(row["archetype_id"], "commercial_base.idf")
+            template_path = str(
+                files("openubem.idf").joinpath("templates").joinpath(template_name)
+            )
+            self.idf = GeomIDF(template_path)
         epw_path = row.get("epw_path")
         if epw_path and Path(str(epw_path)).exists():
             _populate_site_location_from_epw(self.idf, Path(str(epw_path)))
@@ -408,6 +460,54 @@ class BuildingIDF:
         if self.resolution_mode != "auto":
             poly_local = orient(poly_local, sign=1.0)
         zones = build_zones(osm_id, poly_local, arch, num_floors, strategy)
+
+        if strategy == "layout_assign":
+            if zones[0].get("no_baseline"):
+                # T03 fallback: no baseline for this archetype -> standard auto pipeline,
+                # falls through to the rest of build() completely unchanged (no return here).
+                tag = "layout_assign_fallback_auto"
+                dq_flag = (dq_flag + "|" + tag).lstrip("|") if tag not in dq_flag else dq_flag
+                strategy = decide_zoning_strategy(arch, footprint_area, num_floors, "auto")
+                zones = build_zones(osm_id, poly_local, arch, num_floors, strategy)
+            else:
+                # Real baseline available: the baseline IDF already carries its own
+                # geometry/zones/loads/schedules/HVAC/service-loads (plan §4 architecture
+                # table) — scale it in place and skip the standard per-building pipeline.
+                real_area = footprint_area * num_floors
+                baseline_area = layout_assigner.get_registry().get_baseline_area(arch)
+                scale = layout_assigner.calculate_scaling_factor(real_area, baseline_area)
+                layout_assigner.scale_baseline_idf(self.idf, scale)
+                layout_assigner.purge_baseline_outputs(self.idf)
+                epw_path = row.get("epw_path")
+                if epw_path and Path(str(epw_path)).exists():
+                    layout_assigner.patch_location_and_weather(self.idf, Path(str(epw_path)))
+                # T16: patch the baseline's native Buffalo CZ 6A envelope to the real
+                # building's own already-resolved envelope (after scaling, needs the
+                # already-scaled surface list; before write_outputs()).
+                envelope_patcher.patch_envelope(self.idf, row, thermal_mass=self.thermal_mass)
+                extruded_zones = layout_assigner.parse_baseline_zones(self.idf, arch)
+                write_outputs(self.idf, trim_hourly=self.trim_outputs)
+
+                safe_id = osm_id.replace("/", "_").replace(":", "_").replace(" ", "_")
+                idf_path = output_dir / "idfs" / f"{safe_id}.idf"
+                # E-LA-09/E-LA-13: pad any oversized EpBunch's objls before save()
+                # so eppy's __repr__ doesn't zip-truncate it (see helper docstring).
+                _repair_oversized_epbunch_objls(self.idf)
+                self.idf.save(str(idf_path))
+
+                logger.info("osm_id=%s generation_status=success (layout_assign)", osm_id)
+                return {
+                    "osm_id": osm_id,
+                    "idf_path": str(idf_path),
+                    "archetype_id": arch,
+                    "zoning_strategy": "layout_assign",
+                    "num_zones": len(extruded_zones),
+                    "num_context_buildings": 0,
+                    "simplification_status": simp_status,
+                    "data_quality_flag": dq_flag,
+                    "generation_status": "success",
+                    "resolution_mode": self.resolution_mode,
+                }
 
         # 3D: schedule library must be copied before geometry objects reference schedules
         self.copy_schedule_library(arch, schedule_library)

@@ -42,6 +42,16 @@ PERIMETER_DEPTH_M: float = 4.57
 EPW_CACHE_DIR: Path = Path(
     os.environ.get("OPENUBEM_EPW_CACHE", str(Path.home() / ".openubem" / "epw"))
 )
+
+# ── LayoutAssigner arc T01/T08 — baseline IDF library portability ─────────────
+# T08: repointed to the E+ 23.1-transitioned sibling library (plan §3.2 — the
+# original 00.BaselineBuildings_NUs dir is all Version,22.1 and is left untouched).
+BASELINE_IDF_DIR: Path = Path(
+    os.environ.get(
+        "OPENUBEM_BASELINE_IDF_DIR",
+        r"C:\Users\o_iseri\Desktop\idf_reader\Content\00.BaselineBuildings_NUs_v231",
+    )
+)
 EPW_MAX_STATION_KM: float = 300.0  # ASSUMPTION_DESIGN_DEFAULT (DESIGN line 84)
 EPW_PRIMARY_MIRROR: str = "https://climate.onebuilding.org"
 EPW_FALLBACK_MIRROR: str = "https://energyplus.net/weather-download"
@@ -81,9 +91,13 @@ EUI_PLAUSIBILITY_BOUNDS: tuple[float, float] = (25.0, 1000.0)  # kWh/m²/yr
 RECONSTRUCT_SERVICE_LOADS: bool = bool(int(os.environ.get("OPENUBEM_RECONSTRUCT_SERVICE_LOADS", "0")))
 
 # ── Input-Imputation arc T07 — imputation routing config (Phase B) ────────────
-# fusion/ml stay OUT of the default tuple until Phase D/C ship (plan §6 T07 PINNED CONTRACT).
+# `ml` stays OUT of the default tuple until Phase C's CP-3 sign-off (below).
+# `fusion` was added at E-UTCI-09 height-backfill CP-B (2026-07-25): with the
+# default `FUSION_SOURCES_BY_TARGET = {}`, `_fusion_tier` is a byte-identical
+# no-op (empirically re-verified on a real unaffected cell, T07(b)/plan §7) --
+# safety is carried by the config, not by tier-list exclusion.
 IMPUTE_STRICT_MODE: bool = False
-IMPUTE_ENABLED_TIERS: tuple = ("spatial", "statistical")
+IMPUTE_ENABLED_TIERS: tuple = ("fusion", "spatial", "statistical")
 
 # ── Input-Imputation arc T11.3 — ML tier opt-in surface (Phase C) ─────────────
 # `ml` stays OUT of IMPUTE_ENABLED_TIERS above until CP-3 passes + user
@@ -103,3 +117,47 @@ IMPUTE_ML_FLOORS: dict = {
     "histgbm": 5000,
     "linear": 1000,
 }
+
+# ── Stage 6 (UTCI / outdoor microclimate) arc T01 — config block ──────────────
+# PLAN docs/docs_DONE/OUTDOOR/UTCI/implementation/PLAN_utci_microclimate_implementation.md §6/§7 T01.
+UTCI_GRID_RES_M: float = float(os.environ.get("OPENUBEM_UTCI_GRID_RES_M", 2.0))
+UTCI_PEDESTRIAN_HEIGHT_M: float = 1.1  # U02 Table 1 line 15 — human centre of gravity
+UTCI_SVF_AZIMUTHS: int = int(os.environ.get("OPENUBEM_UTCI_SVF_AZIMUTHS", 32))  # U03 Table 2 line 27
+# Shading-context radius for the microclimate domain. NOT config.SHADING_SPHERE_RADIUS (30 m,
+# F-05) — that value is tuned for per-building IDF shading, far too small for a radiation domain.
+UTCI_DOMAIN_BUFFER_M: float = float(os.environ.get("OPENUBEM_UTCI_DOMAIN_BUFFER_M", 200.0))
+UTCI_ANALYSIS_WINDOW: str = os.environ.get("OPENUBEM_UTCI_ANALYSIS_WINDOW", "hottest_week")
+UTCI_Z0_OPEN_M: float = 0.01  # COST-730 reference open-terrain roughness length (U02 §2.2 line 97)
+UTCI_WIND_TIER: str = os.environ.get("OPENUBEM_UTCI_WIND_TIER", "cost730")  # | "macdonald"
+UTCI_VEGETATION_TIER: str = os.environ.get("OPENUBEM_UTCI_VEGETATION_TIER", "none")  # | "osm" | "cdsm"
+UTCI_WALL_TEMP_TIER: str = os.environ.get("OPENUBEM_UTCI_WALL_TEMP_TIER", "empirical")  # | "energyplus"
+UTCI_RASTER_NODATA: float = -9999.0
+
+# ── E-UTCI-09 height-backfill sub-plan T03 — fusion config surface (default-OFF) ──
+# All six keys default to inert values so `fusion.precedence_for()` returns []
+# and `fuse()` is a guaranteed no-op until a future task/CP explicitly wires
+# real paths in -- safety is carried by these defaults, not by tier-list
+# exclusion (see lines 95-98 above); adding these keys must not change any behaviour.
+FUSION_SOURCES_BY_TARGET: dict = {}  # e.g. {"height_m": ("overture", "lidar", "assessor")}
+FUSION_OVERTURE_SLICE_PATH: "Path | None" = (
+    Path(os.environ["OPENUBEM_FUSION_OVERTURE_SLICE_PATH"])
+    if os.environ.get("OPENUBEM_FUSION_OVERTURE_SLICE_PATH")
+    else None
+)
+FUSION_OVERTURE_ENDPOINT: "str | None" = os.environ.get("OPENUBEM_FUSION_OVERTURE_ENDPOINT") or None
+FUSION_LIDAR_NDSM_PATH: "Path | None" = (
+    Path(os.environ["OPENUBEM_FUSION_LIDAR_NDSM_PATH"])
+    if os.environ.get("OPENUBEM_FUSION_LIDAR_NDSM_PATH")
+    else None
+)
+# Assessor keys are added for surface completeness only (F-C', plan §5 T03) --
+# this plan does not configure or wire an assessor data source.
+FUSION_ASSESSOR_PATH: "Path | None" = (
+    Path(os.environ["OPENUBEM_FUSION_ASSESSOR_PATH"])
+    if os.environ.get("OPENUBEM_FUSION_ASSESSOR_PATH")
+    else None
+)
+FUSION_ASSESSOR_FIELDS: dict = {}
+HEIGHT_CACHE_DIR: Path = Path(
+    os.environ.get("OPENUBEM_HEIGHT_CACHE", str(Path.home() / ".openubem" / "heights"))
+)

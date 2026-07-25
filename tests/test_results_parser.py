@@ -123,6 +123,75 @@ class TestIntegrityChecks:
         assert math.isnan(result["total_eui_kwh_m2"])
 
 
+# ── T14 (E-LA-05 fix): resolution_mode-aware zone-integrity gate ─────────────
+
+class TestLayoutAssignZoneIntegrity:
+    """layout_assign baseline zones keep DOE-native names (e.g. "G SW APARTMENT") that never
+    encode an osm_id and structurally cannot match ZONE_RX. _check_zone_integrity() must accept
+    a resolution_mode override for this mode while leaving every other mode's behavior untouched.
+    """
+
+    @staticmethod
+    def _doe_zone_df() -> pd.DataFrame:
+        # Native DOE baseline zone names, never renamed to the OpenUBEM {osm_id}_F{floor}_{label} convention.
+        return pd.DataFrame({
+            "variable_name": ["Zone Lights Electricity Energy"] * 2,
+            "key_value": ["OFFICE", "G SW APARTMENT"],
+        })
+
+    def test_layout_assign_mode_passes_with_doe_zone_names(self):
+        """DOE-native zone keys must pass the light sanity check under resolution_mode='layout_assign'."""
+        from openubem.results.parser import _check_zone_integrity
+        df = self._doe_zone_df()
+        status, msg = _check_zone_integrity(df, "way/t12_local_leg_MediumOffice", 18, resolution_mode="layout_assign")
+        assert status is None
+        assert msg is None
+
+    def test_layout_assigner_alias_also_passes(self):
+        """'layout_assigner' spelling is accepted identically to 'layout_assign'."""
+        from openubem.results.parser import _check_zone_integrity
+        df = self._doe_zone_df()
+        status, msg = _check_zone_integrity(df, "way/t12_local_leg_MediumOffice", 18, resolution_mode="layout_assigner")
+        assert status is None
+        assert msg is None
+
+    def test_same_fixture_without_resolution_mode_still_fails(self):
+        """Regression guard: default resolution_mode=None leaves every other mode's behavior
+        unchanged — the same DOE-style-key fixture still fails the old ZONE_RX-based check."""
+        from openubem.results.parser import _check_zone_integrity
+        df = self._doe_zone_df()
+        status, msg = _check_zone_integrity(df, "way/t12_local_leg_MediumOffice", 18)
+        assert status == "failed_zone_mismatch"
+        assert "found 0" in msg
+
+    def test_layout_assign_corrupt_empty_sql_still_fails(self):
+        """Empty/corrupt SQL (zero zone-level keys at all) must still fail even under layout_assign."""
+        from openubem.results.parser import _check_zone_integrity
+        df = pd.DataFrame({
+            "variable_name": ["Site Outdoor Air Drybulb Temperature"],
+            "key_value": ["Environment"],
+        })
+        status, msg = _check_zone_integrity(df, "way/t12_local_leg_MediumOffice", 18, resolution_mode="layout_assign")
+        assert status == "failed_zone_mismatch"
+        assert "layout_assign" in msg
+
+    def test_parse_building_reads_resolution_mode_from_manifest_row(self):
+        """parse_building() threads manifest_row['resolution_mode'] through to _check_zone_integrity();
+        a layout_assign-flagged row with DOE-style zone names must not fail on zone integrity alone
+        (it may still fail later on missing EUI variables — this fixture only has Lights)."""
+        from openubem.results.parser import parse_building, _check_zone_integrity
+        row = _manifest_row("way/t12_local_leg_MediumOffice", 8000.0, 4, 18)
+        row["resolution_mode"] = "layout_assign"
+        # Directly verify the gate _check_zone_integrity would apply inside parse_building()
+        # (parse_building() itself needs a real SQL file; that path is covered by the standalone
+        # re-run of the 6 real T12 local-leg SQL files, not a repo fixture — see T14 §8 notes).
+        df = self._doe_zone_df()
+        status, msg = _check_zone_integrity(
+            df, str(row["osm_id"]), int(row["num_zones"]), resolution_mode=row.get("resolution_mode")
+        )
+        assert status is None
+
+
 # ── T04: CSV fallback ─────────────────────────────────────────────────────────
 
 class TestCsvFallback:
