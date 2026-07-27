@@ -3,7 +3,19 @@
 > Single-glance tracker. Past = one line each. **Current** and **Future** carry the detail.
 > Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[!]` blocked / needs decision
 >
-> **Last updated:** 2026-07-25 (**E-UTCI-09 height-backfill CP-C SIGNED** — E-UTCI-09 dispositioned
+> **Last updated:** 2026-07-26 (**🔒 ARC L — E-LA-20 FIX ARC CLOSED, CP-C SIGNED.** The multilayer-fix
+> plan is complete: the `Thickness = R × k` inversion is fixed at **both** defect sites via the new
+> `openubem/idf/opaque_assembly.py`, and verified on **150/150** engaged fleet rows through the real
+> production path — 0 CTF Fatal. Both constants (`T_ENGAGE = 0.868 m`, `T_MASS_MAX = 0.35 m`) were
+> measured at the value and the `u` they ship to. Two corrections were forced at audit: E-LA-23 is the
+> **fifth locus of an already-four-entry lineage**, not a new phenomenon — and this arc supplies its
+> first matched control; and the EUI effect is **uniformly negative** (150/150), not bidirectional.
+> **Not done, stated as a condition:** the fleet was never re-run and there is no T19 comparison.
+> Detail in the Arc L update block below. Prior entry, 2026-07-25:
+> **UTCI ARC ARCHIVED** — folder moved `docs_ACTIVE/UTCI/` →
+> `docs_DONE/OUTDOOR/UTCI/`; Stage 6 promoted from arc-in-progress to a documented platform feature in
+> `OpenUBEM_fundamentals.md` §11; graphical-abstract prompt extended with outdoor comfort. Same day:
+> **E-UTCI-09 height-backfill CP-C SIGNED** — E-UTCI-09 dispositioned
 > *materially fixed with a documented residual*, NOT closed; the flat-open-field `svf_mean = 1.0000`
 > artefact is gone from all 3 cells that carried it, `austin_centre` densified 84.5 % → 2.7 % excluded,
 > and a material rural residual [`nyc_rural` 36.4 %, `austin_rural` 19.2 % still `NaN`] is forwarded to
@@ -27,7 +39,125 @@
 
 > **UPDATE 2026-07-23 — 🔒 ARC L DEBUG-FIXES PLAN CLOSED, CP-E (v2) SIGNED** (autonomous director run, `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/PLAN_debug_implementation.md`). Picked up 2 of the 4 residual defects the arc above closed with, in priority order. **T01–T03 fixed E-LA-10** (`WaterHeater:Mixed.Peak_Use_Flow_Rate` + 4 sibling parasitic/loss-coefficient fields added to the scaling engine) — confirmed at 5-building local retest: distorted `dhw_eui` (up to 1643 kWh/m²) collapses to the scale-invariant ≈39.4 (MidriseApartment)/13.6 (SmallOffice) value the undistorted part of the fleet already showed. **T04–T05 fixed E-LA-07-class-1** (`FluidCooler:TwoSpeed` capacity fields on `LargeOffice`) — but surfaced a **new** Fatal, **E-LA-11** (WSHP coil autosize → `INF`/`NaN` on shrunk DataCenter zones → plant-loop runaway), on 2 of 3 retested buildings. **T06–T07 root-caused (but did not fix) both E-LA-07-class-2/E-LA-08** (root: `envelope_patcher`'s `MATERIAL:NOMASS` zero-thermal-mass construction swap) **and E-LA-11** (structural HVAC-autosize issue) — both correctly STOP-AND-REPORTed as out of this plan's additive-scaling-tuple scope; also surfaced **E-LA-12** (`Daylighting:ReferencePoint` not scaled, currently latent/masked). **T08–T09 fully root-caused E-LA-09**: not a baseline defect, not a `purge_baseline_outputs()` casualty — a third-party **eppy `IDF.save()` serialization bug** (`EpBunch.__repr__` zip-truncation corrupts `Outpatient`'s 2 oversized `Controller:MechanicalVentilation` objects, exactly 1/25 baselines affected) → logged as **E-LA-13**; STOP-AND-REPORTed, no safe fix available without regression-testing all 25 baselines. **T10 local regression found 1 new non-blocking regression, E-LA-14** (`SecondarySchool`-family `CheckWarmupConvergence` Severes, a side effect of T01/T02's fix — Severe-count only, `status` stays `success`) — accepted, not fixed. **T11 ran the full 12-cell/8,160-building cluster re-sweep** (fresh `t18_*` job set/harvest, `t17_*` originals untouched): **fleet success rose from 96.65% (T17) to 98.81% (T18)**, 273→97 failures, **zero new failures anywhere, 176 buildings recovered** (all `LargeOffice`). `LargeOffice` alone: 18.15%→83.33%. `n_warmup_convergence` (E-LA-14) confirmed fleet-wide at 1.29% (105/8,160), non-blocking. Director's CP-E audit independently re-derived every headline number from the raw T17/T18 CSVs (sacct cross-check, archetype breakdowns, failure-set diff) — all exact matches, zero discrepancies. **Net: `layout_assign` recommended for PARTIAL production use** — usable for fleet EUI aggregation with two explicit caveats: `Outpatient` (0/6, 100% data-absent) and `LargeOffice` (83%, not 100%, 45/270 still missing). `TallBuilding`/`SuperTallBuilding`/`SmallOffice`/`MediumOffice`/`Hospital` failure rates are unchanged from the arc above (E-LA-07-class-2/E-LA-08, still OPEN-BLOCKED). Three defects (E-LA-11, E-LA-07-class-2/E-LA-08, E-LA-09/E-LA-13) are now **fully root-caused with proposed fix shapes**, ready for a future arc to implement as one unit of structural work. Full record: `debug/COMPLETION_REPORT_debug.md`, results in `OpenUBEM_results_LayoutAssigner.md`'s new `## 5.` section, raw CSVs also archived under `docs_ACTIVE/simulation-Resolution/layoutAssigner/results/`.
 
-> **UPDATE 2026-07-24 — 🔒 ARC L STRUCTURAL-FIXES PLAN CLOSED, CP-E SIGNED WITH CAVEAT** (autonomous director run, `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/structural-fixes/PLAN_structural-fixes_implementation.md`). Implemented all 3 defects the debug-fixes plan left OPEN-BLOCKED, plus latent E-LA-12. **T01–T09 fixed E-LA-12** (`Daylighting:ReferencePoint` scaled by √S), **E-LA-11** (WSHP autosize-resolve-then-scale), and **E-LA-09/E-LA-13** (`objls` comment-padding around eppy's serialization bug) — **T10's full local regression found these 3 fully clean, zero new regressions.** **T11 ran the full 12-cell/8,160-building cluster re-sweep** (fresh `t19_*` job set/harvest, `t17_*`/`t18_*` originals untouched) and harvested it: `Outpatient` 0%→100%, `SuperTallBuilding` 50%→100%, `Hospital` 80%→100%, `LargeOffice` 83.3%→100% — all 3 targeted fixes verify clean at fleet scale. **But fleet-wide success rate went DOWN, 98.81% (T18) → 97.92% (T19)**, because the debug-fixes plan's own `thermal_mass=True` default (E-LA-07-class-2/E-LA-08's fix) unmasked a brand-new defect, **candidate E-LA-20**: 150/154 (97.4%) of `nyc_rural` `SmallOffice` buildings newly Fatal on a `LA_ROOF_CONSTRUCTION` CTF-convergence failure, invisible in every prior local retest sample, costing more buildings (150) than all 4 fixes recovered combined (64). `n_warmup_convergence` (E-LA-14/E-LA-19) roughly doubled to 2.49% fleet-wide, still cosmetic/non-blocking. Manager's CP-E audit independently re-derived the fleet success rates and the 150-building new-failure count directly from the raw `t17_`/`t18_`/`t19_` harvest CSVs — exact match, zero discrepancies. **CP-E signed WITH CAVEAT, not an unqualified pass: `layout_assign` is not yet unconditionally production-grade fleet-wide — E-LA-20 must be root-caused/fixed, or `thermal_mass=True` scoped away from the small-scale-factor regime that triggers it, before that claim can be made.** E-LA-20 logged OPEN (no candidate fix yet), carried forward as the seed of a likely future follow-up arc. Full record: plan's own §7 progress log (T01–T11, CP-A–E, E-LA-20's entry), results in `OpenUBEM_results_LayoutAssigner.md`'s new `## 6.` section.
+> **UPDATE 2026-07-24 — 🔒 ARC L STRUCTURAL-FIXES PLAN CLOSED, CP-E SIGNED WITH CAVEAT** (autonomous director run, `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/structural-fixes/PLAN_structural-fixes_implementation.md`). Implemented all 3 defects the debug-fixes plan left OPEN-BLOCKED, plus latent E-LA-12. **T01–T09 fixed E-LA-12** (`Daylighting:ReferencePoint` scaled by √S), **E-LA-11** (WSHP autosize-resolve-then-scale), and **E-LA-09/E-LA-13** (`objls` comment-padding around eppy's serialization bug) — **T10's full local regression found these 3 fully clean, zero new regressions.** **T11 ran the full 12-cell/8,160-building cluster re-sweep** (fresh `t19_*` job set/harvest, `t17_*`/`t18_*` originals untouched) and harvested it: `Outpatient` 0%→100%, `SuperTallBuilding` 50%→100%, `Hospital` 80%→100%, `LargeOffice` 83.3%→100% — all 3 targeted fixes verify clean at fleet scale. **But fleet-wide success rate went DOWN, 98.81% (T18) → 97.92% (T19)**, because the debug-fixes plan's own `thermal_mass=True` default (E-LA-07-class-2/E-LA-08's fix) unmasked a brand-new defect, **candidate E-LA-20**: 150/154 (97.4%) of `nyc_rural` `SmallOffice` buildings newly Fatal on a `LA_ROOF_CONSTRUCTION` CTF-convergence failure, invisible in every prior local retest sample, costing more buildings (150) than all 4 fixes recovered combined (64). `n_warmup_convergence` (E-LA-14/E-LA-19) roughly doubled to 2.49% fleet-wide, still cosmetic/non-blocking. Manager's CP-E audit independently re-derived the fleet success rates and the 150-building new-failure count directly from the raw `t17_`/`t18_`/`t19_` harvest CSVs — exact match, zero discrepancies. **CP-E signed WITH CAVEAT, not an unqualified pass: `layout_assign` is not yet unconditionally production-grade fleet-wide — E-LA-20 must be root-caused/fixed, or `thermal_mass=True` scoped away from the small-scale-factor regime that triggers it, before that claim can be made.** E-LA-20 logged OPEN (no candidate fix yet), carried forward as the seed of a likely future follow-up arc. Full record: plan's own §7 progress log (T01–T11, CP-A–E, E-LA-20's entry), results in `OpenUBEM_results_LayoutAssigner.md`'s new `## 6.` section. **[Caveat status as of 2026-07-25: E-LA-20 is fixed and verified 150/150 on the real production path (see the CP-C block below) — but this caveat is only PARTIALLY discharged, because the fleet was never re-run at `thermal_mass=True`, so the unconditional fleet-wide production-grade claim still cannot be made.]**
+
+> **UPDATE 2026-07-25 — 🔬 ARC L E-LA-20 INVESTIGATION COMPLETE (investigated, NOT fixed)** (autonomous director run, `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/e-la-20/PLAN_e-la-20_investigation.md` + `COMPLETION_REPORT_e-la-20-investigation.md`). Investigation-only by design — **no production code was touched; `git status` verified clean after every task.** All 5 tasks (I01–I05) executed locally on real EnergyPlus 23.1 (~80 real runs, zero cluster compute), CP-INV synthesized. **Root cause confirmed, not hypothesized:** `patch_envelope()` holds conductivity fixed at `_K=0.12` and lets thickness absorb the whole target R (`Thickness = R × 0.12`). Harmless as `MATERIAL:NOMASS` (a pure resistance, no CTF series needed); once the structural-fixes plan's `thermal_mass=True` default turned it into a real `MATERIAL` (ρ=800, cp=1000), a well-insulated roof becomes a single homogeneous slab **over a metre thick** (~800 kg/m²) whose thermal time constant the CTF solver cannot expand at the model's 900 s timestep → Fatal in `InitConductionTransferFunctions`, ~0.1 s, before Warmup/Sizing. **The "small scale factor S" framing in E-LA-20's original log entry is falsified:** I01 reproduced the Fatal on 11/11 buildings across a **65× range of S** at an identical `u_roof`; S appears nowhere in the failing function. **I02 (the gating test) came back exactly as designed** — no-patch PASS, `thermal_mass=False` PASS, `thermal_mass=True` FATAL, on 4 buildings spanning the full S range; the plan's single stop condition did not fire. **I03 located a sharp, fully monotonic threshold** (25 real runs): fails iff `u_roof < ~0.138 W/m²K` ⇔ `Thickness > ~0.870 m` ⇔ Fourier number `Fo < ~1.785e-4`. **I04: the discriminant is vintage, not climate zone and not S** — `SmallOffice`'s base roof U is banded and 4A and 6A share the *same* 0.119; `nyc_rural` resolves to `90.1-2013` (×1.0 → 1.008 m → Fatal) while the other 3 NYC cells resolve to `DOERefPre1980` (×1.6 → 0.630 m → pass); that vintage traces to **one** real `year_built` among 150 buildings, propagated by group-mode imputation. **I05: 30/30 diagnostic probe runs PASS** across 4 distinct fix shapes, all agreeing on EUI to <1% — the fix choice is about fidelity/complexity/runtime, not about the answer. **Director's own fleet-exposure derivation (beyond any single task's scope): 204 of 3,248 `(archetype, zone, vintage)` combinations (6.3%) sit below the threshold** — 6 archetypes, 10 climate zones (4A–8), 5 vintages — so this is a **latent structural exposure**, not a `nyc_rural` curiosity; the 12-cell fleet exposed it in one cell only because it holds almost no modern-vintage buildings in cold zones. **Scope correction:** E-LA-20 affects **150/150 = 100%** of genuine `nyc_rural` `SmallOffice`, not 150/154 = 97.4% — the "4 survivors" are exactly the 4 `building_tag="hotel"`, fully-data-poor buildings, which classify as `SmallHotel` at current HEAD (logged as new **E-LA-22**: T19 archetype/vintage is not reproducible locally for data-poor buildings — material for any future cross-generation comparison). Also logged new **E-LA-21**: the harvest scripts' `has_fatal` column matches `"** Fatal **"` (one space) vs EnergyPlus's real `"**  Fatal  **"` (two), so it reads `False` on **all 8,160 rows** — reporting-only, no simulation impact, no existing conclusion depends on it. **Plan deliberately does NOT close — it ends OPEN at CP-INV.** Recommended follow-up (to be scoped by a manager, not drafted here): adopt I05's `(a)` multi-layer split as primary candidate with `(c2)` hybrid as fallback, guard on the **threshold** rather than on a cell name, verify at fleet scale (this defect was invisible to every ≤28-building local sample across two prior plans), and reject `ConductionFiniteDifference` as primary (~20× runtime).
+
+> **UPDATE 2026-07-25 — 📝 ARC L FIX PLAN WRITTEN (not started, no code touched)** — `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/e-la-20/PLAN_e-la-20_multilayer-fix.md`. Adopts I05's `(a)` multi-layer split, promoted from candidate to pinned decision, with **adaptive N** (`N = ceil(total_thickness / L_max)`, `L_max = sqrt(α·Δt / (2·Fo_crit))`) rather than a fixed N, preserving total R **and** total mass exactly for any N. 12 tasks (F01–F12) across 3 phases with checkpoints CP-A/CP-B/CP-C; no production edit permitted before CP-A is signed. **Three scoping findings new to this plan, derived while writing it:** (1) **a second, identical defect site exists** at `builder.py::assign_constructions()` lines 218–253 — same `Thickness = R × _K` inversion, latent only because `thermal_mass` defaults `False` outside `layout_assign`; (2) **the baseline IDF library is not single-timestep** — `TIMESTEP` is 6/h ×20, 4/h ×3, 2/h ×2 across the 25 baselines, while the investigation measured the failure threshold at 4/h only, so `L_crit` is 0.710 m at 6/h and 1.230 m at 2/h, not a universal 0.870 m; (3) applying the Fourier criterion **per archetype at its own timestep** raises exposure from 204/3,248 (6.3%) to **394/3,136 (12.6%)**, spanning 25 archetypes, all 16 climate zones and all 7 vintages — ⚠️ this is a **model extrapolation from a single calibration point, not a measurement**, which is precisely why F01 (re-derive the threshold at 2/h and 6/h) and F02 (falsify it against the existing 8,160-row T19 harvest, read-only) run before any code is written. Exposure is **roof-only**: `u_wall`/`u_floor` bottom out at 0.182 → 0.659 m library-wide. Global worst case is `u_roof = 0.097` → **1.2371 m** (`SmallOffice`/`QuickServiceRestaurant`, zones 7–8, modern vintages), 23% thicker than anything I05 probed — F03 exists to cover it. E-LA-21 and E-LA-22 stay **OPEN and explicitly out of scope**. Execution is delegated to a separate executor session; this plan is documentation only.
+
+> **UPDATE 2026-07-25 — 🔄 ARC L E-LA-20 FIX PLAN IN EXECUTION; CP-A SIGNED, BUT THE FIX SHAPE WAS FALSIFIED AND REPLACED.** Phase A ran on real local EnergyPlus 23.1 (~64 runs, zero cluster compute, **zero production-code edits — `git status --short openubem/ tests/ main.py` clean throughout**). The plan's own calibration tasks demolished its own design, exactly as they were built to: **F01** measured the single-layer CTF boundary at 2/4/6 timesteps-per-hour and **falsified the Fourier `sqrt(dt)` scaling** — the boundary is flat (0.868–0.946 m) and non-monotonic across a 3× Δt range, so `Fo_crit`/`SAFETY` were retired and the plan's headline **12.6% exposure extrapolation was withdrawn**. **F03-R then killed the adaptive-N multi-layer split outright**: at the fleet worst case (`u_roof = 0.097`, 1.2371 m) EnergyPlus Fatals with a genuine `CTF calculation convergence problem` at **every N from 1 to 10, at every timestep** — 30 runs. The controlling variable is **total** assembly thickness (equivalently `R·C`), not layer thickness, proven non-circularly by the executor's own data: a 0.3810 m layer FATALs at `total_t = 1.1429` while a *thicker* 0.5042 m layer PASSES at `total_t = 1.0084`. Splitting preserves total R **and** total mass exactly — the very property the plan advertised as the shape's chief virtue — hence preserves `R·C` exactly, hence cannot move what the solver responds to. **Corollary, binding: any mass-preserving fix is dead on arrival.** **F02-R** (the one unambiguously good news) measured true fleet exposure from all 8,160 harvested `eplusout.err` files: **150/8,160 = 1.84%**, all `nyc_rural`, predicted by `total_t > 0.868 m` with **zero false positives and zero false negatives**; manager re-derived the 8,160/150 counts independently by `grep` over the harvest. **Disposition: CP-A signed on the measurements; adaptive-N retired; reserve candidate (c2) — a capped mass layer plus a `MATERIAL:NOMASS` residual carrying the leftover R — promoted to adopted** (pre-registered in §3, so plan-as-written, not drift). It preserves U exactly, never exceeds 2 layers, and is byte-identical to today below the cap. **Phase B is CLOSED**: F04–F07 are written against the dead shape and will be rewritten by the manager. New **Phase A-ter / F03-T** now measures (c2)'s one free constant `T_MASS_MAX` — including a single-run discriminator between a constant-thickness cap and an `R·C`-scaled cap, and a **mandatory EUI-cost measurement**, because (c2) is the first shape in this arc that changes physics rather than only numerics (investigation fact F-11's "<1% across candidates" does **not** transfer to it). Two Phase-A tasks were **rejected at audit first** and redone — one for a circular ground-truth predicate, one whose harness died in `GetSurfaceData` and never reached the CTF solver on any of 11 runs; both rejections traced to reporting a wrapper's verdict or the `.end` file instead of the `** Severe **` line. Full record: the plan's §4-ter (shape + derivation), §5 facts F-13/F-14, §8 (two manager AUDIT entries).
+
+> **UPDATE 2026-07-25 — 🔒 ARC L E-LA-20 FIX PLAN COMPLETE, CP-C SIGNED, ARC CLOSED.** The state changes from "investigated, NOT fixed" to **fixed and verified at the entire population that can reach it.** The signature rests on **0 Fatal CTF across 150/150 engaged rows on the real production path**, re-grepped by the manager from the raw `.err` files rather than read out of a harness PASS column; those 150 are the fix's whole blast radius (F02-R measured 150/8,160 with 0 FP / 0 FN, and CP-B proved the other 8,010 byte-identical below the threshold); and both frozen constants were run at the exact value and exact `u` they ship to, never inferred from a bracket — which F-17 forbids. Phase A-ter measured (c2)'s one free constant across three dispatches and two more falsifications before freezing it: an `R·C`-scaled cap (T-b) died on its own 16 points; a fractional cap (T-c) fit those same 16 but was then falsified by 24 more (F-17 — **CTF convergence is not monotone in the cap thickness**, a genuine isolated FATAL sandwiched between two PASSing neighbours, manager-verified on the raw IDFs), which recovered a **constant thickness cap** as the only rule consistent with all 40 pooled points. `T_MASS_MAX = 0.35 m` was then run at the exact value and the exact `u` it ships to (F03-T3), not inferred from a bracket — 1/1 PASS at the real exposed `u`, 10/10 PASS on a ±0.03 m stability window, PASS at 2/6 ts/h — **CP-A-bis SIGNED**, both constants FROZEN: `T_ENGAGE = 0.868 m` (F-13) and `T_MASS_MAX = 0.35 m` (F-20). **Phase B implemented** the shape as a new shared module `openubem/idf/opaque_assembly.py`, wired into both defect sites (`envelope_patcher.py`, `builder.py::assign_constructions()`, closing the latent second site F-08) — **CP-B SIGNED**: 88/88 tests green, and both byte-identity guarantees (unconditional `thermal_mass=False`; `thermal_mass=True` below the 0.868 m threshold, the 8,010-of-8,160 path) reproduced independently against `HEAD` by the manager's own scratchpad reconstruction, not accepted on the executor's word. **Phase C verified:** F08 (11/11 real-EnergyPlus regression on the investigation's own Fatal set), F09 (144/144 synthetic sweep across every distinct `u_roof`×timestep pair the library can produce, shipped-module parameters cross-checked at all 48 `u` values, 0 mismatches), F10 (the adopted simulation baseline proven untouched **by construction** — it resolves `thermal_mass=False` on every built row, no simulation needed). **F11 (full 8,160-row fleet re-run) was a manager NO-GO** — its own pass criterion required a T19 comparison that E-LA-22 makes irreproducible — and was replaced by **F11-N**: all **150** fleet rows above the engagement threshold (the entire at-risk population, not a sample), real production path, `thermal_mass=True` — **150/150 PASS, 0 CTF Fatal.** A matched `thermal_mass=False` control, **F11-N-b**, then corrected two things on the record: (1) **the fix measurably drives warmup non-convergence** — 96/150 (64%) engaged rows vs 8/150 (5.3%) in the control, same geometry/schedules/code, one variable changed — logged as **E-LA-23**, non-blocking (0 CTF, 0 Fatal either arm) and currently zero blast radius since the adopted baseline is `thermal_mass=False` everywhere — **but see the CP-C correction below: this is not a new phenomenon**; (2) **the EUI effect is uniformly negative, not bidirectional as first reported** — min −2.124%/median −1.732%/max −0.995% across all 150, 150 negative and 0 positive — the earlier "bidirectional +0.26% to +4.30%" figure was an artifact of comparing against a stale prior-artifact reference rather than a matched control, now logged as **E-LA-24** (reporting-layer only). **E-LA-21 and E-LA-22 remain OPEN and explicitly out of scope**, unchanged by this plan. Full record: `e-la-20/PLAN_e-la-20_multilayer-fix.md` §4-quinquies (shipped rule) + §8 (full progress log and every AUDIT entry, CP-A through CP-C) + §9 (error log); synthesis in `e-la-20/COMPLETION_REPORT_e-la-20-multilayer-fix.md`.
+>
+> **CP-C audit corrections (manager, 2026-07-25 — two things the executor's own framing got wrong).**
+> **(1) E-LA-23 is the fifth locus of an existing lineage, not a new defect.** `thermal_mass=True`
+> perturbing `CheckWarmupConvergence` is already logged four times — **E-LA-14** (`SecondarySchool`),
+> **E-LA-16** (`Hospital`/`TallBuilding`), **E-LA-18** (`LargeOffice`), **E-LA-19** (zone-composition
+> shift) — with fleet prevalence **105/8,160 (1.29%) at T18 → 203/8,160 (2.49%) at T19** when
+> `thermal_mass=True` became the `layout_assign` default. Every one of those entries hedged its
+> causality (E-LA-19 reads literally *"Root cause: not fully proven"*). What is new is **not the effect
+> but the evidence**: F11-N-b is the first **matched control** ever run on it — same buildings, same
+> geometry, same code, one variable — which turns a four-times-repeated hypothesis into a measured
+> attribution. That makes the finding **stronger, not weaker**, and E-LA-23 the densest locus of the
+> lineage (64% vs a 2.49% fleet background). Two consequences **forwarded, not decided**: (a) the 150
+> are **additive** to the fleet count — they were Fatal at T19 and counted 0, so a fixed fleet run at
+> `thermal_mass=True` projects **≈299/8,160 ≈ 3.66%** (a projection, not a measurement); (b) the
+> **"cosmetic" label**, inherited unexamined across all four prior entries, is a claim about *accuracy*
+> that no one in this lineage has ever tested — including this arc.
+> **(2) The EUI effect is uniformly negative** — min −2.124% / median −1.732% / max −0.995%, **150
+> negative, 0 positive**. F08's earlier positive deltas came from a reference hardcoded off a prior
+> artifact instead of a matched control (**E-LA-24**, reporting-layer only).
+>
+> **What this arc did NOT do, stated as a binding condition rather than a footnote:** the **fleet was
+> never re-run**; there is **no T19 comparison** (F11 was a manager NO-GO because E-LA-22 makes its own
+> pass criterion irreproducible); and the 8,010 untouched rows rest on an **argument** — byte-identity
+> plus determinism — which collapses the moment that path stops being byte-identical.
+> **Still OPEN and out of scope:** E-LA-21, E-LA-22, plus new E-LA-23 and E-LA-24.
+> **Next step is written and waiting, not started:** `layoutAssigner/prompt/DIRECTOR_PROMPT_post-e-la-20_2026-07-25.md`
+> — it freezes both constants out of the next director's reach, frames the fleet-run decision
+> (~15 h, and structurally unable to produce a clean T19 comparison — to be said before, not after),
+> and encodes the six traps this lineage actually fell into, the manager's own included.
+
+---
+
+## 0. WHERE WE ARE NOW — 2026-07-26
+
+> The one-screen answer. Everything below this section is either history (§A–§I) or the arc's own
+> detail (§L); the quote-blocks above are the dated journal. If those three disagree, **this section
+> and the arc plan docs win** — the journal is append-only and never rewritten.
+
+**Adopted simulation baseline — UNCHANGED, and untouched by everything in Arc L.**
+`phaseE` + E-R3-3 correction + elevators. NYC −31.3% / LA −3.6% / Austin −30.5%, fleet
+158.0 kWh/m². It resolves `thermal_mass=False` on every built row, so the E-LA-20 fix is provably
+inert on it (F10, by construction — no re-simulation was needed to establish this).
+
+**Arc L — `layoutAssigner` — 🔄 RE-OPENED 2026-07-26 as the Q3 storey-matching arc.** The park
+lasted a day: Q3 (the √S form distortion, recorded at close as the largest open problem) is now
+under active work in
+`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/PLAN_storey-matching_implementation.md`,
+which is the live source of state. Status as of 2026-07-26 evening:
+
+- **Phase A + A-bis — CP-A signed with conditions.** Prototype storey structure mapped, multiplier
+  and band-deletion mechanisms measured.
+- **Phase B — implemented, CP-B audited but NOT signed.** Storey matching (`compute_band_map()`,
+  `match_storeys()`, plate-ratio `calculate_scaling_factor()`) is in and the full suite is clean:
+  **1756 passed / 25 failed** vs. the pre-change **1735 / 25**, +21 = exactly the new tests, zero
+  regressions, all 25 failures pre-existing and outside the touched modules.
+- **🔴 The blocker is B06.** D3(a)'s Zone Multiplier produces **134,642 Severe** "Transformer
+  Overloaded" errors in a real production run; a geometric `n_real/n_proto` factor covers only 81%
+  of the measured electricity growth (2.456× vs 2.0× applied). **C02, the ~15 h / 8,160-building
+  fleet re-run, is gated on closing this** — running it sooner spends the cluster on numbers already
+  known to be wrong.
+- **⚠️ Scope, for the eventual write-up:** `match_storeys()` can only express `n_proto ∈ {1, 3}`;
+  every other band structure falls back. Storey matching covers a *minority* of the fleet, and the
+  closure doc must state the fraction as a number rather than claim Q3 is fixed fleet-wide.
+- **E-LA-28 (unscaled `Zone` X/Y Origins) — fixed and verified in B05.** At `planar_k = 0.5` the
+  absolute X extent goes 46.3273 → 23.1637 m (0.500000× exact), versus 40.5364 m (0.875×) unfixed.
+  Energy effect measured and **null** (20/20 runs, 0 Severe, deltas ≤ 4×10⁻⁷%).
+- **Three evidence defects found and logged this day, all the same class** — a comparison that
+  turned out to be about itself: **E-LA-30** (the A4-bis viewer generator's scaler is a measured
+  no-op on 25/25 prototypes, so its scenes never depicted the pipeline and its 98%/97% overlap
+  figures are void), **E-LA-31** (a "pre-B05" control that was byte-identical to the post-fix build,
+  200/200 IDFs), and E-LA-24 before them. Standing rule now in the plan: **a before/after is not
+  reportable until the "before" has been shown to differ from the "after" on the quantity the fix
+  changes.**
+- **First valid overlap measurement of the fixed pipeline:** `nyc_suburban` 27.00%, `la_suburban`
+  55.40%, against real-`auto` controls of 0.00% and 1.79%. A residual cross-building placement
+  problem is visible (median 8.5 m centroid offset) but is **not yet attributed** — the honest
+  pre-fix comparison is still being produced.
+
+Everything below this line describes the arc as it stood at the 2026-07-26 park and is kept for
+history. A cross-mode comparison and the Q3 √S finding were recorded at close — see §L.
+
+**The arc itself (`resolution_mode="layout_assign"`). All five sub-arcs CLOSED.**
+The last one, the E-LA-20 multilayer fix, signed CP-C on 2026-07-25. `layout_assign` is a
+*separate resolution mode*, not the baseline — it substitutes scaled DOE prototypes instead of
+building geometry from OSM footprints.
+
+**The one number that matters and the one condition attached to it:**
+- ✅ **150/150** engaged fleet rows PASS on the real production path, 0 CTF Fatal. That is the
+  fix's entire blast radius, not a sample (F02-R: 150/8,160 = 1.84%, 0 FP / 0 FN).
+- ⚠️ **The fleet was never re-run.** The remaining 8,010 rows rest on an *argument* — byte-identity
+  plus determinism — not on a run. So `layout_assign` is **still not unconditionally
+  production-grade fleet-wide**, and the 2026-07-24 CP-E caveat is only partially discharged.
+
+**Open defects carried forward** (none blocks the adopted baseline):
+
+| ID | What | Status |
+|---|---|---|
+| E-LA-21 | Harvest `has_fatal` matches `"** Fatal **"` vs E+'s real `"**  Fatal  **"` → reads `False` on all 8,160 rows | OPEN — reporting-only |
+| E-LA-22 | T19 archetype/vintage not reproducible locally for data-poor buildings → blocks any clean cross-generation comparison | OPEN — this is what made a T19 comparison impossible |
+| E-LA-23 | The fix drives warmup non-convergence, 96/150 (64%) vs 8/150 control | OPEN — non-blocking; 5th locus of the E-LA-14/16/18/19 lineage; zero blast radius today |
+| E-LA-24 | A prior artifact was used as if it were a matched control | Closed by correction, logged for the generic lesson |
+
+**Next decision — written, waiting, NOT started.**
+`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/prompt/DIRECTOR_PROMPT_post-e-la-20_2026-07-25.md`
+frames it: **re-run the fleet (~15 h) or not.** Note before choosing, not after — that run
+*structurally cannot* produce a clean T19 comparison, because E-LA-22 is in force.
+
+**Everything else, one line each:** UTCI/Stage 6 → ✅ done + archived (§I), now a platform feature.
+`layoutGenerator` zone-mode → ⏸ parked pending redesign (§H). Input imputation → ⏸ parked,
+built-but-off (§G). Resolution-mode switch → ✅ closed (§F). Phase C/D/E → ✅ history (§B, §B2, §E).
 
 ---
 
@@ -63,7 +193,10 @@
 
 ---
 
-## B. Current focus — Phase C combined resim (pilot)
+## B. Phase C combined resim (pilot) — ✅ HISTORICAL (closed 2026-06-20; superseded by Phase D → §B2, then Phase E → §E)
+
+> ⚠️ This section was the "current focus" heading until 2026-07-26. It no longer is — it describes
+> June work that Phase D and Phase E have both superseded. Current focus lives in **§0**.
 
 **Goal:** re-simulate the validation cells with fresh IDFs carrying BOTH fixes
 (multi-floor zoning + real DOE schedules) and the new core/perim fix, then re-score
@@ -457,7 +590,28 @@ Plan: `docs/docs_ACTIVE/simulation-Resolution/layoutgenerator/PLAN_layoutgenerat
 
 ---
 
-## I. UTCI outdoor microclimate — new Stage 6 — **T01-T26 COMPLETE, CP-1 THROUGH CP-5 ALL SIGNED — ARC CLOSED (2026-07-24)**
+## I. UTCI outdoor microclimate — new Stage 6 — **🗄️ ARCHIVED 2026-07-25 · T01-T26 COMPLETE, CP-1 THROUGH CP-5 ALL SIGNED — ARC CLOSED (2026-07-24)**
+
+> 🗄️ **Arc folder archived 2026-07-25:** `docs/docs_ACTIVE/UTCI/` → **`docs/docs_DONE/OUTDOOR/UTCI/`**.
+> Every path in this section already points at the new location. `docs_ACTIVE/` now holds only
+> `simulation-Resolution/`.
+>
+> **Stage 6 is now described as a standing platform feature, not as an arc**, in
+> `docs/docs_EXPLANATION/OpenUBEM_fundamentals.md` §11 (expanded to the complete feature set:
+> §11.1 what it computes, §11.2 what has actually been run and what is honestly limited) with a
+> pointer from §3 explaining why it is deliberately *not* a sixth pipeline stage. The
+> outdoor-analysis registry's stale "⏸ gated, not started" status for heat-mitigation scenarios was
+> corrected to ✅ built, carrying T24's honest finding that three of five scenarios reproduce the
+> literature's sign but undershoot its magnitude. The project graphical-abstract prompt
+> gained a section 7 for outdoor comfort, drawn as a deliberately separate panel — **never a sixth
+> pipeline step, never a fourth headline stat-card** — since UTCI is unvalidated and EUI is not.
+>
+> **Graphical abstract now has two versions**, both in `docs_DONE/GENERAL/graphicalAbstract/`:
+> `PROMPT_graphical_abstract_2026-07-05.md` (**v1, frozen** — rendered as
+> `docs_EXPLANATION/OpenUBEM_fundamentals_2026-07-05.png`, six panels, energy only) and
+> `PROMPT_graphical_abstract_2026-07-25.md` (**v2, current** — adds the outdoor-comfort panel;
+> **not yet rendered**, output goes to `OpenUBEM_fundamentals_2026-07-25.png` beside v1, never over
+> it). Edit v2. v1 stays valid for material about the energy pipeline alone.
 
 New perspective, orthogonal to everything above: OpenUBEM currently answers *"how much energy does
 this building stock use?"*; this arc adds *"what does it feel like to stand outside in it?"* —
@@ -680,3 +834,146 @@ exposure metrics.
   (mitigated — §11 has a 3-rung ladder ending at ladybug-comfort / pythermalcomfort coefficients);
   and whether real tree-canopy data exists for NYC/LA/Austin. Neither blocks execution.
   *(Q-03 was closed in v1.1 as a false premise; Q-04 closed by the user 2026-07-23.)*
+
+---
+
+## L. `layoutAssigner` — prototype-substitution resolution mode — **ALL 5 SUB-ARCS CLOSED; last signature CP-C 2026-07-25**
+
+> Added 2026-07-26. This arc ran for four days across five consecutive plans and had **no section in
+> this document** — it existed only as six quote-blocks in the header. Those blocks stay as the dated
+> journal; this section is the structured index. Root: `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/`.
+
+**What it is.** A fourth resolution mode: instead of extruding OSM footprints, `layout_assign`
+substitutes a **scaled DOE reference prototype** (25-baseline library, `00.BaselineBuildings_NUs_v231`)
+for each building. It buys real zone topology and real HVAC plant; it costs geometric fidelity.
+It is **not** the adopted baseline and never has been — see §0.
+
+### Sub-arc index
+
+| # | Sub-arc | Closed | Signature | What it left behind |
+|---|---|---|---|---|
+| 1 | **Base build** (T01–T12) | 2026-07-22 | CP-A/B/C | E-LA-05, E-LA-06 OPEN-BLOCKED |
+| 2 | **Phases 4–6** (T13–T17) | 2026-07-23 | CP-E | First full 8,160 sweep: **96.65%**. E-LA-07/08/09, and E-LA-10 (silent wrong `dhw_eui` on 80% of the fleet) |
+| 3 | **Debug-fixes** (T01–T11) | 2026-07-23 | CP-E (v2) | **96.65% → 98.81%**, 176 recovered, 0 new failures. E-LA-11/12/13/14 |
+| 4 | **Structural-fixes** (T01–T11) | 2026-07-24 | CP-E **with caveat** | 4 fixes verified fleet-scale — **but 98.81% → 97.92%**, because `thermal_mass=True` unmasked **E-LA-20** (150 `nyc_rural` SmallOffice newly Fatal) |
+| 5 | **E-LA-20 investigation** (I01–I05) | 2026-07-25 | CP-INV — **ended OPEN by design** | Root cause proven, not hypothesized. E-LA-21, E-LA-22 |
+| 6 | **E-LA-20 multilayer fix** (F01–F11-N-b) | 2026-07-25 | **CP-C SIGNED** | Fixed + verified 150/150. E-LA-23, E-LA-24 |
+
+### The E-LA-20 defect, in four lines
+
+- **Root cause:** `patch_envelope()` pinned conductivity at `_K = 0.12` and let thickness absorb the
+  whole target R (`Thickness = R × 0.12`). Harmless as `MATERIAL:NOMASS` — a pure resistance, no CTF
+  series. Once `thermal_mass=True` became the default it became a **real** `MATERIAL` (ρ=800, cp=1000):
+  a well-insulated roof turns into a single homogeneous slab **over a metre thick**, and the CTF solver
+  cannot expand it → Fatal in `InitConductionTransferFunctions`, in ~0.1 s, before Warmup.
+- **A second, identical site existed** at `builder.py::assign_constructions()` — latent only because
+  `thermal_mass` defaults `False` outside `layout_assign`. Closed by the same fix (F-08).
+- **Shipped shape:** capped mass layer + `MATERIAL:NOMASS` residual carrying the leftover R, in the new
+  shared module `openubem/idf/opaque_assembly.py`. Preserves U exactly; never exceeds 2 layers;
+  byte-identical to prior behaviour below the cap.
+- **Frozen constants:** `T_ENGAGE = 0.868 m` (F-13), `T_MASS_MAX = 0.35 m` (F-20). Both **measured at
+  the value and the `u` they ship to**, not inferred from a bracket.
+
+### Three falsifications this arc survived — the reason to trust the result
+
+1. **The Fourier `sqrt(dt)` scaling was wrong.** F01 measured the CTF boundary at 2/4/6 timesteps-per-hour
+   and found it flat (0.868–0.946 m) and *non-monotonic*. The plan's own headline **12.6% exposure
+   figure was withdrawn** — it had been an extrapolation from one calibration point.
+2. **The adopted fix shape was killed by its own calibration task.** F03-R: the adaptive-N split Fatals
+   at every N from 1 to 10, at every timestep. The control variable is **total** assembly thickness
+   (`R·C`), not layer thickness. Splitting preserves total mass exactly — hence preserves `R·C` exactly
+   — hence cannot move what the solver responds to. **Binding corollary: any mass-preserving fix is
+   dead on arrival.**
+3. **CTF convergence is not monotone in the cap thickness** (F-17): a genuine isolated FATAL sandwiched
+   between two PASSing neighbours, manager-verified on the raw IDFs. This killed a rule that had fit 16
+   points, and is why the shipped constant was run at its exact shipped value rather than bracketed.
+
+### What this arc did NOT do — conditions, not footnotes
+
+- **The fleet was never re-run.** F11 was a manager NO-GO: its own pass criterion required a T19
+  comparison that E-LA-22 makes irreproducible. F11-N replaced it with the full 150-row at-risk
+  population — complete coverage of what the fix can reach, but **not** a fleet run.
+- **The 8,010 untouched rows rest on an argument** (byte-identity + determinism), which collapses the
+  moment that path stops being byte-identical.
+- **E-LA-23's accuracy cost was never measured.** Its presence is measured (96/150 vs 8/150); its effect
+  on the annual number is not. The "cosmetic" label this lineage has carried across five entries is a
+  claim about accuracy that **no one has ever tested**, this arc included.
+
+### Cross-mode comparison — measured at arc close, 2026-07-26
+
+The arc had compared `layout_assign` to the other 4 resolution modes in figures for months, but never
+in numbers. Matched **building by building** on the 5 common cells (4,365 buildings where all 5 modes
+succeed), reading T19 and t08 directly:
+
+| | building | floor | auto | fast_zone | **layout_assign** |
+|---|---|---|---|---|---|
+| Success rate (n=4,530) | 100% | 99.98% | 99.96% | 99.96% | 96.45% |
+| Zones/building (median) | 1 | 2 | 2 | 2 | **6** |
+| Median total EUI | 159.9 | 175.1 | 178.9 | 183.3 | **109.7** |
+| Median Δ vs `auto` | −0.8% | +1.8% | — | +2.1% | **−29.1%** |
+
+**The other four cluster within ±5% because they differ only in zoning** — on `nyc_suburban`, lighting
+(4.0), equipment (43.4) and DHW (43.2) are identical to the tenth across all four. `layout_assign` is
+not a fifth zoning strategy; it replaces the whole building.
+
+**Two findings, both new and both structural:**
+
+1. **Half the −29% is by design, and was never quantified until now.** Lighting 26.5 → 10.2 and
+   equipment 43.4 → 29.3, because the loads come from `ASHRAE901_*_STD2022` prototypes —
+   **`layout_assign` models every building's internal loads as 2022-code construction regardless of
+   real vintage.** The envelope *is* re-patched to real vintage/CZ by T16; internal loads are not.
+2. **⚠️ The √S form distortion — open question Q3, resolved by default on day one, never revisited —
+   is a bigger obstacle than E-LA-20 ever was.** Isolating one cell to kill the climate confound
+   (`MidriseApartment`, `nyc_suburban`): `layout_assign` heating is **~2× `auto` at every size**
+   (238.0 vs 118.1 at 79 m²), a *stable* ratio, so it is geometry, not an unscaled-quantity defect.
+   `scale_baseline_idf()` scales vertices by √S in plan **while preserving height**, so a 79 m²
+   building becomes a 4-storey prototype shrunk to 2.5% of its area with all 27 zones and an extreme
+   surface-to-volume ratio. **Median S for `MidriseApartment` is 0.054; 67% of simulated rows are
+   under 500 m²** — the mode runs overwhelmingly far below prototype scale. `la_suburban` (95.5%
+   midrise) shows +0.1% only because LA has no heating load to amplify: the anomaly needs cold
+   climate × small buildings, neither alone. E-LA-20 made 150 buildings fail loudly and is fixed;
+   **Q3 silently doubles small-building heating in cold cells, fleet-wide.** Not fixed, not scoped.
+
+Full derivation: results doc §7. Q3's own entry updated in the base plan's §7.
+
+### Standing disposition — ARC CLOSED 2026-07-26, no further work scheduled
+
+`layout_assign` is **adopted for its intended use** — high-fidelity zone/HVAC-topology studies — and
+**not certified for fleet-level EUI reporting**. Two independent reasons, either sufficient: the
+fleet was never re-run post-E-LA-20, and Q3's √S distortion is unquantified outside the one cell
+measured above. The adopted simulation baseline is unaffected either way — it never runs this mode.
+
+**Deliberately NOT done, and parked rather than forgotten:** the ~15 h fleet re-run (a decision, not
+a task — and it cannot produce a clean T19 comparison while E-LA-22 holds); E-LA-21's `has_fatal`
+grep fix (reporting-only); the 2 pre-existing `nyc_rural` failures. Anyone resuming starts at
+`prompt/DIRECTOR_PROMPT_post-e-la-20_2026-07-25.md`.
+
+### 📝 Successor arc — Q3 storey matching — PLAN WRITTEN 2026-07-26, NOT STARTED
+
+`debug/storey-Matching/PLAN_storey-matching_implementation.md` — that folder is the arc's single
+home; every figure, CSV, viewer export and report lands there (plan §2 + rule 1.11). It opens with a
+**§0 control checklist** (tasks tickable by the executor, checkpoints manager-only), and carries an
+image-generation prompt for a one-page graphic summary at
+`storey-Matching/graphicalAbstract/`. User's own diagnosis, and it is correct: storey
+*height* must stay real, but the storey *count* must follow the real building — a 2-storey building
+should get a 2-storey prototype, not a 4-storey one squashed in plan. **The decisive fact: the real
+storey count is already at the call site and is thrown away** — `builder.py:447` computes
+`real_area = footprint_area * num_floors`, then collapses both into one scalar; `layout_assigner.py`
+never references `levels` anywhere. The fix decomposes it: match `n_proto` to `n_real`, scale only
+the floor plate. 12 tasks over 3 phases, CP-A/B/C, no production code before CP-A.
+
+Three things the plan pins up front: **(1)** this **voids T17/T18/T19** — every `layout_assign` EUI
+number rests on the current geometry, so the ~15 h fleet re-run becomes mandatory, not optional;
+**(2)** storey count is **partly imputed**, so the fix converts imputation error from a load-scaling
+error into a *geometry* error — a pre-registered stop fires if >50% of sub-500 m² buildings carry an
+imputed `num_floors`; **(3)** the hard direction is *shorter* than the prototype (the common case at
+median S=0.054), where a `Zone Multiplier` cannot help and zones must actually be deleted, dragging
+HVAC wiring with them — a second pre-registered stop covers it. Also carries a **3D visual leg**
+(A4 before / C04 after, three-way real vs before vs after) using the read-only viewer of
+`OpenUBEM_fundamentals.md` §8, since the defect is geometric and a table cannot show massing.
+
+**Docs:** `e-la-20/PLAN_e-la-20_multilayer-fix.md` (§4-quinquies shipped rule, §8 progress log + every
+AUDIT entry, §9 error log) · `e-la-20/COMPLETION_REPORT_e-la-20-multilayer-fix.md` ·
+`e-la-20/PLAN_e-la-20_investigation.md` + its completion report · earlier sub-arcs under
+`debug/` and `structural-fixes/` · results in `OpenUBEM_results_LayoutAssigner.md` (§5, §6) ·
+next step in `prompt/DIRECTOR_PROMPT_post-e-la-20_2026-07-25.md`.

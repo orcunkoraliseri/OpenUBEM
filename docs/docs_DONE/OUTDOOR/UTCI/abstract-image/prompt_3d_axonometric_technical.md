@@ -4,6 +4,9 @@
 **Intended use:** paste the block below **verbatim** into Gemini web (or a comparable image model).
 **Scope note:** this graphic presents the Stage-6 UTCI pipeline **as a process** — it deliberately does
 not encode which tasks are complete; completion status lives in `docs/docs_DONE/OUTDOOR/UTCI/UTCI_CHECKLIST.md`.
+**Revised 2026-07-25:** the arc closed and the bottom caveat plaque was rewritten — E-UTCI-09 is no
+longer an open flat-field defect, only a partial rural residual. The old text would now generate a
+figure that is simply wrong. Everything else is unchanged.
 
 **Step content sourced from** `implementation/PLAN_utci_microclimate_implementation.md` §2 ("What we are
 building", lines 128-160) — the real module chain, in real execution order. Do not edit the quoted
@@ -65,9 +68,9 @@ image, spanning its full width, place a single low **matte dark-slate plaque** �
 material from the bright white annotation cards, and separated from the vignette row by a thin
 horizontal divider line.
 Engraved light-grey text, in three short lines:
-**"KNOWN LIMITATION — E-UTCI-09"**
-**"3 of 12 validated cells have height_m = NaN for 100% of buildings; a 4th at 84.5%"**
-**"those cells compute as a flat open field (svf_mean = 1.0000), not an urban canyon"**
+**"KNOWN LIMITATION — E-UTCI-09, materially fixed 2026-07-25"**
+**"heights backfilled from Overture Maps via the fusion tier; all flat-field cells cleared"**
+**"residual: nyc_rural 36.4% and austin_rural 19.2% of buildings still have no height_m"**
 
 **Text fidelity — critical.** Reproduce every quoted string above **exactly as written**, including
 lowercase module filenames with their `.py` extensions, the underscores, the arrows, and the Greek

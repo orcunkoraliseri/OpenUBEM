@@ -1,8 +1,12 @@
 """T13 — Cross-mode comparison figures for the layoutAssigner post-closure addendum.
 
-Builds 3 figures + 1 summary CSV from data that already exists (no new EnergyPlus
+Builds figures + 1 summary CSV from data that already exists (no new EnergyPlus
 runs): the T10 zone-count/EUI comparison CSV, the T08 12-cell 4-mode EUI harvest,
-and the T12 local-leg + E-LA-06 diagnostic counts already recorded in the plan.
+and the cluster-leg layout_assign harvest (ACTIVE_LAYOUT_ASSIGN_EUI_CSV, currently T19).
+
+2026-07-26: repointed from the stale T17 harvest to T19 (2 rounds of defect fixes
+since T17, incl. E-LA-10 DHW scaling). T17 constants kept only for provenance.
+Prior T17 figures/CSV preserved in openubem/outputs/comparisons/previous/*_t17.*.
 
 Usage:
     py -3 scripts/analysis/plot_layout_assign_vs_modes.py
@@ -10,10 +14,10 @@ Usage:
 Outputs (openubem/outputs/comparisons/):
     layout_assign_vs_modes_zone_fidelity.png
     layout_assign_vs_modes_eui_la.png
-    layout_assign_vs_modes_severity.png
+    layout_assign_vs_modes_severity.png        (NOT regenerated -- frozen 2026-07-23 spot-check)
     layout_assign_vs_modes_la_summary.csv
-    layout_assign_vs_modes_cluster_eui.png     (T17, only if t17_layout_assign_eui.csv exists)
-    layout_assign_vs_modes_cluster_success.png (T17, only if t17_layout_assign_eui.csv exists)
+    layout_assign_vs_modes_cluster_eui.png     (only if ACTIVE_LAYOUT_ASSIGN_EUI_CSV exists)
+    layout_assign_vs_modes_cluster_success.png (only if ACTIVE_LAYOUT_ASSIGN_EUI_CSV exists)
 """
 from __future__ import annotations
 
@@ -31,16 +35,27 @@ COMPARISONS_DIR = WORKSPACE_ROOT / "openubem" / "outputs" / "comparisons"
 ZONE_CSV = COMPARISONS_DIR / "layout_assign_vs_resolution_modes.csv"
 ALL_MODES_EUI_CSV = COMPARISONS_DIR / "t08_all_modes_eui.csv"
 LOCAL_REMAINDER_EUI_CSV = COMPARISONS_DIR / "t08_local_remainder_eui.csv"
-# T17 (cluster leg, 2026-07-23): real fleet-scale layout_assign harvest, supersedes
-# the single-building T12 local-leg number used below when this file is present.
+# T17 (cluster leg, 2026-07-23): first real fleet-scale layout_assign harvest. Kept only
+# for provenance/history -- superseded below, not read by any plot function anymore.
 T17_LAYOUT_ASSIGN_EUI_CSV = COMPARISONS_DIR / "t17_layout_assign_eui.csv"
+# T19 (2026-07-26): re-harvest after 2 rounds of defect fixes (T18: E-LA-10 DHW scaling
+# + others; T19: further fixes). This is the ACTIVE source for all layout_assign figures
+# below. Still pre-E-LA-20 (fixed 2026-07-25, never re-run at fleet scale) -- see the
+# nyc_rural/SmallOffice caveat baked into plot_cluster_success().
+T19_LAYOUT_ASSIGN_EUI_CSV = COMPARISONS_DIR / "t19_layout_assign_eui.csv"
+ACTIVE_LAYOUT_ASSIGN_EUI_CSV = T19_LAYOUT_ASSIGN_EUI_CSV
+ACTIVE_SOURCE_LABEL = "T19"
+# T18 harvest -- read only by plot_cluster_success() to split the nyc_rural/SmallOffice
+# T19 failures into the E-LA-20 set (failed T19, succeeded T18) vs. pre-existing failures
+# (failed at both T18 and T19, un-investigated, predate E-LA-20).
+T18_LAYOUT_ASSIGN_EUI_CSV = COMPARISONS_DIR / "t18_layout_assign_eui.csv"
 
 OUT_ZONE_FIDELITY_PNG = COMPARISONS_DIR / "layout_assign_vs_modes_zone_fidelity.png"
 OUT_EUI_LA_PNG = COMPARISONS_DIR / "layout_assign_vs_modes_eui_la.png"
 OUT_SEVERITY_PNG = COMPARISONS_DIR / "layout_assign_vs_modes_severity.png"
 OUT_LA_SUMMARY_CSV = COMPARISONS_DIR / "layout_assign_vs_modes_la_summary.csv"
-# T17 (2026-07-23): full 12-cell / 5-mode cluster-scale figures (only emitted when
-# the T17 harvest CSV exists -- this script stays runnable standalone before T17).
+# Full 12-cell / 5-mode cluster-scale figures (only emitted when ACTIVE_LAYOUT_ASSIGN_EUI_CSV
+# exists -- this script stays runnable standalone before a cluster-leg harvest exists).
 ALL_MODES_EUI_CSV_T17 = COMPARISONS_DIR / "t08_all_modes_eui.csv"
 LOCAL_REMAINDER_EUI_CSV_T17 = COMPARISONS_DIR / "t08_local_remainder_eui.csv"
 OUT_CLUSTER_EUI_PNG = COMPARISONS_DIR / "layout_assign_vs_modes_cluster_eui.png"
@@ -50,9 +65,6 @@ ALL_CELLS_ORDER = [
     "la_centre", "la_urban", "la_suburban", "la_rural",
     "austin_centre", "austin_urban", "austin_suburban", "austin_rural",
 ]
-# E-LA-10 (2026-07-23): WaterHeater:Mixed.Peak_Use_Flow_Rate not scaled by S --
-# dominates these 2 archetypes' EUI at non-unity S (see plan §9 E-LA-10).
-DHW_DEFECT_ARCHETYPES = ["MidriseApartment", "SmallOffice"]
 
 # Same tab10-family convention already used by scripts/cluster/t08_harvest_results.py's
 # make_figures() (t08_mode_cell_median_eui.png) -- reused here for cross-figure consistency;
@@ -117,11 +129,11 @@ def plot_zone_fidelity(zone_df: pd.DataFrame) -> None:
 def build_la_summary(zone_df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
     """Returns (summary_df, using_real_fleet_data).
 
-    T17 (2026-07-23): if the real cluster-scale layout_assign harvest CSV exists,
-    use its LA-cell fleet median (n>1 buildings per archetype) instead of the T12
-    single-building local-leg number. Falls back to the T12 number (n_buildings=1)
-    only if the T17 CSV is absent -- keeps this script runnable standalone even
-    before T17 harvests, per T13's original design intent.
+    If the real cluster-scale layout_assign harvest CSV (ACTIVE_LAYOUT_ASSIGN_EUI_CSV,
+    T19) exists, use its LA-cell fleet median (n>1 buildings per archetype) instead of
+    the T12 single-building local-leg number. Falls back to the T12 number
+    (n_buildings=1) only if that CSV is absent -- keeps this script runnable
+    standalone even before a cluster-leg harvest exists, per T13's original design intent.
     """
     shared = ["cell", "city", "mode", "archetype_id", "total_eui"]
     all_modes = pd.read_csv(ALL_MODES_EUI_CSV)[shared]
@@ -131,11 +143,11 @@ def build_la_summary(zone_df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
     la_fleet = fleet[(fleet["city"] == "LA") & (fleet["cell"].isin(LA_CELLS))
                       & (fleet["archetype_id"].isin(LA_FLEET_ARCHETYPES))]
 
-    using_real_fleet_data = T17_LAYOUT_ASSIGN_EUI_CSV.exists()
+    using_real_fleet_data = ACTIVE_LAYOUT_ASSIGN_EUI_CSV.exists()
     if using_real_fleet_data:
-        t17 = pd.read_csv(T17_LAYOUT_ASSIGN_EUI_CSV)
-        t17_succ = t17[t17["status"] == "success"]
-        t17_la = t17_succ[(t17_succ["city"] == "LA") & (t17_succ["cell"].isin(LA_CELLS))]
+        active = pd.read_csv(ACTIVE_LAYOUT_ASSIGN_EUI_CSV)
+        active_succ = active[active["status"] == "success"]
+        active_la = active_succ[(active_succ["city"] == "LA") & (active_succ["cell"].isin(LA_CELLS))]
 
     rows = []
     for archetype in LA_FLEET_ARCHETYPES:
@@ -149,7 +161,7 @@ def build_la_summary(zone_df: pd.DataFrame) -> tuple[pd.DataFrame, bool]:
                 "n_buildings": len(msub),
             })
         if using_real_fleet_data:
-            la_sub = t17_la[t17_la["archetype_id"] == archetype]
+            la_sub = active_la[active_la["archetype_id"] == archetype]
             rows.append({
                 "archetype_id": archetype,
                 "mode": "layout_assign",
@@ -182,7 +194,7 @@ def plot_eui_la(summary_df: pd.DataFrame, using_real_fleet_data: bool) -> None:
     la_vals = summary_df[summary_df["mode"] == "layout_assign"].set_index("archetype_id")
     star_y = [la_vals.loc[a, "median_total_eui_kwh_m2"] for a in LA_FLEET_ARCHETYPES]
     la_ns = [int(la_vals.loc[a, "n_buildings"]) for a in LA_FLEET_ARCHETYPES]
-    la_label = ("layout_assign (real T17 cluster-leg fleet median)" if using_real_fleet_data
+    la_label = (f"layout_assign (real {ACTIVE_SOURCE_LABEL} cluster-leg fleet median)" if using_real_fleet_data
                 else "layout_assign (single real T12 local-leg building)")
     ax.scatter(group_x, star_y, marker="*", s=400, color=MODE_COLORS["layout_assign"],
                edgecolor="black", linewidth=0.8, zorder=5, label=la_label)
@@ -208,7 +220,7 @@ def plot_eui_la(summary_df: pd.DataFrame, using_real_fleet_data: bool) -> None:
     ymax = max(summary_df["median_total_eui_kwh_m2"].max(), max(valid_star_y) if valid_star_y else 0) * 1.15
     ax.set_ylim(0, ymax)
     if using_real_fleet_data:
-        title = ("LA-climate fleet median EUI by mode vs. REAL layout_assign fleet median (T17 cluster leg)\n"
+        title = (f"LA-climate fleet median EUI by mode vs. REAL layout_assign fleet median ({ACTIVE_SOURCE_LABEL} cluster leg)\n"
                  "SUPERSEDES the T13/T12 single-building comparison. SmallHotel / SecondarySchool omitted -- no LA fleet comparator (0 rows)")
     else:
         title = ("LA-climate fleet median EUI by mode vs. single real layout_assign EUI (T12 local leg)\n"
@@ -223,10 +235,16 @@ def plot_eui_la(summary_df: pd.DataFrame, using_real_fleet_data: bool) -> None:
 
 
 def plot_cluster_eui() -> None:
-    """T17 -- full 12-cell, 5-mode (incl. real layout_assign) median EUI comparison.
-    Only runs if the T17 harvest CSV exists (the actual full-cluster leg)."""
-    if not T17_LAYOUT_ASSIGN_EUI_CSV.exists():
-        print("Skipping cluster EUI figure -- t17_layout_assign_eui.csv not found.")
+    """Full 12-cell, 5-mode (incl. real layout_assign) median EUI comparison.
+    Only runs if ACTIVE_LAYOUT_ASSIGN_EUI_CSV exists (the actual full-cluster leg).
+
+    The T17-era "clean" black-diamond series (median excluding MidriseApartment/
+    SmallOffice) is gone: it existed only to work around E-LA-10 (unscaled DHW flow
+    rate), which is fixed as of T18/T19. Keeping it would imply a live caveat that
+    no longer applies.
+    """
+    if not ACTIVE_LAYOUT_ASSIGN_EUI_CSV.exists():
+        print(f"Skipping cluster EUI figure -- {ACTIVE_LAYOUT_ASSIGN_EUI_CSV.name} not found.")
         return
 
     shared = ["cell", "city", "mode", "total_eui"]
@@ -236,11 +254,9 @@ def plot_cluster_eui() -> None:
     ], ignore_index=True)
     other_med = other_modes.groupby(["cell", "mode"])["total_eui"].median().unstack()
 
-    t17 = pd.read_csv(T17_LAYOUT_ASSIGN_EUI_CSV)
-    t17_succ = t17[t17["status"] == "success"]
-    la_raw = t17_succ.groupby("cell")["total_eui"].median()
-    la_clean = (t17_succ[~t17_succ["archetype_id"].isin(DHW_DEFECT_ARCHETYPES)]
-                .groupby("cell")["total_eui"].median())
+    active = pd.read_csv(ACTIVE_LAYOUT_ASSIGN_EUI_CSV)
+    active_succ = active[active["status"] == "success"]
+    la_med = active_succ.groupby("cell")["total_eui"].median()
 
     cells = [c for c in ALL_CELLS_ORDER if c in other_med.index]
     modes = ["auto", "building", "floor", "fast_zone"]
@@ -252,19 +268,16 @@ def plot_cluster_eui() -> None:
         vals = [other_med.loc[c, mode] if c in other_med.index else np.nan for c in cells]
         ax.bar(x + i * bar_w, vals, bar_w, label=mode, color=MODE_COLORS[mode])
 
-    la_raw_vals = [la_raw.get(c, np.nan) for c in cells]
-    ax.bar(x + 4 * bar_w, la_raw_vals, bar_w, label="layout_assign (raw, all archetypes)",
+    la_vals = [la_med.get(c, np.nan) for c in cells]
+    ax.bar(x + 4 * bar_w, la_vals, bar_w, label="layout_assign (all archetypes)",
            color=MODE_COLORS["layout_assign"])
-    la_clean_vals = [la_clean.get(c, np.nan) for c in cells]
-    ax.scatter(x + 4 * bar_w, la_clean_vals, marker="D", s=45, color="black", zorder=5,
-               label="layout_assign (excl. MidriseApartment/SmallOffice, E-LA-10)")
 
     ax.set_xticks(x + bar_w * 2)
     ax.set_xticklabels(cells, rotation=30, ha="right")
     ax.set_ylabel("Median Total EUI [kWh/m2/yr]")
-    ax.set_title("Full 12-cell / 8,160-building median Total EUI by resolution mode (T17 cluster leg)\n"
-                 "layout_assign (raw) is inflated in several cells by E-LA-10 (unscaled DHW flow rate,\n"
-                 "MidriseApartment+SmallOffice = 77% of the layout_assign fleet) -- diamond = same cell excl. those 2 archetypes")
+    ax.set_title(f"Full 12-cell / 8,160-building median Total EUI by resolution mode ({ACTIVE_SOURCE_LABEL} cluster leg)\n"
+                 "E-LA-10 (unscaled DHW flow rate) is fixed as of this harvest -- layout_assign is no longer\n"
+                 "artificially inflated by that bug. layout_assign has not been validated against measured data.")
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=8, borderaxespad=0.0)
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
@@ -274,17 +287,34 @@ def plot_cluster_eui() -> None:
 
 
 def plot_cluster_success() -> None:
-    """T17 -- per-cell success/fail counts, full cluster leg."""
-    if not T17_LAYOUT_ASSIGN_EUI_CSV.exists():
-        print("Skipping cluster success figure -- t17_layout_assign_eui.csv not found.")
+    """Per-cell success/fail counts, full cluster leg (ACTIVE_LAYOUT_ASSIGN_EUI_CSV, T19).
+
+    T19 was harvested BEFORE the E-LA-20 fix (landed 2026-07-25, never re-run at fleet
+    scale) -- it still contains the nyc_rural/SmallOffice failed rows that fix addressed,
+    plus a small pre-existing population that predates E-LA-20. The two are distinguished
+    below by set-difference against the T18 harvest (failed T19 + succeeded T18 == E-LA-20;
+    failed at both == pre-existing, different, un-investigated cause) and called out
+    explicitly in the title so nyc_rural's column here is not mistaken for current behaviour.
+    """
+    if not ACTIVE_LAYOUT_ASSIGN_EUI_CSV.exists():
+        print(f"Skipping cluster success figure -- {ACTIVE_LAYOUT_ASSIGN_EUI_CSV.name} not found.")
         return
 
-    t17 = pd.read_csv(T17_LAYOUT_ASSIGN_EUI_CSV)
-    tab = t17.groupby("cell")["status"].value_counts().unstack(fill_value=0)
+    active = pd.read_csv(ACTIVE_LAYOUT_ASSIGN_EUI_CSV)
+    tab = active.groupby("cell")["status"].value_counts().unstack(fill_value=0)
     cells = [c for c in ALL_CELLS_ORDER if c in tab.index]
     tab = tab.loc[cells]
     succ = tab.get("success", pd.Series(0, index=cells))
     fail = tab.get("failed", pd.Series(0, index=cells))
+
+    rural_so = active[(active["cell"] == "nyc_rural") & (active["archetype_id"] == "SmallOffice")]
+    rural_so_failed_ids = set(rural_so[rural_so["status"] == "failed"]["osm_id"])
+    n_rural_fatal = len(rural_so_failed_ids)
+    t18 = pd.read_csv(T18_LAYOUT_ASSIGN_EUI_CSV)
+    t18_rural_so_succ_ids = set(t18[(t18["cell"] == "nyc_rural") & (t18["archetype_id"] == "SmallOffice")
+                                     & (t18["status"] == "success")]["osm_id"])
+    n_ela20 = len(rural_so_failed_ids & t18_rural_so_succ_ids)
+    n_pre_existing = n_rural_fatal - n_ela20
 
     fig, ax = plt.subplots(figsize=(13, 6.5))
     x = np.arange(len(cells))
@@ -298,9 +328,9 @@ def plot_cluster_success() -> None:
     ax.set_xticks(x)
     ax.set_xticklabels(cells, rotation=30, ha="right")
     ax.set_ylabel("Building count")
-    ax.set_title("layout_assign cluster-leg success/fail by cell (T17, 8,160 buildings total)\n"
-                 "Failures concentrated in LargeOffice/TallBuilding/SuperTallBuilding/Outpatient "
-                 "(E-LA-07/E-LA-08/E-LA-09), heaviest in NYC")
+    ax.set_title(f"layout_assign cluster-leg success/fail by cell ({ACTIVE_SOURCE_LABEL}, 8,160 buildings total)\n"
+                 f"CAVEAT: nyc_rural includes {n_rural_fatal} failed SmallOffice rows, of which {n_ela20} are E-LA-20\n"
+                 f"(fixed 2026-07-25, never re-run at fleet scale) and {n_pre_existing} pre-date it (different, un-investigated cause)")
     ax.legend(loc="upper right")
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
@@ -347,10 +377,12 @@ def main() -> None:
     summary_df, using_real_fleet_data = build_la_summary(zone_df)
     summary_df.to_csv(OUT_LA_SUMMARY_CSV, index=False)
     print(f"Saved: {OUT_LA_SUMMARY_CSV}")
-    print(f"Using real T17 cluster-leg fleet data for layout_assign: {using_real_fleet_data}")
+    print(f"Using real {ACTIVE_SOURCE_LABEL} cluster-leg fleet data for layout_assign: {using_real_fleet_data}")
 
     plot_eui_la(summary_df, using_real_fleet_data)
-    plot_severity()
+    # plot_severity() intentionally NOT called: that figure is a frozen 2026-07-23
+    # 6-building spot-check (hardcoded E-LA-06 counts unrelated to T17/T19) and must
+    # be left exactly as it is -- see plan decision on the T19 regeneration task.
     plot_cluster_eui()
     plot_cluster_success()
 

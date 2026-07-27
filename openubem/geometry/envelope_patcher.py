@@ -24,9 +24,9 @@ never touches surface geometry or vertex counts.
 import math
 from typing import Any
 
-logger_name = "openubem.geometry.envelope_patcher"
+from openubem.idf.opaque_assembly import build_opaque_assembly
 
-_K = 0.12  # W/m*K light structural -- preserves R = Thickness/Conductivity (mirrors assign_constructions())
+logger_name = "openubem.geometry.envelope_patcher"
 
 # Field-name note (mirrors T04's precedent): the plan's prose names the
 # FenestrationSurface:Detailed construction field as
@@ -95,35 +95,7 @@ def patch_envelope(idf: Any, row: Any, thermal_mass: bool = False) -> Any:
         ("LA_Wall_Assembly", "u_wall_w_m2k"),
         ("LA_Floor_Assembly", "u_floor_w_m2k"),
     ]:
-        r_val = 1.0 / float(row[u_col])
-        if thermal_mass:
-            idf.newidfobject(
-                "MATERIAL",
-                Name=name,
-                Roughness="MediumRough",
-                Thickness=max(0.01, r_val * _K),
-                Conductivity=_K,
-                Density=800.0,
-                Specific_Heat=1000.0,
-                Thermal_Absorptance=0.9,
-                Solar_Absorptance=0.7,
-                Visible_Absorptance=0.7,
-            )
-        else:
-            idf.newidfobject(
-                "MATERIAL:NOMASS",
-                Name=name,
-                Roughness="MediumRough",
-                Thermal_Resistance=r_val,
-                Thermal_Absorptance=0.9,
-                Solar_Absorptance=0.7,
-                Visible_Absorptance=0.7,
-            )
-        idf.newidfobject(
-            "CONSTRUCTION",
-            Name=name.replace("_Assembly", "_Construction"),
-            Outside_Layer=name,
-        )
+        build_opaque_assembly(idf, name, float(row[u_col]), thermal_mass)
 
     idf.newidfobject(
         "WINDOWMATERIAL:SIMPLEGLAZINGSYSTEM",
