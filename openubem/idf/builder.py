@@ -37,6 +37,7 @@ from openubem.idf.hvac import assign_hvac
 from openubem.idf.dhw import assign_dhw
 from openubem.idf.cooking import assign_cooking
 from openubem.idf.refrigeration import assign_refrigeration
+from openubem.idf.opaque_assembly import build_opaque_assembly
 from openubem.idf.outputs import write_outputs
 from openubem.semantic.schedules import write_schedules_to_idf
 from openubem.semantic.loads import get_space_type_loads
@@ -215,42 +216,12 @@ class BuildingIDF:
         row = self.row
         idf = self.idf
 
-        _K = 0.12  # W/m·K light structural — preserves R = Thickness/Conductivity
-
         for name, u_col in [
             ("Roof_Assembly", "u_roof_w_m2k"),
             ("Wall_Assembly", "u_wall_w_m2k"),
             ("Floor_Assembly", "u_floor_w_m2k"),
         ]:
-            r_val = 1.0 / float(row[u_col])
-            if self.thermal_mass:
-                idf.newidfobject(
-                    "MATERIAL",
-                    Name=name,
-                    Roughness="MediumRough",
-                    Thickness=max(0.01, r_val * _K),
-                    Conductivity=_K,
-                    Density=800.0,
-                    Specific_Heat=1000.0,
-                    Thermal_Absorptance=0.9,
-                    Solar_Absorptance=0.7,
-                    Visible_Absorptance=0.7,
-                )
-            else:
-                idf.newidfobject(
-                    "MATERIAL:NOMASS",
-                    Name=name,
-                    Roughness="MediumRough",
-                    Thermal_Resistance=r_val,
-                    Thermal_Absorptance=0.9,
-                    Solar_Absorptance=0.7,
-                    Visible_Absorptance=0.7,
-                )
-            idf.newidfobject(
-                "CONSTRUCTION",
-                Name=name.replace("_Assembly", "_Construction"),
-                Outside_Layer=name,
-            )
+            build_opaque_assembly(idf, name, float(row[u_col]), self.thermal_mass)
 
         idf.newidfobject(
             "WINDOWMATERIAL:SIMPLEGLAZINGSYSTEM",
@@ -474,10 +445,33 @@ class BuildingIDF:
                 # geometry/zones/loads/schedules/HVAC/service-loads (plan §4 architecture
                 # table) — scale it in place and skip the standard per-building pipeline.
                 real_area = footprint_area * num_floors
-                baseline_area = layout_assigner.get_registry().get_baseline_area(arch)
-                scale = layout_assigner.calculate_scaling_factor(real_area, baseline_area)
-                layout_assigner.scale_baseline_idf(self.idf, scale)
+                # B01/B02/B03 (plan §5, storey-matching): band_map/match_storeys
+                # must run on self.idf BEFORE scale_baseline_idf mutates its X/Y
+                # coordinates -- plate_proto/n_proto are baseline-frame quantities.
+                band_map = layout_assigner.compute_band_map(self.idf)
+                match_result = layout_assigner.match_storeys(self.idf, num_floors, band_map)
+                # E-LA-25: baseline area for scaling comes from A1's recomputed
+                # geometry (band_map), never the registry -- disagrees for 14/25.
+                # D9/B06: transformer_scale_ratio needs the ACTUAL Zone Multiplier
+                # match_storeys() set, not n_real/n_proto (see calculate_scaling_factor()).
+                # R01 (plan §5 REMAINder, 2026-07-26): calculate_scaling_factor's plate
+                # math divides recomputed_area_m2 by the STOREY count, not the Z-band
+                # count -- pass n_storeys_represented here, never band_map["n_proto"]
+                # (match_storeys(), above, still branches on the raw band count and is
+                # unaffected by this -- it reads band_map["n_proto"] itself). For the 23
+                # prototypes with no ZoneGroup, n_storeys_represented == n_proto exactly,
+                # so this is a no-op for them (byte-identical scale{} output).
+                scale = layout_assigner.calculate_scaling_factor(
+                    real_area, band_map["recomputed_area_m2"],
+                    num_floors=num_floors, n_proto=band_map["n_storeys_represented"],
+                    storeys_matched=(match_result["status"] == "applied"),
+                    multiplier=match_result.get("multiplier"),
+                )
+                layout_assigner.scale_baseline_idf(self.idf, scale, archetype_id=arch)
                 layout_assigner.purge_baseline_outputs(self.idf)
+                if match_result["status"] in ("fallback_shorter", "fallback_not_expressible"):
+                    tag = f"storey_match_{match_result['status']}"
+                    dq_flag = (dq_flag + "|" + tag).lstrip("|") if tag not in dq_flag else dq_flag
                 epw_path = row.get("epw_path")
                 if epw_path and Path(str(epw_path)).exists():
                     layout_assigner.patch_location_and_weather(self.idf, Path(str(epw_path)))

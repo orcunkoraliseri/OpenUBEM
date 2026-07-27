@@ -2,6 +2,7 @@
 
 import importlib
 import logging
+import math
 from pathlib import Path
 
 import geopandas as gpd
@@ -566,6 +567,665 @@ def test_scale_baseline_idf_datacenter_wshp_named_specs_match_real_largeoffice_c
         assert layout_assigner._is_blank_or_autosize(val), f"{obj_name}/{value_field} not autosize on real baseline: {val!r}"
         matched += 1
     assert matched == len(layout_assigner._NAMED_ABSOLUTE_SPECS) == 28
+
+
+# ── B05 — Zone X/Y Origin scaling (E-LA-28) ──────────────────────────────────
+# PLAN_storey-matching_implementation.md §5 B05 (D7 closed 2026-07-26): rooms
+# shrank correctly (BuildingSurface:Detailed vertices) while the building's own
+# outer extent stayed frozen at the raw S=1 baseline, because Zone X/Y Origin
+# was never in _GEOMETRY_SURFACE_CLASSES. Three assertions required: identity,
+# area invariant, and XY bounding-box extent -- never area, per the plan's own
+# warning that area checks cannot detect this defect (zone floor areas are
+# surface geometry and scale correctly regardless of the Origin bug).
+
+def _idf_xy_bbox(idf):
+    """Min/max X/Y across every BuildingSurface:Detailed vertex, in WORLD
+    coordinates (zone Origin + relative vertex offset) -- the actual outer
+    extent of the building as EnergyPlus/the viewer would place it."""
+    zone_origins = {
+        z.Name: (float(z.X_Origin or 0.0), float(z.Y_Origin or 0.0))
+        for z in idf.idfobjects.get("ZONE", [])
+    }
+    xs, ys = [], []
+    for s in idf.idfobjects.get("BUILDINGSURFACE:DETAILED", []):
+        ox, oy = zone_origins.get(s.Zone_Name, (0.0, 0.0))
+        for x, y, _z in s.coords:
+            xs.append(x + ox)
+            ys.append(y + oy)
+    return min(xs), max(xs), min(ys), max(ys)
+
+
+class TestScaleBaselineIdfZoneOrigins:
+    """B05: scale_baseline_idf() must scale Zone X/Y Origin by planar_scale_factor."""
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_identity_case_still_recentres_zone_origins(self):
+        """SUPERSEDES the old B05-era 'bit-identical' assertion -- B08b/D8
+        (2026-07-26, PLAN_storey-matching_implementation.md) made re-centring
+        UNCONDITIONAL: planar_k == 1.0 (real_area == baseline_area) no longer
+        leaves Zone Origins bit-identical to the raw baseline, because the
+        cross-building placement defect it closes (B08a) is not a scaling
+        defect -- MidriseApartment's raw Origins are not already centred on
+        its own footprint. Z is untouched either way (D8's own rule)."""
+        path = layout_assigner.get_registry().get_baseline_idf("MidriseApartment")
+        idf = GeomIDF(str(path))
+        z_before = {z.Name: z.Z_Origin for z in idf.idfobjects["ZONE"]}
+        recomputed_area = layout_assigner.compute_band_map(idf)["recomputed_area_m2"]
+        scale = layout_assigner.calculate_scaling_factor(recomputed_area, recomputed_area)
+        assert scale["planar_scale_factor"] == 1.0
+        layout_assigner.scale_baseline_idf(idf, scale)
+        z_after = {z.Name: z.Z_Origin for z in idf.idfobjects["ZONE"]}
+        assert z_before == z_after  # Z untouched, D8's own rule
+        x0min, x0max, y0min, y0max = _idf_xy_bbox(idf)
+        assert (x0min + x0max) / 2.0 == pytest.approx(0.0, abs=1e-6)
+        assert (y0min + y0max) / 2.0 == pytest.approx(0.0, abs=1e-6)
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_area_invariant_total_floor_area_unchanged_by_origin_scaling(self):
+        """Total floor area per building is unaffected by the Origin fix (rule:
+        'the one thing layout_assign does correctly today and the fix may not
+        carry it off') -- area was never going to detect E-LA-28, so this test
+        exists to prove the fix does not regress the thing that already worked."""
+        path = layout_assigner.get_registry().get_baseline_idf("MidriseApartment")
+        idf = GeomIDF(str(path))
+
+        def _total_floor_area(idf_obj):
+            return sum(
+                s.area for s in idf_obj.idfobjects["BUILDINGSURFACE:DETAILED"]
+                if str(s.Surface_Type).strip().upper() == "FLOOR"
+            )
+
+        area_before = _total_floor_area(idf)
+        scale = layout_assigner.calculate_scaling_factor(real_area_m2=150.0, baseline_area_m2=2350.94)
+        layout_assigner.scale_baseline_idf(idf, scale)
+        area_after = _total_floor_area(idf)
+        assert area_after == pytest.approx(area_before * scale["area_scale_ratio"], rel=0.01)
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_xy_bounding_box_shrinks_by_planar_k_not_by_one(self):
+        """The defect this test guards: before B05, the whole-model XY bounding
+        box stayed at the raw S=1 extent (shrink factor 1.0) no matter what
+        planar_k was, because Zone Origin never moved. Assert on the bounding
+        box, never on the area -- see the plan's own warning."""
+        path = layout_assigner.get_registry().get_baseline_idf("MidriseApartment")
+        idf_before = GeomIDF(str(path))
+        x0min, x0max, y0min, y0max = _idf_xy_bbox(idf_before)
+        span_x_before, span_y_before = x0max - x0min, y0max - y0min
+
+        idf_after = GeomIDF(str(path))
+        scale = layout_assigner.calculate_scaling_factor(real_area_m2=150.0, baseline_area_m2=2350.94)
+        k = scale["planar_scale_factor"]
+        assert k != 1.0  # otherwise this test can't distinguish the two cases
+        layout_assigner.scale_baseline_idf(idf_after, scale)
+        x1min, x1max, y1min, y1max = _idf_xy_bbox(idf_after)
+        span_x_after, span_y_after = x1max - x1min, y1max - y1min
+
+        assert span_x_after == pytest.approx(span_x_before * k, rel=0.01)
+        assert span_y_after == pytest.approx(span_y_before * k, rel=0.01)
+        # The pre-B05 defect: span_after == span_before * 1.0 (frozen extent).
+        # Guard that a regression back to that state would fail this assertion.
+        assert span_x_after != pytest.approx(span_x_before, rel=0.05)
+
+
+# ── B08b — cross-building placement re-centring (E-LA-31 item 2 / D8) ───────
+# PLAN_storey-matching_implementation.md D8 (manager ruling 2026-07-26, on
+# B08a's diagnosis): scale_baseline_idf() scaled the prototype about its own
+# arbitrary local (0,0) and never re-centred, so builder.py's existing
+# `+ footprint_centroid_utm` placement step landed a corner, not the
+# prototype's own centroid, on the real building -- median offset 8.49 m
+# (nyc) / 11.49 m (la), B08a n=2,630. The fix is a pure translation inside
+# scale_baseline_idf(), unconditional on planar_scale_factor.
+
+class TestScaleBaselineIdfRecentring:
+    """B08b/D8: scale_baseline_idf() re-centres the whole model's
+    BuildingSurface:Detailed XY bounding box onto local (0, 0), independent of
+    the scale factor, using the SAME `_idf_xy_bbox` world-coordinate helper
+    B05's own extent test already relies on."""
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_scaled_case_recentres_bbox_to_origin(self):
+        """Non-identity planar_k (the common case: a real building far from
+        its prototype's own size) also lands the bbox centre at (0, 0)."""
+        path = layout_assigner.get_registry().get_baseline_idf("MidriseApartment")
+        idf = GeomIDF(str(path))
+        scale = layout_assigner.calculate_scaling_factor(real_area_m2=150.0, baseline_area_m2=2350.94)
+        assert scale["planar_scale_factor"] != 1.0
+        layout_assigner.scale_baseline_idf(idf, scale)
+        x0min, x0max, y0min, y0max = _idf_xy_bbox(idf)
+        assert (x0min + x0max) / 2.0 == pytest.approx(0.0, abs=1e-6)
+        assert (y0min + y0max) / 2.0 == pytest.approx(0.0, abs=1e-6)
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_recentring_does_not_touch_z(self):
+        """D8's own rule, same as B05: Z is never touched by the translation.
+        Compared as a multiset, not by position: the pre-existing (pre-B08b)
+        planar_k vertex-scale loop's own `surf.setcoords()` call -- unrelated
+        to this task -- already re-orders a surface's vertex list on any
+        non-1.0 planar_k, so position is not a stable basis for comparison."""
+        path = layout_assigner.get_registry().get_baseline_idf("MidriseApartment")
+        idf = GeomIDF(str(path))
+        z_before = sorted(z0 for _, _, z0 in idf.idfobjects["BUILDINGSURFACE:DETAILED"][0].coords)
+        scale = layout_assigner.calculate_scaling_factor(real_area_m2=150.0, baseline_area_m2=2350.94)
+        layout_assigner.scale_baseline_idf(idf, scale)
+        z_after = sorted(z0 for _, _, z0 in idf.idfobjects["BUILDINGSURFACE:DETAILED"][0].coords)
+        assert z_before == pytest.approx(z_after)
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_world_coordinate_baseline_also_recentres(self):
+        """Supermarket_V22.1.idf is GlobalGeometryRules Coordinate_System =
+        World, the one archetype (of 25) that is NOT Relative (2026-07-26
+        survey) -- exercises the direct-vertex-shift branch, not the
+        Zone-Origin-only branch every other archetype takes. Bbox computed
+        from RAW surface vertices with NO zone-origin addition (unlike
+        `_idf_xy_bbox`, which assumes Relative and would double-count the
+        Zone Origin shift here) -- World-mode vertices are already absolute,
+        exactly as scale_baseline_idf()'s own anchor computation treats them."""
+        path = layout_assigner.get_registry().get_baseline_idf("SuperMarket")
+        idf = GeomIDF(str(path))
+        rules = idf.idfobjects["GLOBALGEOMETRYRULES"]
+        assert rules[0].Coordinate_System.upper() == "WORLD"
+        scale = layout_assigner.calculate_scaling_factor(real_area_m2=1500.0, baseline_area_m2=4181.0)
+        layout_assigner.scale_baseline_idf(idf, scale)
+        xs, ys = [], []
+        for s in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
+            for x, y, _z in s.coords:
+                xs.append(x)
+                ys.append(y)
+        assert (min(xs) + max(xs)) / 2.0 == pytest.approx(0.0, abs=1e-6)
+        assert (min(ys) + max(ys)) / 2.0 == pytest.approx(0.0, abs=1e-6)
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_recentring_shifts_position_only_never_shape(self):
+        """Translation must not distort the envelope: span (max - min) in X
+        and Y is invariant to re-centring -- only the position moves. This is
+        the B05 span test's own quantity, re-asserted after B08b's addition."""
+        path = layout_assigner.get_registry().get_baseline_idf("MidriseApartment")
+        idf_no_recentre_ref = GeomIDF(str(path))
+        x0min, x0max, y0min, y0max = _idf_xy_bbox(idf_no_recentre_ref)
+        span_x_before, span_y_before = x0max - x0min, y0max - y0min
+
+        idf = GeomIDF(str(path))
+        scale = layout_assigner.calculate_scaling_factor(real_area_m2=150.0, baseline_area_m2=2350.94)
+        k = scale["planar_scale_factor"]
+        layout_assigner.scale_baseline_idf(idf, scale)
+        x1min, x1max, y1min, y1max = _idf_xy_bbox(idf)
+        span_x_after, span_y_after = x1max - x1min, y1max - y1min
+
+        assert span_x_after == pytest.approx(span_x_before * k, rel=0.01)
+        assert span_y_after == pytest.approx(span_y_before * k, rel=0.01)
+
+
+# ── B01/B02/B03 — storey matching (plan storey-Matching Phase B) ────────────
+# PLAN_storey-matching_implementation.md D2/D3(a)/B00-B04.
+
+class TestComputeBandMap:
+    """compute_band_map() reproduces A1's accepted geometry map
+    (results/a1_prototype_storey_structure.csv) via the same Z-clustering method,
+    independently of that CSV file (no production read of docs/ artifacts)."""
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    @pytest.mark.parametrize("archetype_id,expected_n_proto,expected_plate_proto", [
+        ("MidriseApartment", 3, 783.65),      # G/M/T, A1 avg_storey_plate_area_m2
+        ("HighriseApartment", 3, 783.65),     # G/M/T
+        ("MediumOffice", 3, 1660.73),         # F1/F2/F3, single middle band
+        ("RetailStandalone", 1, 2293.99),     # single-storey (degenerate band)
+        ("SmallOffice", 2, 539.57),           # "other" convention, no middle band (A1/F-07)
+        ("LargeOffice", 4, 11580.09),         # F1/F2/..., 2 non-uniform middle bands
+    ])
+    def test_matches_a1_recomputed_geometry(self, archetype_id, expected_n_proto, expected_plate_proto):
+        path = layout_assigner.get_registry().get_baseline_idf(archetype_id)
+        idf = GeomIDF(str(path))
+        band_map = layout_assigner.compute_band_map(idf)
+        assert band_map["n_proto"] == expected_n_proto
+        assert band_map["plate_proto_m2"] == pytest.approx(expected_plate_proto, abs=0.5)
+        assert len(band_map["bands"]) == expected_n_proto
+        # bands ordered bottom-to-top
+        z_levels = [b["z_level_m"] for b in band_map["bands"]]
+        assert z_levels == sorted(z_levels)
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_never_reads_zone_names_only_z_geometry(self):
+        """SmallOffice's 'other' convention (A1/F-07) still clusters correctly --
+        proof compute_band_map never assumes G/M/T zone-name prefixes."""
+        path = layout_assigner.get_registry().get_baseline_idf("SmallOffice")
+        idf = GeomIDF(str(path))
+        band_map = layout_assigner.compute_band_map(idf)
+        names = [n for b in band_map["bands"] for n in b["zone_names"]]
+        assert not any(n.split()[0] in ("G", "M", "T") for n in names)
+        assert band_map["n_proto"] == 2
+
+
+class TestComputeBandMapZoneGroupAware:
+    """R01 (PLAN_storey-matching_REMAINder.md, AMENDED SCOPE 2026-07-26,
+    E-LA-35 Cause A): compute_band_map() must read ZoneList/ZoneGroup so a
+    band whose zones are repeated by a ZoneGroup's "Zone List Multiplier" is
+    no longer invisible to recomputed_area_m2. Exactly 2 of the 25 pinned
+    baselines carry a real ZoneGroup: ApartmentHighRise (list mult 8) and
+    ApartmentMidRise (list mult 2, object spelled ZONEGROUP upper-case in
+    that file -- the AUDIT entry's finding)."""
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    @pytest.mark.parametrize("archetype_id,expected_n_storeys,expected_recomputed_area", [
+        ("HighriseApartment", 10, 7836.48),  # 1 (G) + 8 (ZoneGroup mid) + 1 (T)
+        ("MidriseApartment", 4, 3134.61),    # 1 (G) + 2 (ZoneGroup mid) + 1 (T)
+    ])
+    def test_zonegroup_aware_recomputed_area_and_storeys_represented(
+        self, archetype_id, expected_n_storeys, expected_recomputed_area
+    ):
+        path = layout_assigner.get_registry().get_baseline_idf(archetype_id)
+        idf = GeomIDF(str(path))
+        band_map = layout_assigner.compute_band_map(idf)
+        # n_proto stays the measured Z-BAND count (3, the G/M/T shape) -- match_storeys()
+        # branches on it and must not be perturbed (R04 is closed at option (a)).
+        assert band_map["n_proto"] == 3
+        assert band_map["n_storeys_represented"] == expected_n_storeys
+        assert band_map["recomputed_area_m2"] == pytest.approx(expected_recomputed_area, abs=0.5)
+        # plate_proto_m2 (average area of ONE physical floor) is unaffected: dividing
+        # the now-ZoneGroup-aware total by the now-ZoneGroup-aware storey count
+        # reproduces the same per-floor plate the old n_proto-based division gave,
+        # because the G/M/T bands are uniform-area in both prototypes.
+        assert band_map["plate_proto_m2"] == pytest.approx(783.65, abs=0.5)
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_other_23_prototypes_byte_identical_band_map(self):
+        """Byte-identity guard: for every mapped archetype EXCEPT the 2 apartment
+        ones, compute_band_map()'s return must be unchanged by the ZoneGroup-aware
+        rewrite (no ZoneGroup object exists in those 23 files at all)."""
+        exempt = {"HighriseApartment", "MidriseApartment"}
+        checked = 0
+        for archetype_id in _MAPPED_VOCAB:
+            if archetype_id in exempt:
+                continue
+            path = layout_assigner.get_registry().get_baseline_idf(archetype_id)
+            if path is None:
+                continue
+            checked += 1
+            idf = GeomIDF(str(path))
+            band_map = layout_assigner.compute_band_map(idf)
+            assert band_map["n_storeys_represented"] == band_map["n_proto"], archetype_id
+            for b in band_map["bands"]:
+                assert b["storeys_in_band"] == pytest.approx(1.0), archetype_id
+        # 25-file library, 2 exempt (apartment archetypes may repeat via aliases
+        # e.g. LargeOfficeDetailed -> same file as LargeOffice, so this counts
+        # DISTINCT archetype_id entries, not distinct files -- report both.
+        assert checked >= 23, f"only checked {checked} non-apartment archetypes"
+
+
+class TestMatchStoreys:
+    """match_storeys() per plan D3(a)/CP-A 'PROCEED, RE-SCOPED' ruling."""
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_identity_is_a_noop_and_leaves_multipliers_untouched(self):
+        """n_real == n_proto: status identity, idf byte-identical (B02 regression guard)."""
+        path = layout_assigner.get_registry().get_baseline_idf("MidriseApartment")
+        idf = GeomIDF(str(path))
+        before = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        band_map = layout_assigner.compute_band_map(idf)
+        result = layout_assigner.match_storeys(idf, band_map["n_proto"], band_map)
+        assert result["status"] == "identity"
+        assert result["multiplier"] is None
+        after = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        assert before == after
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_taller_applies_multiplier_to_middle_band_only(self):
+        """MediumOffice n_real=6 vs n_proto=3 -> Multiplier=4 on the 5 middle-band
+        zones only (manager-reproduced value, CP-A A2-bis: Zone Multiplier=4,
+        eplusout.eio CORE_MID record; results/a2_run_multiplier/)."""
+        path = layout_assigner.get_registry().get_baseline_idf("MediumOffice")
+        idf = GeomIDF(str(path))
+        band_map = layout_assigner.compute_band_map(idf)
+        assert band_map["n_proto"] == 3
+        result = layout_assigner.match_storeys(idf, 6, band_map)
+        assert result["status"] == "applied"
+        assert result["multiplier"] == 4
+        assert len(result["band_zone_names"]) == 5
+        mid_names = set(result["band_zone_names"])
+        for z in idf.idfobjects["ZONE"]:
+            expected = 4 if z.Name in mid_names else 1
+            assert float(z.Multiplier) == expected, f"{z.Name} Multiplier={z.Multiplier}, expected {expected}"
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_degenerate_single_band_multiplies_the_whole_prototype(self):
+        """n_proto == 1 (RetailStandalone): the sole band is bottom=middle=top,
+        multiplied directly by n_real."""
+        path = layout_assigner.get_registry().get_baseline_idf("RetailStandalone")
+        idf = GeomIDF(str(path))
+        band_map = layout_assigner.compute_band_map(idf)
+        assert band_map["n_proto"] == 1
+        result = layout_assigner.match_storeys(idf, 3, band_map)
+        assert result["status"] == "applied"
+        assert result["multiplier"] == 3
+        for z in idf.idfobjects["ZONE"]:
+            assert float(z.Multiplier) == 3
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_shorter_falls_back_untouched_frozen_literal(self):
+        """n_real < n_proto: D3(b) rejected (A3) -> fallback_shorter, idf
+        byte-identical -- frozen literal behaviour on the fallback path."""
+        path = layout_assigner.get_registry().get_baseline_idf("MidriseApartment")
+        idf = GeomIDF(str(path))
+        before = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        band_map = layout_assigner.compute_band_map(idf)
+        result = layout_assigner.match_storeys(idf, 2, band_map)  # n_proto=3
+        assert result["status"] == "fallback_shorter"
+        assert result["multiplier"] is None
+        after = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        assert before == after
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_taller_but_not_expressible_falls_back_untouched(self):
+        """LargeOffice n_proto=4 has 2 non-uniform middle bands (A1: baseline
+        already bakes Multiplier>1 into its own 'mid' band) -- no single band can
+        be bumped unambiguously, so a taller real building still falls back,
+        idf byte-identical, tagged distinctly from the shorter case (D5/B03)."""
+        path = layout_assigner.get_registry().get_baseline_idf("LargeOffice")
+        idf = GeomIDF(str(path))
+        before = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        band_map = layout_assigner.compute_band_map(idf)
+        assert band_map["n_proto"] == 4
+        result = layout_assigner.match_storeys(idf, 8, band_map)  # taller (8 > 4)
+        assert result["status"] == "fallback_not_expressible"
+        assert result["multiplier"] is None
+        after = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        assert before == after
+
+    def test_n_proto_zero_is_identity_never_crashes(self):
+        """Defensive: an idf with no FLOOR surfaces (n_proto=0) never raises,
+        degrades to identity/no-op."""
+        band_map = {"n_proto": 0, "plate_proto_m2": 0.0, "recomputed_area_m2": 0.0, "bands": []}
+        result = layout_assigner.match_storeys(None, 5, band_map)
+        assert result["status"] == "identity"
+
+
+class TestMatchStoreysResidualZoneGroup:
+    """R10 (E-LA-36, plan §5 REMAINder 2026-07-26): match_storeys() must solve for
+    the RESIDUAL Zone.Multiplier on a ZoneGroup-carrying band, not the absolute
+    one, since EnergyPlus compounds Zone.Multiplier with a pre-existing ZoneGroup
+    Zone List Multiplier. MidriseApartment n_real=4 (list mult 2) previously wrote
+    Multiplier=2 -> 1+4+1=6 simulated storeys; the fix must write NOTHING (residual
+    == 1) and still report n_real as matched."""
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_midrise_n_real_4_residual_is_1_no_field_write(self):
+        """MidriseApartment: n_proto=3 (band count), ZoneGroup list mult=2 on the
+        middle band. n_real=4 -> non_middle_storeys=1+1=2, list_multiplier=2,
+        residual=(4-2)/2=1 -> exact no-op: status 'applied', multiplier=1,
+        band_zone_names=[], and the idf's Zone.Multiplier fields are UNTOUCHED
+        (the prototype's own ZoneGroup already reproduces n_real=4)."""
+        path = layout_assigner.get_registry().get_baseline_idf("MidriseApartment")
+        idf = GeomIDF(str(path))
+        before = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        band_map = layout_assigner.compute_band_map(idf)
+        assert band_map["n_proto"] == 3
+        assert band_map["n_storeys_represented"] == 4
+        result = layout_assigner.match_storeys(idf, 4, band_map)
+        assert result["status"] == "applied"
+        assert result["multiplier"] == 1
+        assert result["band_zone_names"] == []
+        after = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        assert before == after, "residual==1 must not write a redundant Zone.Multiplier field"
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_highrise_n_real_10_residual_is_1_no_field_write(self):
+        """HighriseApartment: ZoneGroup list mult=8. n_real=10 (its own native
+        represented-storey count) -> non_middle_storeys=2, residual=(10-2)/8=1 ->
+        no-op, matching the plan's required 'report the HighriseApartment case
+        too' line."""
+        path = layout_assigner.get_registry().get_baseline_idf("HighriseApartment")
+        idf = GeomIDF(str(path))
+        before = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        band_map = layout_assigner.compute_band_map(idf)
+        assert band_map["n_proto"] == 3
+        assert band_map["n_storeys_represented"] == 10
+        result = layout_assigner.match_storeys(idf, 10, band_map)
+        assert result["status"] == "applied"
+        assert result["multiplier"] == 1
+        assert result["band_zone_names"] == []
+        after = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        assert before == after
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_highrise_n_real_18_writes_exact_residual_2(self):
+        """HighriseApartment, n_real=18 (taller than the native 10): non_middle
+        storeys=2, list_multiplier=8, raw=16, residual=16/8=2 (exact, >=1) ->
+        Zone.Multiplier=2 written on the 9 middle-band zones only, which compounds
+        with the ZoneGroup's own list mult 8 to give 1 + (2*8) + 1 = 18 represented
+        storeys, matching n_real exactly -- not the old absolute formula's value
+        of 8 (10 - (3-1)), which would have compounded to 1 + (8*8) + 1 = 66."""
+        path = layout_assigner.get_registry().get_baseline_idf("HighriseApartment")
+        idf = GeomIDF(str(path))
+        band_map = layout_assigner.compute_band_map(idf)
+        result = layout_assigner.match_storeys(idf, 18, band_map)
+        assert result["status"] == "applied"
+        assert result["multiplier"] == 2
+        assert len(result["band_zone_names"]) == 9
+        mid_names = set(result["band_zone_names"])
+        for z in idf.idfobjects["ZONE"]:
+            expected = 2 if z.Name in mid_names else 1
+            assert float(z.Multiplier) == expected, f"{z.Name} Multiplier={z.Multiplier}, expected {expected}"
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_highrise_n_real_not_exactly_divisible_falls_back(self):
+        """HighriseApartment, n_real=15: non_middle_storeys=2, raw=13, list_multiplier=8
+        -> 13 % 8 != 0, so the residual is not exact -> fallback_not_expressible,
+        idf byte-identical (never silently rounds)."""
+        path = layout_assigner.get_registry().get_baseline_idf("HighriseApartment")
+        idf = GeomIDF(str(path))
+        before = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        band_map = layout_assigner.compute_band_map(idf)
+        result = layout_assigner.match_storeys(idf, 15, band_map)
+        assert result["status"] == "fallback_not_expressible"
+        assert result["multiplier"] is None
+        after = {z.Name: float(z.Multiplier) for z in idf.idfobjects["ZONE"]}
+        assert before == after
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_other_23_prototypes_byte_identical_taller_case(self):
+        """Byte-identity guard (rule: assert both, do not assume either): for a
+        non-ZoneGroup archetype exercising the n_proto==3 taller branch
+        (MediumOffice, list_multiplier==1 for every band), R10's residual formula
+        must reduce EXACTLY to the pre-R10 absolute formula (n_real - (n_proto-1))
+        -- same status, same multiplier, same written zone set as before R10."""
+        path = layout_assigner.get_registry().get_baseline_idf("MediumOffice")
+        idf = GeomIDF(str(path))
+        band_map = layout_assigner.compute_band_map(idf)
+        assert band_map["n_proto"] == 3
+        for b in band_map["bands"]:
+            assert b["storeys_in_band"] == pytest.approx(1.0)
+        result = layout_assigner.match_storeys(idf, 6, band_map)
+        assert result["status"] == "applied"
+        assert result["multiplier"] == 4  # pre-R10 value, unchanged (6 - (3-1))
+        assert len(result["band_zone_names"]) == 5
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_other_23_prototypes_byte_identical_degenerate_case(self):
+        """Same byte-identity guard for the n_proto==1 degenerate branch
+        (RetailStandalone): residual formula must reduce exactly to
+        multiplier == n_real, unchanged from pre-R10."""
+        path = layout_assigner.get_registry().get_baseline_idf("RetailStandalone")
+        idf = GeomIDF(str(path))
+        band_map = layout_assigner.compute_band_map(idf)
+        assert band_map["n_proto"] == 1
+        result = layout_assigner.match_storeys(idf, 3, band_map)
+        assert result["status"] == "applied"
+        assert result["multiplier"] == 3  # pre-R10 value, unchanged
+
+
+class TestScalingFactorStoreyMatching:
+    """calculate_scaling_factor()'s D2 plate-ratio decomposition (B02)."""
+
+    def test_identity_case_is_byte_identical_to_old_2arg_call(self):
+        """🔑 THE REGRESSION GUARD (B02): n_real == n_proto must reproduce the
+        pre-storey-matching 2-arg formula EXACTLY -- asserted with ==, not approx."""
+        real_area, baseline_area = 2350.96, 3135.0  # MidriseApartment-shaped numbers
+        old = layout_assigner.calculate_scaling_factor(real_area, baseline_area)
+        for n in (1, 3, 7):  # identity must hold for ANY n_real == n_proto, not just one
+            new = layout_assigner.calculate_scaling_factor(
+                real_area, baseline_area, num_floors=n, n_proto=n
+            )
+            assert new["planar_scale_factor"] == old["planar_scale_factor"]
+            assert new["area_scale_ratio"] == old["area_scale_ratio"]
+            assert new["target_area_m2"] == old["target_area_m2"]
+            assert new["baseline_area_m2"] == old["baseline_area_m2"]
+
+    def test_omitted_num_floors_n_proto_is_byte_identical_to_old_signature(self):
+        """Backward compatibility (B02 'keep the old signature working'):
+        omitting num_floors/n_proto entirely takes the exact same code path."""
+        old = layout_assigner.calculate_scaling_factor(5000.0, 2500.0)
+        new = layout_assigner.calculate_scaling_factor(5000.0, 2500.0, num_floors=None, n_proto=None)
+        assert new == old
+
+    def test_taller_uses_plate_ratio_not_total_area_ratio(self):
+        """D2: the double-shrink trap. planar_scale_factor must come from the
+        plate ratio (plate_target/plate_proto), not real_area/baseline_area_m2."""
+        real_area, baseline_area, n_real, n_proto = 6000.0, 4982.19, 6, 3
+        result = layout_assigner.calculate_scaling_factor(
+            real_area, baseline_area, num_floors=n_real, n_proto=n_proto, storeys_matched=True
+        )
+        plate_target = real_area / n_real
+        plate_proto = baseline_area / n_proto
+        expected_planar = math.sqrt(plate_target / plate_proto)
+        assert result["planar_scale_factor"] == pytest.approx(expected_planar, rel=1e-12)
+        # NOT the naive old formula (which would double-shrink the plate):
+        assert result["planar_scale_factor"] != pytest.approx(math.sqrt(real_area / baseline_area), rel=1e-6)
+
+    def test_storeys_matched_flag_changes_area_scale_ratio_not_planar_factor(self):
+        """E-LA-27: area_scale_ratio must reflect the storey-multiplier growth
+        ONLY when a Zone Multiplier was actually set on the idf (storeys_matched
+        True). Otherwise (fallback -- D5) it must stay pinned to the plate ratio,
+        or absolute-load/capacity fields get scaled for a multiplier that was
+        never applied -- the fallback-population mirror of E-LA-27."""
+        real_area, baseline_area, n_real, n_proto = 6000.0, 4982.19, 6, 3
+        applied = layout_assigner.calculate_scaling_factor(
+            real_area, baseline_area, num_floors=n_real, n_proto=n_proto, storeys_matched=True
+        )
+        not_applied = layout_assigner.calculate_scaling_factor(
+            real_area, baseline_area, num_floors=n_real, n_proto=n_proto, storeys_matched=False
+        )
+        assert applied["planar_scale_factor"] == not_applied["planar_scale_factor"]
+        assert applied["area_scale_ratio"] != not_applied["area_scale_ratio"]
+        assert applied["area_scale_ratio"] == pytest.approx(
+            not_applied["area_scale_ratio"] * (n_real / n_proto), rel=1e-9
+        )
+        plate_ratio = (real_area / n_real) / (baseline_area / n_proto)
+        assert not_applied["area_scale_ratio"] == pytest.approx(plate_ratio, rel=1e-12)
+
+
+class TestRoofScaleRatioPVInvariance:
+    """R03 (PLAN_storey-matching_REMAINder.md, E-LA-32): PV/generator nameplate
+    capacity must track roof area (planar_scale_factor ** 2) and be INVARIANT to
+    the storey multiplier, unlike transformer_scale_ratio which deliberately
+    compounds with it (D9)."""
+
+    def test_roof_scale_ratio_is_planar_squared_and_ignores_multiplier(self):
+        real_area, baseline_area, n_real, n_proto = 6000.0, 4982.19, 6, 3
+        applied = layout_assigner.calculate_scaling_factor(
+            real_area, baseline_area, num_floors=n_real, n_proto=n_proto,
+            storeys_matched=True, multiplier=4,
+        )
+        not_applied = layout_assigner.calculate_scaling_factor(
+            real_area, baseline_area, num_floors=n_real, n_proto=n_proto,
+            storeys_matched=False, multiplier=None,
+        )
+        # roof_scale_ratio must be identical whether or not the multiplier applied --
+        # the multiplier only ever repeats a MIDDLE band, never the roof.
+        assert applied["roof_scale_ratio"] == pytest.approx(not_applied["roof_scale_ratio"], rel=1e-12)
+        assert applied["roof_scale_ratio"] == pytest.approx(applied["planar_scale_factor"] ** 2, rel=1e-12)
+        # And it must differ from transformer_scale_ratio, which DOES compound
+        # with the multiplier (D9) -- proof the two are genuinely different scalars,
+        # not the same number under two names.
+        assert applied["transformer_scale_ratio"] == pytest.approx(
+            applied["roof_scale_ratio"] * 4, rel=1e-12
+        )
+        assert applied["transformer_scale_ratio"] != pytest.approx(applied["roof_scale_ratio"], rel=1e-6)
+
+    def test_scale_baseline_idf_scales_pvwatts_and_generators_by_roof_not_area_ratio(self):
+        idf, *_ = _build_two_zone_fixture()
+        pv = idf.newidfobject("GENERATOR:PVWATTS", Name="PV 1", DC_System_Capacity=50000.0)
+        gen = idf.newidfobject(
+            "ELECTRICLOADCENTER:GENERATORS", Name="Generators",
+            Generator_1_Rated_Electric_Power_Output=50000.0,
+        )
+        # storeys_matched=True + multiplier=4: area_scale_ratio/transformer_scale_ratio
+        # grow much faster than roof_scale_ratio for the same S -- proves PV is NOT
+        # riding on either of those two.
+        scale = layout_assigner.calculate_scaling_factor(
+            real_area_m2=2400.0, baseline_area_m2=100.0, num_floors=8, n_proto=2,
+            storeys_matched=True, multiplier=4,
+        )
+        layout_assigner.scale_baseline_idf(idf, scale)
+
+        assert pv.DC_System_Capacity == pytest.approx(50000.0 * scale["roof_scale_ratio"])
+        assert gen.Generator_1_Rated_Electric_Power_Output == pytest.approx(50000.0 * scale["roof_scale_ratio"])
+        # Not scaled by the multiplier-inflated ratios (guards against a future
+        # regression silently putting these back on area_s/transformer_s).
+        assert pv.DC_System_Capacity != pytest.approx(50000.0 * scale["area_scale_ratio"], rel=1e-6)
+        assert pv.DC_System_Capacity != pytest.approx(50000.0 * scale["transformer_scale_ratio"], rel=1e-6)
+
+    def test_skips_autosize_pvwatts_and_generators(self):
+        idf, *_ = _build_two_zone_fixture()
+        pv = idf.newidfobject("GENERATOR:PVWATTS", Name="PV 1", DC_System_Capacity="autosize")
+        scale = layout_assigner.calculate_scaling_factor(real_area_m2=400.0, baseline_area_m2=100.0)
+        layout_assigner.scale_baseline_idf(idf, scale)
+        assert pv.DC_System_Capacity == "autosize"
+
+
+class TestBuilderStoreyMatchWiring:
+    """B03: builder.py:~447 call site wiring and D5 fallback tagging."""
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_shorter_case_tags_data_quality_flag(self, tmp_path):
+        """Real building shorter than its MidriseApartment prototype (n_proto=3)
+        -> D5 fallback, tagged 'storey_match_fallback_shorter', never silently."""
+        row = _make_layout_assign_row("MidriseApartment", SYNTHETIC_EPW, footprint_area_m2=300.0, levels=1)
+        gdf = gpd.GeoDataFrame([row], geometry="geometry", crs="EPSG:32618")
+        bidf = BuildingIDF(row, resolution_mode="layout_assign")
+        (tmp_path / "idfs").mkdir()
+        manifest = bidf.build(gdf, {}, tmp_path)
+        assert manifest["generation_status"] == "success"
+        assert "storey_match_fallback_shorter" in manifest["data_quality_flag"]
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_not_expressible_case_tags_distinctly_from_shorter(self, tmp_path):
+        """LargeOffice, real building taller than its n_proto=4 band count but the
+        band structure has no single repeatable middle band -> fallback tagged
+        'storey_match_fallback_not_expressible', distinct from the shorter tag."""
+        row = _make_layout_assign_row("LargeOffice", SYNTHETIC_EPW, footprint_area_m2=50000.0, levels=8)
+        gdf = gpd.GeoDataFrame([row], geometry="geometry", crs="EPSG:32618")
+        bidf = BuildingIDF(row, resolution_mode="layout_assign")
+        (tmp_path / "idfs").mkdir()
+        manifest = bidf.build(gdf, {}, tmp_path)
+        assert manifest["generation_status"] == "success"
+        assert "storey_match_fallback_not_expressible" in manifest["data_quality_flag"]
+        assert "storey_match_fallback_shorter" not in manifest["data_quality_flag"]
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_taller_applied_case_is_not_tagged_and_sets_multiplier(self, tmp_path):
+        """Real building taller than MediumOffice's n_proto=3 -> status applied,
+        NOT tagged in data_quality_flag (only the fallback statuses are D5)."""
+        row = _make_layout_assign_row("MediumOffice", SYNTHETIC_EPW, footprint_area_m2=1000.0, levels=6)
+        gdf = gpd.GeoDataFrame([row], geometry="geometry", crs="EPSG:32618")
+        bidf = BuildingIDF(row, resolution_mode="layout_assign")
+        (tmp_path / "idfs").mkdir()
+        manifest = bidf.build(gdf, {}, tmp_path)
+        assert manifest["generation_status"] == "success"
+        assert "storey_match_fallback" not in manifest["data_quality_flag"]
+        saved = GeomIDF(str(Path(manifest["idf_path"])))
+        multipliers = sorted(float(z.Multiplier) for z in saved.idfobjects["ZONE"])
+        assert 4 in multipliers  # the middle band was actually multiplied in the saved idf
+
+    @pytest.mark.skipif(not config.BASELINE_IDF_DIR.exists(), reason="external baseline library not present")
+    def test_identity_case_not_tagged(self, tmp_path):
+        """Real building exactly matching MidriseApartment's n_proto=3 -> identity,
+        not tagged (it is a no-op, not a fallback)."""
+        row = _make_layout_assign_row("MidriseApartment", SYNTHETIC_EPW, footprint_area_m2=800.0, levels=3)
+        gdf = gpd.GeoDataFrame([row], geometry="geometry", crs="EPSG:32618")
+        bidf = BuildingIDF(row, resolution_mode="layout_assign")
+        (tmp_path / "idfs").mkdir()
+        manifest = bidf.build(gdf, {}, tmp_path)
+        assert manifest["generation_status"] == "success"
+        assert "storey_match" not in manifest["data_quality_flag"]
 
 
 # ── T05 — parse_baseline_zones() ─────────────────────────────────────────────

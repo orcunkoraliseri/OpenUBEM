@@ -1,4 +1,15 @@
-# Graphical Abstract — Image Generation Prompt (for Gemini)
+# Graphical Abstract — Image Generation Prompt (for Gemini) — **v1, superseded**
+
+> ⚠️ **This is the v1 prompt, kept as the historical record of how the v1 image was made.**
+> The current prompt is **[`PROMPT_graphical_abstract_2026-07-25.md`](PROMPT_graphical_abstract_2026-07-25.md)** (v2 — adds outdoor thermal comfort / Stage 6).
+> Edit v2, not this file. This one is frozen so the rendered v1 image stays reproducible.
+>
+> **Rendered output of this prompt:** `docs/docs_EXPLANATION/OpenUBEM_fundamentals_2026-07-05.png`
+> Six panels, no outdoor-comfort panel. Its subtitle — *"…per-building energy, carbon, and comfort —
+> at district scale."* — is how you tell a v1 render from a v2 one at a glance.
+>
+> **v1 stays useful.** Use it for any material about the energy pipeline alone; v2 is for material
+> where outdoor comfort is part of the message.
 
 > Purpose: paste the prompt below into Gemini (or another image model) to generate a single
 > graphical-abstract image summarizing OpenUBEM. Source: `docs/docs_EXPLANATION/OpenUBEM_fundamentals.md`.

@@ -414,3 +414,86 @@ By archetype (buildings affected):
 ### 6.7 Scope note for CP-E
 
 This section answers T11's own charter (prove this plan's 3 structural fixes hold at fleet scale, harvest + independently verify + 3-way compare) and nothing more -- it does not decide CP-E, which remains the manager's own final production-readiness reassessment. Net position for that reassessment to weigh: **all 4 of this plan's targeted defects (E-LA-12, E-LA-07-class-2/E-LA-08, E-LA-11, E-LA-09/E-LA-13) are confirmed fixed/working at fleet scale with zero exceptions where their fix mechanism applies**, but the fleet-wide success rate is nonetheless *lower* than T18's (97.92% vs. 98.81%) because of one new, previously-unseen defect (**candidate E-LA-20**, §6.5, 150 buildings) plus the already-anticipated E-LA-16 secondary-degeneracy cost (15 `TallBuilding`, already logged and flagged before this harvest ran) and the already-logged E-LA-17 pattern (2 `SmallOffice` + 1 `MediumOffice`). Fleet-wide EUI drift from `thermal_mass=True` is small and directionally consistent with the local sample (median −2.73%). E-LA-14/E-LA-19 prevalence has grown from 1.29% to 2.49% but remains `status`-non-blocking. No fix implemented in this plan required rework; every fix's own targeted defect closes cleanly. The open question for CP-E is whether candidate E-LA-20's fleet-scale cost (net −73 buildings vs. T18) is acceptable given the archetypes it does fully fix, or whether it should block production sign-off pending a follow-up fix.
+
+---
+
+## 7. Why `layout_assign` differs from the other resolution modes — measured, 2026-07-26
+
+Added at arc close by the manager. Every number below was derived from `t19_layout_assign_eui.csv`
+and `t08_all_modes_eui.csv` at the time of writing. This section answers a question the arc had
+asked in figures but never in numbers: *why is the purple bar so far from the other four?*
+
+**Method.** The 5 cells common to both harvests (`la_centre`, `nyc_centre`, `nyc_rural`,
+`nyc_suburban`, `nyc_urban`) were matched **building by building** on `osm_id`, restricted to the
+4,365 buildings where all 5 modes simulate successfully. No cross-artifact reference was used
+anywhere — the E-LA-24 lesson applied deliberately.
+
+### 7.1 The other four modes are near-identical because they only differ in zoning
+
+`nyc_suburban`, median kWh/m²/yr:
+
+| End use | building | floor | auto | fast_zone |
+|---|---|---|---|---|
+| Lighting | 4.0 | 4.0 | 4.0 | 4.0 |
+| Equipment | 43.4 | 43.4 | 43.4 | 43.4 |
+| DHW | 43.2 | 43.2 | 43.3 | 43.2 |
+| Heating | 94.5 | 94.5 | 98.7 | 94.7 |
+| **Total** | **205.4** | **205.4** | **205.5** | **205.6** |
+
+Three of six end uses are identical to the tenth. These modes share footprint, loads, envelope and
+schedules and differ only in how zones are cut, which can move only inter-zone heat transfer and the
+fan systems. Spread: ±5%. `layout_assign` is not a fifth zoning strategy — it replaces the entire
+building with a scaled DOE prototype, so it shares almost nothing with the other four, and the
+comparison should be read as *method vs method*, not as a zoning sensitivity.
+
+### 7.2 Where the fleet-wide −29% comes from (4,365 matched buildings)
+
+| End use | auto | layout_assign | Δ |
+|---|---|---|---|
+| Heating | 61.9 | 24.6 | **−37.3** |
+| Lighting | 26.5 | 10.2 | **−16.3** |
+| Equipment | 43.4 | 29.3 | **−14.1** |
+| Cooling | 12.8 | 7.7 | −5.1 |
+| DHW | 7.3 | 13.6 | +6.3 |
+| **Total (median)** | **178.9** | **109.7** | **−29.1%** |
+
+Lighting and equipment come from the `ASHRAE901_*_STD2022` prototypes. **`layout_assign` therefore
+models every building's internal loads as 2022-code construction regardless of its real vintage.**
+The envelope *is* re-patched to the real vintage and climate zone by `envelope_patcher` (T16); the
+internal loads are not. This is a direct consequence of prototype substitution, not a defect — but
+it had never been quantified before this section, and it is roughly half the total gap.
+
+### 7.3 The two cells that go the other way: the √S form distortion
+
+`nyc_suburban` is +46.9% against `auto`, not negative. Isolating a **single cell** to remove any
+climate confound (`MidriseApartment`, `nyc_suburban`, median kWh/m²/yr):
+
+| Real floor area | S | Heating `auto` | Heating `layout_assign` | ratio |
+|---|---|---|---|---|
+| 79 m² | 0.03 | 118.1 | 238.0 | **2.02×** |
+| 106 m² | 0.03 | 102.9 | 200.4 | 1.95× |
+| 150 m² | 0.05 | 87.9 | 168.0 | 1.91× |
+
+The ratio is **stable at ~2×** across the size range, so this is not a runaway unscaled-quantity
+defect of the E-LA-10 kind. It is geometry: `scale_baseline_idf()` scales vertices by √S **in plan
+and preserves height**, so a 79 m² building becomes a 4-storey MidriseApartment prototype shrunk to
+2.5% of its area — a sliver carrying all 27 prototype zones and an extreme surface-to-volume ratio.
+Heating per m² roughly doubles.
+
+**The governing statistic: median S for `MidriseApartment` is 0.054, and 67% of all successfully
+simulated rows are buildings under 500 m².** The mode runs overwhelmingly far below its prototypes'
+design size.
+
+This is also why `la_suburban` — 95.5% `MidriseApartment`, an even higher share than `nyc_suburban`
+— shows +0.1%: the same geometric distortion is present, but Los Angeles has no heating load for it
+to amplify. **The anomaly requires cold climate × small buildings; neither alone produces it.**
+
+### 7.4 Disposition
+
+This is the measured cost of **open question Q3**, which the base plan resolved by default on day one
+(*"accept the √S vertical-form distortion"*) and never revisited. It is a larger driver of
+`layout_assign`'s unsuitability for fleet-level EUI reporting than E-LA-20 ever was: E-LA-20 made
+150 buildings fail loudly, while Q3 silently doubles the heating of small buildings in cold climates
+across the whole fleet. Recorded here and in the base plan's §7; **not fixed, not scoped** — a
+future arc's decision, and a `Zone Multiplier`-based alternative is the obvious first candidate to
+evaluate against it.
