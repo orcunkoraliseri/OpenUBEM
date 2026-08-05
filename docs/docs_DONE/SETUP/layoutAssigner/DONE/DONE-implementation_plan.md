@@ -295,6 +295,25 @@ Scaling math (unchanged): S = A_real / A_baseline; X'=X·√S, Y'=Y·√S, Z unc
 >    150 buildings fail loudly and is fixed; Q3 silently doubles small-building heating in cold cells fleet-wide.
 >    Not fixed, not scoped. A `Zone Multiplier` alternative is the obvious first candidate for a future arc.
 >    *Original text and default, retained:* Zone `Multiplier` on middle floors vs accepting the √S vertical-form distortion? *Default: accept — S is applied planar-only, floor count stays the prototype's; document the approximation.*
+>
+>    **4. Q3 — REVISITED 2026-08-04 by the storey-matching arc. VERDICT: NOT CLOSED.** The
+>    successor arc named just above (`debug/storey-Matching/`, R01–R10, results doc §8/§9) built the
+>    `Zone Multiplier` mechanism this entry proposed as "the obvious first candidate." It does **not**
+>    close Q3, for two independent reasons, both structural rather than a gap the arc ran out of time
+>    for: **(1)** the mechanism (`match_storeys()`) only ever expresses `n_real > n_proto`, the
+>    *taller*-than-prototype case; Q3's population is small buildings at `n_real < n_proto` (median
+>    S=0.054, the *shorter* case), and the arc's own manager decision **R04** explicitly declined to
+>    extend the mechanism there — "the hard direction is shorter than the prototype... a `Zone
+>    Multiplier` cannot help and zones must actually be deleted" (this document's own pre-registered
+>    stop condition above, §L of the checklist, confirmed exactly as anticipated). **(2)** even where
+>    the mechanism does apply, it is a `Zone.Multiplier` — it changes simulated thermal load, not
+>    rendered geometry (a multiplier writes no vertex; storey matching is invisible in geometry by
+>    construction, per that arc's own D3(a)/E-LA-33 disclosure) — so it would not have closed Q3's
+>    actual mechanism (a real vertical-form/surface-to-volume distortion) even if extended to the
+>    shorter case. **Q3 remains open, now with direct confirmation that the candidate this entry
+>    proposed cannot reach it.** A future arc would need a mechanism that actually removes zones
+>    (deletes floors), not one that multiplies an existing band's energy — a materially larger and
+>    riskier undertaking than the one just closed.
 
 ---
 

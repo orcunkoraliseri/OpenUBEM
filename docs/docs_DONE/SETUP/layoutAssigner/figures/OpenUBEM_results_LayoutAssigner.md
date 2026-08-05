@@ -497,3 +497,251 @@ This is the measured cost of **open question Q3**, which the base plan resolved 
 across the whole fleet. Recorded here and in the base plan's §7; **not fixed, not scoped** — a
 future arc's decision, and a `Zone Multiplier`-based alternative is the obvious first candidate to
 evaluate against it.
+
+---
+
+## 8. Storey-matching arc close, T20 fleet result (2026-08-04) — supersedes nothing above, adds the mechanism this arc built
+
+**This section is an addendum, per this project's correction-via-addendum convention. §§3–7 above are
+frozen historical record.** It reports the `layout_assign` storey-matching arc
+(`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/`, R01–R10, closed
+2026-08-04) and its full **T20** fleet re-run (12 cells / 8,160 buildings). Full derivations for every
+number below live in that arc's own plan doc, `PLAN_storey-matching_REMAINder.md` §5 — progress-log
+entries `R06`, `AUDIT — R06`, `R09`, `AUDIT — R09`, `R06c`, `AUDIT — R06c` — and in
+`layoutAssigner/figures/README.md`, which this section's wording is kept consistent with rather than
+re-derived independently. Raw data: `openubem/outputs/comparisons/t20_layout_assign_eui.csv` (8,160
+rows), `t20_layout_assign_cell_summary.csv`, `t20_r10_reach_change.csv` (7,442 rows),
+`r06c_local_results.csv` (6 rows).
+
+**What this arc built.** A residual `Zone.Multiplier` mechanism (`match_storeys()`,
+`openubem/geometry/layout_assigner.py`) that lets a fleet building's real storey count exceed a
+prototype's own storey count without abandoning the prototype: the prototype's middle `ZoneGroup`
+band is multiplied by a computed residual so the total simulated storeys equal the real building's
+`num_floors`, instead of every real building silently inheriting the prototype's own native storey
+count regardless of height (the pre-arc behaviour). This is a real capability, and it comes with hard
+limits that are disclosed below plainly, not in a caveats appendix — per this arc's own R04 decision
+("R04 is closed at option (a)": accept and document the limit, do not extend the mechanism further).
+
+### 8.1 Fleet headline
+
+**8,153/8,160 = 99.914% success, median `total_eui` 122.23 kWh/m²/yr** (T19: 7,990/8,160 = 97.92%,
+median 103.75; adopted fleet baseline E-R3-3 + Phase-E + elevators: 158.0). **E-LA-22 still stands —
+this delta is reported as a fact, not credited to or blamed on this arc's own fixes (R01/R02/R03/R10).**
+
+**The full success-gain decomposition, all four terms, because the two largest alone would overstate
+this arc's own contribution:**
+
+```
++150 (E-LA-20, fixed 2026-07-25, pre-dates this arc)
++  2 (other nyc_rural recoveries, cause not investigated)
++ 14 (other-cell recoveries, cause not investigated)
+−  3 (E-LA-40 regressions, §8.7)
+= +163
+```
+
+taking 7,990/8,160 (97.92%) to 8,153/8,160 (99.914%). **The headline success-rate improvement is
+overwhelmingly not this arc's own work** — 150 of the 163 additional passing buildings are a
+pre-existing CTF-convergence fix (E-LA-20, 2026-07-25) landing at fleet scale for the first time in
+this harvest, unrelated to R01/R02/R03/R10.
+
+### 8.2 `match_storeys()`'s expressible population is narrow, and R10 shrank it further
+
+`match_storeys()` expresses only `n_proto ∈ {1, 3}`, and only the **taller** case (`n_real > n_proto`).
+`n_proto == 2` (`SmallOffice`, 2,848 fleet buildings) and `n_proto >= 4` (`MidriseApartment`'s own
+prototype is a 4-storey-equivalent — see §8.9) fall back permanently, as does every `n_real < n_proto`
+— the common case at median S=0.054 (§7.3), where a residual multiplier cannot help and R04 explicitly
+declined to extend the mechanism (§8.4).
+
+**R10's exactness rule (E-LA-36's fix, §8.6) further shrinks the expressible set on the two
+`ZoneGroup` archetypes:** `HighriseApartment` matches only at `n_real ∈ {10, 18, 26, …}`;
+`MidriseApartment` only at even `n_real ≥ 4`. Measured fleet-wide (`t20_r10_reach_change.csv`, 7,442
+buildings evaluated = 8,160 − 718 with no `ARCHETYPE_IDF_MAP` entry, §8.3): the `applied` population is
+**503**, down from **593** — a change of **90 buildings** (66 `MidriseApartment` + 24
+`HighriseApartment`), **all `applied → fallback_not_expressible`**:
+
+```
+new_status                applied  fallback_not_expressible  fallback_shorter  identity
+old_status
+applied                       503                        90                 0         0
+fallback_not_expressible        0                      1902                 0         0
+fallback_shorter                0                         0              3727         0
+identity                        0                         0                 0      1220
+```
+
+**The previously-published 81.6% (`nyc_suburban`) / 98.4% (`la_suburban`) inert shares must not be
+reprinted as inert shares** — director-verified 2026-08-04, and the reason is a definition change, not
+an arithmetic error. Those two figures were an **archetype proxy**: the share of each cell that is
+`SmallOffice` or `MidriseApartment`, the two archetypes whose prototypes cannot express (recomputed on
+T20: 81.5% and 98.4% — essentially unchanged, so the proxy itself is not stale; only its use as an
+inert share is). The direct, status-based measurement is now available and should be used instead.
+
+**Measured directly on `new_status` over the 7,442 evaluated buildings** (a different denominator from
+the proxy, which ran over all 8,160):
+
+| cell | inert = `fallback_shorter ∪ fallback_not_expressible` | inert incl. `identity` |
+|---|---|---|
+| `nyc_suburban` | **100.0%** (1,297/1,297) | 100.0% (1,297/1,297) |
+| `la_suburban` | **84.1%** (1,121/1,333) | 98.7% (1,316/1,333) |
+
+The two columns differ only in whether `identity` counts as inert. It writes no field, but its storey
+count is nominally matched (`n_real == n_proto`) — so both readings are defensible and **whichever is
+quoted must name which one it is.** Note that `identity` is precisely the population E-LA-41 (§8.9)
+shows is *not* really matched: `la_suburban`'s 197 `identity` rows sit at a 4/3 denominator error.
+
+Of the 503 `applied` buildings, **435 carry a residual multiplier ≥ 2** and **68 carry multiplier
+exactly 1** (the `ZoneGroup`'s own list multiplier already reproduces `n_real`, so no field write
+happens, yet the building is still `applied`). Both 503 and 435 are correct; which one a sentence uses
+depends on whether it means "the whole `applied` population" or "buildings where the multiplier
+actually did something."
+
+### 8.3 718 buildings (8.8%) have no `ARCHETYPE_IDF_MAP` entry
+
+These buildings never call `scale_baseline_idf()` or `match_storeys()` at all (D5's permanent
+no-baseline fallback, `layout_assigner.py:21-22`) — they route through the standard per-building
+pipeline. Not part of this arc's mechanism, not part of its defects.
+
+### 8.4 Storey matching is invisible in geometry, by construction
+
+A `Zone.Multiplier` writes no vertex. Per D3(a)'s own design choice, storey matching changes the
+building's **simulated thermal load** (more or fewer storeys' worth of energy) without changing its
+**rendered geometry** at all — height stays the prototype's own native height regardless of `num_floors`
+(**E-LA-33**). This is true whether or not `match_storeys()` reaches a given building. **State this
+plainly: a reader must not infer that a 12.19 m `MidriseApartment` prototype tower rendered over a
+real 1-storey house means storey matching "worked" visually — it never claimed to, and it structurally
+cannot.** R04 rejected extending the mechanism to close this gap (scaling Z to `num_floors` would
+abandon D3(a), change the thermal model, and void B02's byte-identity regression guard) — see §8.4.1.
+
+#### 8.4.1 R04's decision, and why Q3 remains open
+
+`layout_assign`'s Q3 open question (§7.4, "the √S vertical-form distortion") asked whether a
+`Zone Multiplier`-based mechanism could resolve the mode's small-building heating inflation. **This
+arc built that mechanism and it does not resolve Q3 — by construction, not by omission.** Q3's affected
+population is small buildings (median S=0.054, 67% of `MidriseApartment` rows under 500 m²) — i.e.
+`n_real < n_proto`, the **shorter** case. `match_storeys()` only ever expresses the **taller** case;
+R04 explicitly declined to extend it to the shorter case ("storeys stay invisible in geometry either
+way... buys reach, not correctness... perturbing the thermal model of the 82–98% of buildings that are
+currently untouched and running clean" — worst trade available). Even where the mechanism does apply
+(the taller case), it changes simulated energy accounting, not rendered geometry (§8.4) — so it would
+not have closed Q3's actual mechanism (a real vertical-form/surface-to-volume distortion) even if
+extended. **Q3 is not closed by this arc.** It remains exactly the open question it was, now with
+direct confirmation that the Zone-Multiplier candidate the base plan proposed for it cannot reach its
+population.
+
+### 8.5 The shape-mismatch overlap residual is a design property, not a bug
+
+R07 (originally a visual-acceptance task) was reduced to this written statement — R06's fleet run did
+not change geometry, so B08a/B08b's already-measured evidence remains valid and a new figure panel
+would only re-package it:
+
+- **Placement** (hull centroid vs `footprint_centroid_utm`, B08b): median offset **0.00024 m**
+  (`nyc_suburban`) / **0.00026 m** (`la_suburban`) — matching the real-`auto` control's own
+  floating-point-noise floor, four orders of magnitude inside the ≤1 m gate.
+- **Plate area and aspect ratio vs the real footprint:** plate area is conserved by construction (the
+  prototype is scaled by `S = real_area / baseline_area`); its **aspect ratio is the baseline
+  prototype's own, not the real parcel's** — a long, thin `MidriseApartment` plate of the correct area
+  still reaches into its neighbours on a dense suburban lot.
+- **Overlap residual** (buildings in ≥1 overlap): `nyc_suburban` 27.00% → 16.24%, `la_suburban`
+  55.40% → 52.27%, against real-`auto` controls of 0.00% / 1.79%. This is **the design property of
+  substituting a prototype whose shape is not the real parcel's**, not a placement defect — it is not
+  chased further.
+- **Height is explicitly out of scope** for this write-up, per §8.4 — a reader must not infer real
+  storey heights from either viewer.
+
+### 8.6 E-LA-36 — found and fixed inside this arc
+
+`match_storeys()` originally compounded `Zone.Multiplier` on top of an already-existing `ZoneGroup`
+list multiplier, producing a silent **50% storey over-count** on the fleet's dominant archetype
+(`MidriseApartment`) before R10's fix. **0/522 `applied`-status violations after the fix**, verified
+against every real fleet `(archetype_id, num_floors)` pair using the real, current production code
+(director-verified). A defect caught and closed by this arc's own audit process is part of the
+result, not an embarrassment to bury.
+
+### 8.7 E-LA-38/39/40 — the fleet's only failures, a dead diagnostic column, and 3 regressions
+
+- **E-LA-38 — the harvest's archetype labels are wrong for 41 of 8,160 buildings** (33 `LargeHotel` +
+  8 `SmallHotel` mislabelled as Office archetypes by `05_results.gpkg`, the archetype source shared
+  unchanged since T17). **All 7 of T20's fleet-wide failures are true `SmallHotel` buildings** — 7 of
+  the fleet's 8 real `SmallHotel`s (87.5%), against 0.00% failure everywhere else. **The fleet's only
+  failure population *is* the mislabel population** — this is not a generic envelope defect; any
+  earlier text describing it that way is superseded by this correction.
+- **E-LA-39 — `has_fatal` is a dead column.** `False` on all 8,160 harvest rows, including the 7 that
+  carry a literal `** Fatal **` in raw `eplusout.err`. Never cite it — use `status`/`n_severe`.
+- **E-LA-40 — three buildings regressed from success (T19) to failure (T20):**
+  `la_urban/way/401910463`, `nyc_rural/way/965718402`, `nyc_rural/way/965718403` — all inside the
+  E-LA-38 mislabelled-`SmallHotel` population. 3/8,160 = 0.037%. **Forwarded open, not fixed here.** A
+  multiplier-scaling-tips-the-same-warmup-divergence mechanism is a **hypothesis**, not a verified
+  cause — do not print it as one.
+
+### 8.8 R03's PV/generator invariance is synthetic-fixture only
+
+Neither apartment archetype (`MidriseApartment`, `HighriseApartment`) carries `Generator:PVWatts` or
+`ElectricLoadCenter:Generators` objects, so R03's fix has **no real-run evidence** — it was verified
+only on synthetic fixtures. Do not imply it was validated on a real run.
+
+### 8.9 The EUI denominator is nominal, not simulated — E-LA-41
+
+**Every EUI in this arc — every mode, every harvest T08 through T20 — divides by
+`footprint_area_m2 × levels` from Stage-2 enrichment, not by the multiplier-aware total floor area
+EnergyPlus actually simulated.** `eplusout.eio` (the verifying file) is deleted unconditionally by the
+shared cluster template (`scripts/cluster/submit_fleet_t08.sbatch:63`, `rm -f "$OUTDIR"/*.eio`),
+byte-identical across T08→T20 — **no fleet-scale EUI in this arc has an `eio`-verified denominator, and
+none can be reconstructed without re-running the fleet.** R06c's local measurement (6 real fleet
+buildings, `eio` retained) is the only `eio`-true evidence that exists; its scope is single-digit-N
+and local, and is reported as such below.
+
+**E-LA-41 — the published EUI denominator is wrong by `n_storeys_represented / num_floors` for every
+non-`applied` building**, because `match_storeys()` mutates the IDF only when the status is `applied`
+— `identity`, `fallback_shorter` and `fallback_not_expressible` are the same case for this purpose,
+all simulating the prototype's own `n_storeys_represented` rather than the real building's `num_floors`.
+
+- **Measured** (`r06c_local_results.csv`, real fleet buildings, real `eio`): `applied` buildings
+  (N=4) hold `eio` floor area ≈ `footprint × num_floors` to within ~0.002%. `MidriseApartment`
+  `identity` buildings (N=2) fail at **exactly 4/3** — the untouched prototype is a 4-storey-equivalent
+  (3 Z-bands × a `ZoneGroup` list multiplier of 2 on the middle band) simulated for a 3-storey building.
+- **Inferred from the code contract, not measured:** `MidriseApartment` non-`applied` exposure —
+  **1,225 buildings at 4.000× (1-storey), 1,048 at 2.000× (2-storey), 343 at 1.333× (3-storey),
+  66 below 1.0×, 2,682 total.** Fleet-wide, **6,939 of 7,442** evaluated buildings are non-`applied`;
+  the factor for other archetypes is unmeasured.
+- **Reading:** for a 1-storey building the mode simulates a 4-storey apartment prototype and divides
+  that energy by one storey's area — **a correct number for the wrong building.** This is the numeric
+  expression of E-LA-33 and of the fallback design, not a new mechanism. **Forwarded open, not fixed
+  here.**
+
+### 8.10 CP-D's two carried conditions — both now answered, including the negative result
+
+- **Condition (c), the denominator assertion:** holds for `applied` (N=4, ~0.002%); fails at 4/3 for
+  non-`applied` (§8.9).
+- **Condition (a), F-08's heating ratio, on an `eio`-true denominator:** **0.3244× and 0.0660×** on
+  two matched real pairs (`r06c_local_results.csv`) — it moves **away** from 1.0, in the opposite
+  direction from F-08's original concern. **Scope limit, same sentence as the number:** one cell
+  (`la_urban`), one archetype (`MidriseApartment`), one mild climate where heating is only
+  **0.03–0.65% of total EUI**. No claim is made about `nyc_suburban` (F-08's original cell) or the
+  fleet.
+
+### 8.11 F-11 / transformer cliff — corrected counts
+
+**The conclusion is signed and stands:** 0% transformer overload at every residual multiplier ≤ 7,
+100% at every multiplier ≥ 8, a perfectly deterministic cliff — D9's conservative bound holds through
+multiplier 7 and fails absolutely at 8. **The printable counts are `0/114 (0.0%)` and `117/117
+(100%)`** (114 + 117 = 231, closes exactly), from `scratchpad/f11_transformer_check_v3.csv` filtered
+to `archetype_id=="MediumOffice" & new_status=="applied"`, split at `new_multiplier<=7` vs `>=8`.
+
+**F-11's population is 439**, not 698 and not 805: 805 is the stale pre-fix estimate; 698 is
+`f11_transformer_check_v3.csv`'s row count, the transformer-bearing staging population regardless of
+height; **439 = `applied ∪ fallback_not_expressible`** within that 698 — the taller-than-prototype half
+of F-11's original definition, reconciled exactly by archetype (`LargeOffice` 170, `MediumOffice` 231,
+`HighriseApartment` 29, `SecondarySchool` 7, `Hospital` 1, `PrimarySchool` 1).
+
+---
+
+## 9. Standing disposition after the storey-matching arc (2026-08-04)
+
+`layout_assign` remains **adopted for its intended use** — high-fidelity zone/HVAC-topology studies —
+and **not certified for fleet-level EUI reporting**, for the reasons in §8 above, now measured rather
+than estimated: no fleet-scale EUI has an `eio`-verified denominator (§8.9/E-LA-41), Q3's √S vertical
+distortion remains unresolved and is now confirmed structurally unreachable by the Zone-Multiplier
+mechanism this arc built (§8.4.1), and the mode's expressible storey-matching population is narrow and
+was further shrunk by R10's own correctness fix (§8.2). Fully forwarded, not fixed in this arc:
+E-LA-21, E-LA-22, E-LA-23, E-LA-24, E-LA-37 (editing the `ZoneGroup`'s own Zone List Multiplier would
+restore exact expressibility at every `n_real` — a different mechanism from D3(a); R04 is closed at
+option (a)), E-LA-38, E-LA-40, E-LA-41.

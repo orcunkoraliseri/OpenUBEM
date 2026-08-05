@@ -134,7 +134,7 @@ zoning per study — coarse for early-design screening, finer for detailed work.
 | **`building`** | whole building = 1 zone | 1 | ✅ validated |
 | **`floor`** | each floor = 1 zone | `num_floors` | ✅ validated |
 | **`fast_zone`** | generic core + perimeter on every floor, **every** archetype | ~5 × `num_floors` | ✅ validated |
-| **`layout_assign`** | **archetype prototype substitution & area scaling** — assigns a validated DOE/ASHRAE 90.1 baseline IDF (E+ 23.1 library) and scales it (√S geometry, S loads) to the real building's floor area | Real DOE-prototype zone count (6–256, archetype-specific) | ✅ implemented & validated (LIVE_SMOKE + 6-archetype local leg) — 2 open limitations, see below |
+| **`layout_assign`** | **archetype prototype substitution & area scaling** — assigns a validated DOE/ASHRAE 90.1 baseline IDF (E+ 23.1 library) and scales it (√S geometry, S loads) to the real building's floor area | Real DOE-prototype zone count (1–256, archetype-specific) | ⚠️ adopted for zone/HVAC-topology studies — **not certified for fleet-level EUI reporting**, see §5.1.2 |
 | **`zone`** | room-level polygon layout generation (deferred; see `layoutAssigner` for standardized replacement) | many | ⏸ replaced by `layout_assign` |
 
 `building` and `floor` reuse strategies the code already has (`single_zone`,
@@ -142,16 +142,56 @@ zoning per study — coarse for early-design screening, finer for detailed work.
 regardless of area. `auto` is the validated baseline that produced the 8,160-building
 benchmark (§7.2).
 
-`layout_assign` was validated separately from the four modes below, not as part of the
-8,160-building cluster matrix: one full real EnergyPlus 23.1 run (LIVE_SMOKE-LA, no Fatal,
-plausible EUI) plus a 6-archetype single-building local-leg sample (all `status=success`,
-EUI 60–886 kWh/m²/yr, all plausible). Two open limitations are documented, not hidden: (1)
-fixed-capacity auxiliary equipment — transformers, DHW tanks, HVAC coils — is not yet scaled
-with the building, which produces large real EnergyPlus warning/severe-error counts at
-non-identity scale factors; (2) the baseline's native Buffalo CZ 6A envelope is not yet
-climate-patched to the target city. Neither affects the other four modes. Full record, real
-EUI numbers, and comparison figures:
-[`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/OpenUBEM_results_LayoutAssigner.md`](../docs_ACTIVE/simulation-Resolution/layoutAssigner/OpenUBEM_results_LayoutAssigner.md).
+`layout_assign` has since been run at full fleet scale, separately from the four modes below and
+their 8,160-building cluster matrix: the storey-matching arc's T20 harvest (12 cells / 8,160
+buildings, closed 2026-08-04) reports **8,153/8,160 = 99.914% success, median `total_eui`
+122.23 kWh/m²/yr** (the prior harvest, T19, was 7,990/8,160 = 97.92%, median 103.75). **Most of
+that gain is not the storey-matching arc's own work:** of the +163 additional passing buildings,
++150 come from a pre-existing convergence fix (E-LA-20, landed 2026-07-25, before this arc began)
+surfacing at fleet scale for the first time; the arc's own fixes and other, uninvestigated
+per-cell recoveries account for +16 more, net of 3 regressions.
+
+The mode's standing disposition, after that arc closed: **adopted for high-fidelity zone and
+HVAC-topology studies**, and **not certified for fleet-level energy-per-area (EUI) reporting**.
+Four limitations are documented, not hidden. Two are updates to this document: limitation 2 (the
+envelope) is now resolved in code; limitation 3 (internal loads) is new to this document as of
+2026-08-05 — it existed in the underlying arc record before that, but had not previously been
+surfaced here.
+
+1. **Fixed-capacity auxiliary equipment** — transformers, DHW tanks, HVAC coils — is not yet
+   scaled with the building. This produces a clean, deterministic failure mode rather than random
+   noise: across a measured population of 439 buildings, transformer overload is 0% at every
+   residual storey-multiplier ≤ 7 and 100% at every multiplier ≥ 8.
+2. **The baseline's native Buffalo CZ 6A envelope is now climate-patched** to the real building's
+   own vintage and climate zone in code — `envelope_patcher.patch_envelope()`, called at
+   `openubem/idf/builder.py:481`, is reached on the `layout_assign` path for every building that
+   has a DOE baseline (i.e. every building except the ~8.8% with no `ARCHETYPE_IDF_MAP` entry,
+   which never enter this code path at all). This resolves the limitation as it was originally
+   written; it has not been separately re-validated for physical correctness beyond the fleet run
+   described above.
+3. **Internal loads are modelled as 2022-code construction, regardless of the building's real
+   vintage.** Lighting and equipment power densities come from the `ASHRAE901_*_STD2022`
+   prototypes. This is the asymmetry to hold onto: the envelope *is* patched to the real vintage
+   (limitation 2, above); the internal loads are *not*. This is a direct consequence of prototype
+   substitution, not a defect — but it had never been quantified before the storey-matching arc's
+   close, and it is roughly half (not precisely measured as such — the arc's own wording is
+   "roughly") of a fleet-wide **−29.1%** median difference between `layout_assign` and the other
+   resolution modes. Register item **OPEN-03**.
+4. **The floor area an EUI is divided by is nominal, not simulated — the most consequential open
+   issue.** Every EUI this mode has reported, including the 122.23 kWh/m²/yr above, divides
+   simulated energy by the building's *nominal* floor area (`footprint_area_m2 × levels`), not by
+   the floor area EnergyPlus actually simulated. The file EnergyPlus writes recording the floor
+   area it actually simulated, `eplusout.eio`, is deleted unconditionally by the shared cluster
+   template, so no fleet-scale EUI in this mode has a verified denominator. **Measured** locally
+   on 6 real buildings with `eio` retained: buildings where storey-matching actually applied hold
+   to within ~0.002%; buildings it does not reach are off by exactly 4/3. **Inferred from the code
+   contract, not measured:** most of the fleet — 6,939 of 7,442 evaluated buildings — falls into
+   the second, unverified case.
+
+See §5.1.2 immediately below for the substitution mechanism and why its reach is limited by
+design, and §10 of the resolution results document for the full structural comparison. Full
+record, real EUI numbers, and comparison figures:
+[`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`](../docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md).
 
 All four active modes were validated across the full 12-cell / 8,160-building matrix
 (2026-07-01): internal loads **conserve** across modes — the same building simulated at any
@@ -201,8 +241,65 @@ standard), then expansion to offices / hotels / schools.
 
 **Status (2026-07-02):** classifier, packing engine, per-space loads, and conservation are implemented
 and pass synthetic unit tests; EnergyPlus stability across all shapes and the DOE-standard reproduction
-are still being finalised. This is an active development track (see `docs/PROJECT_CHECKLIST.md` and
-`docs/docs_ACTIVE/simulation-Resolution/layoutgenerator/`), **not** yet a validated baseline.
+are still being finalised. **This track is parked pending a root-level engine redesign — on
+2026-08-04 the user explicitly excluded it as a direction currently being continued** (record kept,
+not deleted, at `docs/docs_TODO/layoutgenerator/`; status as of 2026-08-05). It is **not** yet a
+validated baseline.
+
+### 5.1.2 Prototype substitution (`layout_assign`)
+
+**The two names are confusingly similar and describe opposite approaches.** `layoutGenerator`
+(§5.1.1) is a **tailor** who measures you and cuts the cloth to your body: right shape by
+construction, but building that tailor turned out to be hard, which is why it is parked.
+`layoutAssigner` (this section) takes a **beautifully made suit off the rack** and alters it: the
+suit's interior is excellent — proper lining, real construction, far better than the tailor could
+improvise — but it isn't your shape. Both limitations below follow from that: the wrong-floor-area
+problem is being charged for the whole size-4 suit's cloth while measured against a size-1 body, and
+the shape-distortion problem (Q3, OPEN-18) is an alteration that takes in the width but not the
+length.
+
+Where `zone` mode (§5.1.1) *builds* a room-level floor plan from a real footprint, `layout_assign`
+takes the opposite approach: it **replaces the whole building with a validated DOE/ASHRAE 90.1
+baseline prototype IDF** for the building's archetype (E+ 23.1 library), then scales that baseline
+to fit — plan geometry by `√S`, internal loads by `S`, where `S` is the real building's floor area
+divided by the baseline's own. The result carries the DOE prototype's real, exact zone count (1 to
+256 depending on archetype) rather than a generic core/perimeter approximation.
+
+**Storey matching.** A real building is rarely the same height as its assigned prototype. Before
+this arc, every real building silently inherited the prototype's own native storey count regardless
+of its real height. `match_storeys()` (`openubem/geometry/layout_assigner.py`) fixes this for one
+case: it computes a residual `Zone.Multiplier` on the prototype's middle repeatable floor band so
+the *total simulated storeys* equal the real building's `num_floors`.
+
+**Its reach is narrow, and that is a design decision, not an oversight.** The mechanism only
+expresses `n_proto ∈ {1, 3}`, and only when the real building is *taller* than its prototype
+(`n_real > n_proto`). `SmallOffice` (2,848 fleet buildings, `n_proto == 2`) and every
+`n_proto ≥ 4` archetype fall back permanently, as does any building *shorter* than its prototype —
+the common case at the fleet's median size. A later correctness fix narrowed the taller case further
+still: `HighriseApartment` now only matches at `n_real ∈ {10, 18, 26, …}`, `MidriseApartment` only at
+even `n_real ≥ 4`. Extending the mechanism to the shorter case was considered and explicitly
+declined: storeys stay invisible in the building's rendered geometry either way (a `Zone.Multiplier`
+changes simulated energy, never a vertex), so extending it would perturb the thermal model of the
+majority of buildings that currently run untouched, in exchange for reach rather than correctness.
+
+**The consequence: the floor area an EUI is divided by is not always the floor area simulated.**
+Every EUI this mode reports divides simulated energy by the building's *nominal* floor area
+(`footprint_area_m2 × levels`), never by the floor area EnergyPlus actually simulated. Where storey
+matching applies, those two areas agree (**measured**, 6 real buildings with the verifying
+`eplusout.eio` file retained: within ~0.002%). Where it does not apply — most of the fleet — they can
+differ sharply: a real one-storey building assigned a four-storey `MidriseApartment` prototype gets
+its one storey's worth of floor area divided into *four storeys'* worth of simulated energy, giving
+**a correct number for the wrong building**. (**Inferred from the code contract, not separately
+measured:** this is the situation for most of the fleet — 6,939 of 7,442 evaluated buildings.) This
+is why `layout_assign` is not used for fleet-level EUI reporting today (§5.1).
+
+Full mechanism detail, the fleet-scale evidence above, and the structural comparison against the
+other four modes: §10 of
+[`Results/OpenUBEM_results_Resolution.md`](Results/OpenUBEM_results_Resolution.md) and the frozen
+arc record,
+[`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`](../docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md).
+Zone-count fidelity across all 28 mapped archetypes, T20 harvest:
+![layout_assign zone-count fidelity vs. the other four modes](../docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/layout_assign_vs_modes_zone_fidelity.png)
 
 ### 5.2 Temporal resolution
 

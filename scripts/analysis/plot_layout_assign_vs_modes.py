@@ -2,11 +2,26 @@
 
 Builds figures + 1 summary CSV from data that already exists (no new EnergyPlus
 runs): the T10 zone-count/EUI comparison CSV, the T08 12-cell 4-mode EUI harvest,
-and the cluster-leg layout_assign harvest (ACTIVE_LAYOUT_ASSIGN_EUI_CSV, currently T19).
+and the cluster-leg layout_assign harvest (ACTIVE_LAYOUT_ASSIGN_EUI_CSV, currently T20).
 
 2026-07-26: repointed from the stale T17 harvest to T19 (2 rounds of defect fixes
 since T17, incl. E-LA-10 DHW scaling). T17 constants kept only for provenance.
 Prior T17 figures/CSV preserved in openubem/outputs/comparisons/previous/*_t17.*.
+
+2026-08-04 (R09): repointed from T19 to T20 -- the full 12-cell/8,160-building
+re-run after R01/R02/R03 (E-LA-35 causes A+B, E-LA-32) and R10 (E-LA-36 Zone
+Multiplier x ZoneList compounding fix). T19 figures/CSV preserved in
+openubem/outputs/comparisons/previous/*_t19.*. Two disclosures that were NOT true
+for T19 and must not be silently reprinted for T20:
+  - The four comparison modes (auto/building/floor/fast_zone) are still NOT
+    re-run on T20 -- they remain the original T08-vintage harvest, which predates
+    this entire arc. Every figure/caption below states this asymmetry explicitly.
+  - The old nyc_rural/SmallOffice E-LA-20 vs. T18 set-difference logic in
+    plot_cluster_success() is retired: T20 has only 7 fleet-wide failures, and
+    the AUDIT -- R06 director entry (PLAN_storey-matching_REMAINder.md, 2026-08-04)
+    established by direct in.idf/err inspection that all 7 are true SmallHotel
+    buildings mislabeled as Office archetypes by the harvest's stale archetype
+    source (E-LA-38), not a generic envelope defect and not unexplained.
 
 Usage:
     py -3 scripts/analysis/plot_layout_assign_vs_modes.py
@@ -39,16 +54,30 @@ LOCAL_REMAINDER_EUI_CSV = COMPARISONS_DIR / "t08_local_remainder_eui.csv"
 # for provenance/history -- superseded below, not read by any plot function anymore.
 T17_LAYOUT_ASSIGN_EUI_CSV = COMPARISONS_DIR / "t17_layout_assign_eui.csv"
 # T19 (2026-07-26): re-harvest after 2 rounds of defect fixes (T18: E-LA-10 DHW scaling
-# + others; T19: further fixes). This is the ACTIVE source for all layout_assign figures
-# below. Still pre-E-LA-20 (fixed 2026-07-25, never re-run at fleet scale) -- see the
-# nyc_rural/SmallOffice caveat baked into plot_cluster_success().
+# + others; T19: further fixes). Still pre-E-LA-20 (fixed 2026-07-25, never re-run at
+# fleet scale) and pre-Phase-B (R01/R02/R03/R10). Kept only as the prior comparison
+# point in plot_cluster_success()'s title (T20 vs. T19 vs. T17 success-rate delta) --
+# no longer the ACTIVE source.
 T19_LAYOUT_ASSIGN_EUI_CSV = COMPARISONS_DIR / "t19_layout_assign_eui.csv"
-ACTIVE_LAYOUT_ASSIGN_EUI_CSV = T19_LAYOUT_ASSIGN_EUI_CSV
-ACTIVE_SOURCE_LABEL = "T19"
-# T18 harvest -- read only by plot_cluster_success() to split the nyc_rural/SmallOffice
-# T19 failures into the E-LA-20 set (failed T19, succeeded T18) vs. pre-existing failures
-# (failed at both T18 and T19, un-investigated, predate E-LA-20).
+# T18 harvest -- read only by plot_cluster_success() to identify the E-LA-20 cohort
+# (failed T19, succeeded T18) within T19's nyc_rural/SmallOffice failures, so the
+# T19->T20 success-rate jump is not silently attributed to this arc's own storey work.
 T18_LAYOUT_ASSIGN_EUI_CSV = COMPARISONS_DIR / "t18_layout_assign_eui.csv"
+# T20 (2026-08-04, R09): full 12-cell/8,160-building re-run after R01 (E-LA-35 cause A),
+# R02 (E-LA-35 cause B), R03 (E-LA-32) and R10 (E-LA-36 Zone Multiplier x ZoneList
+# compounding fix). This is the ACTIVE source for all layout_assign figures below.
+# Harvested via scripts/cluster/t20_harvest_layout_assign.py; see the R06 progress-log
+# entry and the AUDIT -- R06 director entry in PLAN_storey-matching_REMAINder.md for
+# the full seven-item report this harvest is drawn from.
+T20_LAYOUT_ASSIGN_EUI_CSV = COMPARISONS_DIR / "t20_layout_assign_eui.csv"
+ACTIVE_LAYOUT_ASSIGN_EUI_CSV = T20_LAYOUT_ASSIGN_EUI_CSV
+ACTIVE_SOURCE_LABEL = "T20"
+# The four comparison modes below (auto/building/floor/fast_zone) are NOT re-run on
+# T20 -- ALL_MODES_EUI_CSV/LOCAL_REMAINDER_EUI_CSV are still the original T08 harvest,
+# which predates this entire storey-matching arc. Every figure mixing OTHER_MODES_LABEL
+# against ACTIVE_SOURCE_LABEL must say so explicitly -- see R09 in
+# PLAN_storey-matching_REMAINder.md, "which harvest each side comes from."
+OTHER_MODES_LABEL = "T08"
 
 OUT_ZONE_FIDELITY_PNG = COMPARISONS_DIR / "layout_assign_vs_modes_zone_fidelity.png"
 OUT_EUI_LA_PNG = COMPARISONS_DIR / "layout_assign_vs_modes_eui_la.png"
@@ -79,6 +108,27 @@ MODE_COLORS = {
 
 LA_CELLS = ["la_centre", "la_urban", "la_suburban", "la_rural"]
 LA_FLEET_ARCHETYPES = ["MidriseApartment", "MediumOffice", "RetailStandalone", "FullServiceRestaurant"]
+
+# EUI denominator convention (R09, PLAN_storey-matching_REMAINder.md): verified by
+# direct byte-comparison of floor_area_m2 for shared osm_ids across t08_all_modes_eui.csv
+# (auto/building/floor/fast_zone) and t20_layout_assign_eui.csv (layout_assign) -- IDENTICAL
+# values on both sides for every checked building (e.g. way/42496352 = 2814.529414 m2 in
+# both). Traced to source: both harvests read floor_area_m2 from the SAME nominal quantity,
+# footprint_area_m2 * levels, from the Stage-2 semantic-enrichment fixture (05_results.gpkg /
+# 01_buildings.gpkg) -- the REAL building's own footprint and storey count, independent of
+# resolution mode or which prototype IDF layout_assign simulated it with. This is NOT the
+# eio-verified, multiplier-aware simulated floor-area total that R05 established as
+# layout_assign's theoretically correct denominator -- eplusout.eio does not exist for any
+# T20 cluster building (R06 item 3/7, hard stop: the shared T08->T20 sbatch template
+# unconditionally deletes it), so that convention cannot be verified for ANY mode, layout_assign
+# included, at fleet scale. What IS true: all 5 modes use the identical nominal denominator, so
+# every bar in Figures 2 and 5 is measured against the same yardstick -- the comparison is
+# internally consistent even though it is not eio-verified.
+EUI_DENOMINATOR_NOTE = (
+    "EUI denominator (all modes incl. layout_assign): real building footprint_area_m2 x levels\n"
+    "(Stage-2 semantic enrichment), identical across modes -- NOT eio-verified (eplusout.eio does\n"
+    "not exist in the T08-T20 cluster harvest lineage; see R06 items 3/7, hard stop)."
+)
 
 # Hardcoded per plan §5 T13 -- E-LA-06 diagnostic counts, verified in plan §8 T12 / §9 E-LA-06.
 # (warnings, severe) at each archetype's T12-tested scale factor. Do not re-derive by parsing logs.
@@ -220,13 +270,18 @@ def plot_eui_la(summary_df: pd.DataFrame, using_real_fleet_data: bool) -> None:
     ymax = max(summary_df["median_total_eui_kwh_m2"].max(), max(valid_star_y) if valid_star_y else 0) * 1.15
     ax.set_ylim(0, ymax)
     if using_real_fleet_data:
-        title = (f"LA-climate fleet median EUI by mode vs. REAL layout_assign fleet median ({ACTIVE_SOURCE_LABEL} cluster leg)\n"
-                 "SUPERSEDES the T13/T12 single-building comparison. SmallHotel / SecondarySchool omitted -- no LA fleet comparator (0 rows)")
+        title = (f"LA-climate fleet median EUI: layout_assign ({ACTIVE_SOURCE_LABEL}) vs. auto/building/floor/fast_zone ({OTHER_MODES_LABEL})\n"
+                 f"PROVENANCE: layout_assign bars/star are {ACTIVE_SOURCE_LABEL} (2026-08-04); the other 4 modes are still the "
+                 f"original {OTHER_MODES_LABEL} harvest, not re-run on {ACTIVE_SOURCE_LABEL}.\n"
+                 "SmallHotel / SecondarySchool omitted -- no LA fleet comparator (0 rows). Never validated against measured/metered data.")
     else:
         title = ("LA-climate fleet median EUI by mode vs. single real layout_assign EUI (T12 local leg)\n"
                  "SmallHotel / SecondarySchool omitted -- no LA fleet comparator (0 rows)")
     ax.set_title(title)
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=9, borderaxespad=0.0)
+    if using_real_fleet_data:
+        ax.text(0.01, -0.22, EUI_DENOMINATOR_NOTE, transform=ax.transAxes, fontsize=7,
+                color="#444444", va="top", ha="left")
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
     fig.savefig(str(OUT_EUI_LA_PNG), dpi=120, bbox_inches="tight")
@@ -242,6 +297,12 @@ def plot_cluster_eui() -> None:
     SmallOffice) is gone: it existed only to work around E-LA-10 (unscaled DHW flow
     rate), which is fixed as of T18/T19. Keeping it would imply a live caveat that
     no longer applies.
+
+    2026-08-04 (R09): layout_assign bars now come from T20 (post R01/R02/R03/R10).
+    The other 4 modes (auto/building/floor/fast_zone) are STILL the original T08
+    harvest -- not re-run on T20 -- stated explicitly in the title per R09's
+    provenance-labelling requirement. E-LA-22 still stands: the T20-vs-T19 EUI
+    delta is a fact, not something this arc's fixes can be credited or blamed for.
     """
     if not ACTIVE_LAYOUT_ASSIGN_EUI_CSV.exists():
         print(f"Skipping cluster EUI figure -- {ACTIVE_LAYOUT_ASSIGN_EUI_CSV.name} not found.")
@@ -275,10 +336,14 @@ def plot_cluster_eui() -> None:
     ax.set_xticks(x + bar_w * 2)
     ax.set_xticklabels(cells, rotation=30, ha="right")
     ax.set_ylabel("Median Total EUI [kWh/m2/yr]")
-    ax.set_title(f"Full 12-cell / 8,160-building median Total EUI by resolution mode ({ACTIVE_SOURCE_LABEL} cluster leg)\n"
-                 "E-LA-10 (unscaled DHW flow rate) is fixed as of this harvest -- layout_assign is no longer\n"
-                 "artificially inflated by that bug. layout_assign has not been validated against measured data.")
+    ax.set_title(f"Full 12-cell / 8,160-building median Total EUI by resolution mode\n"
+                 f"layout_assign = {ACTIVE_SOURCE_LABEL} (2026-08-04, post R01/R02/R03/R10); "
+                 f"auto/building/floor/fast_zone = {OTHER_MODES_LABEL} (NOT re-run on {ACTIVE_SOURCE_LABEL})\n"
+                 "E-LA-22 still stands: the T20-vs-T19 delta is not cleanly attributable to this arc's fixes.\n"
+                 "layout_assign has not been validated against measured/metered data at any scale.")
     ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=8, borderaxespad=0.0)
+    ax.text(0.0, -0.30, EUI_DENOMINATOR_NOTE, transform=ax.transAxes, fontsize=7,
+            color="#444444", va="top", ha="left")
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
     fig.savefig(str(OUT_CLUSTER_EUI_PNG), dpi=120, bbox_inches="tight")
@@ -286,15 +351,34 @@ def plot_cluster_eui() -> None:
     print(f"Saved: {OUT_CLUSTER_EUI_PNG}")
 
 
-def plot_cluster_success() -> None:
-    """Per-cell success/fail counts, full cluster leg (ACTIVE_LAYOUT_ASSIGN_EUI_CSV, T19).
+# The 7 T20 failures' true archetype, per the director's AUDIT -- R06 entry
+# (PLAN_storey-matching_REMAINder.md, 2026-08-04, "Correction 2"): re-derived there from
+# each failure's retained raw in.idf ("Building, HotelSmall" verbatim) merged against the
+# harvest's own archetype_id column -- ALL 7 are true SmallHotel, mislabeled SmallOffice/
+# MediumOffice by the stale 05_results.gpkg archetype source (E-LA-38). Cited here as an
+# already-audited fact, like E_LA_06_COUNTS above -- not re-derived by this plotting script
+# (that would require re-running BuildingClassifier() against every cell's 01_buildings.gpkg,
+# which is what the audit itself did; out of scope for a figure-regeneration task).
+E_LA_38_TRUE_SMALLHOTEL_FAILURE_COUNT = 7
+E_LA_38_FLEET_SMALLHOTEL_COUNT = 8  # true SmallHotel population fleet-wide (audit-verified)
 
-    T19 was harvested BEFORE the E-LA-20 fix (landed 2026-07-25, never re-run at fleet
-    scale) -- it still contains the nyc_rural/SmallOffice failed rows that fix addressed,
-    plus a small pre-existing population that predates E-LA-20. The two are distinguished
-    below by set-difference against the T18 harvest (failed T19 + succeeded T18 == E-LA-20;
-    failed at both == pre-existing, different, un-investigated cause) and called out
-    explicitly in the title so nyc_rural's column here is not mistaken for current behaviour.
+
+def plot_cluster_success() -> None:
+    """Per-cell success/fail counts, full cluster leg (ACTIVE_LAYOUT_ASSIGN_EUI_CSV, T20).
+
+    2026-08-04 (R09): repointed T19 -> T20. The old nyc_rural/SmallOffice E-LA-20 vs. T18
+    set-difference split is RETIRED here -- T20 has only 7 fleet-wide failures total, and
+    the AUDIT -- R06 director entry established (by direct in.idf/err inspection, not by
+    this script) that all 7 are true SmallHotel buildings mislabeled as Office archetypes
+    by the harvest's stale archetype source (E-LA-38, §3 of that audit), not a generic
+    envelope defect and not unexplained -- see the E-LA-38 constants above.
+
+    The T19->T20 success-rate jump is still explained here (T18/T19 CSVs read only for
+    this comparison): T19's nyc_rural/SmallOffice failures split into a 150-building
+    E-LA-20 cohort (fixed 2026-07-25, pre-dates this arc, landing at fleet scale for the
+    first time in T20) vs. 2 pre-existing (both since resolved in T20 -- see title), so
+    the improvement is not silently credited to this arc's own storey-matching work
+    (R01/R02/R03/R10), consistent with E-LA-22 still standing.
     """
     if not ACTIVE_LAYOUT_ASSIGN_EUI_CSV.exists():
         print(f"Skipping cluster success figure -- {ACTIVE_LAYOUT_ASSIGN_EUI_CSV.name} not found.")
@@ -307,16 +391,27 @@ def plot_cluster_success() -> None:
     succ = tab.get("success", pd.Series(0, index=cells))
     fail = tab.get("failed", pd.Series(0, index=cells))
 
-    rural_so = active[(active["cell"] == "nyc_rural") & (active["archetype_id"] == "SmallOffice")]
-    rural_so_failed_ids = set(rural_so[rural_so["status"] == "failed"]["osm_id"])
-    n_rural_fatal = len(rural_so_failed_ids)
+    n_total = len(active)
+    n_succ_total = int((active["status"] == "success").sum())
+    n_fail_total = n_total - n_succ_total
+    pct_t20 = 100 * n_succ_total / n_total
+
+    # T19 -> T20 delta, decomposed so the E-LA-20 cohort (pre-existing fix, not this arc's
+    # work) is not silently folded into "this arc improved the success rate."
+    t19 = pd.read_csv(T19_LAYOUT_ASSIGN_EUI_CSV)
     t18 = pd.read_csv(T18_LAYOUT_ASSIGN_EUI_CSV)
+    t17 = pd.read_csv(COMPARISONS_DIR / "t17_layout_assign_eui.csv")
+    pct_t19 = 100 * (t19["status"] == "success").sum() / len(t19)
+    pct_t17 = 100 * (t17["status"] == "success").sum() / len(t17)
+
+    t19_rural_so = t19[(t19["cell"] == "nyc_rural") & (t19["archetype_id"] == "SmallOffice")]
+    t19_rural_so_failed_ids = set(t19_rural_so[t19_rural_so["status"] == "failed"]["osm_id"])
     t18_rural_so_succ_ids = set(t18[(t18["cell"] == "nyc_rural") & (t18["archetype_id"] == "SmallOffice")
                                      & (t18["status"] == "success")]["osm_id"])
-    n_ela20 = len(rural_so_failed_ids & t18_rural_so_succ_ids)
-    n_pre_existing = n_rural_fatal - n_ela20
+    n_ela20_cohort = len(t19_rural_so_failed_ids & t18_rural_so_succ_ids)
+    n_t19_pre_existing = len(t19_rural_so_failed_ids) - n_ela20_cohort
 
-    fig, ax = plt.subplots(figsize=(13, 6.5))
+    fig, ax = plt.subplots(figsize=(14, 8))
     x = np.arange(len(cells))
     ax.bar(x, succ, color="#2ca02c", label="success")
     ax.bar(x, fail, bottom=succ, color="#d62728", label="failed")
@@ -328,13 +423,24 @@ def plot_cluster_success() -> None:
     ax.set_xticks(x)
     ax.set_xticklabels(cells, rotation=30, ha="right")
     ax.set_ylabel("Building count")
-    ax.set_title(f"layout_assign cluster-leg success/fail by cell ({ACTIVE_SOURCE_LABEL}, 8,160 buildings total)\n"
-                 f"CAVEAT: nyc_rural includes {n_rural_fatal} failed SmallOffice rows, of which {n_ela20} are E-LA-20\n"
-                 f"(fixed 2026-07-25, never re-run at fleet scale) and {n_pre_existing} pre-date it (different, un-investigated cause)")
+    ax.set_title(
+        f"layout_assign cluster-leg success/fail by cell ({ACTIVE_SOURCE_LABEL}, {n_total:,} buildings total)\n"
+        f"Fleet success: {n_succ_total:,}/{n_total:,} = {pct_t20:.3f}%  (T19 {pct_t19:.2f}%, T17 {pct_t17:.2f}%)",
+        fontsize=12,
+    )
     ax.legend(loc="upper right")
     ax.grid(axis="y", alpha=0.3)
+    caption = (
+        f"~{n_ela20_cohort} of the T19->T20 gain is the pre-existing E-LA-20 fix (2026-07-25) landing at fleet\n"
+        f"scale for the first time here, NOT this arc's own work (R01/R02/R03/R10); {n_t19_pre_existing} more T19\n"
+        f"nyc_rural failures also resolved, cause not investigated by this arc.\n"
+        f"All {n_fail_total} T20 failures are true SmallHotel buildings mislabeled as Office archetypes by the\n"
+        f"harvest's archetype source (E-LA-38, {E_LA_38_TRUE_SMALLHOTEL_FAILURE_COUNT}/{E_LA_38_FLEET_SMALLHOTEL_COUNT} = 87.5% of the fleet's true SmallHotel\n"
+        f"population, 0.00% elsewhere) -- NOT a generic envelope defect, per AUDIT -- R06 (director, 2026-08-04)."
+    )
+    ax.text(0.0, -0.24, caption, transform=ax.transAxes, fontsize=8, color="#333333", va="top", ha="left")
     fig.tight_layout()
-    fig.savefig(str(OUT_CLUSTER_SUCCESS_PNG), dpi=120)
+    fig.savefig(str(OUT_CLUSTER_SUCCESS_PNG), dpi=120, bbox_inches="tight")
     plt.close(fig)
     print(f"Saved: {OUT_CLUSTER_SUCCESS_PNG}")
 

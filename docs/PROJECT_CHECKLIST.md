@@ -126,6 +126,24 @@ which is the live source of state. Status as of 2026-07-26 evening:
   problem is visible (median 8.5 m centroid offset) but is **not yet attributed** — the honest
   pre-fix comparison is still being produced.
 
+**⏸️ UPDATE 2026-07-27 — PARKED AGAIN, mid-critical-path, nothing blocked.** The user moved to
+another project. B06/E-LA-27 was closed, CP-D was **signed 2026-07-26** with three binding
+conditions, and the plan moved to its successor
+`debug/storey-Matching/PLAN_storey-matching_REMAINder.md` (tasks R01–R10; the ~3,500-line
+implementation plan is now CLOSED). **The 12-cell / 8,160-building T20 fleet re-run completed and has
+never been harvested:** `squeue` empty, 12/12 arrays, **8,153 COMPLETED + 7 FAILED = 8,160** exactly
+(nyc_rural 3, la_urban 3, la_centre 1 — SLURM-level, *not* simulation-level, and each must be mapped
+to a defect ID). No `t20_*` artifact exists on disk and no R06 progress-log entry exists.
+**Remaining path: R06b (harvest + 7 reported items) → director audit → R09 (five cross-mode figures)
+→ R08 (documentation closure) → CP-E, the final checkpoint.** Both executor prompts are written and
+current. **Resume by pasting
+`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/prompt/DIRECTOR_PROMPT_storey-matching-closure_2026-07-27.md`
+into a fresh manager session** — it is self-contained.
+
+> **✅ SUPERSEDED 2026-08-04 — that whole path was walked and the arc is CLOSED.** R06b, R06c, R09 and
+> R08 all completed and were audited; **CP-E is SIGNED**. The resume instruction above is spent — do
+> not paste that director prompt again. Current state is §L of this document.
+
 Everything below this line describes the arc as it stood at the 2026-07-26 park and is kept for
 history. A cross-mode comparison and the Q3 √S finding were recorded at close — see §L.
 
@@ -837,7 +855,7 @@ exposure metrics.
 
 ---
 
-## L. `layoutAssigner` — prototype-substitution resolution mode — **ALL 5 SUB-ARCS CLOSED; last signature CP-C 2026-07-25**
+## L. `layoutAssigner` — prototype-substitution resolution mode — **ALL 6 SUB-ARCS CLOSED; last signature CP-E 2026-08-04 (storey matching) — nothing open**
 
 > Added 2026-07-26. This arc ran for four days across five consecutive plans and had **no section in
 > this document** — it existed only as six quote-blocks in the header. Those blocks stay as the dated
@@ -858,6 +876,7 @@ It is **not** the adopted baseline and never has been — see §0.
 | 4 | **Structural-fixes** (T01–T11) | 2026-07-24 | CP-E **with caveat** | 4 fixes verified fleet-scale — **but 98.81% → 97.92%**, because `thermal_mass=True` unmasked **E-LA-20** (150 `nyc_rural` SmallOffice newly Fatal) |
 | 5 | **E-LA-20 investigation** (I01–I05) | 2026-07-25 | CP-INV — **ended OPEN by design** | Root cause proven, not hypothesized. E-LA-21, E-LA-22 |
 | 6 | **E-LA-20 multilayer fix** (F01–F11-N-b) | 2026-07-25 | **CP-C SIGNED** | Fixed + verified 150/150. E-LA-23, E-LA-24 |
+| 7 | **Storey matching** (R01–R10) | 2026-08-04 | **CP-E SIGNED** | T20 fleet: **99.914%** (8,153/8,160), median 122.23 kWh/m²/yr. E-LA-36 fixed inside arc; E-LA-38/39/40/41 found; Q3 confirmed NOT closed |
 
 ### The E-LA-20 defect, in four lines
 
@@ -948,32 +967,116 @@ a task — and it cannot produce a clean T19 comparison while E-LA-22 holds); E-
 grep fix (reporting-only); the 2 pre-existing `nyc_rural` failures. Anyone resuming starts at
 `prompt/DIRECTOR_PROMPT_post-e-la-20_2026-07-25.md`.
 
-### 📝 Successor arc — Q3 storey matching — PLAN WRITTEN 2026-07-26, NOT STARTED
+### ✅ Storey matching (sub-arc 7) — **CLOSED 2026-08-04, CP-E SIGNED**
 
-`debug/storey-Matching/PLAN_storey-matching_implementation.md` — that folder is the arc's single
-home; every figure, CSV, viewer export and report lands there (plan §2 + rule 1.11). It opens with a
-**§0 control checklist** (tasks tickable by the executor, checkpoints manager-only), and carries an
-image-generation prompt for a one-page graphic summary at
-`storey-Matching/graphicalAbstract/`. User's own diagnosis, and it is correct: storey
-*height* must stay real, but the storey *count* must follow the real building — a 2-storey building
-should get a 2-storey prototype, not a 4-storey one squashed in plan. **The decisive fact: the real
-storey count is already at the call site and is thrown away** — `builder.py:447` computes
-`real_area = footprint_area * num_floors`, then collapses both into one scalar; `layout_assigner.py`
-never references `levels` anywhere. The fix decomposes it: match `n_proto` to `n_real`, scale only
-the floor plate. 12 tasks over 3 phases, CP-A/B/C, no production code before CP-A.
+`debug/storey-Matching/` is the arc's single home. The original 12-task plan
+(`DONE_PLAN_storey-matching_implementation.md`, now CLOSED) built the `Zone.Multiplier`-based
+`match_storeys()` mechanism (A1–C04, CP-A/B/C signed 2026-07-26) so that a fleet building's real storey
+count can exceed a prototype's own without abandoning the prototype; a follow-on plan
+(`PLAN_storey-matching_REMAINder.md`, R01–R10) fixed defects the CLOSED plan's own audit surfaced,
+re-ran the full fleet on T20, and closed documentation. **User's original diagnosis was correct**
+(storey *height* stays real, storey *count* should follow the real building) **but the mechanism only
+ever reaches the *taller*-than-prototype case** — the *shorter* case (the common one, at median
+S=0.054) was explicitly declined by manager decision **R04** ("closed at option (a)": accept and
+document the limit; extending to the shorter case "buys reach, not correctness" and would perturb the
+82–98% of buildings currently running clean for no gain on the actual defect).
 
-Three things the plan pins up front: **(1)** this **voids T17/T18/T19** — every `layout_assign` EUI
-number rests on the current geometry, so the ~15 h fleet re-run becomes mandatory, not optional;
-**(2)** storey count is **partly imputed**, so the fix converts imputation error from a load-scaling
-error into a *geometry* error — a pre-registered stop fires if >50% of sub-500 m² buildings carry an
-imputed `num_floors`; **(3)** the hard direction is *shorter* than the prototype (the common case at
-median S=0.054), where a `Zone Multiplier` cannot help and zones must actually be deleted, dragging
-HVAC wiring with them — a second pre-registered stop covers it. Also carries a **3D visual leg**
-(A4 before / C04 after, three-way real vs before vs after) using the read-only viewer of
-`OpenUBEM_fundamentals.md` §8, since the defect is geometric and a table cannot show massing.
+**T20 fleet result:** 8,153/8,160 = **99.914%** success, median `total_eui` **122.23** kWh/m²/yr — but
+**150 of the +163-building success gain over T19 is the pre-existing E-LA-20 fix landing at fleet
+scale, not this arc's own work** (full decomposition: results doc §8.1). **E-LA-36** (`Zone.Multiplier`
+× `ZoneList` silent 50% storey over-count) was found and fixed *inside* this arc, 0/522 verified.
+**E-LA-38** (41/8,160 buildings mislabelled Hotel→Office by the harvest's stale archetype source)
+explains 100% of the fleet's 7 real failures — not a generic envelope defect. **E-LA-41** (EUI
+denominator wrong by `n_storeys_represented / num_floors` for every non-`applied` building — the
+large majority, 6,939/7,442 evaluated) is the arc's own quantified consequence of the mode's
+fallback design. CP-D's two carried validation conditions are both answered on real fleet buildings
+with real `eplusout.eio` (R06c): the denominator holds for `applied` (~0.002%) and fails at 4/3 for
+non-`applied`; F-08's heating ratio moves *away* from 1.0 (0.32×/0.066×), scoped to one mild-climate
+cell.
 
-**Docs:** `e-la-20/PLAN_e-la-20_multilayer-fix.md` (§4-quinquies shipped rule, §8 progress log + every
-AUDIT entry, §9 error log) · `e-la-20/COMPLETION_REPORT_e-la-20-multilayer-fix.md` ·
-`e-la-20/PLAN_e-la-20_investigation.md` + its completion report · earlier sub-arcs under
-`debug/` and `structural-fixes/` · results in `OpenUBEM_results_LayoutAssigner.md` (§5, §6) ·
-next step in `prompt/DIRECTOR_PROMPT_post-e-la-20_2026-07-25.md`.
+**⚠️ Q3 (§7.4/§9, the √S vertical-form distortion) is explicitly NOT closed by this arc.** The base
+plan named a `Zone Multiplier` mechanism as "the obvious first candidate to evaluate" against Q3 —
+this arc built exactly that mechanism, and it structurally cannot reach Q3's population (the shorter
+case) or its mechanism (rendered geometry, not simulated-energy accounting — a multiplier writes no
+vertex). Q3 remains open for a future arc; see `DONE-implementation_plan.md` §7 for the entry.
+
+**Docs:** `PLAN_storey-matching_REMAINder.md` §5 (progress log: R01–R10, three director AUDIT entries
+correcting non-reproducing executor numbers — see rule below) · results doc §8/§9
+(`OpenUBEM_results_LayoutAssigner.md`) · `figures/README.md` (T20 figure disclosures) ·
+`DONE_PLAN_storey-matching_implementation.md` (CLOSED, ~3,500 lines, cite by `F-nn`/`E-LA-nn` ID only).
+
+**Recorded because it happened three times in this one arc:** an executor progress-log entry printed
+a headline number that did not reproduce from the file it cited (F-11's transformer-cliff counts,
+twice, and the 81.6%/98.4% inert shares going stale without a correcting entry). All three were caught
+by director audit, not by the executor. Every number in the results-doc §8 addendum was traced to a
+named file before being printed there.
+
+**CP-E SIGNED 2026-08-04** — `PLAN_storey-matching_REMAINder.md` §5, final entry. The signature added
+one definitional correction of its own: the replacement inert shares (100.0% `nyc_suburban` /
+84.1% `la_suburban`) are a **status** measurement over the 7,442 evaluated buildings and exclude
+`identity`; the old 81.6%/98.4% pair was an **archetype proxy** over all 8,160 and is not itself
+stale — only its use as an inert share was. Results doc §8.2 now states both.
+
+**Nothing in this arc is left in flight** — no cluster job outstanding, no fleet re-submission
+pending, no executor mid-task. Open items were all forwarded with IDs (E-LA-21/22/23/24, E-LA-37,
+E-LA-38, E-LA-40, E-LA-41) and Q3 remains open for a future arc.
+
+**Reader-facing docs brought current 2026-08-05** — `OpenUBEM_fundamentals.md` §5.1/§5.1.2 and
+`Results/OpenUBEM_results_Resolution.md` §1/§10 now reflect the closed arc; `layout_assign` is
+deliberately given no fleet-EUI column (no `eio`-verified denominator, OPEN-01) pending a fleet
+re-run that retains `eplusout.eio`.
+
+---
+
+## M. Open-items register — **the single tracker for everything still open (opened 2026-08-04)**
+
+`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — **26 items, OPEN-01 … OPEN-29**
+(**OPEN-23 `layoutGenerator` excluded by the user 2026-08-04**, ID retired — not a direction being
+continued; the engine's record stays under `docs/docs_TODO/layoutgenerator/`. **OPEN-21 mixed-use
+classification deferred by the user 2026-08-05**, ID retired — one function per building stands, full
+record at `docs/docs_TODO/mixed_use_classification.md`, **question closed to further asking**),
+compiled by sweeping this checklist, every arc plan doc, both June audit docs, and project memory.
+It supersedes the per-arc "forwarded open" lists as the place to look; those stay as the historical
+record inside their own arcs.
+
+**It is an INVESTIGATION document, not a plan.** Per the user's instruction (2026-08-04): the register
+first, execution documents after. Each item states what is known, what is only believed, where the
+evidence lives, and **the one measurement needed before a plan can responsibly be written.** Every
+claim carries an evidence mark — ✅ verified · 📄 documented, not re-verified · ⚠️ stale-risk ·
+❓ unmeasured. **No 📄 or ⚠️ number goes into a plan without being re-derived first.**
+
+**Director prompt for a fresh manager session:**
+`docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-05.md` — self-contained, **current**.
+(The `..._2026-08-04.md` prompt is **spent** — marked superseded in-file; kept as historical record only.)
+Supporting documents for this arc live in `docs/docs_ACTIVE/openings/extra/`, per user instruction
+2026-08-05 — the arc folder itself stays clean.
+
+**Four patterns visible only with the items in one list:**
+1. **OPEN-01/02/03/04 can make already-published numbers wrong.** Everything else makes the project
+   less *complete*. That is a categorical difference not reflected in past prioritisation.
+2. **OPEN-08 and OPEN-14 are reproducibility defects** that undercut the evidence for other items —
+   OPEN-08 puts an unquantified confound under every cross-generation comparison made so far.
+3. **OPEN-22 costs a decision, not an arc** — it leaves the labelled-accuracy metric undefined while
+   OPEN-04 reports an unexplained drift in that same metric. Read together. *(OPEN-21 was the other
+   such item; deferred 2026-08-05.)*
+4. ~~The register found a duplicate on its first pass~~ — **swept 2026-08-05 (OPEN-05, CLOSED):**
+   41 `E-LA` + 16 `E-UTCI` IDs, **both sequences dense, no gaps, no ID reuse, and E-LA-21/E-LA-39 is
+   the only duplicate** (treat E-LA-39 as an alias). Report:
+   `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-05_defect-id-sweep.md`. Director-audited by independent
+   re-enumeration. **Next free: E-LA-42, E-UTCI-17.** The sweep exposed a *different* hygiene defect,
+   now **OPEN-29**: ~8 `E-LA` IDs are OPEN at their own defining line yet appear nowhere in the
+   register — including `has_fatal` itself. Candidate list unverified; first measurement is to follow
+   each ID forward to its final recorded status.
+
+**Largest open modeling problem: OPEN-18 (Q3, the √S vertical-form distortion)** — unchanged in
+substance, but one candidate mechanism has now been eliminated with evidence (see §L).
+
+**Next free defect ID: E-LA-42 · next free register item ID: OPEN-29.**
+
+**Amendment 2026-08-05 — OPEN-28 added.** Cross-mode comparisons mix two harvest generations
+(`layout_assign` = T20; the other four modes = T08, never re-run). Found while auditing the
+`layout_assign` documentation surfacing plan; it had existed only as a figure caption. **It bundles
+with OPEN-01 and OPEN-02 — one fleet re-run retaining `eplusout.eio` closes all three, gated on a
+disk-budget check, not a code change.**
+
+**Nothing in this arc is scheduled, assigned, or costed.** The next step is a user selection.

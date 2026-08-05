@@ -180,8 +180,9 @@ does not need to be asked.
   never resume an old one for new work, and never rely on an employee's conversation memory.
 - Tell every employee up front to **poll artifacts on disk** rather than waiting to be woken by a
   background process. Employees in this arc have stalled that way four separate times.
-- Converse with the user in **French**; every deliverable (plans, docs, READMEs, reports) in
-  **English**. Keep chat answers short.
+- The user writes in **French**; **answer in English** (set 2026-08-04, supersedes the earlier
+  reply-in-French convention). Every deliverable (plans, docs, READMEs, reports) in **English**.
+  Keep chat answers short.
 
 ---
 
