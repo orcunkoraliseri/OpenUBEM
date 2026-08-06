@@ -1,5 +1,54 @@
 # DIRECTOR PROMPT — the `openings` arc
 
+> # 🅿️ READ THIS BEFORE ANYTHING ELSE — the arc is PAUSED, and nothing is running
+>
+> **The user paused this arc on 2026-08-06** to work on other projects, and will return when they have
+> time. *"dès que j'ai temps frais, je vais retourner."* **Nothing is cancelled. Nothing is in flight.**
+> No local run, no cluster job, no executor session — the machine is idle and any instruction anywhere
+> in this document to "check on E02" or "do not disturb the overnight run" is **stale**.
+>
+> **This document is long because it is a full history. If you are resuming, you do not need all of it.**
+> Read, in this order: **this box → §0 → §4sexies.4 (why E02 stopped and the four conditions on
+> resuming) → the register's closing amendment**, which is the compressed resume brief. Everything else
+> is background you can consult as questions arise.
+>
+> **Do not open by proposing work.** Report the state, then ask for a **ruling** — the open ones are
+> listed in §0. Every remaining first measurement in the register needs either CPU that is not
+> currently available or a decision from the user; there is no third category, and inventing a task to
+> look busy is explicitly out of bounds (§4quinquies).
+
+## §0 — The state of the arc at the pause, in one screen
+
+| | |
+|---|---|
+| **Machine** | idle — nothing running, nothing queued |
+| **E02** (the 40,800-simulation five-mode fleet pass) | **halted and parked**, to resume **on the Speed cluster when its resources free up**. Halted by a real `MemoryError`, `fast_zone`-specific. **Not descoped** — the user declined all four reduced-scope options and parked on a different axis. |
+| **No-compute queue** | **empty** — 16 tasks over 4 rounds, all landed, all audited |
+| **Last work done** | **C06** (OPEN-09's "cosmetic" label tested for the first time — it holds), **C07** (the fatal-detection fix in the E02 runner), and the ≈10× correction to the cost-scoping document |
+| **Register** | 32 items, `INVESTIGATION_open-items-register.md` — **its closing amendment is the resume brief** |
+
+**Rulings owed by the user — ask one at a time, never as a menu:**
+
+1. **CP-M3 + OPEN-33 + OPEN-30 together** — what a change must carry before it counts as finished.
+   Three instances of one question. *Ask this first: it changes how future work is done, not just what
+   is known.*
+2. **CP-C2** — which slice of E02 to relaunch when Speed frees up. 🔴 **Do not re-ask the four descope
+   options (a)–(d); that question is spent.**
+3. **OPEN-22's ruling** — a third of the 50-row exam is decided by size-bucketing rather than tag
+   logic. Is that the exam the project wants? (The fallback rows are *not* inflating the metric — that
+   is measured.)
+4. **CP-M2** — what to do about the published cross-mode numbers, confirmed confounded.
+5. **OPEN-29** — fix E-LA-21 in the four remaining harvest scripts, or leave them?
+6. **OPEN-11** — the six inverted-geometry buildings; precondition met, remediation is the user's call.
+
+🔴 **The single highest-risk fact to carry into a Speed resume**, repeated here because it is buried in
+§4sexies.4: **the stock cluster template deletes `.eio`** (`scripts/cluster/submit_fleet_t08.sbatch:63`,
+`rm -f "$OUTDIR"/*.eio`, byte-identical across T08→T20) and **E01's retention fix is local-only** — it
+lives in `t08_local_remainder.py`. A cluster E02 on the unmodified template **destroys the exact
+evidence OPEN-02 exists to obtain.**
+
+---
+
 > **Written:** 2026-08-05, at the close of the session that measured all four "published numbers"
 > items (OPEN-01, 02, 03, 04) plus OPEN-28, and opened OPEN-30, OPEN-31, OPEN-32.
 > **Updated:** 2026-08-06, after a no-compute evening that (a) closed OPEN-32's first measurement —
@@ -670,9 +719,290 @@ immediately. Thirteen exist; all thirteen are benign on audit; reported.
 
 **Where this leaves you: the no-compute queue is empty.** Sixteen tasks dispatched across four rounds,
 all landed and audited. **Every remaining first measurement in the register needs CPU**, and CPU-bound
-work is **parked by user instruction** until a machine is free. Do not invent a seventeenth no-CPU task
-to keep busy — if you cannot name the register item it measures and the way it could come back wrong,
-it is not worth the tokens.
+work is ~~**parked by user instruction** until a machine is free~~ **unparked 2026-08-06 — see §4sexies**.
+Do not invent a seventeenth no-CPU task to keep busy — if you cannot name the register item it
+measures and the way it could come back wrong, it is not worth the tokens.
+
+## 4sexies. The compute queue — opened 2026-08-06 when the user released the machine
+
+Plan: `implemenation/PLAN_compute-queue.md` (C01–C06). The user released the local workstation for
+simulation and instructed the arc to run overnight to completion, updating documents as it goes.
+
+### 4sexies.1 🔴 The blocker you would otherwise have walked into
+
+The scoping doc costs E02 as **five modes × twelve cells**. The local runner could do **four modes ×
+seven cells**, and only the mode gap was on record. `LOCAL_CELLS`
+(`scripts/cluster/t08_local_remainder.py:48-51`) carried the LA/Austin remainder only — the four NYC
+cells and `la_centre` had **no `CELL_CONFIGS` and no `CITY_OF` entry**. `CITY_OF` is read through a
+**silent fallback to the cell name** (`:423`), so a missing entry does not raise; it produces
+`city="nyc_centre"` and quietly breaks every city-level group-by downstream.
+
+**The trap:** the runner is *named* `t08_local_remainder` because it exists to run the remainder of
+the cluster's T08 — so the obvious move is to run 7 locally and reuse T08 for the other 5. **That
+rebuilds OPEN-28.** T08 is five-week-old code (223 insertions in `builder.py` since) and deleted every
+`.eio`, so it serves neither OPEN-02 nor a cross-mode delta that means the method rather than the
+calendar. **Pinned: all twelve cells run locally, on one generation.** If anyone proposes the
+shortcut, this paragraph is the answer.
+
+### 4sexies.2 What has happened so far
+
+**C01 — done, CP-C1 signed.** Runner extended to 12 cells / 5 modes (`layout_assign` last, so the
+four exercised modes finish first in every cell), plus `--output-csv` and `--work-base` flags — the
+runner **clobbers its output CSV after every cell**, and `t08_local_remainder_eui.csv` is a real
+2026-07-01 artifact that must survive.
+
+The executor declined the end-to-end test with a sound tail-risk argument — **but that argument was
+about `layout_assign`, and the untested new cells were the bigger risk**, since a night is lost to an
+EPW that will not resolve for `NY`. The director therefore ran the bounded smoke the executor's
+reasoning did not cover (`nyc_rural`/`building`, cheapest mode, new cell): **198/198 success, 0 fatal,
+`city="NYC"`, 198 `.eio` retained, 0 `.eso` surviving, 0.33 MB/building.** That is what CP-C1 exists
+to retire. `layout_assign` is still unexercised locally end to end — scheduled last within each cell
+for exactly that reason.
+
+**One cosmetic mislabel, deliberately left:** `print_cp4_local_report()`'s banner still says
+*"7 cells"*. **Do not read it as evidence of a 7-cell run** — the tables under it are data-driven.
+
+**C02 — E02 launched 2026-08-06.** 40,800 simulations, 16 workers, `.eio` retained. Log at
+`%TEMP%/ubem_e02_five_mode/e02_run.log`; output
+`openubem/outputs/comparisons/e02_five_mode_fleet_eui.csv`. **Expectations were written into the plan
+before the run started and must not be edited afterwards** (≈7.3–11.3 h, ≈0.1% failure rate, ≈43 GB
+worst case). It closes **three** items at once — OPEN-01, OPEN-02, OPEN-28 — which is why it is worth
+a night.
+
+🔴 **CP-C2 is a completeness gate, not a formality.** Nothing downstream (C04, C05) starts until every
+(cell, mode) is confirmed complete. **Analysing a partial fleet and reporting it as the fleet is the
+failure mode this whole arc exists to prevent.**
+
+**A risk recorded while C02 was still in flight, before the answer was known** (plan doc, note after
+C02's entry): the scoping doc's 540 CPU-hours came from `sacct` over the **sbatch arrays**, and in the
+cluster pattern Steps 1–3 run on the workstation *before* submission. **So the ≈7.3–11.3 h covers
+EnergyPlus and not Step-3 IDF generation, which is additive, unbudgeted, and happens 60 times.** If
+C02 overruns, that is the reason, and it was identified in advance rather than rationalised after.
+**The §5 prediction was deliberately left unedited.**
+
+**🔴 C02 was killed once, at ~02:15, and it was the director's fault — not a defect.** It had been
+started with the **session-bound** background-command facility instead of as an independent OS
+process, so a session compaction stopped it and every EnergyPlus child with it. The plan had already
+said to launch it detached; the instruction was written and then not followed. State at the kill:
+0 EnergyPlus processes, **561 of `nyc_centre/auto`'s 738** `.eio` written, 861 log lines, **no disk
+guard, no traceback, no fatal**, and **no `sim_done.txt`** — so no pair was ever marked complete.
+
+**The cost was small, and the reason is worth knowing.** Resume is **per building**, not per pair:
+`t08_local_remainder.py:268` skips any building that already has an `eplusout.end`, and `.end` is in
+`RETAIN_FILENAMES`, so trimming does not eat the resume marker. Relaunched 02:52:17 via
+`Win32_Process.Create` (WMI), which parents the process to the WMI host and puts it in no job object
+belonging to a session — PID 1048, 20 python workers confirmed. **New log
+`%TEMP%/ubem_e02_five_mode/e02_run_2.log`; the first log is kept, not appended to.** Same
+`--output-csv` and `--work-base`, so this is a resume, not a second run.
+
+Two things follow that a later reader must not get wrong. **The ~35-minute hole in the timeline is a
+kill, not a slow first cell.** And **the kill is not evidence about the ≈7.3–11.3 h estimate** —
+judge that clock from the original 01:54 start; director error and estimate accuracy must not be
+allowed to launder each other. On this machine, "background" in the tooling sense is **not**
+"detached" in the OS sense, and a launch record should state the mechanism rather than assert the
+property.
+
+### 4sexies.2b C03 — OPEN-10's carried figure, settled
+
+**90 reproduces exactly, unadjusted** — 66 `MidriseApartment` + 24 `HighriseApartment`, from a
+fleet-wide pass over all twelve cells using the shipped `compute_band_map()`/`match_storeys()`.
+**Take note of that, because carried numbers in this arc have a bad record** (OPEN-12's percentages
+did not reproduce; OPEN-28's framing was wrong; N14's "same rows" claim was wrong). This one held, and
+its 7,442-building population matches OPEN-01's crosstab independently.
+
+Both of N11's limits confirmed at fleet scale, not asserted: the proposed verdict is populated for
+**exactly** the two apartment archetypes (2,850 rows) and blank elsewhere, and all **2,276** apartment
+`fallback_shorter` rows sit at `num_floors ∈ {1,2}` and **none** move.
+
+🔴 **The finding that changes the item: fleet-wide `fallback_not_expressible` is 1,976 across 10
+archetypes — `SmallOffice` alone is 1,580. So OPEN-10's remedy reaches 90 of 1,976 = 4.6%.** N11
+called the "restore exact expressibility" framing overstated; C03 gives the number. **Do not let a
+future plan present this as fixing the inexpressibility problem** — it fixes one twentieth of it.
+
+**Method limit to carry:** the proposal was *modelled* (counterfactual `band_map` fed to the real
+`match_storeys()`), not built. The 100% flip is a property of the band arithmetic, **not** a
+verified EnergyPlus result.
+
+⚠️ **A director slip worth knowing about, since it is the kind that produces false findings.** My
+first re-derivation reported 4,682 changed rows across 16 archetypes — apparently contradicting the
+scoping limit. It was a **NaN artifact**: the 4,592 non-apartment rows carry a *blank* proposed
+verdict, and `NaN != NaN` is `True` in pandas. **The executor was right and my first number was
+wrong.** If you re-check this CSV, filter to non-null before comparing.
+
+### 4sexies.3 What compute cannot fix — do not schedule these
+
+- **OPEN-19** (LA ~+40% hot): there is **no climate-zone or code-year switch** in the codebase and
+  LA's HVAC comes from a **Buffalo** prototype. It needs code before it needs cycles.
+- **OPEN-11**: precondition met, the six are the same six. What remains is a **user decision**.
+
+### 4sexies.4 — E02 halted 2026-08-06 08:30; the ruling is parked
+
+**C02 is dead. Read this whole subsection before touching the compute queue again.** Full record:
+`PLAN_compute-queue.md` §8, "AUDIT — C02 halted by `MemoryError`; CP-C2 NOT signed", plus the
+`C02-P1` and `DECISION OWED` entries after it.
+
+1. **What killed it.** `e02_run_2.log` ends in a `MemoryError` inside `_run_one_ep`'s `shutil.copy`.
+   Last write **05:47:01**. Not disk (655 GB free), not the disk guard (no `DISK GUARD` line in
+   either log) — real memory exhaustion: `Win32_PageFileUsage` peak **53,214 MB** against an
+   allocated base of **71,989 MB** on a 63.5 GB machine. **It is `fast_zone`-specific, not a general
+   worker-count problem.** Total Step-3 IDF bytes for `nyc_centre`: `fast_zone` **751.3 MB** (max
+   single IDF 14.26 MB) against `auto` 400.8 MB, `floor` 244.6 MB, and `building` just **59.4 MB**.
+   **`auto`, `building` and `floor` all completed cleanly at 16 workers** — the worker count is fine
+   for three of the four modes; it is `fast_zone` that exhausts commit when sixteen of its
+   multi-hundred-MB models load at once.
+
+2. 🔴 **FINDING 1 — the most important item in this subsection. A silent resume data-loss trap.**
+   `main()` skips a mode entirely (Step 3, Step 4, harvest) the instant its `sim_done.txt` exists,
+   and recovers its rows **only** by reading them back out of the output CSV once every requested
+   mode of a cell is done. **`nyc_centre`'s three finished modes (`auto`, `building`, `floor`) are
+   already marked done, and the output CSV was never written** — so a naive relaunch right now would
+   silently produce a "fleet" CSV missing all 2,214 of those buildings, including `auto`, the mode
+   OPEN-28's published comparison depends on, and nothing in the run would say so.
+   **Mandatory restart protocol, before any relaunch:** delete the `sim_done.txt` of any (cell, mode)
+   whose rows are not already sitting in the output CSV. **This is nearly free** — Step 4 resume is
+   per building via `eplusout.end` (already in `RETAIN_FILENAMES`), so the 2,273 already-simulated
+   buildings are skipped and only Step 3 (minutes) and the harvest re-run. **This cleanup has not
+   been done yet.** Whoever authorises the relaunch must do it first, not assume the executor will.
+
+3. **FINDING 2 — E-LA-21 is live in the E02 runner itself, a fifth script.**
+   `t08_local_remainder.py:430` uses the one-space `"** Fatal **"` test. Register OPEN-29 already
+   named four harvest scripts with this defect; **this run's own runner is a fifth**, and it is the
+   one generating today's results. Demonstrated on the run's own artifacts: of 2,422 `eplusout.err`
+   files, 2 contain a real fatal, both written two-space, matched by the one-space test **0 of 2**.
+   The failure *count* still comes out right (derived from the process return code, 736/738
+   correctly harvested) — **but `has_fatal` and the "Fatal-free: YES" banner are worthless** and
+   would say clean over any number of real fatals. Not fixed; needs its own written task.
+
+4. **FINDING 3 — the wall-clock prediction is wrong by roughly an order of magnitude, and the
+   cause recorded in advance was NOT the cause.** Measured from `nyc_centre` (738 buildings,
+   9.04% of the fleet), scaled ×11.06:
+
+   | mode | measured, `nyc_centre` | scaled to the fleet |
+   |---|---|---|
+   | `auto` | ≈85 min | ≈**15.7 h** |
+   | `building` | 12.7 min | ≈**2.3 h** |
+   | `floor` | 41.7 min | ≈**7.7 h** |
+   | `fast_zone` | 59/738 in 72 min, extrapolated | ≈**2–7 days** |
+   | `layout_assign` | — | see C02-P1 below, do not scale it in |
+
+   The three completed modes alone extrapolate to **≈26 h**, against §5 C02's **≈7.3–11.3 h for all
+   five** — and §5 stays unedited, as it must. **Trap: do not blame unbudgeted Step-3 IDF generation**
+   — that was the cause flagged in advance (the NOTE entry in the plan log), and measurement kills it:
+   Step 2 is **2.5–2.7 s** per cell, Step 3 is **7.9 s for 149 buildings** (`la_rural`). The overrun is
+   EnergyPlus itself running slower per building than the cluster-derived scaling assumed, dominated
+   by `fast_zone`.
+
+5. ⚠️ **Correction to the INCIDENT entry's timeline (append-only — the original entry is not
+   edited, this supersedes its numbers only).** The first kill was at **02:50:45**, not "02:1x";
+   the relaunch log starts 02:52:18, so the hole is **≈90 seconds**, not ~35 minutes; and 545
+   completions were logged continuously through the window the original entry called dead, not 561
+   at a hard stop. The director error and its lesson (session-bound ≠ detached) both stand — only the
+   cost estimate was wrong, and it was wrong in the direction that makes FINDING 3 stronger, not
+   weaker.
+
+6. **C02-P1 — `layout_assign` probe, completed.** Run locally on `la_rural` (smallest cell, 149
+   buildings), shared work base with E02, separate output CSV: **149/149 success**, Step 3 in 7.9 s,
+   Step 4 in 319.6 s at 12 workers, whole mode **5.5 min**, 25.7 core-seconds per building. It
+   retires the "`layout_assign` has never run locally" risk and shows it is nowhere near
+   `fast_zone`'s cost. **Explicit warning: do not scale 5.5 min into a fleet estimate.** `la_rural`
+   is the smallest, simplest cell, and cross-cell per-building costs are not comparable —
+   `nyc_centre`/`auto` runs ≈110 core-seconds per building against this probe's 25.7. `layout_assign`
+   is affordable and unblocked; its fleet cost is still unmeasured.
+
+7. **The scope ruling was put to the user and PARKED at their instruction.** Nothing is cancelled —
+   E02 is **halted, not abandoned** — and **no relaunch is authorised until they rule.** Options as
+   put: **(a)** drop `fast_zone`, run the other four (≈26 h) + `layout_assign`; **(b)** all five,
+   ~a week, `fast_zone` at reduced workers; **(c)** `auto` + `layout_assign` only, ≈16 h; **(d)** four
+   now, `fast_zone` queued separately afterwards. **Every option requires item 2's marker cleanup
+   first, regardless of which is chosen.**
+
+8. 🔴 **RULED the same day — and the answer was on an axis none of the four options offered.** The
+   user's decision: *"mettre a cote de E02 est une decision correct, des que des ressources speed
+   devient disponible, nous pouvons continuer."* **E02 is parked to resume on the Speed cluster when
+   its resources free up.** It is **not cancelled and not descoped** — no reduced-scope option was
+   taken, the workstation is released, and **no relaunch is authorised until Speed is free.** Do not
+   re-ask which of (a)–(d) they want; that question is spent. Full ruling and the four conditions on
+   resuming are in `PLAN_compute-queue.md` §8, "RULING — CP-C2 / E02". **The four, compressed:**
+   (1) item 2's marker cleanup still applies on any machine; (2) 🔴 **the stock cluster template
+   deletes `.eio` — `submit_fleet_t08.sbatch:63` — and E01's retention is local-only, living in
+   `t08_local_remainder.py`, so a cluster E02 on the unmodified template destroys the exact evidence
+   OPEN-02 exists to get.** This is the highest-risk item in resuming on Speed; (3) do **not**
+   concatenate the 3 finished local pairs with cluster output — that rebuilds OPEN-28; (4) confirm
+   the account's CPU allowance is genuinely free first, and **never** cancel or deprioritise another
+   project's jobs. ~~**Also owed:** `SCOPING_five-mode-rerun-cost.md`'s local projection is measured
+   wrong by ≈10× (item 4 above) and still carries no correction — append one before it is used to
+   re-scope anything.~~ **✅ DISCHARGED 2026-08-06 — the correction is written. See §4sexies.7.**
+
+### 4sexies.5 — C06 — OPEN-09 settled while E02 stays parked
+
+**C06 does not depend on E02** (the plan's own scheduling note authorised this — C06 reuses the
+*existing* matched control, not C02's output), so it proceeded independently of the Speed-cluster
+park above.
+
+**Cost gate answered first, as required: the 150-building matched control (F11-N/F11-N-b, the
+closed E-LA-20 arc's own population) already existed on disk in full — 300 raw run directories,
+both arms, `.err`/`.eio`/`.sql`/`eplustbl.htm` all present. Zero EnergyPlus was run. Zero of the
+400-simulation gate was used.**
+
+**Result: "cosmetic" holds, tested for the first time.** Re-derived convergence status fresh from
+raw `.err` text (96/150 non-converged at `thermal_mass=True`, 8/150 at `False` — reproduces the
+carried figures exactly) and EUI fresh from each run's own `eplustbl.htm`. Split the True-arm's
+150 per-building deltas by convergence status: **no alarming pattern** — every delta is negative,
+the two groups' distributions overlap 96.3%, and the non-converged group's mean delta is *smaller*
+in magnitude (−1.638%) than the converged group's (−1.855%), not larger. The difference is
+statistically real (Mann-Whitney p=4.1×10⁻⁷) but small in absolute terms (≈0.22 pp ≈ 0.20 kWh/m²
+at the median EUI). **The five inherited log entries (E-LA-14/16/18/19/23) do not need correcting
+on substance — the claim holds at the one population it has ever been tested on — only on
+epistemic status: inherited → tested.** Consequence (a) (the ≈3.66% fleet projection) remains an
+untouched projection, as scoped. Full record: `PLAN_compute-queue.md` §8 "C06", and
+`extra/MEASUREMENT_open-09_cosmetic-accuracy-test.md`.
+
+**Audited the same day by independent re-derivation — GREENLIT.** The manager re-walked all 300 raw
+run directories with its own parser rather than reading the report back: 96/150 and 8/150 reproduce
+exactly from `.err` text, means −1.6375 / −1.8550, overlap 52/54 = 96.3%, d=0.893, and no file under
+either `runs/` tree has an mtime later than 2026-07-25 — **independent proof that zero simulations
+were run and the 400-simulation gate was untouched.** One figure corrected: the register's "97%"
+reverse overlap was not reproducible (actual 95.8%); only 96.3% is cited now. Audit: `PLAN_compute-queue.md`
+§8 "AUDIT — C06".
+
+### 4sexies.6 — C07 — the E02 runner can now see a fatal
+
+**Completed and audited 2026-08-06, no CPU.** `t08_local_remainder.py:430` tested the one-space
+`"** Fatal **"`; EnergyPlus writes **two** spaces. Now `\*\*\s+Fatal\s+\*\*`.
+
+**The before/after was demonstrated, not asserted** — the project's own evidence rule. Over the same
+2,422 `.err` files the halted E02 produced: old test **0** matches, new test **2** —
+`way_266149332`, `way_266170765`. **Both negative controls are non-vacuous**, which is the part worth
+knowing: the decorative lines `************* Fatal error -- final processing.` and
+`************* EnergyPlus Terminated--Fatal Error Detected.` are physically present in those same two
+files, so a looser regex would have over-counted. This one matches neither.
+
+**Three limits — state them whenever this is reported.** It changes **no published number** and **no
+failure count** (`status` always came from the process return code and was right). `has_fatal` is
+computed at harvest time and never persisted, so nothing on disk is stale and every future harvest is
+corrected automatically — `print_cp4_local_report()`'s `Fatal-free:` banner included, without editing
+that frozen function. And 🔴 **E-LA-21 is not discharged**: the four harvest scripts were left
+untouched **deliberately**, because fixing them is a user decision under OPEN-29, not a side effect of
+a runner repair. **"Never use the `has_fatal` column" stays in force for every pre-2026-08-06
+artifact.**
+
+### 4sexies.7 — the cost-scoping document is corrected, and the correction has a lesson in it
+
+`extra/SCOPING_five-mode-rerun-cost.md` now carries **PART 3** (2026-08-06). Its Part 2 projected the
+local five-mode pass at **≈10–15 hours — an overnight run**. FINDING 3 measured it wrong by **≈10×**.
+
+**Parts 1 and 2 are left unedited on purpose**, so the failed prediction stays visible beside the
+outcome. PART 3 records what was predicted, what the machine did, and — the part that matters — **that
+the cause pre-registered in advance was also wrong.** The plan blamed unbudgeted Step-3 IDF generation;
+measurement kills it (Step 2 is 2.5–2.7 s per cell, Step 3 is 7.9 s for 149 buildings). The real cause
+is that Part 2's **3.2×–4.6× local-vs-cluster speed factor was calibrated on three timing runs of one
+building**, and that error compounds multiplicatively across 8,160 buildings × 5 modes.
+
+🔴 **Two things a resuming session must not get wrong about this.** First, **Part 1's *cluster*
+projection is NOT validated by the correction** — it rests on the same 5-cell, five-week-old T08
+extrapolation for four of the five modes. **Re-derive it; do not reuse it.** Second, this is the
+discipline working, not a failure: a cause was written down before the answer was known, and the
+measurement falsified it. **Do that again.**
 
 ## 5. The rule that governs this arc
 
@@ -750,8 +1080,13 @@ instructed that work be done locally where possible.**
 
 ## 8. Documentation conventions
 
-- **`docs/docs_ACTIVE/openings/` stays clean.** It holds the register, `prompts/`, `extra/` and
-  `implemenation/` only. **Every supporting document goes in `openings/extra/`.**
+- **`docs/docs_ACTIVE/openings/` stays clean.** It holds the register, `prompts/`, `extra/`,
+  `implemenation/` and — 🆕 **added 2026-08-06 at the user's request** — `reporting/`. **Every
+  supporting document goes in `openings/extra/`.**
+- 🆕 **`openings/reporting/board_published-numbers.html` is a snapshot copy, not the live board.** The
+  user asked for a copy there at the pause. **The published artifact is still
+  `implemenation/board_published-numbers.html`** — republish *that* path to keep the URL. If you update
+  the board, refresh the `reporting/` copy too, or it silently goes stale.
 - 🆕 **The progress board.** `docs/docs_ACTIVE/openings/implemenation/board_published-numbers.html`,
   published at **https://claude.ai/code/artifact/0615b50a-75d6-49c6-a354-d4f2f74d3639**. Republish the
   **same file path** to keep the same URL. Rules the user set: **every task appears**, **every task
@@ -794,6 +1129,11 @@ instructed that work be done locally where possible.**
   `docs/docs_REPORTS/REPORT_phaseE_final.md`, the board, and this prompt; it added
   `extra/MEASUREMENT_open-32_adopted-dependency.md`. **Git is handled externally by the user — never
   commit, never offer to.**
+- ~~**C02 (E02) is running overnight; do not disturb it.**~~ **SUPERSEDED 2026-08-06 08:30 — E02 is
+  HALTED, not running.** It died of a `MemoryError` at **05:47:01** and the machine has been idle
+  since. **Nothing is in flight.** Do not tell a fresh session a run is in progress, and do not
+  relaunch anything: the scope ruling is parked with the user (§4sexies.4), and FINDING 1's marker
+  cleanup has not been done. Any executor told "check on E02" is being given a stale instruction.
 
 ## 10. What "done" looks like for this arc
 
@@ -837,3 +1177,34 @@ second corollary — before quoting any total.
 
 **Still true and still worth leading with, if the user has not heard it:** **the numbers this project
 stands on are confirmed clear of the two big unfixed errors** (§4.8).
+
+---
+
+## 🅿️ 11. The pause — written 2026-08-06, at the user's instruction
+
+**The user is moving to other projects and will return when they have time.** This is a pause, not a
+close. The arc is in a clean state: no half-finished task, no unaudited executor report, no run to
+babysit, and no document owing a correction.
+
+**What "clean" means concretely, so a returning session can trust it:**
+
+- **Every dispatched task has landed and been audited by independent re-derivation** — sixteen
+  no-compute tasks across four rounds, plus C01, C03, C06, C07 and the C02-P1 probe.
+- **Every completed task is written to all three surfaces** — the plan's progress log, the register,
+  and this prompt. Nothing is carried only in a conversation that no longer exists.
+- **The one outstanding bookkeeping debt is discharged** (§4sexies.7).
+- **The register's closing amendment is the compressed resume brief.** It is deliberately written to
+  stand alone.
+
+**When you resume, in this order:**
+
+1. **Confirm the machine is still idle** and that no stale `sim_done.txt` cleanup was done in the
+   meantime — FINDING 1's trap is dormant, not defused.
+2. **Report the state to the user before proposing anything.** They have been away; do not assume they
+   remember where E02 stopped.
+3. **Put one ruling to them** — the top box's list, starting with CP-M3 + OPEN-33 + OPEN-30.
+4. **Only then** consider work. If Speed has freed up, CP-C2 is the unblocking question and the
+   `.eio`-deletion risk (top box) is the first thing to fix, before a single job is submitted.
+
+**Do not, on resuming, invent a task to demonstrate momentum.** Every remaining first measurement needs
+CPU or a ruling. That is a legitimate resting state for this arc, and it was reached deliberately.

@@ -471,3 +471,72 @@ modes (always exactly 1 zone, least surface area for a geometry bug to hide in).
 per-archetype-sample option in §5's table is the direct, cheap way to close this gap fully before
 committing to the full 10–15-hour run, if the user wants that extra confidence first.
 
+---
+
+# PART 3 — CORRECTION, 2026-08-06: Part 2's local wall-clock projection is wrong by ≈10×
+
+> Appended after the E02/C02 local run was actually launched and measured. **Parts 1 and 2 above are
+> left unedited** — the prediction must stand as written so the error is visible. This part states
+> what the run measured and what must be used instead. Source of record:
+> `docs/docs_ACTIVE/openings/implemenation/PLAN_compute-queue.md` §8 **FINDING 3** (and the
+> append-only CORRECTION immediately following it).
+
+## 3.1 What Part 2 predicted vs. what the machine actually did
+
+Part 2 §3 projected **≈10–15 h** at 12 workers for the whole five-mode / 12-cell / 8,160-building
+pass (≈7.3–11.3 h at 16 workers). The run was launched locally and timed on `nyc_centre`
+(738 buildings = **9.04%** of the fleet; the 4th-largest of the twelve cells, so the sample is not
+cherry-picked large):
+
+| mode | measured on `nyc_centre` | scaled ×11.06 to the fleet |
+|---|---|---:|
+| `auto` | ≈85 min (includes a ~90 s restart gap) | ≈**15.7 h** |
+| `building` | 12.7 min | ≈**2.3 h** |
+| `floor` | 41.7 min | ≈**7.7 h** |
+| `fast_zone` | 59 of 738 done in 72 min → ≈15 h extrapolated | ≈**2–7 days** |
+| `layout_assign` | not completed in this pass | see PLAN §8 C02-P1 probe |
+
+**Three of the five modes alone extrapolate to ≈26 h** — already more than double Part 2's estimate
+for all five — and `fast_zone`, the mode Part 2 §3 explicitly de-risked, is the dominant cost by a
+wide margin. Order-of-magnitude verdict: **≈10× low.**
+
+## 3.2 Why Part 2 was wrong — and why the pre-registered explanation was *also* wrong
+
+The overrun cause was recorded in advance (PLAN §8 NOTE) as *unbudgeted Step-3 IDF generation*.
+**Measurement disproved that.** From the run's own logs: Step 2 costs **2.5–2.7 s** per cell and
+Step 3 costs **7.9 s for 149 buildings** (`la_rural`) — a few minutes at 738. IDF generation is
+negligible.
+
+The real cause is the one thing Part 2 §2 built its whole projection on: **the 3.2×–4.6×
+"local core is faster than a cluster core" speed factor does not hold at fleet scale.** EnergyPlus
+itself is slower per building locally than the cluster-derived scaling assumed. Part 2 §2 stated its
+own caveat correctly — *"3 data points, 1 building, 1 cell… a solid order-of-magnitude figure, not a
+precision instrument"* — and that caveat is exactly where it failed: one 80-zone building at the 75th
+percentile of one cell did not represent the fleet's per-building cost, and the error compounds
+multiplicatively across 8,160 buildings × 5 modes.
+
+## 3.3 What to use instead
+
+- **Do not cost E02 (or any five-mode re-run, local or Speed) from Part 1 §1.3 or Part 2 §3.**
+  Use FINDING 3's measured per-mode `nyc_centre` figures, scaled by building count, as the
+  cost basis. They are real elapsed times from the shipped code path at current HEAD, not a
+  per-zone-normalized extrapolation from three calibration runs.
+- **Part 1's cluster numbers are not corrected by this** and are not thereby validated either: the
+  ≈540 CPU-hour cluster projection rests on the same 5-cell/5-week-old T08 extrapolation for four of
+  five modes. Whoever re-scopes E02 for Speed should treat FINDING 3 as evidence that per-building
+  cost was systematically underestimated, and re-derive rather than reuse.
+- **What did survive.** Disk (Part 1 §2, Part 2 §4) is unaffected — file sizes do not depend on the
+  machine, and the ≈1.3 GB typical / ≈42.9 GB worst-case figures stand. So does Part 2 §4's harder
+  finding that **an untrimmed local run cannot fit on this machine at all**, and §6's positive data
+  point that `auto`/`floor`/`fast_zone` generate and simulate cleanly at current HEAD.
+- **Scaling caveat carried forward, not hidden.** FINDING 3's fleet column scales by building count
+  only. Manhattan buildings are plausibly above fleet-average complexity, so those figures are
+  upper-leaning estimates, not measurements.
+
+## 3.4 Status of the run this correction came from
+
+E02/C02 is **halted, not abandoned** — parked at the user's instruction pending Speed cluster
+availability, with the CP-C2 scope ruling deliberately deferred rather than decided under time
+pressure. No relaunch is authorised. See PLAN §8 *"DECISION OWED — CP-C2 scope ruling"* for the
+state to hand to whoever takes that ruling.
+

@@ -110,14 +110,87 @@ fully accounted for, and no third unreproducible column exists.** Two findings t
 divergences**, and those 3 are **not the same buildings** as the archetype failures — disjoint in
 `la_urban`, absent in `la_centre` — so the two defects are independent in both directions.
 
-**Also recorded 2026-08-06:** the **five-mode local re-run (E02) is parked by user instruction** —
+**Also recorded 2026-08-06:** ~~the **five-mode local re-run (E02) is parked by user instruction** —
 Speed's CPU allowance is consumed by another project and the user does not want CPU-bound work
-scheduled meanwhile. It resumes when a machine is free; nothing about it is cancelled. Work moved to
+scheduled meanwhile. It resumes when a machine is free; nothing about it is cancelled.~~
+**Unparked 2026-08-06 — see the next amendment.** Work moved to
 `implemenation/PLAN_no-compute-queue.md` (N01–N05), whose first measurements need no simulation.
 **A prerequisite found while scoping it:** the local runner's `ALL_MODES`
 (`scripts/cluster/t08_local_remainder.py:52`) is `["auto", "building", "floor", "fast_zone"]` —
 **`layout_assign` is not among them**, so as it stands the local runner can only do four of the five
 modes.
+
+**Amended 2026-08-06 (the compute queue opens — `implemenation/PLAN_compute-queue.md`).**
+**The user released the local workstation for simulation**, so every measurement the no-compute queue
+could not reach is now schedulable. Six tasks are written (C01–C06); the plan also records, in §6,
+the two items that compute **cannot** help — **OPEN-19** (no climate-zone or code-year switch exists,
+so it needs code before it needs cycles) and **OPEN-11** (its precondition is met; what remains is a
+remediation decision by the user, not a measurement).
+
+🔴 **A second prerequisite was found opening that plan, and it had an attractive wrong answer.**
+Beyond the missing `layout_assign` mode above, `LOCAL_CELLS`
+(`scripts/cluster/t08_local_remainder.py:48-51`) held **only 7 of the 12 cells** — the LA/Austin
+remainder. `nyc_centre`, `nyc_urban`, `nyc_suburban`, `nyc_rural` and `la_centre` had **no
+`CELL_CONFIGS` and no `CITY_OF` entry at all**, and `CITY_OF` is read through a **silent fallback to
+the cell name** (`:423`), so a missing entry would have quietly broken every city-level group-by
+rather than raising. The runner is called `t08_local_remainder` because it was built to run the
+*remainder* of the cluster's T08 — which invites reusing T08 for the other five cells. **Doing that
+would rebuild OPEN-28**: T08 is five-week-old code and deleted every `.eio`, so it can serve neither
+OPEN-02 nor a cross-mode delta that means the method rather than the calendar. **Decision pinned: all
+twelve cells run locally, on one code generation.** C01 closed both gaps; CP-C1 was signed after the
+director ran a bounded end-to-end smoke on a *new* cell (`nyc_rural`/`building`): **198/198 success,
+0 fatal, `city` correctly `NYC`, 198 `.eio` retained, 0 `.eso` surviving.**
+
+~~**E02 is running as of 2026-08-06**~~ — **SUPERSEDED the same day; see the closing amendment below.
+E02 is halted and parked. Do not read this paragraph as a statement that anything is in flight.** What
+remains true of it: the run is 12 cells × 5 modes × 8,160 buildings = **40,800 simulations**, 16
+workers, `.eio` retained, and it is the only measurement in this project that closes **three** items at
+once: **OPEN-01** (a verified multiplier-aware denominator for every building), **OPEN-02** (the `.eio`
+that has never existed for any fleet building) and **OPEN-28** (all five modes on one generation).
+Nothing here may be marked measured until CP-C2 confirms every (cell, mode) completed.
+
+---
+
+### 🅿️ Closing amendment 2026-08-06 — **the arc is paused by the user; this is the resume brief**
+
+**User instruction:** *"je vais me concentrer sur d'autres projets … dès que j'ai temps frais, je vais
+retourner."* The user is moving to other projects and will return later. **Nothing is cancelled,
+nothing is abandoned, and nothing is running.** This block exists so a returning session — theirs or a
+fresh director's — does not have to reconstruct the state from the amendment history above.
+
+**Machine state: idle.** No local run, no cluster job, no executor session. Any instruction to "check
+on E02" is stale.
+
+**What closed after the compute queue opened (both audited by independent re-derivation):**
+
+| | |
+|---|---|
+| **C06** | **OPEN-09's "cosmetic" label is tested for the first time** and holds — 96.3% distribution overlap, residual ≈0.20 kWh/m² at a median EUI of 91.19, and the non-converged group's mean delta is *smaller* in magnitude, not larger. Zero EnergyPlus run; the 150-building matched control already existed on disk. **Consequence (a)** — the ≈3.66% fleet projection — **is untouched and still open.** |
+| **C07** | **E-LA-21 fixed in the E02 runner** (`t08_local_remainder.py:430`), the fifth occurrence and the one generating today's results. Before/after shown on the same 2,422 `.err` files: 0 of 2 real fatals detected → 2 of 2. **Four other scripts still carry the bug by design** — that is a user decision under OPEN-29, not an oversight. |
+| **Bookkeeping** | `extra/SCOPING_five-mode-rerun-cost.md` now carries **PART 3**, correcting its local wall-clock projection — measured wrong by **≈10×**. Parts 1 and 2 are left unedited so the failed prediction stays visible. **Part 1's *cluster* projection is not validated by that correction** and must be re-derived, not reused. |
+
+🔴 **The four things a returning session must handle before any relaunch** — all four survive the pause
+and none is discharged by it:
+
+1. **The scope ruling (CP-C2) is still owed by the user.** E02 is parked to resume **on Speed when the
+   cluster frees up**. Do **not** re-ask which of the four descope options (a)–(d) they want — that
+   question is spent; the ruling came back on a different axis.
+2. 🔴 **The stock cluster template deletes `.eio`.** `scripts/cluster/submit_fleet_t08.sbatch:63` is
+   `rm -f "$OUTDIR"/*.eio`, byte-identical across T08→T20, and E01's retention fix is **local-only** —
+   it lives in `t08_local_remainder.py`. **A cluster E02 on the unmodified template destroys the exact
+   evidence OPEN-02 exists to obtain.** Highest-risk item in resuming on Speed.
+3. **The silent resume data-loss trap (FINDING 1) is still un-cleaned.** `nyc_centre`'s three finished
+   modes are marked done in `sim_done.txt` but their rows were never written to the output CSV. A naive
+   relaunch produces a "fleet" CSV silently missing all 2,214 of those buildings — including `auto`,
+   the mode OPEN-28's published comparison depends on. **Delete the `sim_done.txt` of any (cell, mode)
+   whose rows are not already in the output CSV, before anything restarts, on any machine.**
+4. **Do not concatenate the finished local pairs with cluster output** — that rebuilds OPEN-28.
+
+**Where the remaining work stands.** The no-compute queue is empty: sixteen tasks across four rounds,
+all landed, all audited. **Every remaining first measurement in the register needs either CPU we do not
+currently have or a ruling from the user** — the open rulings being CP-M2, CP-M3 + OPEN-33 + OPEN-30
+(one question, three instances), OPEN-22, OPEN-11's six inverted-geometry buildings, and OPEN-29's
+four remaining E-LA-21 scripts. **Do not invent a seventeenth no-CPU task to keep busy.**
 
 **Is:** a single place listing every item this project has left open, with — for each — what is
 actually known, what is only believed, where the evidence lives, and **what single measurement would
@@ -183,8 +256,8 @@ headline numbers that did not reproduce from the file they cited, and one stale 
 | OPEN-06 | ~~Archetype labels wrong for 41 of 8,160 buildings~~ **the column does not describe what was simulated** (E-LA-38) | Simulation correctness → **provenance** | 41 buildings; 100% of failures; **every per-archetype grouping** | ✅ **source defect + provenance defect**; **N14/N16: `data_quality_flag` is unreproducible too; swept on all 12 cells (8,160) — population fully accounted for, no third column; 26 of 33 columns unreachable without CPU** |
 | OPEN-07 | 3 buildings regressed success → failure (E-LA-40) — **all three were simulated as `SmallHotel`, not the `SmallOffice` the file records** | Simulation correctness | 3 / 8,160 | ✅ |
 | OPEN-08 | Archetype/vintage not reproducible locally for data-poor buildings (E-LA-22) | Reproducibility | all cross-generation comparison | 📄 **partially quantified** |
-| OPEN-09 | `thermal_mass=True` drives warmup non-convergence; "cosmetic" never tested (E-LA-23) | Simulation correctness | 64% vs 5.3% control | 📄 |
-| OPEN-10 | `ZoneGroup` list-multiplier edit would restore exact expressibility (E-LA-37) — **capability confirmed real from the schema; remedy narrower than claimed** | Capability | 90 buildings (**carried, not re-derivable without a fleet pass**) + future | ✅ **measured** |
+| OPEN-09 | `thermal_mass=True` drives warmup non-convergence; "cosmetic" never tested (E-LA-23) | Simulation correctness | 64% vs 5.3% control | ✅ **C06: "cosmetic" tested and holds — 96.3% distribution overlap, small correctly-signed residual** (audited) |
+| OPEN-10 | `ZoneGroup` list-multiplier edit would restore exact expressibility (E-LA-37) — **capability confirmed real from the schema; remedy narrower than claimed** | Capability | ~~90 buildings (**carried, not re-derivable without a fleet pass**)~~ **C03: 90 reproduces exactly — but that is 4.6% of the 1,976 inexpressible fleet-wide** + future | ✅ **measured + verified** |
 | OPEN-11 | 6 inverted-geometry buildings need post-hoc remediation, not re-applied | Simulation correctness | 6 / 8,160 | ⚠️ |
 | OPEN-12 | ~~Rural `height_m` residual — `nyc_rural` 36.4%, `austin_rural` 19.2%~~ **both re-derive at 100%; a third cell is at 100% and was never named**. **N15: genuinely a source-coverage gap — NOT a spillover from OPEN-14** | Data acquisition | **3 cells, 2,032 buildings; 2,806 / 8,160 fleet-wide** | ⚠️ **numbers do not reproduce** |
 | OPEN-13 | E-UTCI-12 and E-UTCI-13, forwarded out of the UTCI arc — **read at last; both live at HEAD** | Data / Stage 6 | **the whole test suite cannot be collected**; every cached height re-read | ✅ **measured** |
@@ -306,6 +379,19 @@ storey count, and its `has_multiplier_gt_1` flag reads `False` for both archetyp
 a multiplier — it tests `Zone.Multiplier` and is blind to `ZoneGroup`'s list multiplier. It understates
 `MidriseApartment` by 1 and `HighriseApartment` by 7.
 
+**Amended 2026-08-06 (C02 halted).** The five-mode twelve-cell fleet pass this item was waiting on
+(E02, `PLAN_compute-queue.md` §8) **HALTED on 2026-08-06 with a `MemoryError`, after completing only
+3 of 60 (cell, mode) pairs.** The CP-C2 scope ruling was put to the user and is **parked at their
+instruction** — no relaunch is authorised yet. This item remains open.
+
+**Ruled the same day (user).** E02 is **parked to resume on the Speed cluster once its resources free
+up** — *not* descoped, and **none** of the four reduced-scope options was taken. Full ruling and the
+four conditions on resuming: `PLAN_compute-queue.md` §8, "RULING — CP-C2 / E02". 🔴 **The condition a
+reader of this item must not miss:** the stock cluster template deletes `.eio`
+(`submit_fleet_t08.sbatch:63`) and the retention built in E01 is **local-only**, living in
+`t08_local_remainder.py` — so a cluster E02 launched on the unmodified template would destroy the
+exact evidence this re-run exists to obtain.
+
 ### OPEN-02 — No fleet-scale EUI has a simulation-verified denominator ✅ **measured + decided**
 
 **What is known.** Every EUI in every mode and every harvest T08→T20 divides by
@@ -343,6 +429,19 @@ estimate from zone-count ratios, not a measurement. Its worst-case bound is stil
 Execution moved off the Speed cluster at the user's instruction — its 32-CPU account cap is fully
 occupied by an unrelated account (32 running / 675 pending, observed read-only). Local feasibility is
 being costed; the pass is **not scoped, not submitted, and may yet be reduced in scope**.
+
+**Amended 2026-08-06 (C02 halted).** The five-mode twelve-cell fleet pass this item was waiting on
+(E02, `PLAN_compute-queue.md` §8) **HALTED on 2026-08-06 with a `MemoryError`, after completing only
+3 of 60 (cell, mode) pairs.** The CP-C2 scope ruling was put to the user and is **parked at their
+instruction** — no relaunch is authorised yet. This item remains open.
+
+**Ruled the same day (user).** E02 is **parked to resume on the Speed cluster once its resources free
+up** — *not* descoped, and **none** of the four reduced-scope options was taken. Full ruling and the
+four conditions on resuming: `PLAN_compute-queue.md` §8, "RULING — CP-C2 / E02". 🔴 **The condition a
+reader of this item must not miss:** the stock cluster template deletes `.eio`
+(`submit_fleet_t08.sbatch:63`) and the retention built in E01 is **local-only**, living in
+`t08_local_remainder.py` — so a cluster E02 launched on the unmodified template would destroy the
+exact evidence this re-run exists to obtain.
 
 ### OPEN-03 — Internal loads are modelled as 2022-code construction regardless of real vintage ✅ **measured**
 
@@ -506,6 +605,19 @@ second.
 **Convergence worth recording.** M04 and M05 were executed by separate agents with no shared context
 and both independently identified commit `0df422e` — one as the point the accuracy metric settled, the
 other as the cause of the fleet-scale reclassification. Neither knew of the other's finding.
+
+**Amended 2026-08-06 (C02 halted).** The five-mode twelve-cell fleet pass this item was waiting on
+(E02, `PLAN_compute-queue.md` §8) **HALTED on 2026-08-06 with a `MemoryError`, after completing only
+3 of 60 (cell, mode) pairs.** The CP-C2 scope ruling was put to the user and is **parked at their
+instruction** — no relaunch is authorised yet. This item remains open.
+
+**Ruled the same day (user).** E02 is **parked to resume on the Speed cluster once its resources free
+up** — *not* descoped, and **none** of the four reduced-scope options was taken. Full ruling and the
+four conditions on resuming: `PLAN_compute-queue.md` §8, "RULING — CP-C2 / E02". 🔴 **The condition a
+reader of this item must not miss:** the stock cluster template deletes `.eio`
+(`submit_fleet_t08.sbatch:63`) and the retention built in E01 is **local-only**, living in
+`t08_local_remainder.py` — so a cluster E02 launched on the unmodified template would destroy the
+exact evidence this re-run exists to obtain.
 
 ### OPEN-30 — Assigned vintage is never persisted by any harvest ✅
 *Added 2026-08-05, from M05.*
@@ -707,6 +819,37 @@ files, and has done for months.** Every harvest generation this project has prod
 fatals by construction. **This is the strongest candidate among the nine for promotion to a full
 register item, and the manager has deliberately not promoted it without the user** — it is a
 one-character fix whose consequence is that a fleet-wide correctness column has never worked.
+
+**🔴 Escalated 2026-08-06** (`PLAN_compute-queue.md` §8, "AUDIT — C02 halted by `MemoryError`;
+CP-C2 NOT signed", FINDING 2). **A fifth occurrence is now confirmed**, at
+`scripts/cluster/t08_local_remainder.py:430` — **and this is the script generating results today.**
+Demonstrated on raw artifacts, not inferred: of the **2,422** `eplusout.err` files the E02 run
+produced before it halted, **2 contain a real fatal and both write it two-space**
+(`**  Fatal  ** Program terminates due to preceding condition.`); the one-space test
+**matches 0 of 2**. Stated precisely, because it cuts two different ways: **the failure *count* is
+not affected** — `status` is derived from the process return code, not from `has_fatal`, and both
+failures were correctly counted (736/738 in the harvest) — **but the `has_fatal` column and the
+end-of-run `Fatal-free: YES` banner are worthless**, and would report a clean run over any number of
+real fatals.
+
+**✅ Amended 2026-08-06 (C07, manager-audited) — the fifth occurrence is FIXED; the other four are
+not, and that is deliberate.** `t08_local_remainder.py:430` now tests `\*\*\s+Fatal\s+\*\*`. The
+before/after was demonstrated on the same population rather than asserted: over the 2,422 `.err` files,
+the old one-space test matched **0** and the new one matches **2** — `way_266149332`, `way_266170765`.
+**Both negative controls are non-vacuous**: the decorative lines `************* Fatal error -- final
+processing.` and `************* EnergyPlus Terminated--Fatal Error Detected.` are physically present in
+those same two files, so a looser expression would have over-counted; this one does not match either.
+`git diff --stat` confirms exactly one script touched.
+
+**Three limits on that fix, stated so nobody over-reads it.** (1) It changes **no published number**
+and **no failure count** — `status` was always derived from the process return code, which was right
+all along. (2) `has_fatal` is computed at harvest time and never persisted, so nothing on disk is
+stale and every future harvest is corrected automatically, `print_cp4_local_report()`'s `Fatal-free:`
+banner included. (3) 🔴 **E-LA-21 is NOT discharged.** The four harvest scripts
+(`t20_harvest_layout_assign.py:259`, `t08_harvest_results.py:239`, `t07_harvest_results.py:198`,
+`t07b_run_auto_refit_local.py:329`) were left untouched **on purpose** — fixing them is the user's
+decision under this item, not a side effect of a runner repair. **The standing rule "never use the
+`has_fatal` column" remains in force for every pre-2026-08-06 artifact.**
 
 **The register's own framing was wrong about one candidate, in the instructive direction.** E-LA-11
 was a candidate only because its *defining* line carries no status word — but two later documents
@@ -1307,15 +1450,32 @@ costs no CPU.
 **State this plainly whenever the item is summarised** — the pattern is about the reliability of the
 record, not (so far) about the results.
 
-### OPEN-09 — `thermal_mass=True` drives warmup non-convergence, and "cosmetic" was never tested (E-LA-23) 📄
+### OPEN-09 — `thermal_mass=True` drives warmup non-convergence, and "cosmetic" was never tested (E-LA-23) ✅ **C06 2026-08-06: (b) tested — "cosmetic" holds, with a quantified nuance**
 A matched control measured 96/150 (64%) engaged rows non-converging vs 8/150 (5.3%) in the control —
 same buildings, same code, one variable. Two consequences were forwarded and never decided:
 (a) a fixed fleet run at `thermal_mass=True` projects ≈299/8,160 ≈ 3.66% (**a projection, not a
-measurement**); (b) the **"cosmetic" label has been inherited unexamined across five log entries**
-(E-LA-14/16/18/19/23) and is a claim about *accuracy* that nobody has ever tested.
+measurement, still out of scope**); (b) the **"cosmetic" label has been inherited unexamined across
+five log entries** (E-LA-14/16/18/19/23) and is a claim about *accuracy* that nobody had ever tested.
 
-**The open item is (b).** It is answerable: compare EUI on converged vs non-converged runs of the same
-buildings.
+**(b) is now measured.** `PLAN_compute-queue.md` C06 re-derived, from raw `.err`/`eplustbl.htm` text
+on the same 150-building F11-N/F11-N-b population (no new simulation — runs already existed on
+disk), the per-building EUI delta (`thermal_mass=True` vs `False`) split by warmup-convergence
+status of the True-arm run. **No alarming failure mode**: every one of the 150 deltas is negative,
+the converged/non-converged distributions overlap 96.3%, and the non-converged group's mean delta
+is *smaller* in magnitude (−1.638%) than the converged group's (−1.855%), not larger. The
+difference is statistically real (Mann-Whitney p=4.1×10⁻⁷, Cohen's d=0.89) but small in absolute
+terms (≈0.22 pp ≈ 0.20 kWh/m² at the population's median EUI). **Verdict: "cosmetic" is earned at
+the one population it has been tested on** (`nyc_rural`/`SmallOffice`/`u_roof=0.119`); the five
+inherited log entries do not need correcting on substance, only on epistemic status (inherited →
+tested). Full write-up: `extra/MEASUREMENT_open-09_cosmetic-accuracy-test.md`. **(a) remains a
+projection, unmeasured, out of scope.**
+
+**Audited 2026-08-06 (manager, independent re-derivation) — GREENLIT.** The manager re-walked all
+300 raw run directories with its own scanner: 96/150 and 8/150 reproduce exactly from `.err` text,
+all 150 deltas negative, group means −1.6375 / −1.8550, overlap 52/54 = 96.3%, Cohen's d 0.893, and
+**no file under either `runs/` tree has been written since 2026-07-25** — confirming zero simulations
+were run. One summary-table figure corrected: the "97%" reverse overlap was not reproducible (actual
+95.8%); the cited 96.3% is correct. Audit entry: `implemenation/PLAN_compute-queue.md` §8.
 
 ### OPEN-10 — Editing the `ZoneGroup`'s own list multiplier would restore exact expressibility (E-LA-37) ✅ **checked at last — the capability is real, and narrower than claimed**
 A different mechanism from the one built (which writes `Zone.Multiplier`). Would restore exact storey
@@ -1347,6 +1507,23 @@ mechanism's `{10, 18, 26, …}` / even `n_real ≥ 4`.
 a fleet-wide `compute_band_map()` / `match_storeys()` pass — **EnergyPlus-free, but still a fleet
 pass**, so it is out of scope for a no-compute task and is **named as the smallest settling
 experiment** for when a machine is free. **The number is therefore carried, not verified.**
+
+**Settled 2026-08-06 (C03, `PLAN_compute-queue.md`).** Report:
+`extra/MEASUREMENT_open-10_band-expressibility-fleet.md`. **90 reproduces exactly, no adjustment
+made** — a fleet-wide pass using the shipped, unmodified `compute_band_map()`/`match_storeys()`
+over all twelve cells' real `(archetype_id, num_floors)` pairs (7,442 evaluated, 718 excluded —
+both counts an exact match to the carried figures) finds `fallback_not_expressible` = 66
+`MidriseApartment` + 24 `HighriseApartment` = **90**, out of 1,976 fallback_not_expressible
+fleet-wide across 10 archetypes. Applying N11's proposed direct-`ZoneGroup`-overwrite mechanism to
+those 90 flips **100% of them** to `applied`, and leaves `fallback_shorter` (`n_real ∈ {1,2}`)
+counts unchanged for both archetypes — both of N11's stated limits hold at fleet scale. **New
+finding, not a contradiction:** N11's illustrative "7 structural archetypes" list undercounts the
+real fleet population — 3 of those 7 (`College`, `LargeHotel`, `Laboratory`) have zero fleet
+buildings, while 4 unlisted archetypes sharing the same `n_proto==2` condition
+(`SmallOffice`, `QuickServiceRestaurant`, `SecondarySchool`, `FullServiceRestaurant`) dominate:
+`SmallOffice` alone accounts for 1,580 of the 1,976, 16x the two apartment archetypes combined. The
+`ZoneGroup` gain, if built, would resolve 4.6% of the fleet's `fallback_not_expressible` population,
+not the other 95.4%.
 
 ### OPEN-11 — Six inverted-geometry buildings still need post-hoc remediation ⚠️
 The Phase-E re-run landed 8,154/8,160; the 6 drops are the REPORT §7 limitation-#6 inverted-geometry
