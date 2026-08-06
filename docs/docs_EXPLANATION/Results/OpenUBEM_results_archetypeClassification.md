@@ -214,8 +214,8 @@ bracket, rather than span, real office EUI), not a defect in the classifier.
 | Pre-promotion E-R3-3 run tree (throwaway) | `docs/validations/overAll/results/phaseE_er33/<cell>/` |
 | Per-cell gate reports | `.../phaseE/<cell>/v12_<cell>_gates_report.txt` |
 | Corrected classifier | `openubem/semantic/building_classifier.py` (office helper + rules 3/6/12/17a) |
-| Cut-point source (deep research) | `docs/docs_ACTIVE/input/deepResearch/RESULT_I02_archetype_classification_cascade.md` |
-| Binding plan + erratum text (E-R3-3 §4) + progress log | `docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` |
+| Cut-point source (deep research) | `docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I02_archetype_classification_cascade.md` |
+| Binding plan + erratum text (E-R3-3 §4) + progress log | `docs/docs_DONE/BUGS/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` |
 | DOE-prototype self-classification regression tests | `tests/test_building_classifier.py::TestDoePrototypeSelfClassification` |
 | City comparison / end-use / CBECS figures (regenerated) | `openubem/outputs/comparisons/phaseE_*.png` |
 | Spatial overview grid (regenerated) | `openubem/outputs/comparisons/phaseE_overview_grid.png` |
@@ -234,8 +234,8 @@ visible as a cooler office population in the dense cells.*
 |---|---|
 | The Phase-E baseline this modifies | [`OpenUBEM_results_hvacServiceLoads.md`](OpenUBEM_results_hvacServiceLoads.md) |
 | The resolution-mode results on the same fleet | [`OpenUBEM_results_Resolution.md`](OpenUBEM_results_Resolution.md) |
-| The binding plan, erratum text, and task/progress log | `docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` |
-| The corrected cut-point derivations | `docs/docs_ACTIVE/input/deepResearch/RESULT_I02_archetype_classification_cascade.md` |
+| The binding plan, erratum text, and task/progress log | `docs/docs_DONE/BUGS/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` |
+| The corrected cut-point derivations | `docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I02_archetype_classification_cascade.md` |
 | The plain-language pipeline overview | `docs/docs_EXPLANATION/OpenUBEM_fundamentals.md` |
 | Current project status | `docs/PROJECT_CHECKLIST.md` |
 

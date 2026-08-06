@@ -9,7 +9,7 @@ the real spread), and why those limits are accepted rather than "fixed". For the
 overview see [`OpenUBEM_fundamentals.md`](OpenUBEM_fundamentals.md); for the full catalogue of
 inputs and their sources see [`OpenUBEM_inputs_reference.md`](OpenUBEM_inputs_reference.md);
 for the binding specs see `docs/docs_main/` (DESIGN §3E) and the arc record under
-`docs/docs_ACTIVE/input/imputation/`.
+`docs/docs_DONE/INPUTS/imputation/`.
 
 One thing is always true about this subsystem: **it never invents a parameter.** Every fill
 is either a real observed value copied from elsewhere, or a draw/estimate from the observed
@@ -155,7 +155,7 @@ tier**. Both share the limit described next.
 On a predicted-vs-actual scatter of a held-out attribute (`year_built`, `levels`), the imputed
 points do **not** follow the 1:1 diagonal — they form a **flat horizontal band**. The real
 buildings on the X-axis are widely varied; the imputed values on the Y-axis are nearly
-constant. *(Figures: `docs/docs_ACTIVE/input/imputation/results/phase_B/phaseB_scatter_year_built.png`
+constant. *(Figures: `docs/docs_DONE/INPUTS/imputation/results/phase_B/phaseB_scatter_year_built.png`
 and `.../phase_C/phaseC_scatter_levels.png`.)*
 
 ### 6.2 What is really happening — measured, not eyeballed
@@ -281,8 +281,8 @@ today.
 |---|---|
 | The plain-language pipeline overview | [`OpenUBEM_fundamentals.md`](OpenUBEM_fundamentals.md) |
 | Every input, its real-world source, and consuming module | [`OpenUBEM_inputs_reference.md`](OpenUBEM_inputs_reference.md) |
-| The full imputation arc record (Phases A–E, all CPs) | `docs/docs_ACTIVE/input/imputation/` (`results/README.md` is the entry point) |
-| The Phase-B honest-precision reframe (KS/Wasserstein) | `docs/docs_ACTIVE/input/imputation/implementation/PLAN_figures_implementation.md` §11 + `results/phase_B/RESULTS_phaseB.md` |
+| The full imputation arc record (Phases A–E, all CPs) | `docs/docs_DONE/INPUTS/imputation/` (`results/README.md` is the entry point) |
+| The Phase-B honest-precision reframe (KS/Wasserstein) | `docs/docs_DONE/INPUTS/imputation/docs_Done/PLAN_figures_implementation.md` §11 + `results/phase_B/RESULTS_phaseB.md` |
 | The binding imputation spec | `docs/docs_main/` DESIGN §3E |
 | Current project status | `docs/PROJECT_CHECKLIST.md` |
 

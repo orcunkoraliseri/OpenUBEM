@@ -47,7 +47,7 @@ Two things are always true about every row below:
 | 19 | EnergyPlus engine | The physics solver itself | EnergyPlus 23.1 (energyplus.net), user-installed binary | *(not bundled — path via `ENERGYPLUS_PATH` env var)* | `simulation/runner.py` |
 
 **Classification audit (rows 2, 3, 16).** Three deep-research reports
-(`docs/docs_ACTIVE/input/deepResearch/RESULT_I01`–`I03`, full citations in §6) checked the OSM tag
+(`docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I01`–`I03`, full citations in §6) checked the OSM tag
 map, the archetype size/level cascade, and the CBECS crosswalk against peer UBEM-tool practice and
 primary sources (DOE/PNNL prototype TSDs, the CBECS 2018 codebook). Headline findings — not yet
 acted on, audit pending manager review:
@@ -179,9 +179,9 @@ Source prompts/results for the three city benchmarks live in
 | Schedules (digitized DOE prototype IDFs) | `docs/docs_DONE/scheduleDigitization/PROVENANCE.md` |
 | Service-load end-use fractions (legacy overlay) | `docs/docs_DONE/serviceLoads/SERVICE_LOADS_coefficients.md` |
 | HVAC / DHW / cooking / refrigeration deep research | `docs/docs_DONE/hvac-ServiceLoads/deepResearch/` (RESULT_01 through RESULT_05) |
-| OSM tag → use-class mapping vs. peer UBEM-tool practice | `docs/docs_ACTIVE/input/deepResearch/RESULT_I01_osm_tag_to_use_class_mapping.md` |
-| Archetype size/level cut-points vs. DOE/PNNL prototype TSDs | `docs/docs_ACTIVE/input/deepResearch/RESULT_I02_archetype_classification_cascade.md` |
-| Archetype ↔ CBECS-PBA crosswalk vs. the CBECS 2018 codebook | `docs/docs_ACTIVE/input/deepResearch/RESULT_I03_cbecs_pba_crosswalk_validation.md` |
+| OSM tag → use-class mapping vs. peer UBEM-tool practice | `docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I01_osm_tag_to_use_class_mapping.md` |
+| Archetype size/level cut-points vs. DOE/PNNL prototype TSDs | `docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I02_archetype_classification_cascade.md` |
+| Archetype ↔ CBECS-PBA crosswalk vs. the CBECS 2018 codebook | `docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I03_cbecs_pba_crosswalk_validation.md` |
 | Phase-E physical-simulation results & methodology | `docs/docs_DONE/hvac-ServiceLoads/REPORT_phaseE_final.md` |
 | External validation ground truth | `docs/docs_VALIDATION/step1/external_literature/` |
 | Full bundled-data inventory + config constants | root `README.md` §"Data Assets" and §"Configuration & Constants" |

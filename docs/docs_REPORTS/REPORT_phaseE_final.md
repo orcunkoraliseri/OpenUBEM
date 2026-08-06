@@ -3,7 +3,7 @@
 - **Date:** 2026-06-27
 - **Author:** Manager (Opus session)
 - **Status:** FINAL — CP-E stop-and-report. All 12 cells complete. Phase-E is the adopted OpenUBEM baseline.
-- **Plan:** `docs/docs_ACTIVE/hvac-ServiceLoads/PLAN_phaseE_full_realism.md` (T01–T18)
+- **Plan:** `docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/implementation/PLAN_phaseE_full_realism.md` (T01–T18)
 - **Supersedes:** Phase-D2 metered PTAC + V16 regional reconstruction (`REPORT_phaseD_final.md`)
 
 ---

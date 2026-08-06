@@ -1,6 +1,6 @@
 # Graphic Summary Prompt Styles — A Reusable Reference
 
-**What this document is:** a portable reference for writing **image-generation prompts** that summarize a completed technical pipeline, feature, or project arc as a single graphic — for pasting into an external image model (Gemini web, or any comparable tool). It documents **three prompt styles**, when to use each, their visual characteristics, and the prompting technique that makes each one work reliably. This document is **project-agnostic** — it happens to live in OpenUBEM's docs because that is where it was first written, but it carries no OpenUBEM-specific content and is meant to be handed to a fresh Claude session on **any other project** as a ready-made style guide. For a concrete worked example built from this reference, see the three prompt files under [`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/general-abstract/`](docs_ACTIVE/simulation-Resolution/layoutAssigner/general-abstract/) (§5 below).
+**What this document is:** a portable reference for writing **image-generation prompts** that summarize a completed technical pipeline, feature, or project arc as a single graphic — for pasting into an external image model (Gemini web, or any comparable tool). It documents **three prompt styles**, when to use each, their visual characteristics, and the prompting technique that makes each one work reliably. This document is **project-agnostic** — it happens to live in OpenUBEM's docs because that is where it was first written, but it carries no OpenUBEM-specific content and is meant to be handed to a fresh Claude session on **any other project** as a ready-made style guide. For a concrete worked example built from this reference, see the three prompt files under [`docs/docs_DONE/SETUP/layoutAssigner/general-abstract/`](../docs_DONE/SETUP/layoutAssigner/general-abstract/) (§5 below).
 
 ---
 
@@ -96,7 +96,7 @@ After closing out a feature or an arc, a single well-made graphic communicates "
 
 ## 5. Worked example — LayoutAssigner (this project)
 
-Three ready-made prompts built exactly to this reference, for the OpenUBEM `layout_assign` resolution-mode pipeline, live at `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/general-abstract/`:
+Three ready-made prompts built exactly to this reference, for the OpenUBEM `layout_assign` resolution-mode pipeline, live at `docs/docs_DONE/SETUP/layoutAssigner/general-abstract/`:
 
 | File | Style |
 |---|---|
@@ -112,9 +112,9 @@ Open any of the three for a complete, filled-in example of the corresponding sty
 
 | You want… | Read |
 |---|---|
-| The three ready-made LayoutAssigner prompts | `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/general-abstract/` |
+| The three ready-made LayoutAssigner prompts | `docs/docs_DONE/SETUP/layoutAssigner/general-abstract/` |
 | The OpenUBEM pipeline these prompts describe | `docs/docs_EXPLANATION/OpenUBEM_fundamentals.md` §5.1 |
-| The LayoutAssigner arc's full technical record | `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/implementation_plan.md` |
+| The LayoutAssigner arc's full technical record | `docs/docs_DONE/SETUP/layoutAssigner/DONE/DONE-implementation_plan.md` |
 
 ---
 

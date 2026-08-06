@@ -1,0 +1,404 @@
+<title>OpenUBEM — published-numbers board</title>
+<style>
+  :root{
+    --paper:#f6f7f9; --card:#ffffff; --ink:#151a21; --ink-2:#4c5766; --ink-3:#7c8798;
+    --rule:#dde2ea; --rule-2:#eceff4;
+    --blue:#0b6e99; --blue-soft:#e6f1f6;
+    --done:#2f6b4a; --done-soft:#e6f1ea;
+    --hold:#9a6208; --hold-soft:#fbf1e0;
+    --stop:#a8322c; --stop-soft:#f9e9e8;
+    --idle:#66707e; --idle-soft:#eef0f3;
+    --shadow:0 1px 2px rgba(21,26,33,.06),0 8px 24px -16px rgba(21,26,33,.28);
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#0e1218; --card:#151b23; --ink:#e8ecf2; --ink-2:#a3aebd; --ink-3:#6f7b8b;
+      --rule:#242d38; --rule-2:#1c242d;
+      --blue:#5cb8e0; --blue-soft:#122c3a;
+      --done:#63c294; --done-soft:#122a1f;
+      --hold:#e0a94f; --hold-soft:#2c2314;
+      --stop:#e88a84; --stop-soft:#2e1917;
+      --idle:#8b95a3; --idle-soft:#1b222a;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="light"]{
+    --paper:#f6f7f9; --card:#ffffff; --ink:#151a21; --ink-2:#4c5766; --ink-3:#7c8798;
+    --rule:#dde2ea; --rule-2:#eceff4;
+    --blue:#0b6e99; --blue-soft:#e6f1f6;
+    --done:#2f6b4a; --done-soft:#e6f1ea; --hold:#9a6208; --hold-soft:#fbf1e0;
+    --stop:#a8322c; --stop-soft:#f9e9e8; --idle:#66707e; --idle-soft:#eef0f3;
+    --shadow:0 1px 2px rgba(21,26,33,.06),0 8px 24px -16px rgba(21,26,33,.28);
+  }
+  :root[data-theme="dark"]{
+    --paper:#0e1218; --card:#151b23; --ink:#e8ecf2; --ink-2:#a3aebd; --ink-3:#6f7b8b;
+    --rule:#242d38; --rule-2:#1c242d;
+    --blue:#5cb8e0; --blue-soft:#122c3a;
+    --done:#63c294; --done-soft:#122a1f; --hold:#e0a94f; --hold-soft:#2c2314;
+    --stop:#e88a84; --stop-soft:#2e1917; --idle:#8b95a3; --idle-soft:#1b222a;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px; line-height:1.5; -webkit-font-smoothing:antialiased;
+  }
+  .mono{font-family:ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Liberation Mono",monospace}
+  .wrap{max-width:1180px; margin:0 auto; padding:40px 24px 80px; display:flex; flex-direction:column; gap:28px}
+
+  header{display:flex; flex-direction:column; gap:10px; padding-bottom:22px; border-bottom:2px solid var(--ink)}
+  .eyebrow{
+    font-family:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+    font-size:11px; letter-spacing:.16em; text-transform:uppercase; color:var(--blue); font-weight:600;
+  }
+  h1{margin:0; font-size:clamp(26px,4vw,40px); line-height:1.08; letter-spacing:-.02em; text-wrap:balance; font-weight:650}
+  .sub{margin:0; color:var(--ink-2); max-width:64ch}
+  .stamp{font-size:12px; color:var(--ink-3)}
+
+  .counts{display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:10px}
+  .count{
+    background:var(--card); border:1px solid var(--rule); border-radius:3px;
+    padding:14px 16px; display:flex; flex-direction:column; gap:2px; box-shadow:var(--shadow);
+    border-left:3px solid var(--c,var(--idle));
+  }
+  .count b{font-size:28px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:tabular-nums; color:var(--c,var(--ink))}
+  .count span{font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3);
+    font-family:ui-monospace,"Cascadia Mono",Consolas,monospace}
+
+  .bar{display:flex; height:9px; border-radius:99px; overflow:hidden; border:1px solid var(--rule); background:var(--card)}
+  .bar i{display:block}
+
+  .decisions{
+    background:var(--hold-soft); border:1px solid var(--hold); border-left-width:4px; border-radius:3px;
+    padding:20px 22px; display:flex; flex-direction:column; gap:14px;
+  }
+  .decisions h2{margin:0; font-size:15px; letter-spacing:.02em; color:var(--hold)}
+  .decisions ol{margin:0; padding-left:20px; display:flex; flex-direction:column; gap:11px}
+  .decisions li{color:var(--ink)}
+  .decisions strong{font-weight:650}
+  .decisions .why{display:block; color:var(--ink-2); font-size:13.5px; margin-top:2px}
+
+  .controls{display:flex; flex-wrap:wrap; gap:7px; align-items:center}
+  button.f{
+    font:inherit; font-size:12.5px; cursor:pointer; padding:6px 13px; border-radius:99px;
+    border:1px solid var(--rule); background:var(--card); color:var(--ink-2);
+    font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; letter-spacing:.02em;
+  }
+  button.f{display:inline-flex; align-items:center; gap:7px}
+  button.f[data-f]:not([data-f="all"])::before{
+    content:""; width:7px; height:7px; border-radius:99px; background:var(--c,var(--idle)); flex:none;
+  }
+  button.f:hover{border-color:var(--ink-3); color:var(--ink)}
+  button.f[aria-pressed="true"]{background:var(--ink); color:var(--paper); border-color:var(--ink)}
+  button.f:focus-visible{outline:2px solid var(--blue); outline-offset:2px}
+
+  .wp{display:flex; flex-direction:column; gap:0; background:var(--card);
+      border:1px solid var(--rule); border-radius:3px; overflow:hidden; box-shadow:var(--shadow)}
+  .wp > h3{
+    margin:0; padding:13px 18px; font-size:12px; letter-spacing:.13em; text-transform:uppercase;
+    color:var(--ink-2); background:var(--rule-2); border-bottom:1px solid var(--rule);
+    font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; font-weight:600;
+    display:flex; justify-content:space-between; gap:12px; align-items:baseline;
+  }
+  .wp > h3 em{font-style:normal; color:var(--ink-3); letter-spacing:0; text-transform:none; font-size:12px}
+
+  .row{display:grid; grid-template-columns:74px 1fr; gap:0 16px; padding:13px 18px;
+       border-bottom:1px solid var(--rule-2); align-items:start}
+  .row:last-child{border-bottom:0}
+  .row[hidden]{display:none}
+  .id{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; font-size:12.5px;
+      font-weight:600; color:var(--ink); padding-top:1px; letter-spacing:-.01em}
+  .body{display:flex; flex-direction:column; gap:5px; min-width:0}
+  .task{font-weight:520}
+  .note{font-size:13px; color:var(--ink-2); overflow-wrap:anywhere}
+  .note code{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; font-size:12px;
+    background:var(--rule-2); padding:1px 4px; border-radius:2px}
+  .meta{display:flex; flex-wrap:wrap; gap:7px; align-items:center; margin-top:1px}
+  .pill{
+    font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+    font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; font-weight:600;
+    padding:2.5px 8px; border-radius:2px; white-space:nowrap;
+  }
+  .s-done{background:var(--done-soft); color:var(--done)}
+  .s-decided{background:var(--blue-soft); color:var(--blue)}
+  .s-partial{background:var(--hold-soft); color:var(--hold)}
+  .s-open{background:var(--idle-soft); color:var(--idle)}
+  .s-blocked{background:var(--stop-soft); color:var(--stop)}
+  .tag{font-size:11px; color:var(--ink-3);
+       font-family:ui-monospace,"Cascadia Mono",Consolas,monospace}
+  /* Long-form explainer, carried only by tasks in progress. */
+  .explain{
+    margin:7px 0 2px; padding:12px 14px; max-width:80ch;
+    background:var(--hold-soft); border-left:3px solid var(--hold); border-radius:0 3px 3px 0;
+    font-size:13.5px; line-height:1.62; color:var(--ink-2);
+  }
+  .explain b{color:var(--ink); font-weight:620}
+
+  .empty{
+    border:1px dashed var(--rule); border-radius:4px; padding:22px 20px; max-width:78ch;
+    background:var(--rule-2);
+  }
+  .empty h4{font-size:15px; font-weight:620; color:var(--ink); margin-bottom:7px}
+  .empty p{font-size:13.5px; line-height:1.62; color:var(--ink-2)}
+  .empty b{color:var(--ink); font-weight:620}
+
+  footer{border-top:1px solid var(--rule); padding-top:18px; color:var(--ink-3); font-size:12.5px;
+         display:flex; flex-direction:column; gap:6px}
+  @media (max-width:560px){
+    .row{grid-template-columns:1fr; gap:6px}
+    .wrap{padding:28px 16px 60px}
+  }
+  @media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">OpenUBEM &middot; openings arc &middot; the numbers we already published</div>
+  <h1>Published-numbers board</h1>
+  <p class="sub">Live view of <span class="mono">PLAN_published-numbers.md</span> and, since 6 August,
+     <span class="mono">PLAN_no-compute-queue.md</span> and <span class="mono">PLAN_no-compute-queue-2.md</span>
+     — covering OPEN-01 through OPEN-04 with OPEN-28
+     bundled in, plus the work that needs no computation. <b>Nothing here fixes anything yet.</b>
+     Every task measures how big a problem is; only then is a fix designed.</p>
+  <div class="stamp mono">State as of 2026-08-06 late evening &middot; the overnight re-run is <b>parked at your
+     instruction</b> until a machine is free &middot; no cluster job outstanding &middot; round 1's five
+     read-only tasks <b>finished and audited</b> &middot; <b>round 2 complete — seven more, all
+     read-only, all audited</b> &middot; <b>rounds 3 and 4 complete — all sixteen tasks landed and
+     audited</b> &middot; <b>the no-compute queue is empty; everything still open needs the
+     processor</b> &middot; the register now holds <b>32 items</b>, and the night's
+     largest finding is about <b>the reliability of the project's own record</b>, not about a number</div>
+</header>
+
+<section class="counts" id="counts"></section>
+<div class="bar" id="bar"></div>
+
+<section class="decisions">
+  <h2>Where this stands, in plain language</h2>
+  <ol>
+    <li><strong>You picked the numbers that could already be wrong. That is four problems, and they do not share a fix.</strong>
+      <span class="why">Two of them are about <b>energy per square metre</b>: we divide a building's energy by a
+      floor area we <em>assumed</em>, and for most buildings the simulation was not actually run on that floor
+      area. One is about the <b>energy itself</b>: every building's lights and equipment are modelled as if
+      built to 2022 code, whatever year it was really built. The fourth is about a <b>measuring instrument</b>:
+      the score that says how often the building-type guesser is right slid four points and nobody knows why.
+      Grouping them was your call and it was the right one — they are the only items on the register that can
+      make a published result <em>wrong</em> rather than merely incomplete.</span></li>
+    <li><strong>All the measuring is done, and the news on 6 August is good.</strong>
+      <span class="why">The two big unfixed problems both live in <b>one method</b> of dividing a building into
+      rooms — and that method cannot be picked by accident, only by name. I checked all <b>16,320 buildings</b>
+      behind our adopted results: not one used it. <b>So the numbers this project stands on are not affected.</b>
+      The two problems are not smaller than they were; we now know where they stop, and it is short of anything
+      we have published as a headline.</span></li>
+    <li><strong>Three things wait on you, and none of them is urgent tonight.</strong>
+      <span class="why">Which night the machine is free for the overnight re-run, and whether we spend fifteen
+      minutes checking the one unverified method first (<b>P02</b>). Whether the cross-method comparisons are
+      worth salvaging (<b>CP-M2</b>). And whether a ratified change must prove itself against the answer key
+      before it is adopted (<b>CP-M3</b>). A fourth has now joined them in spirit — see <b>S05</b>: the same
+      shape of question, about what a piece of work must carry before it counts as finished.</span></li>
+    <li><strong>One question from last week is still unanswered, and it is not in this plan.</strong>
+      <span class="why">The classifier question (<b>OPEN-22</b>): when the map data says only <em>"this is a
+      building"</em>, the code guesses <em>office</em>. If the human answer key guessed office too, our accuracy
+      score is measuring two guesses agreeing. It is carried at the bottom of this board as <b>S03</b> so it
+      cannot be lost again — but it is a separate, cheap job, and it does not block anything here.</span></li>
+    <li><strong>The rule that shapes this whole board: measure first, fix second.</strong>
+      <span class="why">Several of these items rest on numbers written down weeks ago. One of them —
+      OPEN-22's — was checked this week and <b>its entire premise had silently become false</b>: the code had
+      changed underneath the note describing it. So no fix gets designed for anything here until its size has
+      been measured against today's code. The measurement tasks are explicitly forbidden from fixing what
+      they find.</span></li>
+  </ol>
+</section>
+
+<div class="controls" id="controls"></div>
+
+<div id="board" style="display:flex;flex-direction:column;gap:20px"></div>
+<div class="empty" id="empty" hidden></div>
+
+<footer>
+  <div>Generated from the plan's task table. The plan doc is the binding record; this board is the same
+       data, filterable. Measurement reports land in <span class="mono">docs/docs_ACTIVE/openings/extra/</span>;
+       supporting tables in <span class="mono">openubem/outputs/comparisons/</span>.</div>
+  <div class="mono">Register of all open work: docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md &middot; 31 items &middot; next free ID OPEN-36 &middot; on 6 Aug: 2 opened (both by auditing, not by running), 1 closed</div>
+</footer>
+</div>
+
+<script>
+const S={done:["s-done","done"],decided:["s-decided","decided"],partial:["s-partial","partial"],
+         open:["s-open","open"],blocked:["s-blocked","blocked"]};
+const WP=[
+ ["A","Groundwork — done before any measurement",[
+  ["A1","Read the open-items register end to end","done",
+   "The register is the single list of everything left open in this project — 26 items. It was read in full before anything was chosen, because item order in it is deliberately not a ranking. Three IDs are retired and must never come back: OPEN-05 (closed), OPEN-21 (deferred by you), OPEN-23 (excluded by you).",""],
+  ["A2","Re-check the four items' load-bearing facts against today's code","done",
+   "Every claim this plan rests on was opened and read at HEAD rather than trusted from the register: the rule that leaves most buildings simulating the prototype's height, the cluster line that deletes the floor-area file, the patcher that fixes the envelope but not the internal loads, and the three assertions the accuracy gate actually makes. Seven facts, each with a file and line number, are pinned in §5 of the plan so no executor has to re-derive them.","7 facts pinned"],
+  ["A3","Write the measurement plan","done",
+   "One plan document covering all four items plus OPEN-28, at docs/docs_ACTIVE/openings/implemenation/PLAN_published-numbers.md. Phase 1 is five measurements; Phase 2 is deliberately left empty and gets written only after the measurements land. Its §9 says so in as many words.","plan doc"]]],
+ ["B","Phase 1 — the measurements (no fixing allowed)",[
+  ["M01","How wrong is the floor area we divide by, per building type?","done",
+   "Measured and audited. Only <b>877 of 6,939</b> buildings (12.6%) divide by the right floor area. The median building is out by a factor of <b>2.0</b>, and the spread runs from <b>0.118×</b> to <b>10×</b>. Two of twenty-eight building types carry a hidden storey multiplier the earlier file missed: apartments mid-rise (real answer 4, not 3) and high-rise (real answer <b>10</b>, not 3). The manager re-derived both by reading the model files directly rather than trusting the executor's code — they confirm.","measured · audited"],
+  ["M02","What would it actually cost in disk space to keep the proof?","done",
+   "Answered: <b>keeping it is cheap.</b> The file everyone assumed was expensive is a typical <b>76 KB</b>, and keeping it adds about <b>an eighth</b> to what each run already stores. A full five-mode fleet pass costs roughly <b>1–45 GB</b> depending on how pessimistic you are, against <b>8.1 TB</b> of free shared space — half a percent at the absolute worst. The 800 GB warning that justified deleting it was about eleven file types together, not this one. Manager re-scanned every local copy and re-derived the cost independently; the numbers match.","measured · audited"],
+  ["M03","Is the 2022-code assumption on internal loads deliberate or an oversight?","done",
+   "Verdict: <b>undocumented but deliberate</b> — the choice was made and even noted in a working log, but it was never written into any specification, and the only two places that call it deliberate are both write-ups produced <em>after</em> the effect was discovered. Magnitude, measured without simulating: 2013-code buildings use <b>1.72× the lighting</b> of 2022-code ones (up to 2.5×). Equipment and occupancy barely move. And <b>93% of the fleet is pre-1980</b> — far older than 2013 — so the real understatement is likely larger than this proxy shows.","measured · audited"],
+  ["M04","Which accuracy number drifted, and which commit moved it?","done",
+   "The apparent contradiction dissolved: 92→88 is the <em>detailed</em> building-type score, which only has to clear 70%, not the broad one, which sits at 100%. <b>The suspected cause is wrong.</b> The drift was already complete <b>18 days before</b> the work everyone blamed, and the code that supposedly caused it never touched a relevant file. The real cause is a <em>ratified</em> change to building size-tier boundaries: 92% → 84% on 1 July, partially recovering to 88% on 3 July. So this was never an unexplained regression — it is an approved change whose 4-point cost was never checked against the old baseline.","measured · audited"],
+  ["M05","How comparable are the two harvest generations we keep comparing?","done",
+   "4,530 buildings are shared between the July and August runs. <b>13.4% of them were classified as a different building type in each</b> — most often a medium office in July becoming a small office in August. Root cause found and reproduced: a classification-threshold change on 3 July altered the shared input file between the two runs. Floor areas agree 100%, so only the type drifted. Two things the record got wrong: building vintage was never saved anywhere, so vintage agreement is <b>unmeasurable</b>, and the published −29.1% figure did not come from the August run at all — it came from an <em>earlier</em> July one.","measured · audited"],
+  ["M06","Do the numbers we actually stand on depend on the flawed method?","done",
+   "<b>No — and this is the single most reassuring result of the arc.</b> The two large errors both live in one method, <span class='mono'>layout_assign</span>. That method cannot be chosen by accident: the code that picks how a building is divided into rooms has no route to it, so it only runs when someone asks for it by name. I checked every one of the <b>16,320 buildings</b> behind the adopted results and none used it — not a sample, all of them. The headline figures, the three city numbers, and the four-method comparison are all outside the blast radius. <b>Nothing about the two errors shrinks</b>; every published number from that one method, including the −29.1%, is still wrong. What changed is that we now know where the damage stops. No computation — reading only.","adopted numbers are clear"]]],
+ ["C","Checkpoints — where a decision is owed",[
+  ["CP-M1","The bundle gate: does the fleet re-run happen?","decided",
+   "<b>Decided: yes — re-run all five modes on one harvest, keeping the proof file.</b> The two facts it turned on: 87% of buildings divide by a wrong floor area, typically by a factor of 2; and keeping the proof costs half a percent of free space at worst. The compute cost is being scoped now, and nothing goes to the cluster until that estimate comes back to you.","approved · costing in progress"],
+  ["CP-M2","Are the cross-mode numbers salvageable by re-running alone?","partial",
+   "<b>Both inputs are in, and both of its trigger conditions fired.</b> The internal-loads choice is undocumented, and the two runs disagree on the type of 13.4% of shared buildings. The plan said that if both were true, the published cross-mode results are in worse shape than the register records and the register must be amended before anything further is planned. It is.","triggered · amendment owed",
+   "<b>What the two measurements did to this checkpoint.</b> The plan set this up as a conditional: if the 2022-code loads choice turned out to be undocumented <em>and</em> the two runs turned out to disagree about what each building is, then the cross-mode comparison is not merely imprecise but confounded, and the record has to be corrected before any further work is planned on top of it. Both conditions fired. A third problem surfaced that nobody had written down: the published −29.1% figure was <b>not</b> computed from the August run at all, but from an earlier July one — so even the join just performed does not describe the population that figure was actually measured over. And a fourth: the construction vintage each building was assigned is <b>not saved anywhere</b>, by either run, which means vintage agreement between them cannot be checked now and could not be checked retrospectively at any point in the past either. The re-running you approved fixes the missing floor-area evidence. It does <em>not</em>, on its own, fix any of these three — they are about what was recorded, not about what was simulated."],
+  ["CP-M3","Can the accuracy metric be trusted at all?","partial",
+   "<b>Answered, and the answer is better than expected.</b> The instrument is fine — the score that dropped only has to clear 70% and clears it, and the broad score never moved off 100%. What is <em>not</em> fine is the process: an approved change cost 4 points of accuracy and nobody compared it against the previous baseline for three weeks. That is a review gap, not a broken metric.","your call — process, not metric",
+   "<b>Two findings landed on the same commit from opposite directions, and that is the real result.</b> The accuracy investigation and the harvest-comparison investigation were run by separate executors who did not share notes, and both independently arrived at the 3 July <em>classification thresholds</em> change — one as the moment the accuracy score settled at its current value, the other as the reason two runs of the same fleet disagree about the type of 13.4% of buildings. Neither knew what the other would find. That convergence is worth more than either finding alone, because it means the same approved change is visible in both an accuracy metric and a fleet-scale output, and was reviewed against neither. The change itself is not the problem — it was ratified, and it is part of the adopted baseline. The gap is that <b>a ratified change was never measured against the thing it replaced</b>, so a 4-point accuracy cost and a fleet-wide reclassification both went unremarked for weeks. What you decide here is not whether to trust the number; it is whether a ratified change should be required to carry a before-and-after on the labelled fixture before it is adopted."]]],
+ ["D","Phase 2 — the re-run and what it needs",[
+  ["E01","Build the clean-up step — the one thing blocking the re-run","done",
+   "<b>Built, and the clean-up itself is verified.</b> The proof file survived in all three test buildings, every bulk file was removed, deletion stayed inside each building's own folder, and running it twice changed nothing. Checked by opening the folders, not by reading the report. <b>The safety guard around it did not survive the audit</b> — carried to a short correction round.","clean-up accepted · guard reopened"],
+  ["E01b","Fix the disk guard, which could not actually see the disk filling","done",
+   "<b>Both defects fixed and verified on disk.</b> Work is now released in batches, so the guard runs against real free space. It was made to fire on purpose: it stopped cleanly and named a real finished building. The disk counter now reports what a building truly costs — checked against the folders themselves, and it agrees exactly.","stop path proven · counter exact"],
+  ["P00","Can the approved re-run be done on this machine instead of the cluster?","done",
+   "<b>Answer: yes, and it is an overnight job — roughly 10 to 15 hours.</b> This machine has 20 cores; using 12 leaves you 8 to work on. A local core turned out to be <b>3 to 4.6× faster</b> than a cluster core, measured rather than assumed, which shrinks 540 cluster-hours to about 117–180 here. One hazard found: without a clean-up step, the output would fill the disk.","overnight · one hazard found"],
+  ["P01","Write the execution section of the plan","done",
+   "Section 9 was deliberately left empty until every measurement was in — writing it earlier is the exact failure this arc exists to prevent. It opened legitimately once all five landed, and now holds the clean-up task, its correction round, and the overnight pass itself.","opened on evidence"],
+  ["E01c","Check the one method never run at today's code","done",
+   "<b>It works.</b> The coarsest of the five methods — treat each whole building as a single room — was the last one never exercised since the model builder moved 223 lines. Three real buildings, checked against the raw output files rather than the executor's report: exactly one room each, <b>zero errors of any severity</b>, and the file recording the floor area actually simulated present and non-empty in all three. It is no longer a gap in the overnight pass. <b>Fifteen minutes, and it removed the only technical unknown left in that pass.</b>","sound at today's code · audited"],
+  ["P02","The re-run itself — parked at your instruction","blocked",
+   "<b>Parked, not cancelled.</b> You asked that work needing computation wait until Speed or this machine is genuinely free, and that we spend the meantime on things that need neither. Everything it needs is built and keeps: the clean-up step, its correction round, the cost estimate, and now the last unverified method. <b>One new prerequisite surfaced while scoping it</b> — the local runner only knows four of the five methods; the one this whole investigation is about has only ever run on the cluster. Small, but it is pipeline code, so it needs its own task before the night, not during it.","parked · resumes when a machine is free",
+   "<b>The cost came back small enough that the full pass is the obvious choice</b> — no need to settle for one method, a few cells, or a sample. Three real simulations were run to establish it, and they doubled as a check that the code still works after eight weeks of changes: three of the five methods pass cleanly at today's code, and the fourth, <span class='mono'>building</span>, remains unverified — a stated gap, not an assumption. <b>The hazard is disk, and it is the reverse of the cluster's.</b> On the cluster, storage was plentiful and the proof file was deleted anyway. Here, keeping the proof file costs nothing worth counting, but the local runner has <em>no clean-up step at all</em>, and the untrimmed output of a single one of the twelve city passes would exceed this machine's entire free space. So the clean-up must be written and checked before the first building runs, not after — a full pass that dies at 70% with a full disk costs the whole night and leaves nothing usable. That step is a change to pipeline code, so it goes through a written task and an executor, not an improvised edit."]]],
+ ["F","The no-compute queue — opened 6 August, while the machine waits",[
+  ["N00","Choose what to work on without computation","done",
+   "You asked that we stop scheduling work that needs the processor and instead clear what can be done by reading — and that I choose the items myself rather than putting each one to you. Five tasks were selected from the register on that basis, written into a new plan, and dispatched at once. <b>None of them can make a published number wrong</b>; that work is finished. These are about whether the record is complete and correct.","you handed selection over"],
+  ["N02","What does the accuracy score actually measure?","done",
+   "<b>Measured, and the answer is reassuring in a direction nobody predicted.</b> The worry was that the score is propped up by easy rows: when the map says only <em>“this is a building”</em>, the project guesses <em>office, by size</em> — and if the human answer key guessed office too, the score is two guesses agreeing rather than a classifier being right. So: remove those rows and see what happens. <b>The score does not move.</b> 88.0% over all fifty rows, 87.9% over the thirty-three that were genuinely decided. The guessed rows score the same as the earned ones. What is true, and is what is left for you to rule on: <b>seventeen of fifty rows (a third of the exam) are decided by that size guess</b>, all at low confidence, and sixteen of those seventeen do carry an office answer in the key. The number is not inflated — but a third of the test is measuring the size rule rather than the tag logic. I re-derived every figure from the output file before signing it.","measured · audited · your ruling owed"],
+  ["N01","Are there open defects the register never adopted?","done",
+   "<b>Yes — nine of them.</b> Twelve defects had <em>OPEN</em> written where they were first recorded but appeared nowhere in the register. Following each one forward to the last document that mentions it: three had in fact been fixed elsewhere, one was folded into another, and <b>nine are genuinely still open</b> — sizing failures never claimed as fixed, a warmup family whose “cosmetic” label has explicitly never been tested, and a script the project stopped using rather than repaired. The register's claim to be the one place open work lives <b>was overstated, and is now repaired</b>. The method was proved before its results were believed: it was made to rediscover, blind, a defect whose closure lives in a different document from where it was recorded. <b>One of the nine is worse than it looked.</b> The dead fatal-error column — a one-character bug that makes every harvest report zero fatal errors by construction — is not in one script but in <b>four</b>, while two other files in the same project use the correct test. Both the right and the wrong version have coexisted for months.","9 still open · audited"],
+  ["N03","Are the June audit's leftovers still true?","done",
+   "<b>Two of four dissolve.</b> One is fully fixed — and was fixed <em>the day after</em> the audit named it, on 10 June, then carried on the open list for eight weeks. Its code produced the adopted fleet baseline. A second is largely superseded: the live-simulation safety test the audit called “parked” does exist and runs, skipping only when the simulator isn't installed, and the specific failure it warned about was designed out entirely. Of the four small polish items, one is fixed and three survive. <b>The fourth is a wrong name in a specification, and it turns out to matter more than it sounded.</b> The document defines the broad accuracy metric against two residential building types — and names one the project does not have. The code is self-consistent, so no number is wrong; the <em>definition</em> of a measurement names something that doesn't exist. Only you can fix it, at the source; the exact correction is written out ready to paste.","2 of 4 dissolve · audited"],
+  ["N04","Where do the 41 mislabelled buildings come from?","done",
+   "<b>The shared source file is wrong; the classifier is right.</b> Recomputed from scratch rather than trusted: exactly 41 of 8,160, matching the recorded count with no discrepancy. Three were checked against the raw map tags — <em>hotel</em>, <em>hotel</em>, <em>motel</em>; one is literally named “Wilshire Serrano Motel” and is recorded as an office. <b>What is still not known is which step writes the bad value</b>, and that is now this item's next question — fixing it in the harvest would leave the source wrong. The six inverted-geometry buildings were confirmed to be the same six as before, so that item can now be planned. And the three buildings that regressed: their error files survive, each fails in a <em>laundry room</em> — a hotel room type. <b>If they had really been simulated as the offices the table says they are, that room would not exist.</b> Recorded as an open contradiction, not explained away.","source defect · audited"],
+  ["N05","Does a three-building test reproduce the real fleet?","done",
+   "<b>No — and the reason is worth knowing.</b> When a building's storey count is missing, the project fills it with the <em>middle value of whatever buildings were handed in together</em>. Among three buildings, one of which is a real 51-storey tower, the middle value is 51 — so two single-storey buildings inherited a skyscraper's height and were classified as the tallest type in the library. Run the same code over the whole 738-building neighbourhood and the middle value is 19, and both come back as large offices, <b>matching the real fleet exactly</b>. The code is not broken; the sample was. <b>Standing rule from now on:</b> a local check either uses the whole neighbourhood or says plainly that its building types are not the fleet's. <b>Checking that answer turned up a second, larger problem</b> — see the item below.","subset-dependent · audited"],
+  ["N05b","Two different guesses for the same missing storey count","open",
+   "<b>Found while verifying the answer above, and it is the more serious of the two.</b> When a building has neither a storey count nor a height, two parts of the pipeline invent one — and they invent different numbers. The part that <em>chooses the building type</em> uses the neighbourhood's middle value: nineteen storeys. The part that <em>builds the geometry</em> uses one. So the building is classified as a nineteen-storey office and then simulated as a single-storey one, and its energy per square metre is divided by one storey's floor area. <b>This is not the sampling problem</b> — it happens in the full-neighbourhood run too, which is the population every published result came from. Neither guess is written down anywhere afterwards, so it leaves no trace. <b>How many buildings this touches is not yet counted</b> — that is one query, and it is the next thing to do.","opened OPEN-35 · size unknown"]]],
+ ["G","The no-compute queue, round 2 — everything left that needs no processor",[
+  ["N06","How many buildings does the two-guesses problem actually touch?","done",
+   "<b>A third of the fleet — 2,611 buildings of 8,160.</b> These are the ones with neither a storey count nor a height, so both of the disagreeing guesses fire. <b>Every single one is stored as a one-storey building</b> — checked on all 2,611, not sampled. Re-running the count myself added what the report did not: <b>1,031 of them were classified as mid- or high-rise apartments and then built as one storey.</b> Two figures the register has quoted for weeks also failed to reproduce: both rural neighbourhoods measure <b>100%</b> missing heights, not 36% and 19% — and a third neighbourhood, the largest in the fleet at 1,589 buildings, has <b>not one building with a height</b> and was never named in that item at all.","32% of the fleet · audited"],
+  ["N07","Which step writes the wrong building type?","done",
+   "<b>No step in this project writes it. That is the finding.</b> All three suspected causes were tested and each was disproved with direct evidence — no hidden mapping from hotel to office, no later script overwriting the value, no stale leftover file. Then the executor did the decisive thing: it <b>re-ran the write path on the exact frozen inputs the published file was built from</b>, and got <em>hotel</em> at every stage, never office. <b>So the current code, on the current inputs, cannot produce the value the published file contains.</b> Four independent sources say hotel — the raw map tag, the classifier, the re-run write path, and the simulation that actually ran. One artifact says office: the results file itself. I checked one building by hand: its map tag is literally <span class='mono'>hotel</span>, and the file records a large office.","cannot be reproduced · audited",
+   "<b>There is a documented mechanism, and I verified it rather than accepting it.</b> The fleet run that produced this file is on record as having executed a one-line fix that was typed into the working files during the run, described in the progress notes, and not saved as a version of its own until later. So it is established — not guessed — that <b>the code which actually ran during that window is not fully captured by any saved version of the project.</b> Whether a second unsaved edit also touched building classification cannot be determined from anything on disk, and the executor correctly reported that as an open gap rather than declaring a cause. <b>This connects to the other finding of the night.</b> Three separate things now point the same way: a finished-task record whose code was never saved, a fix that ran without being saved, and a published column no saved version can reproduce. The common statement is that <b>the project's history does not reliably record what actually ran</b>. Worth being precise about the scope: <b>no published number has been shown wrong by any of the three.</b> What is in question is the reliability of the record, and — so far — one label column, on buildings whose simulations used the correct type anyway."],
+  ["N08","Does the recorded building type describe what was actually simulated?","done",
+   "<b>No. And the direction is the opposite of what “mislabelled” suggests.</b> The three buildings are recorded as small offices. What actually ran was the <b>small-hotel</b> prototype — I opened the simulation's own output rather than trusting the report, and the rooms it built are <span class='mono'>GUESTROOM101</span>, <span class='mono'>FRONTLOUNGE</span>, <span class='mono'>MEETINGROOM</span>, <span class='mono'>LAUNDRYROOM</span>. No office has those. <b>So the simulation was right and the record is wrong.</b> Nothing was built from the wrong prototype — the physics is intact — but <b>every analysis that groups buildings by type has been grouping by a column that does not describe the run.</b> It also explains the failures instead of merely correlating with them: those buildings really are hotels, and the hotel prototype is what fails. Only three of the forty-one still have evidence on this machine; the rest would need the cluster.","provenance defect · audited"],
+  ["N09","Two inherited defects nobody has ever read","done",
+   "<b>Both are real, and one of them is embarrassing.</b> The test suite <b>cannot be run as a whole at all</b> — a test file imports a function that does not exist, so the run stops before any test executes. That has been true for some time and nobody noticed. The second: the cache that stores building heights silently blanks two other columns every time it is re-read, proved by running it twice and watching the values disappear. <b>And the reproducibility item is confirmed:</b> no height source is committed for any affected neighbourhood, so a fresh copy of the project rebuilds without them.","both live · audited"],
+  ["N10","Assemble the imputation decision you have never been given","done",
+   "<b>Assembled — and one of the three items is not what the register says it is.</b> The six random-draw methods are real, committed and genuinely benchmarked. But the register calls them <em>“built, opt-in, off”</em>, and <b>there is no switch</b>: nothing in the pipeline can reach them. Turning them on is not a decision to flip a setting, it is a decision to build the connection first. The brief carries the full scoreboard with its real measures, and the warning that must never be dropped — the usual accuracy measure is blind to the exact failure these methods are meant to avoid. <b>No recommendation, by instruction.</b> One thing the brief could not settle and reports as unsettled: the project's “no tuned parameters” promise has never been written down precisely enough to say whether these tiers would break it.","assembled · no recommendation"],
+  ["N10b","A completed task whose code was never in the project","open",
+   "<b>Found while checking the item above, and it is the most serious thing this round turned up.</b> A finished-task record dated 16 July says a piece of the pipeline was wired up. It names the functions, and it reports 53 tests passing plus 60 more in protected suites. <b>None of that code has ever existed in this project — not at present, and not in any past version.</b> I checked the full history, not just today's files. What <em>was</em> saved is the other half: the tests for the feature. That is exactly why the test suite can no longer start — the tests import something that was never written. <b>A completion record could not be trusted against the project itself, and nobody had ever checked one.</b> Whether this is the only case is unknown, and finding out costs no computing at all: read each finished-task record and confirm the code it names exists.","opened OPEN-36 · scope unknown"],
+  ["N11","The only question in the register with no evidence at all","done",
+   "<b>The capability is real — and the promised benefit is smaller than the item claimed.</b> Settled by reading the simulator's own input specification: the field in question accepts any whole number with no restrictions, so using it directly would handle every building of three storeys or more exactly, instead of only certain heights. <b>But it only helps two of the nine building types affected</b>, and buildings of one or two storeys stay unreachable either way. The item's headline figure of 90 buildings could not be recomputed without a full pass over the fleet, so it stays <em>carried, not verified</em>. <b>An unmeasured question closed by reading a file — the register no longer has an item with no evidence at all.</b>","yes, but narrower · audited"],
+  ["N12","Is the Los Angeles hypothesis even testable here?","done",
+   "<b>Not yet — and the reason is concrete.</b> There is no switch anywhere in the project for climate zone or building-code edition; every city is built from one national table. <b>Los Angeles's heating and cooling equipment comes from a Buffalo, New York prototype</b>, applied unchanged to a cooling-dominated California climate, and the air-leakage rate is a single constant for all twelve neighbourhoods. So the suspected cause cannot be tested by research alone — it needs an alternative table that the project does not have. One curiosity: the project already contains per-climate-zone limits for one setting, and never reads them. <b>A distinction worth your attention:</b> swapping one published standard's table for another published standard's is not tuning; adjusting values until they match measured consumption is. Only the second would break the project's no-tuned-parameters promise.","not representable · audited"]]],
+ ["H","The no-compute queue, round 3 — opened because round 2 created it",[
+  ["N15","Did the neighbourhood files ever receive the missing building heights?","done",
+   "<b>No — and they never could have.</b> This was the one step the reproducibility item named as “a measurement nobody has run”, so it got run. Two separate lines of evidence, each enough on its own, and I re-derived both from the raw files rather than trusting the report. <b>First, the code:</b> the part of the pipeline that would merge in outside height data is <em>not connected to the path the neighbourhoods are actually built by</em> — not switched off, not empty, simply not reachable from it. <b>Second, the dates:</b> the one neighbourhood that has both good heights and a saved height source had its file built on 30 June, and that height source was not added to the project until 21 July. <b>A file cannot consume something that does not exist yet.</b>","coincidence · audited",
+   "<b>This matters mainly because it corrects me.</b> Two of the earlier tasks, run by different people who never compared notes, landed on exactly the same four neighbourhoods — the four with no saved height source were the four with the worst missing heights. I spotted that myself, called it <em>“the strongest available evidence”</em> that the two problems were really one, and wrote it into the register — but marked it <b>not adjudicated</b>, because the register's rule is that a convergence is a hypothesis until something tests it. <b>It has now been tested, and it was evidence for nothing:</b> two unrelated causes happening to land on the same four neighbourhoods. That discipline is the only reason a coincidence never became a finding. <b>The practical consequence is clean:</b> the missing rural heights are a genuine gap in the underlying map data — which is exactly what the original closing note said, so that note is vindicated — and the reproducibility defect is its own separate problem. <b>Neither can be closed by fixing the other</b>, and any plan that treats them as one thing would be wrong."],
+  ["N14","Can the published results file be rebuilt at all?","done",
+   "<b>No — and the building-type column is not the only part that cannot be rebuilt.</b> Today's code was re-run on the frozen inputs across four whole neighbourhoods and every one of the 33 columns of the published file was checked. The control worked: the building-type column came back unreproducible in exactly the two neighbourhoods where the known mislabelled buildings live, and reproduced perfectly in the two where none of them are — and I checked those counts against the earlier task's own file rather than believing this one. <b>The new finding is the column recording <em>why</em> each building's missing data was filled in.</b> Today's code says one filling rule fired; the published file says a different one did. So it is not only the building type that cannot be rebuilt — it is the recorded reason for it.","not alone · audited",
+   "<b>Two cautions, and the first is a correction to the report itself.</b> It claimed the two unreproducible columns disagree on exactly the same buildings. Its own data file says otherwise in the larger neighbourhood — 26 buildings against 38. I traced the 12 extra: they differ only by a marker that a <em>later</em> stage of the pipeline adds, which the stage under test could never have written. It is the same trap the plan warned about for the height and storey columns — this task spotted it for one column and walked into it for another. The verdict survives on narrower, cleaner ground. <b>The second caution is about coverage, and it is the honest limit of this whole exercise:</b> 26 of the 33 columns were never checked, because they are produced by the simulation stages and simply do not exist yet at the point this test can reach. No test that avoids the processor can reach them. <b>A genuinely useful side-finding:</b> the floor-area column, like heights and storeys, is recomputed later from geometry rather than carried through — so anyone comparing it naively will report a fault that is not there. On one building the innocent difference is over 100,000 square metres."],
+  ["N13","Is the unsaved-code case the only one?","done",
+   "<b>Yes — it is the only one.</b> Every finished-task record in the project was swept, all <b>596</b> of them across 59 documents: not a sample, the whole population. 424 name code that is present, 6 name code that moved, 152 name nothing checkable and are recorded as such rather than quietly dropped, and 14 name something never saved. <b>Of those 14, only one is a real gap — the 16 July record already known.</b> Twelve are this investigation's own result spreadsheets, which sit on disk untracked because git is handled outside these sessions; the last is a temporary script whose own record says it was deleted after use. I checked all thirteen myself rather than accepting the classification. <b>The control passed:</b> the missing 16 July code appears in no version of the project, on any branch, and is not on disk either — while its tests <em>were</em> saved, which is exactly why the test suite stopped running.","T07 is unique · audited",
+   "<b>The reason to believe this number is that it started at 49.</b> An automatic search first flagged 49 records as never-saved. Every one was then re-checked by hand against the project's entire history — and <b>35 turned out to be false alarms</b>: the code exists, just in a different file than the automatic search guessed. Both the raw and the corrected verdicts were kept side by side, so the correction can itself be checked. <b>An unaudited version of this same sweep would have told you the project had 49 phantom completion records.</b> It has one. <b>What this changes:</b> the worry was that a completion record could not be trusted against the repository and nobody had ever checked. Now someone has, across everything, and the damage is a single incident rather than a habit. <b>You asked to hear immediately if anything beyond the known case came back never-saved</b> — thirteen did, and all thirteen are benign for the reasons above. That is the promised report, not a footnote."]]],
+ ["I","The no-compute queue, round 4 — closing the gap round 3 admitted",[
+  ["N16","Does the rebuild result hold on the other eight neighbourhoods?","done",
+   "<b>The prediction held exactly, and it was written down before the measurement so it could have failed.</b> An earlier task listed 41 mislabelled buildings fleet-wide. The prediction: the remaining eight neighbourhoods must show unreproducible building types in exactly three of them, in exactly the counts that list gives — 2, 4 and 5 — and <b>none at all</b> in the other five. That is what came back: 2 of 413, 4 of 226, 5 of 618, and zero, zero, zero, zero, zero. I re-joined all eleven buildings to the earlier list myself: <b>eleven for eleven, same buildings, same values, none extra, none missing.</b> Adding the four neighbourhoods checked before, that is 5,390 + 2,770 = <b>8,160 buildings — every neighbourhood, whole, none sampled.</b> <b>Three things this settles:</b> the 41 mislabelled buildings are now fully accounted for with no unknown remainder; there is no third unreproducible column; and the fault is bounded rather than open-ended.","prediction held · audited",
+   "<b>The more useful result is that the second problem is much smaller than it looked — and is a different problem.</b> The column recording <em>why</em> each building's missing data was filled in showed 171 disagreements. Only <b>3</b> are real. The other <b>168</b> are a marker added by a later stage of the pipeline, which the stage under test cannot write — the exact trap the previous task fell into. Splitting them correctly needed real care: four <em>more</em> such markers turned up beyond the one already known, and two of them use a different punctuation convention that is documented nowhere. A naive version of the previous method would have miscounted. <b>And the three real ones are not the same buildings as the mislabelled ones.</b> In one neighbourhood a building rebuilds its type perfectly yet still records a different filling rule; in another, four buildings fail to rebuild their type while recording no disagreement at all. <b>The two faults are independent in both directions</b> — which finishes off the earlier claim that they were simply the same rows, rather than just correcting its arithmetic. <b>The other 26 columns stay out of reach:</b> they only exist after the simulation runs. That limit is stated, not skipped."]]],
+ ["E","Standing obligations — these never close",[
+  ["S01b","The register amendment — applied and verified","done",
+   "Written into the register and the checklist. It now holds <b>30 items</b>, and every wrong statement is still visible — struck through, dated, with the correction beneath it. Verified against the register itself rather than the executor's summary: totals agree everywhere they appear, the new items exist as full entries, and nothing was deleted.","applied · audited"],
+  ["S01","Strike each item from the register as its measurement lands","done",
+   "Done for all five. Six evidence marks upgraded, four corrections struck-and-dated, three new items added. The obligation itself never closes — it applies again to the next measurement — but it carries no debt right now.","current · no debt"],
+  ["S02","Keep the project checklist current","done",
+   "Updated with the register: new totals, the corrected pattern summary, and a short note on what this measurement pass found. On 6 August it also gained a <b>map at the top translating every dead folder path</b> into where that material now lives — its links into the archived arcs had all gone stale. It points at the truth again.","current · map added"],
+  ["S04","Hand-over prompt for the next session","done",
+   "A fresh director prompt is written and dated, at <span class='mono'>openings/prompts/DIRECTOR_PROMPT_openings_2026-08-06.md</span>. It carries everything: the findings, the decisions still owed to you, the re-run and the hazard that used to block it, and the traps that would otherwise catch the next reader. <b>Brought up to date on 6 August</b> — including one instruction that now says the opposite of what it said, flagged so nobody skims past it: the adopted numbers were <em>unverified</em>, and are now <em>confirmed clear</em>.","written · kept current"],
+  ["S05","Repair the documentation trail that archiving broke","partial",
+   "<b>Every folder we finished and filed away left its links pointing at nothing.</b> 58 dead paths, cited from 23 documents. Your own progress checklist carried 26 of them — every route from it into the layoutAssigner evidence was broken, and two published documents were showing broken figures. Nothing is lost: all 58 were traced to where the material now lives. The published documents are <b>repaired and re-checked link by link</b>; the checklist got a map at the top instead of edits, because its history is append-only. What is left is not the backlog but the habit.","published docs fixed · habit open",
+   "<b>Found while checking something else</b> — the last measurement needed to confirm which documents quote the flawed method, and half the paths it followed did not exist. That is worth more attention than a tidy-up, for one reason: the whole register is built on each item saying <em>where its evidence lives</em>. A pointer that does not resolve looks exactly like evidence that was never gathered — and the reader it fails is the next fresh session, who has no memory to fall back on. <b>The fix was split deliberately.</b> Published documents under <span class='mono'>docs_EXPLANATION</span> and the Phase-E report were corrected in place, and every rewritten link was opened to confirm it lands on a real file; two links were found to have been broken independently of the move, and those were fixed too. The checklist was <em>not</em> rewritten — its dated journal entries are append-only, and quietly editing paths inside frozen entries to gain navigation would trade a rule for a convenience. It received a migration map at the head of the file instead, which resolves all eight archived arcs rather than only the ones cited there. Frozen arc records, read-only specifications and the parked layoutgenerator set were left alone by the same reasoning. <b>What stays open is a decision, not a chore:</b> whether filing an arc away must include a citation sweep. It is the same question as two other open items — whether ratifying a classifier change must carry a before/after, and whether the vintage a run resolves must be saved. Three times now, a step that is obviously right has turned out to be owned by nobody."],
+  ["S03","Put the unanswered classifier question back to you","partial",
+   "<b>The measurement is now made</b> — see N02 — so this stops being a request for permission to measure and becomes a clean ruling on a number that exists. The score is not inflated by the guessed rows; a third of the exam is nonetheless decided by a size guess. <b>The question for you is which exam you want the answer key to grade</b>, and it is unchanged by the measurement. Kept on this board so it cannot be forgotten a third time.","measured · ruling still yours"]]]
+];
+
+const order=["done","decided","partial","open","blocked"];
+const labels={done:"done",decided:"decided",partial:"in progress",open:"ready",blocked:"blocked"};
+const filterOrder=["partial","open","blocked","decided","done"];
+const colv={done:"var(--done)",decided:"var(--blue)",partial:"var(--hold)",open:"var(--idle)",blocked:"var(--stop)"};
+
+const all=WP.flatMap(([k,,rows])=>rows.map(r=>({wp:k,r})));
+const tally=Object.fromEntries(order.map(s=>[s,all.filter(x=>x.r[2]===s).length]));
+
+document.getElementById("counts").innerHTML=order.map(s=>
+  `<div class="count" style="--c:${colv[s]}"><b>${tally[s]}</b><span>${labels[s]}</span></div>`).join("")
+  +`<div class="count" style="--c:var(--ink)"><b>${all.length}</b><span>total</span></div>`;
+
+document.getElementById("bar").innerHTML=order.map(s=>
+  `<i style="flex:${tally[s]};background:${colv[s]}" title="${tally[s]} ${labels[s]}"></i>`).join("");
+
+document.getElementById("controls").innerHTML=
+  `<button class="f" data-f="all" aria-pressed="true">all ${all.length}</button>`+
+  filterOrder.map(s=>`<button class="f" data-f="${s}" style="--c:${colv[s]}" aria-pressed="false">${labels[s]} ${tally[s]}</button>`).join("");
+
+document.getElementById("board").innerHTML=WP.map(([k,title,rows])=>{
+  const open=rows.filter(r=>r[2]!=="done"&&r[2]!=="decided").length;
+  return `<section class="wp"><h3><span>WP-${k} &nbsp;/&nbsp; ${title}</span>
+    <em>${rows.length} tasks${open?` · ${open} not closed`:" · all closed"}</em></h3>`+
+    rows.map(([id,task,st,note,tag,explain])=>
+      `<div class="row" data-st="${st}">
+         <div class="id">${id}</div>
+         <div class="body">
+           <div class="task">${task}</div>
+           ${note?`<div class="note">${note}</div>`:""}
+           <div class="meta"><span class="pill ${S[st][0]}">${labels[st]}</span>${tag?`<span class="tag">${tag}</span>`:""}</div>
+           ${explain?`<p class="explain">${explain}</p>`:""}
+         </div></div>`).join("")+`</section>`;
+}).join("");
+
+/* A filter with no matches has to explain itself. "in progress = 0" is a working
+   discipline here, not a rendering failure, and the board should say which one it is. */
+const EMPTY={
+  partial:["Nothing is in progress — which should not happen while tasks remain.",
+    "As each task closes, the <b>next</b> one is promoted here, so this bucket is never empty while work is "+
+    "left. It carries one row normally, and two when a pair of tasks feed a single decision and neither is "+
+    "answerable alone. If it is empty and <b>ready</b> is not, the board is stale — the last closure did not "+
+    "promote its successor."],
+  open:["No task is ready.","Everything is either closed or waiting on a measurement that has not landed yet."],
+  blocked:["Nothing is blocked.","Every remaining task can be started right now."],
+  decided:["No task is in the <em>decided</em> state.",
+    "A decision that has also been written into the plan and the register is filed as <b>done</b>, not "+
+    "<b>decided</b> — so this bucket empties as decisions get implemented."],
+  done:["Nothing is closed yet.",""],
+  all:["No tasks.",""]
+};
+function applyFilter(f){
+  document.querySelectorAll(".row").forEach(r=>{r.hidden = f!=="all" && r.dataset.st!==f;});
+  document.querySelectorAll(".wp").forEach(w=>{
+    w.hidden = ![...w.querySelectorAll(".row")].some(r=>!r.hidden);
+  });
+  const shown=[...document.querySelectorAll(".row")].filter(r=>!r.hidden).length;
+  const box=document.getElementById("empty");
+  box.hidden = shown>0;
+  if(!shown){ const m=EMPTY[f]||EMPTY.all; box.innerHTML=`<h4>${m[0]}</h4>${m[1]?`<p>${m[1]}</p>`:""}`; }
+}
+document.getElementById("controls").addEventListener("click",e=>{
+  const b=e.target.closest("button.f"); if(!b) return;
+  document.querySelectorAll("button.f").forEach(x=>x.setAttribute("aria-pressed",String(x===b)));
+  applyFilter(b.dataset.f);
+});
+applyFilter("all");
+</script>

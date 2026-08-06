@@ -2,7 +2,47 @@
 
 > Single-glance tracker. Past = one line each. **Current** and **Future** carry the detail.
 > Legend: `[x]` done · `[~]` in progress · `[ ]` not started · `[!]` blocked / needs decision
->
+
+---
+
+## 🗺️ Path migration map — added 2026-08-06 (read this before following any `docs_ACTIVE/…` link below)
+
+**Every arc that was archived into `docs/docs_DONE/` left its citations behind.** The journal blocks in
+this file are append-only and have deliberately **not** been rewritten, so many of them still name the
+old `docs/docs_ACTIVE/<arc>/…` location. Those directories no longer exist. Nothing is lost — the
+documents were moved and, in a few cases, renamed. Use this table to resolve any stale path.
+
+| Old prefix (dead) | Current location |
+|---|---|
+| `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/` | `docs/docs_DONE/SETUP/layoutAssigner/` |
+| `docs/docs_ACTIVE/simulation-Resolution/` *(the mode-switch arc)* | `docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/` |
+| `docs/docs_ACTIVE/simulation-Resolution/layoutgenerator/` | `docs/docs_TODO/layoutgenerator/` |
+| `docs/docs_ACTIVE/hvac-ServiceLoads/` | `docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/` |
+| `docs/docs_ACTIVE/input/deepResearch/` | `docs/docs_DONE/BUGS/input-framework/deepResearch/` |
+| `docs/docs_ACTIVE/input/imputation/` | `docs/docs_DONE/INPUTS/imputation/` |
+| `docs/docs_ACTIVE/misclassification/` | `docs/docs_DONE/BUGS/misclassification/` |
+| `docs/docs_ACTIVE/phaseC_combinedResim/` | `docs/docs_DONE/SETUP/phaseC_combinedResim/` |
+| `docs/docs_ACTIVE/3D/` | `docs/docs_DONE/VISUALS/3D-visualization/` |
+| `docs/docs_ACTIVE/UTCI/` | `docs/docs_DONE/OUTDOOR/UTCI/` |
+
+**Four files were also renamed by the move** — prefix substitution alone will not find them:
+
+| Old filename | Current filename |
+|---|---|
+| `layoutAssigner/COMPLETION_REPORT.md` | `layoutAssigner/DONE/COMPLETION_REPORT.md` |
+| `layoutAssigner/debug/PLAN_debug_implementation.md` | `layoutAssigner/debug/DONE/PLAN_debug_implementation.md` |
+| `…/storey-Matching/PLAN_storey-matching_implementation.md` | `…/storey-Matching/DONE_PLAN_storey-matching_implementation.md` |
+| `layoutAssigner/e-la-20/PLAN_e-la-20_multilayer-fix.md` | `layoutAssigner/DONE/e-la-20/DONE-PLAN_e-la-20_multilayer-fix.md` |
+
+**Scope, measured 2026-08-06:** 58 distinct dead paths cited from 23 live documents. All 58 resolve
+through this table. The published deliverables under `docs/docs_EXPLANATION/` and
+`docs/docs_REPORTS/` **have been repaired in place** and carry no dead links. This file's journal, the
+frozen `docs_DONE/` arc records, the read-only `docs_main/` specs, and the parked
+`docs_TODO/layoutgenerator/` set were deliberately left unedited — they are resolved by this table
+instead. Tracked as **OPEN-33** in the open-items register.
+
+---
+
 > **Last updated:** 2026-07-26 (**🔒 ARC L — E-LA-20 FIX ARC CLOSED, CP-C SIGNED.** The multilayer-fix
 > plan is complete: the `Thickness = R × k` inversion is fixed at **both** defect sites via the new
 > `openubem/idf/opaque_assembly.py`, and verified on **150/150** engaged fleet rows through the real
@@ -1030,7 +1070,80 @@ re-run that retains `eplusout.eio`.
 
 ## M. Open-items register — **the single tracker for everything still open (opened 2026-08-04)**
 
-`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — **26 items, OPEN-01 … OPEN-29**
+> **Current as of 2026-08-06 late evening: 31 items, OPEN-01 … OPEN-35, next free ID OPEN-36.**
+> IDs **05, 21, 23, 25** are retired (closed / deferred / excluded / closed). Evening changes:
+> **OPEN-25 CLOSED** (fixed 2026-06-10, the day after it was named — carried here for eight weeks
+> afterwards); **OPEN-34 and OPEN-35 opened**, both found by *auditing* a completed task rather than
+> by running one; first measurements made on **OPEN-22, OPEN-29, OPEN-06/07/11, OPEN-34**.
+> Plan doc for the no-compute work: `docs/docs_ACTIVE/openings/implemenation/PLAN_no-compute-queue.md`.
+> The five-mode local re-run is **parked at the user's instruction** until a machine is free.
+>
+> **Superseded the same night — round 2 of the no-compute queue:
+> `implemenation/PLAN_no-compute-queue-2.md` (N06–N12). Now 32 items, OPEN-01 … OPEN-36, next free ID
+> OPEN-37.** First measurements made on **OPEN-35 (size), OPEN-12, OPEN-06/07, OPEN-13, OPEN-14,
+> OPEN-15/16/17, OPEN-10, OPEN-19**. Three findings that change what other documents mean:
+> **(1) OPEN-06 is a provenance defect, not a labelling one** — the three failing buildings were
+> *simulated* as `SmallHotel` while the results file records `SmallOffice`, so **every per-archetype
+> grouping keys on a column that does not describe the run**;
+> **(2) OPEN-35 touches 2,611 of 8,160 buildings (32.00%)**, all persisted at one storey, 1,031 of them
+> classified mid/high-rise;
+> **(3) OPEN-36 opened** — a progress-log entry marked *completed* describes code **no commit has ever
+> contained**, while its tests *were* committed, which is why `pytest` can no longer collect the suite.
+> **That last one makes every completion record in this file's history unverified until checked**, and
+> checking costs no CPU.
+>
+> **Round 3 opened the same night — `implemenation/PLAN_no-compute-queue-3.md` (N13–N15), all no-CPU.**
+> **N15 has landed and is audited: OPEN-12 and OPEN-14 are two separate items, not one defect.** The
+> four-cell convergence recorded under OPEN-14 — the four cells with no tracked Overture slice being the
+> four worst for missing `height_m` — **is a coincidence.** The fleet's `01_buildings.gpkg` never
+> consumed the UTCI backfill and **never could have**: `fusion.fuse()` has one caller fleet-wide
+> (`imputation.py:655`) and `building_classifier.py` never imports imputation, so the fusion path is
+> **architecturally unreachable** from the fleet's classification path, config-independent; and
+> `nyc_centre`'s buildings file (`e063865`, 2026-06-30) predates its own Overture slice (`ef19141`,
+> 2026-07-21) by three weeks. **OPEN-12 is a genuine OSM source-coverage gap — the UTCI arc's closing
+> note was right.** N13 and N14 were still running at the time of writing.
+>
+> **N14 has since landed and is audited (OPEN-06 §3).** Stage 2 re-run at HEAD over four whole cells,
+> all 33 columns of `05_results.gpkg` bucketed: **`archetype_id` is not the only column HEAD cannot
+> reproduce — `data_quality_flag` cannot be reproduced either**, and what differs is *which imputation
+> rule the classifier records as having fired* (`VINTAGE_NAN_PERMISSIVE_DEFAULT` / `HOTDECK_NEIGHBOR_*`
+> at HEAD vs. `GROUPMODE_MED` committed). The `archetype_id` control passes exactly against N04's
+> population file (per-cell 26 / 4 / 0 / 0). **Two director corrections on audit:** N14's claim that the
+> two columns differ on the same rows is **struck** — 26 vs 38 on `nyc_centre`, the excess differing
+> only by a `narrow_perimeter_fallback` token written at Stage 3 (`openubem/idf/builder.py:614-615`),
+> which Stage 2 can never emit; and **26 of the 33 columns remain unchecked**, being Stage-3-or-later
+> outputs no no-CPU task can reach. Useful side-finding: **`footprint_area_m2` is a third
+> geometry-re-derived column** alongside `levels`/`height_m` — naive diffs of it report a defect that
+> is not there (715/738 `nyc_centre` rows differ before any Stage-2 code runs).
+> **N13's first attempt stalled and produced nothing** — the executor ended its turn waiting for a
+> notification that never comes. Re-dispatched fresh with an explicit anti-stall clause; third
+> occurrence of that failure mode.
+>
+> **Rounds 3 and 4 are now complete — sixteen tasks across four rounds, all landed, all audited by
+> re-derivation. The no-compute queue is empty; every remaining first measurement needs CPU, and
+> CPU-bound work stays parked at the user's instruction.**
+> **N13 (OPEN-36) — T07 is the only one.** Full population swept, not a sample: **596** progress-log
+> entries across 59 documents → PRESENT 424, MOVED 6, NEVER-COMMITTED 14, UNCHECKABLE 152. Of the 14,
+> **one** is a governance gap (T07), **twelve** are this arc's own untracked measurement CSVs (each
+> verified on disk, untracked, zero commits on any branch), **one** is a temp script its own entry
+> declares deleted. Control re-run by the director: `_draw_tier` exists in **no commit on any branch**
+> and not in the working tree, while its tests are committed. **The number started at 49** — a
+> mechanical heuristic's output, of which **35 were misattributions** caught before reporting; both
+> verdict columns retained. **An unaudited sweep would have reported 49 phantom completion records.**
+> **N16 (OPEN-06) — the coverage gap is closed and the stated prediction held exactly.** Eight
+> remaining cells swept; `archetype_id` differs 2/413 `austin_centre`, 4/226 `la_centre`, 5/618
+> `la_urban`, **zero** in the other five, all 11 rows matching N04's population one-for-one on both
+> values. With N14's four cells: 5,390 + 2,770 = **8,160 — every cell, whole**. **The 41-building
+> mislabel population is fully accounted for and there is no third unreproducible column.**
+> `data_quality_flag`'s 171 differences resolve to **168 Stage-3 token artifacts and 3 genuine
+> provenance divergences** — the split needed four further Stage-3 appenders found beyond
+> `narrow_perimeter_fallback` (`builder.py:145,439,473`; `geometry/footprint.py:33,38`, **the last two
+> comma-separated**). **The 3 real divergences are not the same buildings as the archetype failures** —
+> disjoint in `la_urban`, absent in `la_centre` — so the two defects are independent in both
+> directions, finishing off N14's struck "same rows" claim.
+> **The paragraph below is the 2026-08-05 snapshot and is left unedited, per the append-only rule.**
+
+`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — **29 items, OPEN-01 … OPEN-32**
 (**OPEN-23 `layoutGenerator` excluded by the user 2026-08-04**, ID retired — not a direction being
 continued; the engine's record stays under `docs/docs_TODO/layoutgenerator/`. **OPEN-21 mixed-use
 classification deferred by the user 2026-08-05**, ID retired — one function per building stands, full
@@ -1052,8 +1165,11 @@ Supporting documents for this arc live in `docs/docs_ACTIVE/openings/extra/`, pe
 2026-08-05 — the arc folder itself stays clean.
 
 **Four patterns visible only with the items in one list:**
-1. **OPEN-01/02/03/04 can make already-published numbers wrong.** Everything else makes the project
-   less *complete*. That is a categorical difference not reflected in past prioritisation.
+1. ~~**OPEN-01/02/03/04 can make already-published numbers wrong.** Everything else makes the project
+   less *complete*.~~ **All four measured 2026-08-05 (M01–M05):** two confirmed large and
+   unremediated (OPEN-01, OPEN-03), one cheap and approved in principle (OPEN-02), one recast as a
+   process defect, not a metric defect (OPEN-04 → new OPEN-31). Three new items opened by the
+   measurements themselves: **OPEN-30, OPEN-31, OPEN-32.**
 2. **OPEN-08 and OPEN-14 are reproducibility defects** that undercut the evidence for other items —
    OPEN-08 puts an unquantified confound under every cross-generation comparison made so far.
 3. **OPEN-22 costs a decision, not an arc** — it leaves the labelled-accuracy metric undefined while
@@ -1071,12 +1187,23 @@ Supporting documents for this arc live in `docs/docs_ACTIVE/openings/extra/`, pe
 **Largest open modeling problem: OPEN-18 (Q3, the √S vertical-form distortion)** — unchanged in
 substance, but one candidate mechanism has now been eliminated with evidence (see §L).
 
-**Next free defect ID: E-LA-42 · next free register item ID: OPEN-29.**
+**Next free defect ID: E-LA-42 · next free register item ID: OPEN-33.**
 
 **Amendment 2026-08-05 — OPEN-28 added.** Cross-mode comparisons mix two harvest generations
 (`layout_assign` = T20; the other four modes = T08, never re-run). Found while auditing the
 `layout_assign` documentation surfacing plan; it had existed only as a figure caption. **It bundles
 with OPEN-01 and OPEN-02 — one fleet re-run retaining `eplusout.eio` closes all three, gated on a
 disk-budget check, not a code change.**
+
+**Amendment 2026-08-05 (measurement pass).** Five Phase-1 measurements (M01–M05) re-verified
+OPEN-01/02/03/04/08/28. **CP-M1:** `.eio` retention approved in principle — median 76,068 B/run,
+worst-case five-mode fleet pass ~43–45 GB against 8.1 TB free. OPEN-04's Phase-D suspicion is
+**falsified** by bisect; real cause is E-R3-3 (commit `67ede73`). OPEN-28's `layout_assign`-is-T20
+framing is corrected for the published −29.1% figure specifically — that figure's `layout_assign`
+side is T19, not T20. Three new items opened by the measurements themselves: **OPEN-30** (vintage
+never persisted by any harvest), **OPEN-31** (ratified classification changes lack a before/after on
+the labelled fixture — CP-M3 decision owed), **OPEN-32** (OPEN-01 and OPEN-03's errors oppose each
+other; net effect on `layout_assign` EUI unmeasured). Full detail:
+`INVESTIGATION_open-items-register.md` §2.
 
 **Nothing in this arc is scheduled, assigned, or costed.** The next step is a user selection.
