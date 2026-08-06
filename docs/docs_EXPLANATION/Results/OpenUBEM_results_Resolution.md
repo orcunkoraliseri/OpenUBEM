@@ -6,9 +6,9 @@
 the feature, the AUTO-baseline fleet results, and the measured-data validation — with the
 figures embedded. For the plain-language feature description see
 [`OpenUBEM_fundamentals.md` §5.1](OpenUBEM_fundamentals.md); for the binding zoning rule see
-[`SIMULATION_RESOLUTION_zoning_by_building.md`](../docs_ACTIVE/simulation-Resolution/SIMULATION_RESOLUTION_zoning_by_building.md);
+[`SIMULATION_RESOLUTION_zoning_by_building.md`](../../docs_DONE/SETUP/Simulation_Resolution/resolution_sets/SIMULATION_RESOLUTION_zoning_by_building.md);
 for the task/plan record see
-[`PLAN_resolution_mode_switch.md`](../docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md).
+[`PLAN_resolution_mode_switch.md`](../../docs_DONE/SETUP/Simulation_Resolution/resolution_sets/PLAN_resolution_mode_switch.md).
 
 Data + figures presented here live under `openubem/outputs/comparisons/`,
 `openubem/outputs/simulationResults/`, and `openubem/outputs/validaitonResults/`.
@@ -251,9 +251,9 @@ and the validation docs. The validation diagnostics live in `openubem/outputs/va
 | AUTO baseline overview grid | `openubem/outputs/comparisons/phaseE_overview_grid.png` — via `scripts/validation/phaseE_overview_grid.py` |
 | AUTO fleet figures (per cell) | `openubem/outputs/simulationResults/` |
 | Validation diagnostics | `openubem/outputs/validaitonResults/` |
-| Zoning rule (binding spec) | `docs/docs_ACTIVE/simulation-Resolution/SIMULATION_RESOLUTION_zoning_by_building.md` |
-| Task/plan + progress log | `docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md` |
-| `layout_assign` artifacts (added 2026-08-05, §10) | `openubem/outputs/comparisons/{layout_assign_vs_resolution_modes,t20_layout_assign_eui,t20_r10_reach_change,r06c_local_results}.csv`, `scratchpad/f11_transformer_check_v3.csv`, `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/` |
+| Zoning rule (binding spec) | `docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/SIMULATION_RESOLUTION_zoning_by_building.md` |
+| Task/plan + progress log | `docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/PLAN_resolution_mode_switch.md` |
+| `layout_assign` artifacts (added 2026-08-05, §10) | `openubem/outputs/comparisons/{layout_assign_vs_resolution_modes,t20_layout_assign_eui,t20_r10_reach_change,r06c_local_results}.csv`, `scratchpad/f11_transformer_check_v3.csv`, `docs/docs_DONE/SETUP/layoutAssigner/figures/` |
 
 All modes were simulated from the same committed working tree; the load-conservation and
 freshness checks in §3 were verified building-by-building at harvest (e.g. the 67-floor tower
@@ -267,10 +267,10 @@ EnergyPlus SQL exactly).
 | You want… | Read |
 |---|---|
 | The plain-language feature description | `docs/docs_EXPLANATION/OpenUBEM_fundamentals.md` §5.1 |
-| The binding zoning rule | `docs/docs_ACTIVE/simulation-Resolution/SIMULATION_RESOLUTION_zoning_by_building.md` |
-| The task list + full progress log | `docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md` |
-| The external-validation prompt set | `docs/docs_ACTIVE/simulation-Resolution/deepResearch/literatureValidation/` |
-| `layout_assign` structural comparison (added 2026-08-05) | §10 above, and the frozen arc record, `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md` |
+| The binding zoning rule | `docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/SIMULATION_RESOLUTION_zoning_by_building.md` |
+| The task list + full progress log | `docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/PLAN_resolution_mode_switch.md` |
+| The external-validation prompt set | `docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/deepResearch/literatureValidation/` |
+| `layout_assign` structural comparison (added 2026-08-05) | §10 above, and the frozen arc record, `docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md` |
 | Current project status | `docs/PROJECT_CHECKLIST.md` |
 
 ---
@@ -282,7 +282,7 @@ EnergyPlus SQL exactly).
 scale, by the storey-matching arc that closed 2026-08-04. Everything in this section is re-verified
 directly from the named file before being printed here; the full derivation and every supporting
 number live in the frozen arc record,
-[`layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`](../../docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md)
+[`layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`](../../docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md)
 (§8/§9), which this section is kept consistent with rather than re-derived independently.
 
 ### 10.1 What it is and how it differs
@@ -311,7 +311,7 @@ a fixed property (how many thermal zones a building gets) rather than an energy 
 directly from `openubem/outputs/comparisons/layout_assign_vs_resolution_modes.csv`, column
 `prototype_zones_count`, across the **28 mapped archetypes**: **n = 28, min = 1, max = 256.**
 
-![Zone-count fidelity by mode, all 28 mapped archetypes, T20 harvest](../../docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/layout_assign_vs_modes_zone_fidelity.png)
+![Zone-count fidelity by mode, all 28 mapped archetypes, T20 harvest](../../docs_DONE/SETUP/layoutAssigner/figures/layout_assign_vs_modes_zone_fidelity.png)
 *`building` / `floor` / `fast_zone` apply one generic rule to every building type; `layout_assign`
 carries each building type's real, validated zone count instead — sometimes far more detailed (tall
 towers, hospitals), sometimes less. The point is not "more zones is better"; it is that
@@ -338,7 +338,7 @@ buildings decompose as:
 150 of the 163 — the overwhelming majority — is a pre-existing convergence fix surfacing at fleet
 scale for the first time in this harvest, not the storey-matching mechanism itself.
 
-![Full fleet: did the simulation even run? T20 harvest](../../docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/layout_assign_vs_modes_cluster_success.png)
+![Full fleet: did the simulation even run? T20 harvest](../../docs_DONE/SETUP/layoutAssigner/figures/layout_assign_vs_modes_cluster_success.png)
 *Out of 8,160 buildings, how many simulated successfully vs. crashed, per city zone, T20 harvest.
 This figure shows only that the simulations complete — it is not a validation of the mode's energy
 output (§10.5).*
@@ -427,10 +427,10 @@ stale pre-fix estimate).
 | T20 storey-matching reach/exposure, 7,442 evaluated buildings | `openubem/outputs/comparisons/t20_r10_reach_change.csv` |
 | Denominator ground truth, 6 real buildings with `eplusout.eio` retained | `openubem/outputs/comparisons/r06c_local_results.csv` |
 | Transformer-cliff staging population | `scratchpad/f11_transformer_check_v3.csv` |
-| Zone-count fidelity figure (T20) | `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/layout_assign_vs_modes_zone_fidelity.png` |
-| Fleet success/fail figure (T20) | `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/layout_assign_vs_modes_cluster_success.png` |
-| Figure vintage/denominator disclosures | `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/README.md` |
-| Frozen arc record (full derivation) | `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md` §8/§9 |
+| Zone-count fidelity figure (T20) | `docs/docs_DONE/SETUP/layoutAssigner/figures/layout_assign_vs_modes_zone_fidelity.png` |
+| Fleet success/fail figure (T20) | `docs/docs_DONE/SETUP/layoutAssigner/figures/layout_assign_vs_modes_cluster_success.png` |
+| Figure vintage/denominator disclosures | `docs/docs_DONE/SETUP/layoutAssigner/figures/README.md` |
+| Frozen arc record (full derivation) | `docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md` §8/§9 |
 
 ---
 

@@ -26,7 +26,7 @@ import subprocess
 import sys
 import tempfile
 import time
-from concurrent.futures import ProcessPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ProcessPoolExecutor, wait
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
@@ -66,6 +66,45 @@ CELL_CONFIGS: dict[str, dict] = {
     "austin_suburban": {"lat": 30.5085, "lon": -97.6789, "state": "TX"},
     "austin_rural":  {"lat": 30.5788, "lon": -98.2700, "state": "TX"},
 }
+
+# ── output trimming (E01) ──────────────────────────────────────────────────
+# Reference delete list: scripts/cluster/submit_fleet_t08.sbatch:62-80, minus *.eio.
+# eplusout.eio must never be deleted — it is the only record of simulated floor area.
+RETAIN_FILENAMES = ("eplusout.eio", "eplusout.sql", "eplusout.err", "eplusout.end", "task.rc")
+
+TRIM_DELETE_GLOBS = (
+    "*.eso", "*.mtd", "*.rdd", "*.mdd", "*.htm", "*.tab", "*.csv",
+    "in.idf", "expanded.idf", "Energy+.idd",
+    "eplusout.dxf", "eplusout.audit", "eplusout.bnd", "eplusout.dbg",
+    "eplusout.sln", "eplusout.rvaudit", "eplusmtr.*", "eplusout.mtr",
+)
+
+DISK_FLOOR_BYTES = 50 * 1_000_000_000  # 50 GB floor (decimal GB), E01 spec
+
+_CUMULATIVE_RETAINED_BYTES = 0  # accumulated across the whole local pass (main process only)
+
+
+def trim_output_dir(outdir: Path) -> int:
+    """Delete bulk EnergyPlus output, scoped to outdir only (never above it, never recursive).
+    Idempotent: re-running on an already-trimmed dir deletes nothing and raises nothing.
+    Returns bytes of everything left in outdir after trimming (F2) — i.e. what this building
+    actually costs on disk, not just the sum of RETAIN_FILENAMES. EnergyPlus leaves files
+    outside both the delete list and RETAIN_FILENAMES (e.g. eplusout.shd, sqlite.err); those
+    are correctly kept (cluster parity — submit_fleet_t08.sbatch does not delete them either)
+    and must be counted, not silently dropped from the reported budget."""
+    for pattern in TRIM_DELETE_GLOBS:
+        for f in outdir.glob(pattern):
+            if f.is_file():
+                try:
+                    f.unlink()
+                except FileNotFoundError:
+                    pass
+    return sum(f.stat().st_size for f in outdir.iterdir() if f.is_file())
+
+
+def free_disk_bytes(path: Path) -> int:
+    return shutil.disk_usage(str(path)).free
+
 
 J_TO_KWH = 1.0 / 3.6e6
 
@@ -158,7 +197,7 @@ def build_cell_info(cell: str) -> pd.DataFrame:
 
 # ── EnergyPlus runner (local, mirrors submit_fleet.sbatch) ───────────────────
 
-def _run_one_ep(args: tuple[str, str, str, str]) -> tuple[str, str, int]:
+def _run_one_ep(args: tuple[str, str, str, str]) -> tuple[str, str, int, int]:
     idf_path_str, outdir_str, ep_exe_str, epw_str = args
     idf_path = Path(idf_path_str)
     outdir = Path(outdir_str)
@@ -189,7 +228,10 @@ def _run_one_ep(args: tuple[str, str, str, str]) -> tuple[str, str, int]:
         status = "success" if "EnergyPlus Completed Successfully" in txt else "failed"
     else:
         status = f"no-end(rc={rc})"
-    return idf_path.stem, status, rc
+
+    # Trim immediately, success or failure — peak disk is the constraint (E01).
+    retained_bytes = trim_output_dir(outdir)
+    return idf_path.stem, status, rc, retained_bytes
 
 
 def run_simulations(manifest: pd.DataFrame, cell: str, mode: str,
@@ -227,15 +269,64 @@ def run_simulations(manifest: pd.DataFrame, cell: str, mode: str,
         for idf in pending
     ]
 
+    global _CUMULATIVE_RETAINED_BYTES
+    last_completed_stem: str | None = None
+    disk_guard_tripped = False
+
     t0 = time.monotonic()
     results = []
+    pending_iter = iter(args_list)
+
+    # F1: submission is throttled to at most n_workers in flight so the disk guard observes
+    # real disk state (ProcessPoolExecutor.submit() is non-blocking with an unbounded queue —
+    # handing it every pending building up front meant every guard check ran before any
+    # simulation had written a byte). The initial window is submitted unconditionally (nothing
+    # has run yet, so there is no completed building to name even if disk were already low);
+    # every submission after that happens only inside the completion loop, immediately after a
+    # real completion, so `last_completed_stem` is guaranteed real whenever the guard trips.
     with ProcessPoolExecutor(max_workers=n_workers) as ex:
-        futs = {ex.submit(_run_one_ep, a): a[0] for a in args_list}
-        for fut in as_completed(futs):
-            stem, status, rc = fut.result()
-            results.append((stem, status, rc))
-            if status != "success":
-                print(f"    [WARN] {stem}: {status} (rc={rc})")
+        futs: dict = {}
+        for _ in range(n_workers):
+            a = next(pending_iter, None)
+            if a is None:
+                break
+            futs[ex.submit(_run_one_ep, a)] = a[0]
+
+        while futs:
+            done, _ = wait(list(futs.keys()), return_when=FIRST_COMPLETED)
+            for fut in done:
+                futs.pop(fut)
+                stem, status, rc, retained_bytes = fut.result()
+                results.append((stem, status, rc))
+                _CUMULATIVE_RETAINED_BYTES += retained_bytes
+                last_completed_stem = stem
+                print(f"    [{stem}] status={status} retained={retained_bytes:,}B "
+                      f"cumulative_retained={_CUMULATIVE_RETAINED_BYTES:,}B")
+                if status != "success":
+                    print(f"    [WARN] {stem}: {status} (rc={rc})")
+
+            if disk_guard_tripped:
+                continue  # already stopped submitting; drain the rest of the in-flight work
+
+            for _ in range(len(done)):
+                a = next(pending_iter, None)
+                if a is None:
+                    break
+                free_b = free_disk_bytes(work_base)
+                if free_b < DISK_FLOOR_BYTES:
+                    print(f"  [DISK GUARD] free space {free_b / 1e9:.1f} GB < 50 GB floor on "
+                          f"{work_base} — stopping before submitting {a[0]}. "
+                          f"Last completed building: {last_completed_stem}")
+                    disk_guard_tripped = True
+                    break
+                futs[ex.submit(_run_one_ep, a)] = a[0]
+
+    if disk_guard_tripped:
+        sys.exit(
+            f"STOP: free disk space fell below the 50 GB floor during {cell}/{mode}. "
+            f"Last completed building: {last_completed_stem}. "
+            f"Pass stopped cleanly and is resumable."
+        )
 
     elapsed = time.monotonic() - t0
     n_ok = sum(1 for _, s, _ in results if s == "success")
@@ -598,6 +689,7 @@ def main() -> None:
     results.to_csv(str(OUTPUT_CSV), index=False)
     n_succ = int((results["status"] == "success").sum())
     print(f"\nFinal CSV: {OUTPUT_CSV}  ({n_succ}/{len(results)} success rows)")
+    print(f"Total retained bytes this run (trim, cumulative): {_CUMULATIVE_RETAINED_BYTES:,}")
 
     # CP4 local report
     print_cp4_local_report(results)

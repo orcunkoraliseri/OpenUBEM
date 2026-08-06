@@ -125,7 +125,7 @@ one-zone-per-floor.
 
 The three strategies above are applied **automatically** in the default `auto` mode, but the
 fidelity is now **user-selectable**: a `resolution_mode` parameter
-(`docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md`) lets the user fix the
+(`docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/PLAN_resolution_mode_switch.md`) lets the user fix the
 zoning per study — coarse for early-design screening, finer for detailed work. Five modes:
 
 | Mode | What it does | Zones/building | Status |
@@ -191,7 +191,7 @@ surfaced here.
 See §5.1.2 immediately below for the substitution mechanism and why its reach is limited by
 design, and §10 of the resolution results document for the full structural comparison. Full
 record, real EUI numbers, and comparison figures:
-[`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`](../docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md).
+[`docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`](../docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md).
 
 All four active modes were validated across the full 12-cell / 8,160-building matrix
 (2026-07-01): internal loads **conserve** across modes — the same building simulated at any
@@ -297,9 +297,9 @@ Full mechanism detail, the fleet-scale evidence above, and the structural compar
 other four modes: §10 of
 [`Results/OpenUBEM_results_Resolution.md`](Results/OpenUBEM_results_Resolution.md) and the frozen
 arc record,
-[`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`](../docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md).
+[`docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`](../docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md).
 Zone-count fidelity across all 28 mapped archetypes, T20 harvest:
-![layout_assign zone-count fidelity vs. the other four modes](../docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/layout_assign_vs_modes_zone_fidelity.png)
+![layout_assign zone-count fidelity vs. the other four modes](../docs_DONE/SETUP/layoutAssigner/figures/layout_assign_vs_modes_zone_fidelity.png)
 
 ### 5.2 Temporal resolution
 
@@ -405,7 +405,7 @@ frame (EPSG:32618), and injects it — with the vendored 3D engine — into a fr
 `openubem/outputs/<run_id>_viewer.html`. The per-run step is pure Python; the engine is built once and vendored.
 It is built and validated on the **nyc_centre** pilot first, then batch-generated for all **12 phaseE cells**
 (NYC / LA / Austin × Centre / Urban / Suburban / Rural). Full engineering detail:
-`docs/docs_ACTIVE/3D/PLAN_3dviz_implementation.md`.
+`docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md`.
 
 ---
 
@@ -424,7 +424,7 @@ It is built and validated on the **nyc_centre** pilot first, then batch-generate
 |---|---|
 | The full feature reference | `README.md` (root) |
 | **Outdoor analysis — UTCI, microclimate, site measurements** *(the outdoor counterpart to this document; §11 below, Stage 6 is built and live-run-verified on real geometry)* | [`OpenUBEM_outdoor_analysis_reference.md`](OpenUBEM_outdoor_analysis_reference.md) |
-| The interactive 3D viewer (§8) design + tasks | `docs/docs_ACTIVE/3D/PLAN_3dviz_implementation.md` |
+| The interactive 3D viewer (§8) design + tasks | `docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md` |
 | The simulated-vs-reconstructed energy method | `docs/docs_EXPLANATION/simulated_vs_reconstructed_methodology.md` |
 | The binding design specs | `docs/docs_main/` (cross-cutting) + `docs/docs_stepN/` (per step) |
 | The validation record | `docs/validations/` |

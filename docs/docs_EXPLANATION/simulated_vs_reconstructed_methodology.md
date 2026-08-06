@@ -220,8 +220,8 @@ re-evaluation in V16.)
 > chapter explains what replaced them, presents the results, and — importantly — explains a
 > counter-intuitive finding: the physically-complete model scores *further* from measured
 > benchmarks than the reconstructed one did, and *why that is the correct outcome*.
-> Full record: `docs/docs_ACTIVE/hvac-ServiceLoads/REPORT_phaseE_final.md` and the
-> decomposition in `docs/docs_ACTIVE/hvac-ServiceLoads/validation-investigate/INVESTIGATION_phaseD2_vs_phaseE_why_D2_closer.md`.
+> Full record: `docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/REPORT_phaseE_final.md` and the
+> decomposition in `docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/validation-investigate/INVESTIGATION_phaseD2_vs_phaseE_why_D2_closer.md`.
 
 ### 7.1 The one-paragraph version
 
