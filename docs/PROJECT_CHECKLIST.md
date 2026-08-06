@@ -1070,6 +1070,32 @@ re-run that retains `eplusout.eio`.
 
 ## M. Open-items register — **the single tracker for everything still open (opened 2026-08-04)**
 
+> # 🅿️ **PAUSED 2026-08-06 — the user is on other projects and will return.**
+> **Nothing is running: no local job, no cluster job, no executor session.** Nothing is cancelled and
+> no task is half-finished. **32 items, OPEN-01 … OPEN-36, next free ID OPEN-37.**
+>
+> **The resume brief is the closing amendment of**
+> `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — written to stand alone. The
+> director handover `openings/prompts/DIRECTOR_PROMPT_openings_2026-08-06.md` now opens with a
+> one-screen state box and closes with §11, the resume order. The board
+> `openings/implemenation/board_published-numbers.html` carries a pause panel at its head (same
+> published URL), with a snapshot copy at `openings/reporting/`.
+>
+> **Where the big run stands:** the five-mode twelve-cell fleet pass (**E02**, 40,800 simulations) is
+> **halted by a `MemoryError` and parked to resume on Speed when the cluster frees up** — the user's
+> ruling. Three of sixty (cell, mode) pairs are complete on disk. The **CP-C2 scope ruling is still
+> owed** by the user. 🔴 **Before any cluster relaunch:** `scripts/cluster/submit_fleet_t08.sbatch:63`
+> deletes every `.eio`, and the retention fix is local-only — the stock template would destroy the
+> evidence OPEN-02 exists to obtain.
+>
+> **Last work completed:** **C06** (OPEN-09's "cosmetic" label tested for the first time — it holds,
+> 96.3% overlap, ≈0.20 kWh/m² residual), **C07** (fatal-detection fix in the E02 runner: 0 of 2 → 2 of
+> 2 real fatals over 2,422 `.err` files), and the **≈10× correction** to
+> `extra/SCOPING_five-mode-rerun-cost.md` (PART 3; Parts 1–2 left unedited so the failed prediction
+> stays visible). **The no-compute queue is empty** — 16 tasks over 4 rounds, all landed, all audited.
+>
+> **Everything below this box is the history that led here. It is retained, not current.**
+
 > **Current as of 2026-08-06 late evening: 31 items, OPEN-01 … OPEN-35, next free ID OPEN-36.**
 > IDs **05, 21, 23, 25** are retired (closed / deferred / excluded / closed). Evening changes:
 > **OPEN-25 CLOSED** (fixed 2026-06-10, the day after it was named — carried here for eight weeks
@@ -1141,6 +1167,55 @@ re-run that retains `eplusout.eio`.
 > comma-separated**). **The 3 real divergences are not the same buildings as the archetype failures** —
 > disjoint in `la_urban`, absent in `la_centre` — so the two defects are independent in both
 > directions, finishing off N14's struck "same rows" claim.
+>
+> ### 2026-08-06 — the compute queue opens; **E02 is running**
+> Plan: `docs/docs_ACTIVE/openings/implemenation/PLAN_compute-queue.md` (C01–C06). **The user
+> released the local workstation for simulation**, unparking every measurement the no-compute queue
+> could not reach.
+> 🔴 **A second prerequisite was found, and it had an attractive wrong answer.** Besides the known
+> missing `layout_assign` mode, `LOCAL_CELLS` (`scripts/cluster/t08_local_remainder.py:48-51`) held
+> **only 7 of 12 cells** — the four NYC cells and `la_centre` had **no `CELL_CONFIGS` and no
+> `CITY_OF` entry**, and `CITY_OF` is read through a **silent fallback to the cell name** (`:423`), so
+> the omission would have broken every city-level group-by without ever raising. The runner is *named*
+> `t08_local_remainder`, which invites running 7 locally and reusing the cluster's T08 for the other
+> 5 — **that would rebuild OPEN-28**, since T08 is five-week-old code that deleted every `.eio`.
+> **Pinned: all twelve cells run locally, on one generation.**
+> **C01 done, CP-C1 signed.** Runner extended to 12 cells / 5 modes (`layout_assign` last), plus
+> `--output-csv` / `--work-base` flags — the runner clobbers its output CSV after every cell and the
+> 2026-07-01 artifact had to survive. The executor declined the end-to-end test on a tail-risk
+> argument that was **about `layout_assign`, not about the untested new cells**, so the director ran
+> the bounded smoke it did not cover (`nyc_rural`/`building`): **198/198 success, 0 fatal,
+> `city="NYC"`, 198 `.eio` retained, 0 `.eso` surviving.**
+> **C02 = E02 launched:** 12 cells × 5 modes × 8,160 = **40,800 simulations**, 16 workers, `.eio`
+> retained. It is the only measurement that closes **three** register items at once — **OPEN-01**
+> (a verified multiplier-aware denominator per building), **OPEN-02** (the `.eio` that has never
+> existed for any fleet building), **OPEN-28** (all five modes on one generation). Expectations were
+> written down *before* the run: ≈7.3–11.3 h, ≈0.1% failure rate, ≈43 GB worst case.
+> **CP-C2 is a completeness gate** — nothing downstream starts until every (cell, mode) is confirmed.
+> 🔴 **C02 was killed once at ~02:15 by the director, not by a defect.** It had been started with the
+> **session-bound** background facility rather than as an independent OS process, so a session
+> compaction stopped it and every EnergyPlus child. The plan had already said *launch it detached*;
+> the instruction was written and then not followed. At the kill: **561 of `nyc_centre/auto`'s 738**
+> `.eio` written, **no disk guard, no traceback, no fatal, no `sim_done.txt`**. **Little was lost** —
+> resume is **per building** (`t08_local_remainder.py:268` skips anything with an `eplusout.end`, and
+> `.end` survives trimming), so only Step 2 + one Step-3 pass are redone. Relaunched 02:52 via
+> `Win32_Process.Create` (WMI), which sits in no session job object; new log `e02_run_2.log`, the
+> first log kept. **Read the ~35-minute gap as a kill, not a slow first cell — and do not read it as
+> evidence about the ≈7.3–11.3 h estimate**, which is judged from the original 01:54 start.
+> **C03 (OPEN-10) — done and audited. The carried "90 buildings" figure reproduces exactly**, from a
+> fleet-wide pass over all twelve cells using the shipped `compute_band_map()`/`match_storeys()`:
+> 66 `MidriseApartment` + 24 `HighriseApartment`, over the same 7,442-building population OPEN-01's
+> crosstab uses. **Notable because carried numbers in this arc have a poor record** — OPEN-12's
+> percentages did not reproduce, OPEN-28's framing was wrong, N14's "same rows" claim was wrong.
+> Both of N11's limits confirmed at fleet scale (proposal populated for exactly the two ZoneGroup
+> archetypes; all 2,276 apartment `fallback_shorter` rows at `num_floors ∈ {1,2}`, none moved).
+> 🔴 **The side finding is the operative one: fleet-wide `fallback_not_expressible` is 1,976 across
+> 10 archetypes — `SmallOffice` alone is 1,580 — so OPEN-10's remedy reaches 90 of 1,976 = 4.6%.**
+> No future plan may present it as fixing inexpressibility. The mechanism was **modelled, not built**;
+> the 100% flip is band arithmetic, not a verified EnergyPlus result. Director slip recorded: a first
+> re-derivation reported 4,682 changed rows, a **NaN artifact** — the executor was right.
+> **What compute cannot fix:** OPEN-19 needs code, not cycles (no climate-zone or code-year switch
+> exists; LA's HVAC comes from a Buffalo prototype); OPEN-11 needs a user decision, not a measurement.
 > **The paragraph below is the 2026-08-05 snapshot and is left unedited, per the append-only rule.**
 
 `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — **29 items, OPEN-01 … OPEN-32**

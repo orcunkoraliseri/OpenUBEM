@@ -1,11 +1,14 @@
-"""T08 local remainder — run 7 cells x 4 modes on Windows desktop EnergyPlus 23.1.
+"""T08 local remainder — run 12 cells x 5 modes on Windows desktop EnergyPlus 23.1.
 
-Covers: la_urban, la_suburban, la_rural, austin_centre, austin_urban,
-        austin_suburban, austin_rural — all 4 modes each.
+Covers: nyc_centre, nyc_urban, nyc_suburban, nyc_rural, la_centre, la_urban,
+        la_suburban, la_rural, austin_centre, austin_urban, austin_suburban,
+        austin_rural — all 5 modes each (auto, building, floor, fast_zone,
+        layout_assign).
 
 Reuses t08_full_sweep.run_step2 / run_step3_mode for Steps 1-3.
 Runs EnergyPlus locally (mirrors t07b_run_auto_refit_local.py runner).
-Harvests to t08_local_remainder_eui.csv matching t08_harvest_results.py schema.
+Harvests to t08_local_remainder_eui.csv (or --output-csv) matching
+t08_harvest_results.py schema.
 Provenance: platform=Windows-local.
 
 Auto regression check is STRICT (<1 kWh/m2) — same Windows platform as phaseE baseline.
@@ -13,6 +16,7 @@ Auto regression check is STRICT (<1 kWh/m2) — same Windows platform as phaseE 
 Usage:
     py -3 scripts/cluster/t08_local_remainder.py [--cells ...] [--modes ...]
     py -3 scripts/cluster/t08_local_remainder.py --cells la_urban la_rural --modes auto building
+    py -3 scripts/cluster/t08_local_remainder.py --output-csv <path> --work-base <path>
 
 Resumable: skip (cell, mode) pairs where sim_done.txt is already present in the sim_out dir.
 """
@@ -20,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -46,18 +51,25 @@ OUTPUT_DIR = REPO / "openubem" / "outputs" / "comparisons"
 OUTPUT_CSV = OUTPUT_DIR / "t08_local_remainder_eui.csv"
 
 LOCAL_CELLS = [
-    "la_urban", "la_suburban", "la_rural",
+    "nyc_centre", "nyc_urban", "nyc_suburban", "nyc_rural",
+    "la_centre", "la_urban", "la_suburban", "la_rural",
     "austin_centre", "austin_urban", "austin_suburban", "austin_rural",
 ]
-ALL_MODES = ["auto", "building", "floor", "fast_zone"]
+ALL_MODES = ["auto", "building", "floor", "fast_zone", "layout_assign"]
 
 CITY_OF = {
-    "la_urban": "LA", "la_suburban": "LA", "la_rural": "LA",
+    "nyc_centre": "NYC", "nyc_urban": "NYC", "nyc_suburban": "NYC", "nyc_rural": "NYC",
+    "la_centre": "LA", "la_urban": "LA", "la_suburban": "LA", "la_rural": "LA",
     "austin_centre": "AUS", "austin_urban": "AUS",
     "austin_suburban": "AUS", "austin_rural": "AUS",
 }
 
 CELL_CONFIGS: dict[str, dict] = {
+    "nyc_centre":    {"lat": 40.7549, "lon": -73.9840, "state": "NY"},
+    "nyc_urban":     {"lat": 40.7721, "lon": -73.9301, "state": "NY"},
+    "nyc_suburban":  {"lat": 40.7052, "lon": -73.5985, "state": "NY"},
+    "nyc_rural":     {"lat": 42.0396, "lon": -74.1143, "state": "NY"},
+    "la_centre":     {"lat": 34.0522, "lon": -118.2437, "state": "CA"},
     "la_urban":      {"lat": 34.0584, "lon": -118.3040, "state": "CA"},
     "la_suburban":   {"lat": 33.8359, "lon": -118.3406, "state": "CA"},
     "la_rural":      {"lat": 34.7420, "lon": -118.2130, "state": "CA"},
@@ -416,7 +428,7 @@ def harvest_cell_mode(cell: str, mode: str, sim_out: Path,
             status = "success" if "EnergyPlus Completed Successfully" in txt else "failed"
         if (bdir / "eplusout.err").exists():
             err = (bdir / "eplusout.err").read_text(errors="replace")
-            has_fatal = "** Fatal **" in err
+            has_fatal = re.search(r"\*\*\s+Fatal\s+\*\*", err) is not None
 
         row: dict = {
             "cell": cell,
@@ -557,17 +569,23 @@ def print_cp4_local_report(results: pd.DataFrame) -> None:
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="T08 local remainder: 7 cells x 4 modes on Windows")
+    parser = argparse.ArgumentParser(description="T08 local remainder: 12 cells x 5 modes on Windows")
     parser.add_argument("--cells", nargs="+", default=LOCAL_CELLS,
                         choices=LOCAL_CELLS,
-                        help="Cells to run (default: all 7 local cells)")
+                        help="Cells to run (default: all 12 local cells)")
     parser.add_argument("--modes", nargs="+", default=ALL_MODES,
                         choices=ALL_MODES,
-                        help="Modes to run (default: all 4)")
+                        help="Modes to run (default: all 5)")
     parser.add_argument("--n-jobs", type=int, default=max(1, (os.cpu_count() or 4) - 2),
                         help="Step-3 worker processes (default: cpu_count-2)")
     parser.add_argument("--n-ep-workers", type=int, default=max(4, (os.cpu_count() or 8) - 2),
                         help="EnergyPlus parallel workers (default: cpu_count-2)")
+    parser.add_argument("--output-csv", type=Path, default=OUTPUT_CSV,
+                        help="Output CSV path (default: t08_local_remainder_eui.csv)")
+    parser.add_argument("--work-base", type=Path,
+                        default=Path(tempfile.gettempdir()) / "ubem_t08_local",
+                        help="Work base dir for resumable sim_out trees "
+                             "(default: %%TEMP%%/ubem_t08_local)")
     args = parser.parse_args()
 
     cells = args.cells
@@ -576,13 +594,14 @@ def main() -> None:
     n_ep_workers = args.n_ep_workers
     build_date = time.strftime("%Y-%m-%d")
 
-    work_base = Path(tempfile.gettempdir()) / "ubem_t08_local"
+    output_csv = args.output_csv
+    work_base = args.work_base
     work_base.mkdir(parents=True, exist_ok=True)
 
     print("=" * 72)
     print(f"T08 local remainder — {len(cells)} cells x {len(modes)} modes")
     print(f"  Work dir:    {work_base}")
-    print(f"  Output CSV:  {OUTPUT_CSV}")
+    print(f"  Output CSV:  {output_csv}")
     print(f"  Cells:       {cells}")
     print(f"  Modes:       {modes}")
     print(f"  n_jobs:      {n_jobs}  (Step 3)")
@@ -613,12 +632,12 @@ def main() -> None:
         if not modes_needed:
             print(f"  All modes done for {cell} — loading existing harvest ...")
             # Load existing harvest rows for this cell from output CSV if present
-            if OUTPUT_CSV.exists():
-                existing = pd.read_csv(str(OUTPUT_CSV))
+            if output_csv.exists():
+                existing = pd.read_csv(str(output_csv))
                 cell_rows = existing[existing["cell"] == cell]
                 if not cell_rows.empty:
                     all_dfs.append(cell_rows)
-                    print(f"  Loaded {len(cell_rows)} rows from {OUTPUT_CSV}")
+                    print(f"  Loaded {len(cell_rows)} rows from {output_csv}")
             continue
 
         # Build cell metadata from phaseE fixture
@@ -675,9 +694,9 @@ def main() -> None:
         # Write incremental CSV after each cell (safe against crashes)
         if all_dfs:
             interim = pd.concat(all_dfs, ignore_index=True)
-            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-            interim.to_csv(str(OUTPUT_CSV), index=False)
-            print(f"\n  [CSV] Incremental write: {len(interim)} rows -> {OUTPUT_CSV}")
+            output_csv.parent.mkdir(parents=True, exist_ok=True)
+            interim.to_csv(str(output_csv), index=False)
+            print(f"\n  [CSV] Incremental write: {len(interim)} rows -> {output_csv}")
 
     # Final assembly
     if not all_dfs:
@@ -685,10 +704,10 @@ def main() -> None:
         sys.exit(1)
 
     results = pd.concat(all_dfs, ignore_index=True)
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    results.to_csv(str(OUTPUT_CSV), index=False)
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    results.to_csv(str(output_csv), index=False)
     n_succ = int((results["status"] == "success").sum())
-    print(f"\nFinal CSV: {OUTPUT_CSV}  ({n_succ}/{len(results)} success rows)")
+    print(f"\nFinal CSV: {output_csv}  ({n_succ}/{len(results)} success rows)")
     print(f"Total retained bytes this run (trim, cumulative): {_CUMULATIVE_RETAINED_BYTES:,}")
 
     # CP4 local report
