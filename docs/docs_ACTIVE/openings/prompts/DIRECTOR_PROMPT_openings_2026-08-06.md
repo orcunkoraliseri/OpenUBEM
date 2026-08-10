@@ -54,6 +54,9 @@
 >    plan's §2 rule 9, an empty result is reported as empty, **never as 0 failures**.
 > 3. 🔴 **"The queue drained" is not "the simulations succeeded."** No `.err` file has been read. State
 >    no success rate, no failure count, and no fleet EUI until the artifacts are on disk and counted.
+>    **Nothing resubmits a failed task** — each runs once under a 4-hour wall limit, 16-at-a-time per
+>    array (`%16`); anything that crashes or times out dies silently in its own `.err`. Expect gaps and
+>    count them, do not assume 60 submitted arrays means 40,800 usable results.
 > 4. **Then OPEN-01's audit, which must answer three questions, not one** (the OPEN-02/OPEN-28 merge):
 >    the `layout_assign` denominator, the fleet-wide denominator in all five modes, and a demonstration
 >    that all five modes came from one code state. **Any one unanswered leaves OPEN-01 open.**
