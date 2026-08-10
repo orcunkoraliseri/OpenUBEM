@@ -151,6 +151,79 @@ Nothing here may be marked measured until CP-C2 confirms every (cell, mode) comp
 
 ---
 
+### ▶️ Resume amendment 2026-08-09 — **the pause is over, and one standing ruling has been given**
+
+**The closing amendment below is superseded on two points only; everything else in it still holds and
+is still the resume brief.**
+
+1. **The arc is un-paused.** The user returned 2026-08-09. **Speed cluster resources are reported
+   available**, and the user has authorised CPU-bound work again: *"maintenant des ressources de speed
+   est disponible, nous pouvons utiliser avec des taches qui utilisent des ressources pour le
+   computation."* Independent verification of the allowance was dispatched read-only before anything
+   is submitted; **no job has been submitted and none may be until the four conditions below the
+   closing amendment are discharged** — the `.eio`-deleting cluster template (condition 2) first.
+2. **CP-M3 / OPEN-30 / OPEN-31 / OPEN-33 are RULED.** See each item's own section for the binding
+   text. **The ruling is: all three closing steps become obligatory.** The user was given the three
+   instances as one question and answered *"yes to all three — make them obligatory."*
+3. **CP-C2's scheduling axis is RULED: measure first.** Speed was reconnoitred read-only the same day
+   and **both gates that parked E02 are open** — account `chachemv`, `GrpTRES cpu=32`, **0 of 32 in
+   use**, `squeue -A chachemv` empty; `/speed-scratch` quota **4.1 TB free** against a ~45 GB worst
+   case. Options put: probe first / all five modes now / four modes with `fast_zone` queued after.
+   **The user chose a bounded calibration probe**, then the fleet-scope decision against measured
+   numbers. ~~**The fleet submission is still unauthorised** and CP-C2's own scope question is still
+   owed.~~ **→ superseded the same day by item 5.** Execution: **`implemenation/PLAN_speed-resume.md`**
+   (**R01–R06**, CP-R1 and CP-R2), which discharges conditions 1 and 2 of the closing amendment plus
+   OPEN-30's new obligation before a single job is submitted. 🔴 **The 2026-08-06 descope options
+   (a)–(d) stay spent and were not re-asked.** *(Task IDs were renamed `S0n` → `R0n` on 2026-08-09 —
+   the progress board already used S01/S02/S04 for the arc's standing obligations. Same work, same
+   order.)*
+4. **OPEN-29 is RULED — RULING C: "fix the error check everywhere."** Task **R06**. See OPEN-29's own
+   section for the binding text and for two corrections it forced: the bug is at **six** live sites,
+   not the four recorded here, and the archived + diagnostics copies are a third occurrence class this
+   register had never named. 🔴 **R06 corrects the future, not the record** — no harvest is re-run, so
+   the standing rule *never use the `has_fatal` column* still binds every pre-2026-08-09 artifact.
+5. **🔴 The user granted autonomous completion, and with it the fleet submission.** *"vas-y continuer
+   jusqu'à la fin. et aussi commencer des runs sur le speed, des ressources sont disponibles, vas-y."*
+   The director now **self-signs CP-R1 and CP-R2** and proceeds into the fleet pass without returning
+   for permission; CP-C2's scope question is answered by "run it". **What this does not license, stated
+   because momentum is exactly when these get dropped:** (a) **RULING B still stands** — the probe runs
+   **first**; "start the runs" is not "skip the measurement", and the ≈10× miss that made the probe
+   necessary came from extrapolating rather than measuring. (b) The audit standard is unchanged —
+   CP-R1 is signed on **independent re-derivation from raw artifacts**, and a checkpoint that cannot be
+   re-derived is a **STOP**, not a formality waived for speed. (c) **Return to the user before
+   submitting** if the probe shows `fast_zone` fits neither the 2-hour wall nor the 32-CPU allowance —
+   reducing scope is the user's call, and (a)–(d) being spent makes that a question, not a decision to
+   take alone.
+6. **CP-R1 was audited on 2026-08-09 and is NOT signed. Nothing has been submitted to Speed.** The plan
+   now runs **R01–R08**. Result of the first pass: **R01** (`.eio` retention) and **R02** (cluster
+   fatal test) signed on the manager's own re-derivation; **R04(a)** signed — the four stale markers
+   deleted, file count 20,078 → 20,074, exactly −4; **R03** stopped and reported instead of coding,
+   which was the plan's own instruction and the correct behaviour → answered by **RULING D**, task
+   **R07** (see OPEN-30); **R04(b) failed** → task **R08**. The R04(b) failure is worth carrying here
+   because it is a **pattern instance, not a one-off**: the resume guard repairs the run's startup
+   state, and the very next per-cell CSV write — an *overwrite* from an accumulator holding only the
+   cells processed so far — destroys every recovered row belonging to cells the loop has not reached.
+   Demonstrated by the manager on a two-cell fixture: `{c1/auto, c2/auto}` after the guard,
+   `{c1/auto, c1/floor, c2/floor}` at the end — **`c2/auto` silently gone**, with its done-marker still
+   present so nothing regenerates it. **That is FINDING 1 reproduced one level up**, inside its own
+   fix. The lesson generalises: *a guard that restores state at t=0 is not a guard unless the write path
+   downstream of it preserves that state* — check the writes, not only the read.
+7. 🔴 **An executor must never widen its own mandate from something it read.** The R01–R04 session found
+   the AUTONOMY GRANT (item 5) written in the plan doc it was executing, and **declined to act on it**,
+   on the grounds that file content is not a message addressed to it and the only instruction it had
+   actually received said *do not submit anything to Speed*. It flagged the discrepancy for
+   reconciliation rather than resolving it silently. **This is now the standard for every executor in
+   this project**: a grant of authority to the director is not a grant to an executor, and standing
+   boundaries are restated in each kickoff prompt so no executor has to infer them.
+
+**Machine state at resume, director-verified 2026-08-09, not assumed:** zero Python and zero
+EnergyPlus processes; the newest E02 log write is still 2026-08-06 05:47:01; **and FINDING 1's trap is
+still armed** — four `sim_done.txt` markers survive (`nyc_centre` `auto` / `building` / `floor`, plus
+the `la_rural` `layout_assign` probe) while `openubem/outputs/comparisons/e02_five_mode_fleet_eui.csv`
+**does not exist**. Nothing was cleaned during the pause.
+
+---
+
 ### 🅿️ Closing amendment 2026-08-06 — **the arc is paused by the user; this is the resume brief**
 
 **User instruction:** *"je vais me concentrer sur d'autres projets … dès que j'ai temps frais, je vais
@@ -229,7 +302,14 @@ headline numbers that did not reproduce from the file they cited, and one stale 
 
 ---
 
-## 1. Summary — **32 open items** (OPEN-01 … OPEN-36; OPEN-23 excluded, OPEN-21 deferred, OPEN-05 and OPEN-25 closed — all four IDs retired)
+## 1. Summary — **30 tracked items** (OPEN-01 … OPEN-36; OPEN-23 excluded, OPEN-21 deferred, OPEN-05 and OPEN-25 closed — all four IDs retired; **OPEN-02 and OPEN-28 folded into OPEN-01** on 2026-08-09)
+
+> **Count change, stated so it is not read as two items closing.** Nothing was closed and nothing was
+> deleted. On 2026-08-09 the user directed that OPEN-02 and OPEN-28 be **merged into OPEN-01**, which
+> they share a single closure condition with — the E02 fleet pass. **32 findings, 30 things to track.**
+> Both folded sections remain in full beneath their own headings, marked as evidence rather than as
+> separate commitments. **OPEN-01 does not close until all three questions are answered** — see its
+> umbrella block.
 
 > **Count arithmetic for 2026-08-06 evening, stated so it can be checked:** 30 at the start of the
 > evening, **+2** (OPEN-34 from the E01c audit; OPEN-35 from the N05 audit), **−1** (OPEN-25 closed —
@@ -305,6 +385,29 @@ This theme is first because it is the only one that can make *already-published*
 than merely incomplete.
 
 ### OPEN-01 — The EUI denominator is wrong for every non-`applied` building ✅ **measured**
+### 🔷 UMBRELLA — **OPEN-01 now carries OPEN-02 and OPEN-28** (user's instruction, 2026-08-09)
+
+> **The user directed that the three be merged into OPEN-01 rather than tracked separately.** They share
+> **one** closure condition — the E02 five-mode / twelve-cell / 40,800-simulation pass — and splitting a
+> single measurement across three tracked items made the work look like three commitments when it is
+> one. **OPEN-01 is the item to watch; it closes when E02's harvest is audited, and OPEN-02 and OPEN-28
+> close with it.**
+>
+> **The three findings are kept distinct beneath this heading, and not deleted** — this register's rule
+> is append-and-amend, and a merge that erased the separate findings would destroy the evidence that
+> each was independently established. They are folded, not collapsed:
+>
+> | Folded item | The finding it contributes | Why it is not the same finding as OPEN-01 |
+> |---|---|---|
+> | **OPEN-02** | No fleet-scale EUI has a simulation-verified denominator, in **any** mode | OPEN-01 is a `layout_assign`-specific mutation defect; OPEN-02 is that **no** mode's denominator was ever checked against what EnergyPlus ran |
+> | **OPEN-28** | Every cross-mode comparison mixes **two harvest generations**, so any reported difference may be the method or may be the generation | This survives even if every denominator were correct — it is a confound, not an arithmetic error |
+>
+> 🔴 **What the merge must not be allowed to hide.** One run discharging three findings means **one
+> audit has to answer three questions**, and a harvest that satisfies the denominator questions says
+> nothing about the confound. E02's closure therefore requires, separately and explicitly: (a) the
+> multiplier-aware floor area read from `eplusout.eio` for `layout_assign`'s non-`applied` buildings;
+> (b) the same for **all five** modes fleet-wide; (c) a demonstration that all five modes came from
+> **one** code state. **Any one of the three unanswered leaves OPEN-01 open.**
 
 **What is known.** In `layout_assign`, `match_storeys()` mutates the prototype **only** when it
 returns status `applied` — its own docstring is explicit
@@ -393,6 +496,10 @@ reader of this item must not miss:** the stock cluster template deletes `.eio`
 exact evidence this re-run exists to obtain.
 
 ### OPEN-02 — No fleet-scale EUI has a simulation-verified denominator ✅ **measured + decided**
+> 🔷 **FOLDED INTO OPEN-01 on 2026-08-09 by the user's instruction.** Tracked there, closes there, with
+> the same E02 pass. The finding below is **retained in full as evidence** and is not superseded — see
+> the umbrella table under OPEN-01 for why it is a distinct finding. Do not count it as a separate open
+> commitment.
 
 **What is known.** Every EUI in every mode and every harvest T08→T20 divides by
 `footprint_area_m2 × levels` from Stage-2 enrichment. The file that records what EnergyPlus actually
@@ -525,6 +632,10 @@ new item **OPEN-31**.
 
 ### OPEN-28 — Every cross-mode comparison mixes two harvest generations ✅
 *Added 2026-08-05.*
+> 🔷 **FOLDED INTO OPEN-01 on 2026-08-09 by the user's instruction.** Tracked there, closes there, with
+> the same E02 pass. The finding below is **retained in full as evidence** and is not superseded — see
+> the umbrella table under OPEN-01 for why it is a distinct finding. Do not count it as a separate open
+> commitment.
 
 **What is known, verified.** `layoutAssigner/figures/README.md:8`, written by the arc itself:
 
@@ -632,9 +743,53 @@ have been checked at any past point either. This is not a gap in the comparison 
 was ever recorded. It also blocks OPEN-03 from being bounded against the fleet's real vintage
 distribution rather than a proxy.
 
-**First measurement:** none needed; the absence is verified. **Decision owed:** whether to persist the
+**First measurement:** none needed; the absence is verified. ~~**Decision owed:** whether to persist the
 token on future runs — one column, and the re-run already approved in principle (OPEN-02) is the
-natural place.
+natural place.~~
+
+> **✅ RULED 2026-08-09 — persist it. Obligatory, not optional.** The user was given OPEN-30, OPEN-31
+> and OPEN-33 as a single question — *what must a change carry before it counts as finished* — and
+> ruled **all three obligatory**. For this item that means: **every harvest writes the assigned vintage
+> token into its output**, so the value can be read back from the artifact instead of re-derived from
+> whatever the code happens to be on the day someone asks.
+>
+> **Scope of the ruling, stated so no plan over-reads it:** it binds *future* runs. It does **not**
+> retro-fit the token into artifacts already on disk — that is impossible, which is precisely OPEN-30's
+> finding. The next fleet pass (E02, whichever machine runs it) is the natural first carrier, and the
+> column must exist **before** it is submitted or the pass reproduces the gap it was meant to close.
+> **Remains open until the column is built and demonstrated**; the ruling authorises the plan, it does
+> not do the work.
+
+> **⚠️ RULING D — 2026-08-09, the manager's answer to R03's STOP. The route is the manifest.**
+> Task **R03** of `implemenation/PLAN_speed-resume.md` was written to add the column to both harvests,
+> with an explicit instruction to trace first and **stop** if the token turned out not to be reachable.
+> **It was not reachable, and the executor stopped correctly rather than choosing.** Independently
+> confirmed by the manager: `vintage_standard` is written at `construction_sets.py:352` and is the
+> **first** of the 28 appended envelope columns (`openubem/semantic/__init__.py:45-47`,
+> `_F17_ENVELOPE_COLS`), but it lives only as a transient in-memory column on `gdf_57`. It is in no
+> persisted artifact the cluster harvest can reach — the five real `03_manifest.parquet` files on disk
+> carry **10 columns** and it is **not** among them, and `05_results.gpkg`, which is what `cell_info`
+> is built from, does not carry it either.
+>
+> **The ruling: carry it in the per-building manifest.** `run_step3_mode()`
+> (`scripts/cluster/t08_full_sweep.py:154-181`) is handed `gdf_57` itself and writes
+> `03_manifest.parquet`; the manifest already carries `osm_id`; and **both** harvest paths already read
+> that manifest (`t08_harvest_results.py:587,591,618`). So one left-join in one script gives both
+> harvests the column with **no new file, no shipping change, and nothing recomputed**. Implemented as
+> task **R07**.
+>
+> 🔴 **Why the route matters more than the column.** The alternative — calling `resolve_vintage()` again
+> at harvest time — would have been quicker and would have produced a column that looked identical. It
+> would also have been a script reimplementing pipeline logic, i.e. **lookalike evidence**, the exact
+> failure this register names elsewhere (`a1_prototype_storey_structure.csv`) and the reason the
+> evidence rules exist. Copying the value the builder was actually handed, in the same process and the
+> same moment the IDF is generated, is provenance. Re-deriving it is reconstruction. **They are not
+> interchangeable even when they agree.**
+>
+> **Manifests written before R07 do not get the column and must not be backfilled** — the empty string
+> is the honest record of a run whose vintage was never captured. **OPEN-30 stays open** until R07's
+> value distribution is demonstrated against the fleet's known ≈92.9% `DOERefPre1980` composition; a
+> column that comes out constant or uniform is a defect, not a pass.
 
 ### OPEN-31 — Ratified changes are adopted without a before/after on the labelled fixture ✅
 *Added 2026-08-05, from M04 + M05.*
@@ -645,8 +800,28 @@ time. Both surfaced weeks later, separately, in unrelated investigations.
 
 **This is a process defect, not a code defect.** No line of code is wrong.
 
-**Decision owed (CP-M3):** whether a ratified classification change must carry a before/after on the
-50-row labelled fixture before adoption.
+~~**Decision owed (CP-M3):** whether a ratified classification change must carry a before/after on the
+50-row labelled fixture before adoption.~~
+
+> **✅ CP-M3 RULED 2026-08-09 — yes, and it is obligatory.** Ruled together with OPEN-30 and OPEN-33
+> as one question; the user's answer was *"yes to all three — make them obligatory."*
+>
+> **The rule, in the form it must be written into the plan doc:** no change that can move
+> classification is adopted until the 50-row labelled fixture has been run on **both sides** of it and
+> **both numbers are recorded**. A single "after" number does not satisfy it — the project's own
+> evidence rule already says a before/after is not reportable until the before is shown to differ from
+> the after (register §6).
+>
+> **What it would have caught, which is why it was ruled:** E-R3-3 cost **4 points** of fine top-1 and
+> reclassified **13.4%** of the shared fleet, and neither number existed at adoption time. The drift
+> `92.0 → 84.0 → 88.0` then took a five-commit bisection (M04) to attribute, six weeks late.
+>
+> **Two boundaries the ruling does not cross.** It does not re-open any adopted change retroactively —
+> M04 already established the history and re-running it is forbidden (§6, "do not re-run M01–M05"). And
+> the fixture's own fitness is a **separate, still-open question** (OPEN-22: a third of the exam is
+> decided by size-bucketing rather than tag logic). **Making the exam obligatory does not certify the
+> exam** — if OPEN-22 later changes the fixture, the gate follows it. **Item stays open until the gate
+> is written down where an executor will meet it.**
 
 ### OPEN-32 — Two large `layout_assign` errors point in opposite directions; the net is unmeasured ✅
 *Added 2026-08-05, from M01 + M03.*
@@ -851,6 +1026,53 @@ banner included. (3) 🔴 **E-LA-21 is NOT discharged.** The four harvest script
 decision under this item, not a side effect of a runner repair. **The standing rule "never use the
 `has_fatal` column" remains in force for every pre-2026-08-06 artifact.**
 
+**✅ RULED by the user 2026-08-09 — RULING C: fix it everywhere.** ~~fixing them is the user's
+decision under this item~~ — the decision is now taken. The question put was whether to repair only
+the script generating today's results (the C07 precedent) or every remaining occurrence; the answer
+was *"fix the error check everywhere."* Implemented as **task R06** in
+`implemenation/PLAN_speed-resume.md`. `t08_harvest_results.py` was repaired separately as R02 the
+same day (verified by the manager at `:246`, `import re` at `:25`).
+
+**🔴 The count in this item is wrong, and this is the correction.** A fresh grep on 2026-08-09 finds
+the one-space test at **six** live sites, not four. The two this register never named are
+`t17_harvest_layout_assign.py:254` and `t18_harvest_layout_assign.py:251`; line numbers have also
+drifted (`t19`/`t20` at `:259`, `t08_harvest_results.py` was at `:245`, not `:239`). ~~replicated
+across at least four harvest scripts~~ → **six**. The phrase "at least four" was doing real work and
+was still an undercount; **the lesson is the register's own rule — a line-number citation is
+evidence of a past reading, not of present state, and must be re-grepped before it is acted on.**
+
+**Two further occurrence classes, recorded here so they are not rediscovered a fourth time.**
+(1) `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/scripts/t19_harvest_layout_assign.py:259`
+— an archived copy inside a closed arc's evidence folder. **Deliberately not fixed:** editing archived
+evidence falsifies the record of what that arc actually ran. (2) `scripts/diagnostics/`
+`t01_reproduce_degenerate.py:108`, `t04_validate_way428643335.py:133`, `t06_validate_relation6374725.py:153`
+test the variants `"**  Fatal **"` and `"** Fatal  **"` — **neither is the true two-space form, so these
+are wrong too**, in a third way this register had not recorded. Out of scope for R06 (one-off
+diagnostics from closed arcs whose conclusions are already written), but **their conclusions were
+reached with a fatal test that could not fire**, and no one has asked what that implies. That question
+is open and belongs to this item.
+
+**✅ R06 is DONE and manager-audited the same day, 2026-08-09.** All six live sites now test
+`\*\*\s+Fatal\s+\*\*`; `git diff --stat` shows `6 files changed, 12 insertions(+), 6 deletions(-)` —
+one `import re` plus one substitution each, no reformatting — and all six compile. **The audit was an
+independent re-derivation, not a reading of the report:** over the halted E02 run's **2,422**
+`eplusout.err` files the old literal matches **0** and the new regex matches **2**
+(`nyc_centre/sim_out_auto/way_266149332`, `way_266170765`). **Both non-vacuity conditions hold** — the
+corpus contains real fatals, so "before" is *shown* to differ from "after" rather than asserted; and
+the count is exactly 2, not 4 or 2,422, while the decorative lines `************* Fatal error -- final
+processing.` and `************* EnergyPlus Terminated--Fatal Error Detected.` sit in those same two
+files, so the new expression is not simply looser. These are the **same two stems C07 found on
+2026-08-06 through an unrelated execution path**. **No one-space literal survives anywhere under
+`scripts/` or `openubem/`.** Full audit table: `implemenation/PLAN_speed-resume.md` §8, "AUDIT — R06".
+🔴 **E-LA-21 is now closed as a live code defect; OPEN-29 is NOT closed** — eight other defect IDs
+remain live inside it.
+
+**What R06 does NOT do.** It does not re-run any harvest, so no historical output is regenerated;
+past tables keep whatever `has_fatal` they were written with. **The standing rule "never use the
+`has_fatal` column" therefore still holds for every pre-2026-08-09 artifact** — the fix corrects the
+future, not the record. Whether any published conclusion ever depended on that column is a **separate
+unmeasured question** and is not settled by this ruling.
+
 **The register's own framing was wrong about one candidate, in the instructive direction.** E-LA-11
 was a candidate only because its *defining* line carries no status word — but two later documents
 (2026-07-23, 2026-07-25) explicitly close it. That is the §5-corollary trap firing in reverse: not a
@@ -893,10 +1115,24 @@ prefix substitution alone will not find them.
 | `docs/PROJECT_CHECKLIST.md` | **Migration map added at the head of the file**, not rewritten. Its journal blocks are append-only; rewriting paths inside frozen entries would violate that rule for a navigation gain the table delivers anyway — and the table covers all 8 arcs at once, not just the ones cited here. |
 | `docs_DONE/` arc records (26 files), `docs_main/` specs, `docs_TODO/layoutgenerator/` | **Deliberately untouched** — frozen, read-only, and user-excluded respectively. Resolved via the map. |
 
-**What remains open.** Only the *recurrence*, not the backlog. **Decision owed:** whether archiving an
+**What remains open.** Only the *recurrence*, not the backlog. ~~**Decision owed:** whether archiving an
 arc must include a citation sweep, in the same way OPEN-31 asks whether ratifying a classifier change
-must include a fixture before/after. **Both items are the same shape** — a step that is obviously
+must include a fixture before/after.~~ **Both items are the same shape** — a step that is obviously
 right, that nobody owns, discovered weeks later by someone else's investigation.
+
+> **✅ RULED 2026-08-09 — the sweep is obligatory.** Ruled as one question with OPEN-30 and CP-M3;
+> the user answered *"yes to all three — make them obligatory."* **Archiving an arc is not finished
+> until the citations pointing into it have been swept and repaired.**
+>
+> **The measured shape of the work, so the rule is costed honestly rather than assumed cheap:** the one
+> sweep ever run found **58 dead paths in 23 live documents across 8 arcs**, and **four files were
+> renamed by their move**, so a prefix substitution alone does not find them — any tooling must resolve
+> by filename, not by path rewriting. Estimated ~30 minutes per archive, mechanical.
+>
+> **The exclusions already established stay excluded:** `docs_DONE/` records, `docs_main/` specs and
+> `docs_TODO/layoutgenerator/` are frozen / read-only / user-excluded and are resolved through
+> `PROJECT_CHECKLIST.md`'s migration map, not by editing them. The sweep covers **live** documents.
+> **Item stays open until the rule is written where the next person archiving an arc will meet it.**
 
 ---
 

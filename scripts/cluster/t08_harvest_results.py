@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 import subprocess
 import sys
@@ -242,12 +243,13 @@ def parse_cell_mode(cell: str, mode: str, sim_out: Path, fleet_lst: list[str],
             status = "success" if "EnergyPlus Completed Successfully" in txt else "failed"
         if (bdir / "eplusout.err").exists():
             err = (bdir / "eplusout.err").read_text(errors="replace")
-            has_fatal = "** Fatal **" in err
+            has_fatal = re.search(r"\*\*\s+Fatal\s+\*\*", err) is not None
 
         row: dict = {
             "cell": cell, "city": CITY_OF.get(cell, cell),
             "mode": mode, "osm_id": osm_id, "archetype_id": archetype,
             "floor_area_m2": floor_area, "status": status, "has_fatal": has_fatal,
+            "vintage_standard": "",
         }
 
         if manifest is not None:
@@ -257,6 +259,10 @@ def parse_cell_mode(cell: str, mode: str, sim_out: Path, fleet_lst: list[str],
             if not mrow.empty:
                 row["zoning_strategy"] = str(mrow.iloc[0].get("zoning_strategy", ""))
                 row["num_zones"] = int(mrow.iloc[0].get("num_zones", 0))
+                # R07: manifests written before this change lack the column --
+                # missing stays the empty string, never a fabricated default.
+                vs = mrow.iloc[0].get("vintage_standard", "")
+                row["vintage_standard"] = "" if pd.isna(vs) else str(vs)
 
         if status == "success" and sql_path.exists():
             try:

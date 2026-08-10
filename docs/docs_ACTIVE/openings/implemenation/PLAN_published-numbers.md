@@ -1008,6 +1008,50 @@ artifacts only.
   performed or proposed anywhere in this task (measurement-only, §2 rule 2). No other mode was run.
   No full cell or full pass was run — exactly 3 buildings, per the task's explicit instruction.
 
+#### RULING — CP-M3, and with it OPEN-30 and OPEN-33 — given by the user 2026-08-09
+
+- **Question put:** the three items were presented as **one** question, per §9 pattern 5 of the
+  register — *what must a change carry before it counts as finished?* Three instances of a step that is
+  obviously right and that nobody owns: the labelled-fixture before/after (OPEN-31 / CP-M3), persisting
+  the assigned vintage (OPEN-30), and the citation sweep on archiving an arc (OPEN-33). Three options
+  were offered: all three obligatory / the fixture gate only / none for now.
+- **Answer:** **all three obligatory.** *"Yes to all three — make them obligatory."*
+- **Binding consequences, one per item:**
+  1. **CP-M3 / OPEN-31** — no change that can move classification is adopted until the 50-row labelled
+     fixture is run on **both** sides and both numbers are recorded. A lone "after" number does not
+     satisfy the gate (§2's evidence rule: a before/after is not reportable until the before is shown
+     to differ from the after).
+  2. **OPEN-30** — every harvest persists the assigned vintage token into its output. **This must exist
+     before the next fleet pass is submitted**, or that pass reproduces the exact gap it would have
+     closed.
+  3. **OPEN-33** — archiving an arc is not finished until citations into it are swept and repaired.
+     Measured shape: 58 dead paths / 23 documents / 8 arcs, with 4 files renamed by their move, so
+     resolution must be by filename, not by prefix rewriting.
+- **What the ruling does NOT do.** It authorises the plans; it does not do the work, and none of the
+  three items may be marked closed on the strength of the ruling alone. It is not retroactive: no
+  adopted change is re-opened, and M01–M05 stay frozen (§2). It does not certify the 50-row fixture
+  itself — **OPEN-22 remains open and unruled**, and if it changes the fixture the gate follows it.
+- **Surfaces updated the same day:** this log, the register (OPEN-30 / OPEN-31 / OPEN-33 each carry the
+  ruling in their own section, struck-and-dated, nothing deleted), and the live director prompt.
+
+#### RESUME — the arc is un-paused; Speed is reported available — 2026-08-09
+
+- **User instruction:** *"maintenant des ressources de speed est disponible, nous pouvons utiliser avec
+  des taches qui utilisent des ressources pour le computation."* CPU-bound work is authorised again.
+  This is the event E02's park was waiting for (§8, "RULING — CP-C2 / E02").
+- **Machine state, director-verified, not assumed:** zero Python and zero EnergyPlus processes; newest
+  E02 log write still **2026-08-06 05:47:01**; nothing ran during the pause.
+- 🔴 **FINDING 1's trap is still armed.** Four `sim_done.txt` markers survive — `nyc_centre` `auto`,
+  `building`, `floor` and the `la_rural` `layout_assign` probe — while
+  `openubem/outputs/comparisons/e02_five_mode_fleet_eui.csv` **does not exist**. No cleanup was done
+  during the pause. On any machine, a relaunch that does not delete those markers first silently drops
+  2,214 buildings from the "fleet" it reports.
+- **Nothing has been submitted.** A read-only reconnaissance was dispatched first — allowance and quota
+  on Speed, and the exact retention behaviour of the cluster submit templates — because the highest-risk
+  condition on a Speed resume is that the stock template's `rm -f "$OUTDIR"/*.eio`
+  (`scripts/cluster/submit_fleet_t08.sbatch:63`) **destroys the evidence OPEN-02 exists to obtain**, and
+  E01's retention fix is local-only.
+
 ---
 
 ## 9. Execution

@@ -1365,3 +1365,37 @@ copy is a static snapshot and is **not** the published artifact; republishing mu
 **No new work was started to fill the pause**, and none should be on resuming until the user has been
 told the state and has ruled. Every remaining first measurement in the register needs either CPU or a
 decision from them.
+
+---
+
+### RULING — CP-C2's scheduling axis — given by the user 2026-08-09. **This plan hands off to `PLAN_speed-resume.md`.**
+
+**The unblocking event happened.** *"maintenant des ressources de speed est disponible, nous pouvons
+utiliser avec des taches qui utilisent des ressources pour le computation."* Speed was independently
+reconnoitred read-only the same day before anything was proposed: account `chachemv`,
+`GrpTRES cpu=32`, **0 of 32 in use**, `squeue -A chachemv` empty, `/speed-scratch` quota 4.1 TB free
+against a ~45 GB worst case. **Both gates that parked E02 are open.**
+
+**Question put to the user** (CP-C2's remaining axis — *not* the spent (a)–(d) descope options, which
+were not re-asked): probe first / submit all five modes now / four modes now with `fast_zone` queued
+after. **Answer: measure first.** One bounded calibration probe on Speed, then the fleet-scope decision
+against measured numbers.
+
+**Why that is the right shape and not caution for its own sake.** FINDING 3 measured the local
+projection wrong by **≈10×**, and `SCOPING_five-mode-rerun-cost.md` PART 3 records that the *cluster*
+projection rests on the same 3-timing-run calibration and **must be re-derived, not reused**. The
+manager's own scaling from the measured local wall-clocks puts the four cheaper modes at ≈3–4 days and
+`fast_zone` alone at ≈2 weeks at 32 CPUs — a spread wide enough that submitting first and measuring
+afterwards would be a decision taken blind, on the strength of the one number this arc has already been
+burned by.
+
+**Execution moves to `PLAN_speed-resume.md`** (S01–S05, checkpoints CP-S1 and CP-S2). What it
+discharges, in order: the `.eio` deletion in the cluster template (condition 2 above), the cluster
+harvest's broken fatal detection (`t08_harvest_results.py:245`, the C07 precedent applied to the script
+that will generate these results — **this does not discharge OPEN-29**), the newly-obligatory vintage
+column (RULING A of 2026-08-09, OPEN-30), and FINDING 1's marker cleanup with a guard against its
+recurrence (condition 1 above). **Only then** the probe: `la_rural` + `nyc_rural`, whole cells, all
+five modes, ten independent arrays.
+
+🔴 **The fleet submission remains unauthorised.** CP-S2 reports the probe's numbers to the user and the
+scope decision is theirs. Conditions 3 and 4 above stay in force verbatim.

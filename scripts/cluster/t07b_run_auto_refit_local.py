@@ -16,6 +16,7 @@ Usage:
 """
 from __future__ import annotations
 
+import re
 import shutil
 import sqlite3
 import subprocess
@@ -326,7 +327,7 @@ def harvest_and_compare(manifest: pd.DataFrame, sim_out: Path,
             sim_status = "success" if "EnergyPlus Completed Successfully" in txt else "failed"
         if (bdir / "eplusout.err").exists():
             err = (bdir / "eplusout.err").read_text(errors="replace")
-            has_fatal = "** Fatal **" in err
+            has_fatal = re.search(r"\*\*\s+Fatal\s+\*\*", err) is not None
 
         row: dict = {
             "mode":             "auto",

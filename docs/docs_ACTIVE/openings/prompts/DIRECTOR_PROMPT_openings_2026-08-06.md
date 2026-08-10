@@ -1,6 +1,164 @@
 # DIRECTOR PROMPT — the `openings` arc
 
-> # 🅿️ READ THIS BEFORE ANYTHING ELSE — the arc is PAUSED, and nothing is running
+> # 🟢 RESUME HERE — written 2026-08-09 20:4x, at the user's instruction. Read this box first; everything below is context.
+>
+> **The user is away and returns when the cluster finishes.** *"des qu'ils finiront sur le speed, je vais
+> retourner. pas nécessaire d'attendre."* **Do not wait, do not poll in a model session, and do not
+> re-dispatch a monitoring agent** — one already burned ~157 k tokens idling and was stopped for it.
+>
+> ## Where things actually stand
+>
+> **The probe is running on Speed and nothing is owed until it drains.** Ten arrays, **1,735
+> simulations**, submitted **2026-08-09 20:29:21**. `la_rural` 149/mode and `nyc_rural` 198/mode, across
+> `auto` / `building` / `floor` / `layout_assign` / `fast_zone`. Job IDs and counts:
+> `%TEMP%\ubem_r05_probe\r05_job_ids.json`. A **plain background shell poller** (no model tokens) reads
+> `squeue` every 30 min, read-only, and exits on one of three outcomes — all drained (it then prints the
+> `sacct` timing/`MaxRSS` table, which **is** the measurement), three consecutive ssh failures, or a 12 h
+> timeout. **Silence is not success and the watcher is built so it cannot be read that way.**
+>
+> **Everything gating the fleet pass is done and signed.** CP-R1 signed 2026-08-09 on independent
+> re-derivation: R01 `.eio` retention, R02 + R06 the fatal-detection regex at all six live sites, R04
+> the resume trap (markers cleared **and** the guard now surviving the run via R08), R07 the vintage
+> token carried through the manifest. Full audit tables in `implemenation/PLAN_speed-resume.md` §8.
+>
+> ## What to do when the watcher reports
+>
+> 1. **Read the timing and memory table** — that is R05's whole purpose. A clean submission measured
+>    nothing; **runtime and `MaxRSS` are still unknown** until this is read.
+> 2. **Resolve the two pre-registered risks explicitly, whichever way they fall:** the **2-hour wall**
+>    against `fast_zone`'s worst buildings, and **`--mem=6G`** (the ceiling that killed the local run).
+>    Report both even if both are clean.
+> 3. 🔴 **Apply the `r05probe` tag override when harvesting.** `t08_harvest_results.py:42` still
+>    hard-codes `_FLEET_TAG = "t08"`; a blind harvest reads the wrong remote directories and **finds
+>    nothing** — and per the plan's §2 rule 9, an empty result is reported as empty, **never as 0
+>    failures**. State in the report which remote directories were actually read.
+> 4. **Then CP-R2 and the fleet pass.** The user's 2026-08-09 autonomy grant lets the director self-sign
+>    and submit — **except** if the probe shows `fast_zone` fits neither the wall nor the 32-CPU
+>    allowance, in which case **return to the user**; cutting scope is theirs, and the 2026-08-06
+>    descope options (a)–(d) are **spent, never re-ask them**.
+> 5. Re-check the allowance immediately before the fleet submission, as was done for the probe.
+>
+> ## Standing instructions the user restated this session
+>
+> - **Update this prompt on every completed task, unasked** — plus the plan's progress log and the
+>   register. Three surfaces, every time. *("chaque fois mettre à jour ce prompt … très prochainement.")*
+> - **Kill agents that are not doing work.** Background shell watchers are fine; idling model sessions
+>   are not.
+> - **Answer in English**, short. The user writes French. *("en anglais toujours tu réponds en anglais.")*
+> - **OPEN-02 and OPEN-28 are folded into OPEN-01** (user's instruction) — 30 tracked items, 32 findings.
+>   OPEN-01 is the one the cluster closes; the other 29 are unrelated to it.
+> - Progress board: `implemenation/board_published-numbers.html`, mirrored to `reporting/`, published at
+>   `https://claude.ai/code/artifact/0615b50a-75d6-49c6-a354-d4f2f74d3639` — **redeploy to that same URL**.
+
+> # ▶️ SUPERSEDING BOX — 2026-08-09. The arc is UN-PAUSED. Read this before the pause box below.
+>
+> **The user returned 2026-08-09 and released compute again:** *"maintenant des ressources de speed est
+> disponible, nous pouvons utiliser avec des taches qui utilisent des ressources pour le computation."*
+> The pause box below is **historically accurate and no longer current**. What changed, and only this:
+>
+> 1. **Speed is reported available**, so CPU-bound work is authorised. **This is the event E02's park
+>    was waiting for.** Verification of the allowance was dispatched read-only before anything is
+>    submitted — *reported available* is not *verified free*, and this account has been wrong about that
+>    before (2026-08-05: the cap was 100% consumed by an unrelated account).
+> 2. **Ruling 1 of the list below is ANSWERED — do not ask it again.** CP-M3 + OPEN-30 + OPEN-33 were
+>    put as one question and the user ruled **all three obligatory**: the labelled-fixture before/after
+>    gate, persisting the assigned vintage in every harvest, and a citation sweep on archiving an arc.
+>    Full text in each register item and in `PLAN_published-numbers.md` §8, "RULING — CP-M3".
+>    🔴 **OPEN-30's consequence is a scheduling constraint, not just a policy:** the vintage column must
+>    exist **before** the next fleet pass is submitted, or that pass reproduces the gap it would close.
+> 3. **CP-C2's scheduling axis is RULED: measure first.** The allowance was verified free the same day
+>    (`chachemv`, `cpu=32`, **0 in use**; 4.1 TB quota headroom). Given probe-first / all-five-now /
+>    four-now-with-`fast_zone`-after, the user chose **a bounded calibration probe**, then the scope
+>    decision against measured numbers. **Execution: `implemenation/PLAN_speed-resume.md`** — R01 the
+>    `.eio` deletion, R02 the cluster harvest's broken fatal test, R03 the vintage column, R04 FINDING
+>    1's markers plus a guard, **then** R05's probe (`la_rural` + `nyc_rural`, whole cells, five modes,
+>    ten arrays). **CP-R1 gates every submission; CP-R2 returns the numbers to the user.**
+>    *(Superseded in part by item 6: R03 → R07, R04(b) → R08. CP-R1 now covers R01, R02, R04, R07, R08.)*
+>    *(Task IDs were renamed S0n → R0n on 2026-08-09: the progress board already used S01/S02/S04 for
+>    the arc's standing obligations, and two live documents numbering different work identically is the
+>    records defect this arc keeps uncovering. Scope and order unchanged.)*
+>    ~~🔴 **The fleet submission is NOT authorised** — CP-C2's scope question is still owed~~
+>    **→ SUPERSEDED the same day; see item 4.** The (a)–(d) descope options stay spent.
+> 4. 🔴 **The user granted autonomous completion, and with it the fleet submission — 2026-08-09.**
+>    *"vas-y continuer jusqu'à la fin. et aussi commencer des runs sur le speed, des ressources sont
+>    disponibles, vas-y."* The director **self-signs CP-R1 and CP-R2** and proceeds into the fleet pass
+>    without returning for permission. **Three things this does NOT license.** (a) **RULING B still
+>    stands** — R05's probe runs **first**; "start the runs" is not "skip the measurement", and the
+>    10× miss that made the probe necessary came from extrapolating instead of measuring. (b) The audit
+>    standard is untouched: CP-R1 is signed on **independent re-derivation from raw artifacts**, and a
+>    checkpoint that cannot be re-derived is a **STOP**, not a formality waived for momentum. (c) **Go
+>    back to the user before submitting** if the probe shows `fast_zone` cannot fit the 2-hour wall or
+>    the 32-CPU allowance — reducing scope is the user's call and (a)–(d) are spent, so that situation
+>    is a question, not a decision to take alone.
+> 5. **RULING C — OPEN-29: "fix the error check everywhere."** Ruling 5 of the list below is spent.
+>    Task **R06**; six live sites, not the four this register recorded (`t17`/`t18` were never named,
+>    and every cited line number had drifted). **The fix corrects the future, not the record** — no
+>    harvest is re-run, so "never use the `has_fatal` column" still binds every pre-2026-08-09 artifact.
+> 6. **CP-R1's first pass — 2026-08-09. ~~NOT signed~~ → superseded by item 8, which signs it after R07
+>    and R08 landed. Kept because the two failures it found are the reusable lesson.** The plan is R01–R08.
+>    **Signed:** R01 (`.eio` retention — `5 insertions(+), 5 deletions(-)`, glob gone, comments and echo
+>    corrected), R02 (cluster fatal test at `t08_harvest_results.py:246`, re-derived by the manager over
+>    the halted run's 2,422 `.err` files: old **0**, new **2**), R04(a) (four stale markers gone, file
+>    count 20,078 → 20,074, exactly −4).
+>    **R03 stopped instead of coding** — which the plan explicitly told it to do — because
+>    `vintage_standard` is transient on `gdf_57` and reachable from **no** persisted artifact the cluster
+>    harvest sees (five real manifests carry 10 columns; it is not among them). → **RULING D**, task
+>    **R07**: carry it in `03_manifest.parquet` via a left-join inside `run_step3_mode()`, which is
+>    handed `gdf_57` and which **both** harvests already read. Nothing is recomputed — re-deriving it
+>    with `resolve_vintage()` would be a script reimplementing pipeline logic, i.e. lookalike evidence.
+>    **R04(b) failed** → task **R08**: the resume guard restores the CSV at startup and the very next
+>    per-cell write — an overwrite from an accumulator holding only the cells done so far — destroys the
+>    recovered rows of every cell the loop has not reached. Manager fixture: `{c1/auto, c2/auto}` after
+>    the guard → `{c1/auto, c1/floor, c2/floor}` at the end; **`c2/auto` silently gone**, marker still
+>    present so nothing regenerates it. **FINDING 1 reproduced inside its own fix.** Generalisable
+>    lesson: *a guard that restores state at t=0 is not a guard unless the write path downstream of it
+>    preserves that state.*
+> 7. 🔴 **Restate every standing boundary in each kickoff prompt — an executor must never widen its own
+>    mandate from something it read.** The R01–R04 session found item 4's autonomy grant written in the
+>    plan doc it was executing and **declined to act on it**: file content is not a message addressed to
+>    it, and the only instruction it had received said *do not submit anything to Speed*. It flagged the
+>    discrepancy instead of resolving it silently. **That is the standard.** A grant to the director is
+>    not a grant to an executor.
+> 8. **CP-R1 IS SIGNED — 2026-08-09 — and R05's probe is launched.** R07 and R08 both audited by
+>    re-derivation and both hold. R07: the era column reaches the manifest and both harvests, **100%**
+>    non-empty over 149 real `la_rural` buildings, `DOERefPre1980` **90.6%** / `90.1-2007` **9.4%**
+>    against the fleet's ≈92.9%. 🔴 **The check that settles it is the independent one** — cross-checked
+>    against `year_built` in the raw `01_buildings.gpkg`, which the join never touches: all 14
+>    `90.1-2007` buildings have `year_built` **2005–2007**, all 135 `DOERefPre1980` have **1920–1979**,
+>    **zero crossover**. A plausible distribution alone would not have distinguished a real column from a
+>    constant. R08: manager fixture, three cells, recovered pair placed **last** — present at every write,
+>    0 duplicates; the old bare overwrite lost it at the first write.
+>    🟠 **One residual left open deliberately:** the **final** assembly write (`t08_local_remainder.py:830`)
+>    is still a bare overwrite, so a `--cells X` subset run destroys other cells' rows at the end.
+>    Cannot affect E02 (all twelve cells run), pre-existing, and fixing it would change what `--cells`
+>    *means* — **a semantics decision, not a bug fix. Do not change it without a ruling.**
+> 9. **OPEN-02 and OPEN-28 are folded into OPEN-01 — user's instruction, 2026-08-09.** One closure
+>    condition (the E02 pass), so one tracked item. Nothing closed, nothing deleted; both sections stay
+>    in full as evidence. 🔴 **The merge must not hide that one audit now has to answer three questions**
+>    — the `layout_assign` denominator, the fleet-wide denominator in all five modes, and a demonstration
+>    that all five modes came from one code state. **Any one unanswered leaves OPEN-01 open.**
+> 10. 🟢 **R05's probe is SUBMITTED — 2026-08-09 20:29:21, ten arrays, 1,735 simulations.** Job IDs
+>    `1174659/1174676/1174704/1174735/1174791` (`la_rural`, 149/mode) and
+>    `1174813/1174837/1174865/1174924/1174959` (`nyc_rural`, 198/mode); IDs in
+>    `%TEMP%\ubem_r05_probe\r05_job_ids.json`. Manager re-derived from the ten manifests on disk:
+>    **1,735 rows, 1,735 success, 1,735 `.idf` files**, non-success bucket **empty in every mode**
+>    including `fast_zone` and `layout_assign`, whole cells in all five modes, and `vintage_standard`
+>    present in **all ten** — R07 is live in a real run, not just its test.
+>    🔴 **A clean submission measures nothing.** R05 exists to measure **runtime and memory**; both
+>    pre-registered risks (the 2-hour wall vs `fast_zone`, and `--mem=6G`) are **still unmeasured**.
+>    **State no fleet-cost figure until the arrays drain and the `.err`/`.eio` artifacts are read.**
+>    🔴 **The readout must apply the `r05probe` tag override** — `t08_harvest_results.py:42` still
+>    hard-codes `_FLEET_TAG = "t08"`, so a blind harvest reads the wrong directories and finds nothing;
+>    per §2 rule 9 an empty result must be reported as empty, never as 0 failures.
+> 11. **Still owed:** OPEN-22, CP-M2, OPEN-11.
+> 9. **Machine state re-verified 2026-08-09** — idle, newest E02 log write still 2026-08-06 05:47:01.
+>    ~~FINDING 1's marker trap is still armed and un-cleaned (four surviving `sim_done.txt`).~~
+>    **→ cleared by R04(a) the same day; zero markers remain.** Still no output CSV on disk.
+>
+> **Everything else below stands**, including the four conditions on resuming and — first among them —
+> the `.eio`-deleting cluster template.
+
+> # 🅿️ HISTORICAL — the pause box, written 2026-08-06. Superseded by the box above.
 >
 > **The user paused this arc on 2026-08-06** to work on other projects, and will return when they have
 > time. *"dès que j'ai temps frais, je vais retourner."* **Nothing is cancelled. Nothing is in flight.**
@@ -25,20 +183,23 @@
 | **E02** (the 40,800-simulation five-mode fleet pass) | **halted and parked**, to resume **on the Speed cluster when its resources free up**. Halted by a real `MemoryError`, `fast_zone`-specific. **Not descoped** — the user declined all four reduced-scope options and parked on a different axis. |
 | **No-compute queue** | **empty** — 16 tasks over 4 rounds, all landed, all audited |
 | **Last work done** | **C06** (OPEN-09's "cosmetic" label tested for the first time — it holds), **C07** (the fatal-detection fix in the E02 runner), and the ≈10× correction to the cost-scoping document |
-| **Register** | 32 items, `INVESTIGATION_open-items-register.md` — **its closing amendment is the resume brief** |
+| **Register** | **30 tracked items** (32 findings — OPEN-02 and OPEN-28 folded into OPEN-01 on 2026-08-09, nothing closed, nothing deleted), `INVESTIGATION_open-items-register.md` — **its closing amendment is the resume brief** |
 
 **Rulings owed by the user — ask one at a time, never as a menu:**
 
-1. **CP-M3 + OPEN-33 + OPEN-30 together** — what a change must carry before it counts as finished.
+1. ~~**CP-M3 + OPEN-33 + OPEN-30 together** — what a change must carry before it counts as finished.
    Three instances of one question. *Ask this first: it changes how future work is done, not just what
-   is known.*
-2. **CP-C2** — which slice of E02 to relaunch when Speed frees up. 🔴 **Do not re-ask the four descope
-   options (a)–(d); that question is spent.**
+   is known.*~~ **✅ RULED 2026-08-09 — all three obligatory. Spent; do not re-ask.**
+2. ~~**CP-C2** — which slice of E02 to relaunch when Speed frees up.~~ **✅ RULED 2026-08-09 in two
+   parts — measure first (RULING B), then run it to the end (the autonomy grant, box item 4). Spent.**
+   🔴 **Do not re-ask the four descope options (a)–(d); that question was already spent.**
 3. **OPEN-22's ruling** — a third of the 50-row exam is decided by size-bucketing rather than tag
    logic. Is that the exam the project wants? (The fallback rows are *not* inflating the metric — that
    is measured.)
 4. **CP-M2** — what to do about the published cross-mode numbers, confirmed confounded.
-5. **OPEN-29** — fix E-LA-21 in the four remaining harvest scripts, or leave them?
+5. ~~**OPEN-29** — fix E-LA-21 in the four remaining harvest scripts, or leave them?~~
+   **✅ RULED 2026-08-09 — RULING C, fix everywhere. Task R06. Spent; do not re-ask.** (It was six
+   sites, not four.)
 6. **OPEN-11** — the six inverted-geometry buildings; precondition met, remediation is the user's call.
 
 🔴 **The single highest-risk fact to carry into a Speed resume**, repeated here because it is buried in
