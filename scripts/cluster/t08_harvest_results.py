@@ -128,7 +128,7 @@ def fetch_mode_cell(cell: str, mode: str, fleet_lst: list[str], work_base: Path)
     print(f"  [{cell}/{mode}] Fetching {n} buildings from {remote_dir}/out ...")
     remote_cmd = (
         f"cd {remote_dir}/out && "
-        f"tar czf - --ignore-failed-read */eplusout.sql */eplusout.err */eplusout.end"
+        f"tar czf - --ignore-failed-read */eplusout.sql */eplusout.err */eplusout.end */eplusout.eio"
     )
     tgz = work_base / f"fetch_{cell}_{mode}.tgz"
 

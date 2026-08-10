@@ -1081,12 +1081,21 @@ re-run that retains `eplusout.eio`.
 > `openings/implemenation/board_published-numbers.html` carries a pause panel at its head (same
 > published URL), with a snapshot copy at `openings/reporting/`.
 >
-> **Where the big run stands:** the five-mode twelve-cell fleet pass (**E02**, 40,800 simulations) is
-> **halted by a `MemoryError` and parked to resume on Speed when the cluster frees up** — the user's
-> ruling. Three of sixty (cell, mode) pairs are complete on disk. The **CP-C2 scope ruling is still
-> owed** by the user. 🔴 **Before any cluster relaunch:** `scripts/cluster/submit_fleet_t08.sbatch:63`
-> deletes every `.eio`, and the retention fix is local-only — the stock template would destroy the
-> evidence OPEN-02 exists to obtain.
+> **Where the big run stands — 🟢 UPDATED 2026-08-09 (late): E02 IS SUBMITTED AND RUNNING ON SPEED.**
+> ~~halted by a `MemoryError` and parked~~ — superseded. **CP-R1 and CP-R2 are both signed** on
+> independent re-derivation; the R05 calibration probe (1,735 real simulations, 7.55 core-hours) resolved
+> **both** pre-registered risks **CLEAN** — zero TIMEOUT (worst task 5.0% of the 2-hour wall) and zero
+> OOM at `--mem=6G`. All 60 (cell, mode) arrays regenerated under a fresh **`e02`** fleet tag, 40,800
+> IDFs verified on local disk **and** on the cluster. **19 arrays / 19,931 tasks (48.9%) queued at
+> submission**, job IDs `1176411`–`1176599`; the remaining 41 are being placed by a shell retry loop.
+> 🔴 **Why not all at once:** SLURM's cluster-wide **`MaxJobCount = 20002`** counts array *tasks*
+> individually — 40,800 cannot be queued in one pass. Expected cost **6–27 h** on 32 CPUs (a range: both
+> probe cells were rural; **no dense cell has ever been timed**).
+> 🔴 **Before the harvest — not before the run:** **OPEN-37**, `t08_harvest_results.py:131` omits
+> `*/eplusout.eio` from its tar list. The cluster keeps the file (manager-verified non-empty, 149/149 and
+> 198/198); **the fetch never asks for it.** Harvest unfixed and the simulated-floor-area record — the
+> independent check on OPEN-35 — is lost at retrieval. ~~`submit_fleet_t08.sbatch:63` deletes every
+> `.eio`~~ — fixed by R01 and verified live.
 >
 > **Last work completed:** **C06** (OPEN-09's "cosmetic" label tested for the first time — it holds,
 > 96.3% overlap, ≈0.20 kWh/m² residual), **C07** (fatal-detection fix in the E02 runner: 0 of 2 → 2 of

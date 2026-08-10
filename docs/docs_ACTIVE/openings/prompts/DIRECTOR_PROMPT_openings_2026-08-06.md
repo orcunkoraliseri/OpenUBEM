@@ -1,42 +1,160 @@
 # DIRECTOR PROMPT — the `openings` arc
 
-> # 🟢 RESUME HERE — written 2026-08-09 20:4x, at the user's instruction. Read this box first; everything below is context.
+> # 🟢🟢 RESUME HERE — written 2026-08-10 midday. This box supersedes every box below it. Read it first; the rest is history.
 >
-> **The user is away and returns when the cluster finishes.** *"des qu'ils finiront sur le speed, je vais
-> retourner. pas nécessaire d'attendre."* **Do not wait, do not poll in a model session, and do not
-> re-dispatch a monitoring agent** — one already burned ~157 k tokens idling and was stopped for it.
+> ## In one line
 >
-> ## Where things actually stand
+> **All 60 E02 arrays are submitted on Speed, the harvest defect (OPEN-37) is fixed and verified, and
+> the user left to work on other projects.** Nothing is watching the runs, by instruction.
+> **The session closed here deliberately — no work is half-finished, nothing is owed to the machine.**
 >
-> **The probe is running on Speed and nothing is owed until it drains.** Ten arrays, **1,735
-> simulations**, submitted **2026-08-09 20:29:21**. `la_rural` 149/mode and `nyc_rural` 198/mode, across
-> `auto` / `building` / `floor` / `layout_assign` / `fast_zone`. Job IDs and counts:
-> `%TEMP%\ubem_r05_probe\r05_job_ids.json`. A **plain background shell poller** (no model tokens) reads
-> `squeue` every 30 min, read-only, and exits on one of three outcomes — all drained (it then prints the
-> `sacct` timing/`MaxRSS` table, which **is** the measurement), three consecutive ssh failures, or a 12 h
-> timeout. **Silence is not success and the watcher is built so it cannot be read that way.**
+> ## What is on the cluster, as of 2026-08-10 12:21:41Z (08:21 EDT)
 >
-> **Everything gating the fleet pass is done and signed.** CP-R1 signed 2026-08-09 on independent
-> re-derivation: R01 `.eio` retention, R02 + R06 the fatal-detection regex at all six live sites, R04
-> the resume trap (markers cleared **and** the guard now surviving the run via R08), R07 the vintage
-> token carried through the manifest. Full audit tables in `implemenation/PLAN_speed-resume.md` §8.
+> | | |
+> |---|---|
+> | **Submitted** | **60 of 60 arrays — the complete five-mode, twelve-cell fleet pass.** Wave 1's 19 (job IDs `1176411`–`1176599`, 2026-08-09) + **41** placed this morning (`1198104`–`1200571`) |
+> | **Submitter** | **exited 0 — `=== ALL 41 REMAINING ARRAYS SUBMITTED 2026-08-10T12:21:41Z ===`.** Log: `…4188186c…/scratchpad/e02_remainder_jobids.txt`, 41 `Submitted batch job` lines. Nothing is left running locally. |
+> | **Live at close** | **39 arrays / 18,513 tasks** in `squeue` — cluster-verified, not read back from the log. The balance of the 60 had already drained. |
+> | **The one real refusal** | `austin_rural_auto` at 11:51Z: `Slurm temporarily unable to accept job … Resource temporarily unavailable` (queue was at 17,317 against `MaxJobCount = 20002`). It cleared on the next 30-minute retry, 12:21Z. **This is what a genuine refusal looks like** — compare it to yesterday's. |
 >
-> ## What to do when the watcher reports
+> ## 🔴 The lesson of the morning — do not let this recur, it cost 8.5 hours
 >
-> 1. **Read the timing and memory table** — that is R05's whole purpose. A clean submission measured
->    nothing; **runtime and `MaxRSS` are still unknown** until this is read.
-> 2. **Resolve the two pre-registered risks explicitly, whichever way they fall:** the **2-hour wall**
->    against `fast_zone`'s worst buildings, and **`--mem=6G`** (the ceiling that killed the local run).
->    Report both even if both are clean.
-> 3. 🔴 **Apply the `r05probe` tag override when harvesting.** `t08_harvest_results.py:42` still
->    hard-codes `_FLEET_TAG = "t08"`; a blind harvest reads the wrong remote directories and **finds
->    nothing** — and per the plan's §2 rule 9, an empty result is reported as empty, **never as 0
->    failures**. State in the report which remote directories were actually read.
-> 4. **Then CP-R2 and the fleet pass.** The user's 2026-08-09 autonomy grant lets the director self-sign
->    and submit — **except** if the probe shows `fast_zone` fits neither the wall nor the 32-CPU
->    allowance, in which case **return to the user**; cutting scope is theirs, and the 2026-08-06
->    descope options (a)–(d) are **spent, never re-ask them**.
-> 5. Re-check the allowance immediately before the fleet submission, as was done for the probe.
+> **v1 of that submitter placed NOTHING in 8.5 hours and logged 18 lines saying `refused`.** None was a
+> refusal. Speed's login shell is **tcsh**; v1 sent bash syntax (`N=$(wc -l < …)`), tcsh answered
+> `Illegal variable name.`, and `sbatch` was never reached. The cluster was nearly empty at the time
+> (299 tasks against 20,002). **The knowledge to prevent it already existed in the repo** —
+> `_ssh()` at `t08_harvest_results.py:104` wraps every remote command in `bash -lc`. A throwaway shell
+> script re-implemented the call instead of porting that wrapper.
+> **Three rules were written into `CLAUDE.md` (top of file) as a result:** no ad-hoc `ssh`; a retry loop
+> must log the actual error text, never a label; prove one success before leaving a loop unattended.
+> **v2 proved rule 2 within minutes** — its `austin_rural` line reads
+> `refused [sbatch: error: Slurm temporarily unable to accept job …]`, which is a real cluster state and
+> is now distinguishable at a glance from a broken script.
+>
+> ## What is DONE and signed, so nobody redoes it
+>
+> - **R09 / OPEN-37 — fixed, tested, manager-verified.** `*/eplusout.eio` added to the remote tar list in
+>   **five** files: `t08_harvest_results.py:131`, `t17:146`, `t18:142`, `t19:150`, `t20:150`. One line
+>   each, nothing else touched (`git diff --stat` = 5 files, 5 insertions, 5 deletions).
+>   **Three-count test on `r05probe_la_rural_auto`: 149 on the cluster = 149 in the tar = 149 extracted
+>   locally**, sample `way_222366800/eplusout.eio` = 21,190 B. Old behaviour demonstrated first: **0**.
+>   Manager re-derived the local count independently rather than reading it back.
+>   🟠 **Same gap still present, deliberately not fixed** (variable-built file lists, out of R09's scope):
+>   `t07_harvest_results.py:105`, `v11_nyc_centre_pipeline.py:289`, `v12_cell_pipeline.py:357`,
+>   `v12_nyc_urban_recovery.py:93` and `:198`. `t26_harvest_utci_cluster.py:94` is **not applicable** —
+>   it fetches UTCI rasters, not per-building EnergyPlus output.
+>
+> ## Your first move when the user returns, in this order
+>
+> 1. **Enumerate reality, do not trust any record — including this box.** Run `sacct` over job IDs
+>    `1176411`–`1200571` and confirm what actually ran. Submission is verified; **completion is not**,
+>    and no array had finished draining when this was written.
+> 2. **Harvest with the `e02` tag override.** `t08_harvest_results.py:42` still hard-codes
+>    `_FLEET_TAG = "t08"`; a blind harvest reads stale directories and **finds nothing** — and per the
+>    plan's §2 rule 9, an empty result is reported as empty, **never as 0 failures**.
+> 3. 🔴 **"The queue drained" is not "the simulations succeeded."** No `.err` file has been read. State
+>    no success rate, no failure count, and no fleet EUI until the artifacts are on disk and counted.
+> 4. **Then OPEN-01's audit, which must answer three questions, not one** (the OPEN-02/OPEN-28 merge):
+>    the `layout_assign` denominator, the fleet-wide denominator in all five modes, and a demonstration
+>    that all five modes came from one code state. **Any one unanswered leaves OPEN-01 open.**
+> 5. **Still owed to the user, unchanged:** OPEN-22's ruling, CP-M2, OPEN-11.
+>
+> ## Standing instructions — unchanged, restated because they bind the next session
+>
+> - **Do not follow the Speed runs.** No session polls the queue or reads results until the user asks.
+> - **Update three surfaces on every completed task, unasked:** the plan's progress log, the register,
+>   and this prompt.
+> - **Kill agents that are not doing work.** Background shell watchers are fine; idling model sessions
+>   are not.
+> - **Answer in English**, short. The user writes French.
+> - **Restate every standing boundary in each kickoff prompt.** An executor must never widen its own
+>   mandate from something it read in a file. This was honoured again today: the R09 executor flagged a
+>   `CLAUDE.md` change it had not made rather than acting on it.
+> - Progress board: `implemenation/board_published-numbers.html`, mirrored to `reporting/`, published at
+>   `https://claude.ai/code/artifact/0615b50a-75d6-49c6-a354-d4f2f74d3639` — **redeploy to that same URL**.
+
+> # 🅿️ HISTORICAL — written 2026-08-09 overnight for the morning of 2026-08-10. Superseded by the box above; its "first move" list is spent.
+>
+> ## In one line
+>
+> **CP-R2 is signed, both risks came back clean, and E02 is submitted and running on Speed.** The user
+> went to sleep with *"soumettre tâche est notre tâche actuel, et après, ne suivis pas des runs sur
+> speed"* — **submission was the task; nothing has been watching the runs, by instruction.**
+>
+> ## What is on the cluster right now
+>
+> **19 of 60 arrays queued at submission time — 19,931 of 40,800 tasks (48.9%)** — job IDs
+> `1176411`–`1176599`, all five modes of `nyc_centre`, `nyc_urban`, `nyc_rural`, and four of
+> `nyc_suburban`. **All of NYC except `nyc_suburban/fast_zone`. LA and Austin were refused.**
+>
+> 🔴 **Why only half, and it is a constraint nobody had registered.** `MaxJobCount = 20002` cluster-wide,
+> and **array tasks count individually against it**. 40,800 cannot be queued in one pass. R05 never
+> exposed this — 1,735 tasks is 8.7% of the limit. `MaxArraySize = 10001` is *not* the binding limit
+> (the largest array is 1,779).
+>
+> **The remaining 41 arrays (20,869 tasks) are being placed by a plain shell loop**, not a model session:
+> `<scratchpad>/e02_submit_remainder.sh` — retries each refusal every 30 min, appends accepted job IDs to
+> `<scratchpad>/e02_remainder_jobids.txt`, 22-hour deadline, exits 2 if it cannot place them all.
+> **Submit-only: it never cancels, never modifies, never reads a result.** Zero model tokens.
+>
+> ## 🔴 2026-08-10 07:48 EDT — that submitter placed NOTHING, and the reason is a lesson
+>
+> **All 18 "refused" lines in `e02_remainder_jobids.txt` were a local quoting bug, not a SLURM
+> refusal.** Speed's login shell is **tcsh** (`/encs/bin/tcsh`), and v1 sent bash syntax over `ssh`
+> (`N=$(wc -l < …)`, `${N}`). tcsh answers **`Illegal variable name.`** — the string never reached
+> `sbatch`. 8.5 hours, 41 arrays, **zero offered to SLURM**. Meanwhile the cluster had gone nearly
+> empty: **299 tasks cluster-wide against `MaxJobCount = 20002`.** The retry loop was waiting for
+> headroom that had been free since roughly 04:00.
+> **Generalisable lesson: a retry loop that does not record *why* it was refused will happily report a
+> bug in its own quoting as a property of the cluster.** v2 logs the first 160 characters of the
+> failure.
+> **Fixed and relaunched 2026-08-10 11:48:51Z** — `<scratchpad>/e02_submit_remainder_v2.sh`, remote
+> command piped into `bash -s`, same flags, same log file, same 22-hour deadline. Verified live:
+> `e02_nyc_suburban_fast_zone` = **1198104**, `e02_la_centre_auto` = **1198121**,
+> `e02_la_centre_building` = **1198122**, placing steadily.
+> **Wave 1's own state at that moment:** 18 of 19 arrays already **drained**; only `1176456`
+> (`nyc_suburban/layout_assign`) still live, 96 tasks left, 16 running, pending reason
+> `JobArrayTaskLimit` — i.e. its own `%16` throttle, not a cluster constraint.
+> ⚠️ **Nothing here says a single simulation succeeded.** Drained ≠ correct. The `.err`/`.eio` readout
+> is still unread, and OPEN-37's missing `*/eplusout.eio` in the tar list is **still unfixed** — fix it
+> before any harvest.
+>
+> ## Your first move, in this order
+>
+> 1. **Read `e02_remainder_jobids.txt` and `squeue -u o_iseri`.** Enumerate what is *actually* queued and
+>    what actually ran — **never trust the submitter's own claim, and never assume all 60 landed.** If the
+>    loop hit its deadline, the unplaced arrays are named in that file; submit them the same way.
+> 2. 🔴 **Fix OPEN-37 BEFORE harvesting anything.** `t08_harvest_results.py:131` tars
+>    `*/eplusout.sql */eplusout.err */eplusout.end` and **omits `*/eplusout.eio`**. The file exists on the
+>    cluster (manager-verified, 149/149 and 198/198 non-empty) — **the fetch simply never asks for it.**
+>    Harvest E02 without fixing this and the simulated-floor-area record, the independent check on
+>    OPEN-35, is lost at retrieval. One filename in one tar list.
+> 3. **Harvest with the `e02` tag override.** `t08_harvest_results.py:42` still hard-codes
+>    `_FLEET_TAG = "t08"`; a blind harvest reads stale pre-`.eio`-fix directories and **finds nothing** —
+>    and per the plan's §2 rule 9, an empty result is reported as empty, **never as 0 failures**.
+> 4. **Then OPEN-01's audit, which must answer three questions, not one** (the OPEN-02/OPEN-28 merge):
+>    the `layout_assign` denominator, the fleet-wide denominator in all five modes, and a demonstration
+>    that all five modes came from one code state. **Any one unanswered leaves OPEN-01 open.**
+>
+> ## CP-R2's numbers — signed, and re-derived by the manager rather than read back
+>
+> | Risk | Verdict | Evidence |
+> |---|---|---|
+> | **2-hour wall vs `fast_zone`** | **CLEAN** | Zero TIMEOUT in 1,735 tasks; worst task **358 s = 5.0% of the wall** |
+> | **`--mem=6G`** | **CLEAN** | Zero OOM; exit codes only `0:0`/`1:0`, no `137`/`125` |
+>
+> Probe cost **7.55 core-hours for 1,735 sims**. Fleet projection is a **range, not a point**: ≈178
+> core-hours if rural rates hold everywhere, ≈850 if dense cells cost the 4.8× that `nyc_centre/auto`
+> did — **6 to 27 hours** on 32 CPUs. Both probe cells were `rural`; **no dense cell has ever been timed.**
+>
+> 🔴 **Do not carry forward the `MaxRSS` justification.** The R05 entry rests Risk 2 on a 2,812 MB peak
+> "≈47% of 6G". That column's **median is 0.3 MB** and three arrays report a 2.0 MB maximum — impossible
+> for EnergyPlus. `sacct` undersamples short tasks, so it is a **floor, not a peak**. Risk 2 is clean
+> because of the **zero-OOM census**, not because of that number.
+>
+> **One deliberate deviation:** `--time=04:00:00` was passed on the `sbatch` command line, overriding the
+> `--time=02:00:00` in `submit_fleet_t08.sbatch:5`. **No repo file was edited.** Reason: dense cells are
+> unmeasured, SLURM charges actual not requested usage, and a TIMEOUT silently loses a building.
 >
 > ## Standing instructions the user restated this session
 >
@@ -44,6 +162,10 @@
 >   register. Three surfaces, every time. *("chaque fois mettre à jour ce prompt … très prochainement.")*
 > - **Kill agents that are not doing work.** Background shell watchers are fine; idling model sessions
 >   are not.
+> - 🆕 **Do not follow the Speed runs** — user's instruction 2026-08-09 on going to sleep:
+>   *"après, ne suivis pas des runs sur speed."* Submission was the task; **no session polls the queue,
+>   no session reads results until the user asks.** The shell submitter placing the remaining arrays is
+>   not a watcher — it submits and exits, and reports nothing about any simulation.
 > - **Answer in English**, short. The user writes French. *("en anglais toujours tu réponds en anglais.")*
 > - **OPEN-02 and OPEN-28 are folded into OPEN-01** (user's instruction) — 30 tracked items, 32 findings.
 >   OPEN-01 is the one the cluster closes; the other 29 are unrelated to it.

@@ -80,7 +80,8 @@ progress-log entry marked *"completed 2026-07-16"*, naming artifacts and reporti
 tests, describes implementation code that **no commit on any branch has ever contained** — while
 **its tests were committed**, which is precisely why `pytest` can no longer collect the suite. **A
 completion record could not be trusted against the repository, and nobody had checked.**
-**32 items now open (OPEN-01 … OPEN-36; IDs 05, 21, 23, 25 retired). Next free item ID: OPEN-37.**
+**32 items now open (OPEN-01 … OPEN-36; IDs 05, 21, 23, 25 retired). Next free item ID: ~~OPEN-37~~
+→ OPEN-37 was taken 2026-08-09 (the `.eio` fetch gap). **Next free item ID: OPEN-38.**
 
 **Amended 2026-08-06 (round 3 of the no-compute queue, N13–N15 — `implemenation/PLAN_no-compute-queue-3.md`).**
 Two landed so far. **N15** tested the OPEN-12/OPEN-14 convergence and refuted it (above). **N14**
@@ -302,11 +303,23 @@ headline numbers that did not reproduce from the file they cited, and one stale 
 
 ---
 
-## 1. Summary — **30 tracked items** (OPEN-01 … OPEN-36; OPEN-23 excluded, OPEN-21 deferred, OPEN-05 and OPEN-25 closed — all four IDs retired; **OPEN-02 and OPEN-28 folded into OPEN-01** on 2026-08-09)
+## 1. Summary — **31 tracked items** (OPEN-01 … OPEN-37; OPEN-23 excluded, OPEN-21 deferred, OPEN-05 and OPEN-25 closed — all four IDs retired; **OPEN-02 and OPEN-28 folded into OPEN-01** on 2026-08-09)
+
+> **Count deliberately unchanged on 2026-08-10 although OPEN-37's defect is fixed.** The code fix
+> (R09) is verified, but the item also asserts that *every fleet harvested before 2026-08-10 lacks the
+> file locally* — and no harvest was re-run, so that half is still true. **Closing it is a decision for
+> the user, not a bookkeeping consequence of a merged fix.** Retiring an ID on the strength of a diff
+> is exactly the records defect this arc keeps uncovering.
+
+> **+1 on 2026-08-09 (late): OPEN-37**, found by the manager while auditing R05's CP-R2 readout — the
+> harvest's tar list omits `*/eplusout.eio`, so simulated floor area can never come home. **33 findings,
+> 31 things to track.** Like OPEN-34/35/36 before it, it was found by **auditing** a task rather than
+> running one, and the task that produced it was not looking for it.
 
 > **Count change, stated so it is not read as two items closing.** Nothing was closed and nothing was
 > deleted. On 2026-08-09 the user directed that OPEN-02 and OPEN-28 be **merged into OPEN-01**, which
-> they share a single closure condition with — the E02 fleet pass. **32 findings, 30 things to track.**
+> they share a single closure condition with — the E02 fleet pass. **32 findings, 30 things to track**
+> at that point.
 > Both folded sections remain in full beneath their own headings, marked as evidence rather than as
 > separate commitments. **OPEN-01 does not close until all three questions are answered** — see its
 > umbrella block.
@@ -364,9 +377,10 @@ headline numbers that did not reproduce from the file they cited, and one stale 
 | OPEN-34 | **Classification depends on batch composition** — a 3-building run is not archetype-faithful; **mechanism identified 2026-08-06** | Reproducibility | every local subset verification; full-cell runs reproduce | ✅ **measured** |
 | OPEN-35 | **Two fallbacks invent the missing storey count and disagree** — archetype chosen at group-median storeys, geometry built at 1 | Simulation correctness | **2,611 / 8,160 = 32.00% of the fleet**; 1,031 of them given a mid/high-rise archetype and built at one storey | ✅ **mechanism verified + size measured** |
 | OPEN-36 | 🔴 **A signed completion record describes code that has never existed in any commit** — T07's tests were committed, its implementation never was | Register hygiene → **record integrity** | ~~unmeasured~~ **measured (N13): 596 entries swept, 1 governance gap — T07, the known one**; directly causes E-UTCI-12 | ✅ **verified from git**; **scope now bounded** |
+| OPEN-37 | **The harvest never fetches `.eio`, so simulated floor area cannot come home** — the cluster keeps the file, the tar that retrieves results does not ask for it. **✅ FIXED 2026-08-10 (R09), five files, 149=149=149 verified** | Reported numbers | every fetched fleet, all modes; blocked the simulated-vs-declared floor-area check on **E02's 40,800 runs** — **unblocked before E02's first harvest** | ✅ **verified at the source line + on the cluster; fix manager-verified** |
 
 **Next free defect ID: E-LA-42** (verified by full sweep 2026-08-05, OPEN-05). **Next free UTCI defect
-ID: E-UTCI-17** (same sweep; stated in no other document). **Next free item ID: OPEN-37.**
+ID: E-UTCI-17** (same sweep; stated in no other document). **Next free item ID: OPEN-38.**
 
 > **Amendment 2026-08-05.** OPEN-28 added, found while auditing the `layout_assign` documentation
 > surfacing work (`layoutAssigner/PLAN_docs-explanation-surfacing.md`, closed the same day). It had
@@ -1685,6 +1699,71 @@ costs no CPU.
 3 concerns a **label**, and OPEN-06/N08 established the simulation itself used the correct archetype.
 **State this plainly whenever the item is summarised** — the pattern is about the reliability of the
 record, not (so far) about the results.
+
+### OPEN-37 — The harvest never fetches `.eio`, so simulated floor area cannot come home ✅
+*Added 2026-08-09, found by the director while auditing R05's CP-R2 readout. Not what R05 was looking for.*
+
+**The observation that started it.** R05's own fetch report reads `n_end`, `n_sql`, `n_err` at full
+count (149/149 and 198/198 across all ten probe fleets) and **`n_eio = 0` in every single row.** The
+natural reading is that the `.eio` retention fix failed. **It did not — the opposite is true, and the
+distinction is the whole item.**
+
+**Both halves verified separately, at the source and on the hardware:**
+
+| Question | Verified state |
+|---|---|
+| Does the cluster still hold the `.eio` after a run? | **Yes — 100%.** Director checked read-only over `ssh`: `149/149` and `198/198` non-empty, **zero empty**, across four arrays including both `fast_zone`s and the `la_rural/auto` array that contains 7 FAILED tasks. |
+| Does the sbatch cleanup delete it? | **No.** `scripts/cluster/submit_fleet_t08.sbatch:63-80` deletes `.eso/.mtd/.rdd/.mdd/.htm/.tab/.csv/in.idf/expanded.idf/Energy+.idd/.dxf/.audit/.bnd/.dbg/.sln/.rvaudit/eplusmtr.*`; `eplusout.eio` is **not in the list**, and `:81` states so in a comment. |
+| Does the fetch ask for it? | **No.** `scripts/cluster/t08_harvest_results.py:131` tars `*/eplusout.sql */eplusout.err */eplusout.end` — **`*/eplusout.eio` is absent from that list.** |
+
+**So the file is produced, survives the cleanup, sits on `/speed-scratch` — and the tar that brings
+results home never names it.** `n_eio = 0` is not a retention failure; it is the fetch reporting,
+accurately, that it retrieved a file it never requested.
+
+**Why this is its own item rather than a line in R05's log.** The `.eio` is the *only* record of the
+floor area EnergyPlus actually simulated, as opposed to the floor area the pipeline declared. That
+comparison is the check that would independently catch **OPEN-35** (2,611 buildings whose archetype
+was chosen at group-median storeys and whose geometry was built at one storey) at the simulation
+boundary rather than at the input boundary. **A fleet can be fully harvested, fully analysed and fully
+published without the file, and nothing in the reported numbers will look wrong.**
+
+**Its scope is every fleet ever fetched, not just E02.** No harvested fleet in this project has the
+`.eio` locally, because no version of this fetch has ever asked for it.
+
+---
+
+#### ✅ FIXED 2026-08-10 — task R09, manager-verified. Fixed **before** E02's first harvest, as required.
+
+`*/eplusout.eio` added to the remote tar list in **five** files — `t08_harvest_results.py:131`,
+`t17_harvest_layout_assign.py:146`, `t18:142`, `t19:150`, `t20:150`. One line each;
+`git diff --stat` = 5 files, 5 insertions, 5 deletions, nothing else touched.
+
+**Three-count test on `r05probe_la_rural_auto`, all three re-derived rather than read back:**
+**149 on the cluster = 149 inside the tar = 149 extracted locally**, sample
+`way_222366800/eplusout.eio` = **21,190 B**. The old behaviour was demonstrated *first* and yields
+**0** local `.eio` — so the before/after differs, per this register's own evidence rule.
+
+🟠 **What the fix does NOT cover, recorded so it is not mistaken for complete.**
+Five further sites build their file list from a variable and carry **the same gap**:
+`t07_harvest_results.py:105`, `v11_nyc_centre_pipeline.py:289`, `v12_cell_pipeline.py:357`,
+`v12_nyc_urban_recovery.py:93` and `:198`. They were inspected and deliberately left alone — out of
+R09's scope, and none is on E02's path. `t26_harvest_utci_cluster.py:94` is **not applicable**: it
+fetches UTCI rasters, not per-building EnergyPlus output.
+
+🔴 **The fix corrects the future, not the past.** Every fleet harvested before 2026-08-10 still has no
+local `.eio`, and no harvest was re-run. Any past claim about simulated floor area remains
+un-derivable from local artifacts.
+
+**Cost to fix is one filename in one tar list, and it is not urgent in the way it looks.** The files
+persist on `/speed-scratch`; a corrected fetch retrieves them from any completed fleet after the fact.
+**This does not block a submission — it blocks a harvest**, and must be fixed before E02's 40,800 runs
+are fetched or that pass's simulated-floor-area record is lost at the moment of retrieval.
+
+**The transferable lesson, and it is why this sits next to OPEN-36.** R05 reported `n_eio = 0` in a
+column of an otherwise-passing report. Read as a summary, it looks like a failed fix. Read at the
+source line, it is a *missing request*. **A count of zero says nothing about the thing being counted
+until you check whether anyone asked for it** — the same shape as [[OPEN-36]], where a completion
+record was honest about work that was never committed.
 
 ### OPEN-09 — `thermal_mass=True` drives warmup non-convergence, and "cosmetic" was never tested (E-LA-23) ✅ **C06 2026-08-06: (b) tested — "cosmetic" holds, with a quantified nuance**
 A matched control measured 96/150 (64%) engaged rows non-converging vs 8/150 (5.3%) in the control —

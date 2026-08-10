@@ -4,6 +4,14 @@
 > **NEVER run a blocking/interactive `srun` (or any python/computation) on the Speed login node (`speed-submit2` / `speed.encs.concordia.ca`). ALWAYS use `sbatch` — fire-and-forget — and read the output file afterward.**
 > The login node may only do lightweight ops: `mkdir`, `scp`, `tar`, `squeue`, `sacct`. All compute goes through `sbatch --array`. Never `ssh … python …` or `ssh … srun …` for compute; if a remote step needs Python, wrap it in an sbatch script.
 
+> # 🔴 CLUSTER SCRIPTING — three rules, written 2026-08-10 after an 8.5-hour silent failure
+>
+> A throwaway shell submitter retried 41 job arrays every 30 minutes for 8.5 hours and **placed none of them**. Speed's login shell is **tcsh** (`/encs/bin/tcsh`); the script sent bash syntax (`N=$(wc -l < …)`), tcsh answered `Illegal variable name.`, and `sbatch` was never reached. The script logged only the word `refused`, which is also what a genuine cluster refusal looks like — so the bug was indistinguishable from working-as-intended. The cluster was in fact empty (299 tasks against `MaxJobCount = 20002`).
+>
+> 1. **No ad-hoc `ssh` in this project.** Every remote command goes through the existing helper `_ssh()` (`scripts/cluster/t08_harvest_results.py:104`), which wraps the command in `bash -lc`. **That wrapper is the point** — the remote login shell is tcsh and will not parse bash syntax. If a new script cannot import the helper (e.g. it is shell, not Python), port the `bash -lc '…'` wrapper into it; never send a bare command string.
+> 2. **A retry loop must log the actual error text, never a label.** `refused` hid the real message on attempt one. Log what the remote end said, truncated if need be — a loop that records only its own interpretation will report a bug in its own quoting as a property of the cluster.
+> 3. **Prove one success before leaving any unattended loop alone.** A loop whose only exercised path is the failure path has not been tested. Watch it place one real job, then walk away.
+
 Open-Source Urban Building Energy Modeling Platform. 5-stage pipeline: data acquisition → semantic enrichment → IDF generation → EnergyPlus simulation → results & carbon. Working directory: `C:\Users\o_iseri\Desktop\OpenUBEM` — stay here.
 
 ## Roles

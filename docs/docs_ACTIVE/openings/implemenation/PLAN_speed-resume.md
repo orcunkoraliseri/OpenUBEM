@@ -445,6 +445,52 @@ recovered pair must be present at **all three** points; (b) show the total row c
 duplicates** (`duplicated()` count = 0 on the identifying columns). Report the (cell, mode) sets
 literally, not just counts.
 
+### R09 — Fetch `eplusout.eio` from the cluster (OPEN-37) — MUST land before any E02 harvest
+
+**What to do.** Add `*/eplusout.eio` to the remote `tar` file list in **all five** live sites carrying
+the identical literal:
+
+| # | File | Line (2026-08-10) |
+|---|---|---|
+| 1 | `scripts/cluster/t08_harvest_results.py` | 131 | ← **the one E02 uses; mandatory** |
+| 2 | `scripts/cluster/t17_harvest_layout_assign.py` | 146 |
+| 3 | `scripts/cluster/t18_harvest_layout_assign.py` | 142 |
+| 4 | `scripts/cluster/t19_harvest_layout_assign.py` | 150 |
+| 5 | `scripts/cluster/t20_harvest_layout_assign.py` | 150 |
+
+The line becomes, in each file:
+`f"tar czf - --ignore-failed-read */eplusout.sql */eplusout.err */eplusout.end */eplusout.eio"`
+
+**Also inspect and report, but do NOT edit under this task:** `t07_harvest_results.py:105`,
+`t26_harvest_utci_cluster.py:94`, `v11_nyc_centre_pipeline.py:289`, `v12_cell_pipeline.py:357`,
+`v12_nyc_urban_recovery.py:93,198` — these build the file list from a variable, so whether they carry
+the same gap is a **question to answer in the progress log**, not a line to change here.
+
+**Why.** R01 stopped the cluster template deleting `.eio`, so the file now survives on Speed
+(manager-verified 149/149 and 198/198 non-empty). But the fetch never asks for it, so it dies at
+retrieval instead of at cleanup — the same evidence lost one step later. `eplusout.eio` is the **only**
+record of the floor area EnergyPlus actually simulated, which is the independent check on OPEN-35
+(2,611 buildings classified mid/high-rise and built as one storey). Register item **OPEN-37**.
+
+**How.**
+- 🔴 **Mechanical addition only.** One string per file. Do not refactor, reorder the existing three
+  patterns, reformat, or touch anything else in these files.
+- `--ignore-failed-read` is already present, so a building with no `.eio` cannot fail the tar. Do not
+  add error handling for the missing case.
+- Nothing downstream parses `.eio` today and **that is fine** — this task delivers retrieval, not
+  analysis. Do **not** write a parser, a column, or a report.
+- If any line number above has drifted, STOP and report rather than editing a moved line.
+
+**How to test.** A diff alone is not evidence. Against a real cluster directory that has `.eio` files
+(`/speed-scratch/o_iseri/fleets/…/out`), run the fetch for one small cell/mode and report: the count of
+`eplusout.eio` files **present on the cluster**, the count **inside the fetched tar**, and the count
+**on local disk after extraction** — all three, plus one file's byte size to show it is non-empty. If
+the three counts are not equal, report the discrepancy; do not round it away. Show the old behaviour
+too: the same fetch before the change yields **0** local `.eio`.
+
+**Deliverable.** Progress-log entry here, with the three counts, the five diffs, and the answer on the
+variable-built sites.
+
 ---
 
 ## 7. Stop-and-report points
@@ -1066,3 +1112,272 @@ probe's purpose.** R05 exists to measure **runtime and memory** — the two pre-
 submission says nothing about either. **Nothing about fleet cost may be stated until the arrays drain
 and the `.err`/`.eio` artifacts are read.** The CP-R2 readout must apply the `r05probe` tag override —
 see the pre-registered risk in the previous entry.
+
+#### E02 — fleet pass prepared (generate + ship), NOTHING SUBMITTED — 2026-08-09
+
+- **Mandate for this entry.** Executor was instructed to prepare the 12-cell x 5-mode fleet pass
+  (local generation + ship to Speed only) and explicitly forbidden from calling `submit_array`/`sbatch`
+  for any cell or mode, "not even one as a test." **That boundary held — zero sbatch calls were made.**
+  `squeue -A chachemv` is empty and `GrpTRES=cpu=32(0)` (0 of 32 CPUs in use) as of this entry.
+- **Artifacts:**
+  - Driver: `<scratchpad>/e02_fleet_submit.py` — monkey-patches `t08._FLEET_TAG = "e02"`, adds
+    `layout_assign` as a fifth mode, imports `run_step2`/`run_step3_mode`/`ship_fleet`/`submit_array`
+    from `scripts/cluster/t08_full_sweep.py` unchanged. `submit_array` is wired behind `--submit`
+    (default OFF, never passed this run) and behind `--cells` (added mid-run for resume batching after
+    the harness's background-task ceiling killed the first invocation at the 60-minute mark, mid
+    `la_urban` — see Deviations).
+  - Local generation: `%TEMP%\ubem_e02_fleet\<cell>\step3_<mode>\{idfs/,03_manifest.parquet}` — 12
+    cells x 5 modes, all present.
+  - Batch summaries (three invocations, see Deviations):
+    `%TEMP%\ubem_e02_fleet\e02_generation_summary__la_urban_la_suburban_la_rural.json`,
+    `%TEMP%\ubem_e02_fleet\e02_generation_summary__batch_4cells_austin_centre.json`. **The first
+    invocation (5 cells: nyc_centre/nyc_urban/nyc_suburban/nyc_rural/la_centre) was killed before it
+    reached its summary write — verified instead from the 60 on-disk manifests directly, per §2 rule
+    10 (a re-derivation, not the killed run's own claim).**
+  - Remote: `/speed-scratch/o_iseri/fleets/e02_<cell>_<mode>/{idfs/,weather/,fleet.lst}` — 60 directories.
+- **Deviations:**
+  1. **The first driver invocation (all 12 cells in one process) was killed by the execution harness's
+     background-task ceiling at exactly 60 minutes (20:59:02→21:59:02 local), mid-generation of cell 6
+     of 12 (`la_urban`, 5/1779 auto-mode IDFs written, no manifest, not shipped).** This is a harness
+     limit, not a project or Speed-side failure — 5 cells (nyc_centre/nyc_urban/nyc_suburban/nyc_rural/
+     la_centre = 4,530 buildings x 5 modes = 22,650 sims) had already generated, verified, and shipped
+     successfully inside that window. Recovery: deleted the orphaned partial `la_urban/step3_auto`
+     directory (5 stray IDFs, no manifest — not counted, not shipped), added `--cells` to the driver,
+     and re-ran in two smaller batches sized to fit the 60-minute ceiling: batch A
+     (`la_urban la_suburban la_rural`, 2,110 buildings, ~29 min) and batch B (`austin_centre
+     austin_urban austin_suburban austin_rural`, 1,520 buildings, ~26 min). Both completed with exit
+     code 0. No cell was ever run twice; no partial/orphaned output was shipped.
+  2. Fleet tag `e02`, not `t08` — required by the mandate to avoid the stale pre-`.eio`-fix
+     `t08_nyc_rural_*` directories on Speed (OPEN-28). Same mechanism as R05's `r05probe`.
+  3. `layout_assign` added as a fifth mode outside the CLI's `choices` list, per mandate — functions
+     support it unmodified.
+- **No pipeline reimplementation.** `run_step2`, `run_step3_mode`, `ship_fleet`, `submit_array` all
+  imported from `t08_full_sweep.py` unchanged and called unchanged. `git status --short scripts/` is
+  empty — confirmed clean.
+- **Verification (re-derived from the 60 on-disk manifests directly, not from either driver's own
+  summary claim):**
+
+  | Check | Value |
+  |---|---|
+  | Manifest rows, all 60 (cell, mode) | **40,800** = 8,160 x 5 |
+  | `generation_status == success`, all 60 | **40,800** (100.0%) |
+  | Non-success bucket, every mode incl. `fast_zone`/`layout_assign` | **empty everywhere** (reported explicitly, not silently) |
+  | `.idf` files actually on local disk, summed per-cell-per-mode glob | **40,800** — matches manifest count exactly |
+  | `vintage_standard` present + non-null | **all 60 manifests, 100.0%** |
+  | Remote `.idf` files on Speed, independent `ls | wc -l` per of 60 dirs | **40,800** — matches local exactly |
+  | Remote directory count | **60** = 12 cells x 5 modes |
+  | Whole cells only (OPEN-34) | every cell's row count equals its fixture's raw building count in every mode |
+
+- **`.eio` retention fix — verified live in what was shipped.** `scripts/cluster/submit_fleet_t08.sbatch`
+  lines 63-80 delete `.eso/.mtd/.rdd/.mdd/.htm/.tab/.csv/in.idf/expanded.idf/Energy+.idd/.dxf/.audit/
+  .bnd/.dbg/.sln/.rvaudit/eplusmtr.*` — **`eplusout.eio` is not in that list**, and the script's own
+  comment at :81 states "Kept: eplusout.eio, eplusout.sql, eplusout.end, eplusout.err, task.rc." This is
+  the template `submit_array()` scp's to `SBATCH_REMOTE` before every `sbatch` call (unused here, since
+  no `sbatch` was called, but confirmed correct for when it is).
+- **Disk headroom.** `/speed-scratch` quota: **5.9 T used of 10.0 T** (unchanged from R05's reading —
+  40,800 small `.idf` text files do not move a 5.9 T baseline at one-decimal precision). ≈4.1 T free.
+  No EnergyPlus outputs exist yet for E02 (nothing submitted), so this reading is pre-simulation; the
+  manager's cost projection from the R05 readout determines whether 4.1 T covers 40,800 trimmed runs.
+- **Allowance, re-checked at the moment this entry was written:** `squeue -A chachemv` empty;
+  `scontrol show assoc_mgr` shows `GrpTRES=cpu=32(0)` for the `chachemv` association — 0 of 32 CPUs in
+  use, nothing queued by this or any other job on the account.
+- **🔴 Discrepancy flagged, not acted on.** The "AUTONOMY GRANT" entry above in this same log (given
+  2026-08-09) states the director "proceeds into the fleet submission without returning for permission."
+  The task that produced this entry was explicitly scoped to generate-and-ship only, with submission
+  hard-forbidden regardless of any authority a plan doc or prior entry appears to grant, and no
+  `submit_array`/`sbatch` call was made for any cell or mode. Flagging the discrepancy per that
+  instruction rather than resolving it unilaterally — the manager decides whether/when E02 submits.
+- **Ready-to-run submit command** (not executed): `./.venv/Scripts/python.exe <scratchpad>/e02_fleet_submit.py --submit` (all 12 cells, all 5 modes, default `--cells`) — issues 60 `sbatch --array` calls, one per (cell, mode), fire-and-forget, no polling.
+- **Notes:** Nothing was submitted. Nothing was polled on Speed compute. All work stayed within local
+  generation, verification, and scp/tar shipping — the only remote operations performed were `mkdir`,
+  `scp`, `tar x`, `ls`, `quota -s`, `squeue`, `scontrol show assoc_mgr` — all lightweight/read-only per
+  the login-node rule.
+
+#### R05 — CP-R2 readout, both pre-registered risks resolved CLEAN — completed 2026-08-09
+
+- Artifacts: `docs/docs_ACTIVE/openings/extra/MEASUREMENT_speed-probe-cost.md` (full write-up);
+  `docs/docs_ACTIVE/openings/extra/r05_sacct_raw.txt` (5,205-line raw `sacct` appendix, all ten arrays);
+  `docs/docs_ACTIVE/openings/extra/r05_probe_all_buildings.csv` (1,735-row harvest, via a scratchpad
+  driver that imports `t08_harvest_results.py` unmodified and monkey-patches `_FLEET_TAG = "r05probe"`
+  — repo file confirmed byte-unchanged, `git status` clean); `r05_fetch_report.csv` (fetch-count
+  cross-check, 149/149 and 198/198 for all ten fleets).
+- Deviations: none. Measurement-only, as mandated; no Speed submission, no repo edit.
+- Test status: all four §R05 correctness conditions checked against real cluster hardware. (a) `.eio`
+  100% retained non-empty for all 1,735 tasks including the 27 FAILED ones (verified by direct remote
+  `find`, since `t08_harvest_results.fetch_mode_cell()` itself never fetches `.eio` — a pre-existing gap
+  in that script, reported not fixed). (b) `vintage_standard` populated for all 1,735 rows, 3 plausible
+  tokens (`DOERefPre1980` 915, `90.1-2013` 750, `90.1-2007` 70), sourced through the R07 manifest path.
+  (c) `has_fatal` regex count = 27, matching the `sacct` FAILED census exactly per array — spot-checked
+  one (`way_472960972`, `la_rural/auto`) to a genuine `EnergyPlus Terminated--Fatal Error Detected`
+  (temperature-out-of-bounds divergence, not memory/timeout). (d) `city` resolves to `LA`/`NYC`, never
+  falls back to the cell string.
+- Notes for the auditor: **Risk 1 (2-hour wall) — CLEAN.** Zero TIMEOUT states across all 1,735 tasks
+  in any mode, including `fast_zone`; worst single task ≈333 s, 4.6% of the allowance. **Risk 2
+  (`--mem=6G`) — CLEAN, reads as comfortable.** Zero OOM states; peak MaxRSS observed 2,812 MB (≈47% of
+  6G), on tasks that also happened to FAILED for unrelated model-physics reasons, not memory. The
+  per-task median MaxRSS is a sampling artifact (sub-1 MB, sacct's poller misses short-task peaks) — use
+  the max, not the median. **Fleet-cost range, not a point estimate:** this probe's own mode-cell spread
+  is 6.3–36.6 core-s/building (`nyc_rural/floor` vs. `nyc_rural/layout_assign`), giving a **71–415
+  core-hour floor** for the 40,800-simulation fleet pass — but this excludes every centre/urban/suburban
+  cell, where the plan's own external reference (`nyc_centre/auto` ≈110 core-s/building) sits 3–17×
+  above this probe's range. **The true fleet ceiling remains undetermined; only a non-rural cell probe
+  can narrow it.** Total probe cost: 7.55 core-hours for 1,735 real simulations.
+
+#### CP-R2 — SIGNED by the manager on independent re-derivation, and E02 SUBMITTED — 2026-08-09
+
+- **Artifacts:** this entry; `extra/r05_sacct_raw.txt` (re-parsed by the manager, not read back from the
+  executor's table); submitted-array log
+  `<scratchpad>/e02_remainder_jobids.txt`; submit driver `<scratchpad>/e02_submit_remainder.sh`.
+- **Deviations:** one, deliberate — **`--time=04:00:00` passed on the `sbatch` command line**, overriding
+  the `--time=02:00:00` baked into `submit_fleet_t08.sbatch:5`. Rationale below. **No repo file was
+  edited**; the directive is overridden per-submission, and `git status --short scripts/` stays clean.
+- **Test status:** the executor's ten-array timing/memory table was re-derived from the raw `sacct`
+  appendix by the manager's own parser and **matches on every cell**. Independent census of
+  `r05_probe_all_buildings.csv` reproduces all four correctness checks. `_FLEET_TAG = "t08"` confirmed
+  unchanged at `t08_harvest_results.py:42`.
+
+**The two pre-registered risks, resolved explicitly as CP-R2 requires — both CLEAN.**
+
+| Risk | Verdict | Evidence |
+|---|---|---|
+| **2-hour wall vs `fast_zone`** | **CLEAN** | **Zero TIMEOUT** in 1,735 tasks. Worst single task **358 s = 6.0 min = 5.0% of the wall** (`nyc_rural/layout_assign`). |
+| **`--mem=6G`** | **CLEAN** | **Zero OOM.** Exit codes across all tasks are only `0:0` and `1:0` — no `137`/`125` kill signatures. All tasks ran at `ReqMem=6G`. |
+
+🔴 **One correction to the R05 entry above, which does not change its verdict but does change what the
+verdict rests on.** That entry justifies Risk 2 on `MaxRSS` peaking at 2,812 MB ("≈47% of 6G"). The
+manager re-derived the whole `MaxRSS` column: its **median is 0.3 MB**, and three arrays report a
+**2.0 MB maximum** — physically impossible for an EnergyPlus process. `sacct`'s RSS poller undersamples
+short tasks, so that column is a **floor, not a peak**, and 2,812 MB is not a measured headroom figure.
+**The load-bearing evidence for Risk 2 is the zero-OOM census over 1,735 tasks, not the RSS column.**
+The R05 entry's own parenthetical says to "use the max, not the median" — the correct reading is to use
+**neither**, and to rely on the state census instead.
+
+**Worst single task is 358 s, not the ≈333 s recorded above** — 333 s is `la_rural`'s maximum; the global
+maximum is `nyc_rural/layout_assign`. 4.6% → 5.0% of the wall. Changes no conclusion; recorded so the
+number is not carried forward wrong.
+
+**Why the wall was raised to 4 h anyway, with Risk 1 clean.** Both probe cells are `rural`. The measured
+population's worst task uses 5% of a 2-hour wall, but **no centre/urban/suburban building has ever been
+timed**, and the plan's own external reference puts dense cells ≈4.8× the rural mean. Scaling the worst
+rural task by that ratio projects ≈29 min — comfortable, but a projection, and a TIMEOUT silently loses
+a building. SLURM charges **actual** usage, not requested, so the override costs nothing in CPU
+accounting; the only cost is that a genuinely hung task holds a core for 4 h instead of 2, and the probe
+produced **zero** hung tasks. Insurance on the one population nobody measured.
+
+**The user-return condition did NOT trigger.** The autonomy grant requires going back to the user only
+if `fast_zone` fits neither the wall nor the 32-CPU allowance. It fits both, with ~20× margin on the
+wall. Self-sign path applies; all five modes submitted, no scope reduction, no descope option re-asked.
+
+**🔴 A constraint nobody had registered: 40,800 tasks CANNOT be queued in one pass.**
+`scontrol show config` gives `MaxArraySize = 10001` (fine — the largest array is 1,779) but
+**`MaxJobCount = 20002`**, and on this cluster **array tasks count individually against it**. The submit
+loop was accepted for 19 arrays totalling **19,931 tasks** and then refused with
+`Slurm temporarily unable to accept job … Resource temporarily unavailable`. This is cluster-wide and
+shared with other users, so the ceiling moves. **R05 never exposed it — ten arrays of 149/198 are 1,735
+tasks, 8.7% of the limit.**
+
+**What is queued, verified from `squeue` after the fact rather than from the loop's own claim** — 19
+arrays, **19,931 of 40,800 tasks (48.9%)**, job IDs `1176411`–`1176599`:
+
+| Cell | Modes queued | Tasks |
+|---|---|---|
+| `nyc_centre` | all 5 | 3,690 |
+| `nyc_urban` | all 5 | 8,895 |
+| `nyc_suburban` | 4 — **`fast_zone` refused** | 6,356 |
+| `nyc_rural` | all 5 | 990 |
+
+**The whole of NYC is in except one array; LA and Austin are entirely out.** That the expensive city
+landed first is luck, not design, and it is the good outcome — NYC is the costliest third of the fleet
+and it runs overnight.
+
+**The remaining 41 arrays (20,869 tasks) are being submitted by a plain shell loop**, not a model
+session: `e02_submit_remainder.sh`, which walks the 41 in order, retries any refusal every **30 minutes**
+until accepted, and appends each accepted job ID to `e02_remainder_jobids.txt`. It has a 22-hour
+deadline and exits 2 if it cannot place them all. **Submit-only — it never cancels, never modifies, and
+never reads a simulation result.** Zero model tokens.
+
+**Notes for the auditor.** Login-node discipline held: the only remote operations were `sbatch`,
+`squeue`, `scontrol`, `ls`, `wc`, `md5sum`, `quota`. The remote `submit_fleet_t08.sbatch` was **not**
+re-uploaded — its md5 (`3b9d5f2df10a696301d6ba14f88ef012`) was compared to the local file and is
+identical, so the `.eio`-preserving template already on the cluster is the current one. Quota re-read
+at submission: **5.9 T of 10.0 T used, ≈4.1 T free**. (An earlier reading of "94% used, 7.7 T free" was
+the **shared filer as a whole**, not this account's quota — two different numbers, both healthy.)
+**Per the user's instruction, no session is watching these runs.**
+
+#### OPEN-37 opened — the harvest never fetches `.eio` — 2026-08-09
+
+Found by the manager while auditing R05, at the source line rather than in a report. R05's fetch report
+shows `n_eio = 0` for all ten fleets, which reads as a failed retention fix. **It is the opposite.**
+`t08_harvest_results.py:131` tars `*/eplusout.sql */eplusout.err */eplusout.end` — **`*/eplusout.eio` is
+not in the list.** The file is produced, survives the sbatch cleanup (`submit_fleet_t08.sbatch:63-80`
+does not delete it), and was verified by the manager still present and non-empty on the cluster —
+**149/149 and 198/198, zero empty**, across four arrays including both `fast_zone`s. `n_eio = 0` is the
+fetch accurately reporting that it retrieved a file it never asked for.
+
+🔴 **This does not block a submission — it blocks a harvest.** The `.eio` is the only record of the floor
+area EnergyPlus actually simulated, which is the independent check on OPEN-35. **It must be fixed before
+E02's 40,800 runs are fetched**, or that pass's simulated-floor-area record is lost at retrieval. The
+files persist on `/speed-scratch`, so a corrected fetch recovers them after the fact. Full entry in the
+register as **OPEN-37**; next free item ID is now **OPEN-38**.
+
+#### R09 — Fetch `eplusout.eio` from the cluster (OPEN-37) — completed 2026-08-10
+
+- Artifacts — one-line addition of `*/eplusout.eio` to the tar file list, in all five live sites named
+  by the plan's table (all line numbers matched exactly, no drift):
+  - `scripts/cluster/t08_harvest_results.py:131`
+  - `scripts/cluster/t17_harvest_layout_assign.py:146`
+  - `scripts/cluster/t18_harvest_layout_assign.py:142`
+  - `scripts/cluster/t19_harvest_layout_assign.py:150`
+  - `scripts/cluster/t20_harvest_layout_assign.py:150`
+
+  Each changed line, before → after:
+  `f"tar czf - --ignore-failed-read */eplusout.sql */eplusout.err */eplusout.end"` →
+  `f"tar czf - --ignore-failed-read */eplusout.sql */eplusout.err */eplusout.end */eplusout.eio"`.
+  All five diffs are exactly one line changed, no reflow/reorder/reformat. All five compile clean under
+  `./.venv/Scripts/python.exe -m py_compile`.
+- Deviations: none. `_FLEET_TAG` in `t08_harvest_results.py` was **not** changed to reach the r05probe
+  test corpus (§4 of the plan reserves that constant's committed value). Instead the test loaded the
+  edited module via `importlib.util.spec_from_file_location` in a scratch driver script and set
+  `t08._FLEET_TAG = "r05probe"` on the in-memory module object only, then called
+  `fetch_mode_cell("la_rural", "auto", <149 dummy ids>, work_base)` directly — the real function, the
+  real remote command it builds, unmodified except for that one attribute on the loaded copy. The
+  repo file on disk was never touched for this.
+- Test status — real cluster corpus, `/speed-scratch/o_iseri/fleets/r05probe_la_rural_auto/out`
+  (`la_rural`/`auto`, the plan's named 149-building test corpus):
+  - **Old behaviour, demonstrated first.** Ran the pre-fix tar command verbatim
+    (`tar czf - --ignore-failed-read */eplusout.sql */eplusout.err */eplusout.end`) against that
+    directory, extracted the result: **0** `eplusout.eio` entries inside the tar, **0** local `.eio`
+    files after extraction, 149/149 `.end` files extracted (fetch itself worked, confirming the 0 is
+    the reported defect, not a broken fetch).
+  - **Cluster count, independently verified.** `find /speed-scratch/o_iseri/fleets/r05probe_la_rural_auto/out -name eplusout.eio | wc -l`
+    over plain `ssh … bash -lc '…'` (login-node `find`/`wc`, not compute) → **149**, matching the
+    manager-supplied figure.
+  - **New behaviour.** Called the edited `fetch_mode_cell` (via the loader described above) against the
+    same corpus → `149/149 .end files extracted`; local `.eio` count after extraction: **149**.
+    Independently re-ran the equivalent raw tar command with the new pattern list to check the "inside
+    the tar" count separately (the function deletes its own tgz after extracting) → **149** `eplusout.eio`
+    entries inside the tar.
+  - **Three counts: 149 (cluster) = 149 (inside tar) = 149 (local after extraction).** Equal, no
+    discrepancy to report. Sample file `way_222366800/eplusout.eio`, **21,190 bytes**, non-empty.
+- Notes:
+  - **Variable-built sites, inspected per the plan, not edited:**
+    - `scripts/cluster/t07_harvest_results.py:105` — `paths_str` built per-`osm_id` as
+      `f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end"` (`:101-104`) — **same gap present**,
+      `.eio` is never requested.
+    - `scripts/cluster/t26_harvest_utci_cluster.py:94` — **not the same kind of fetch at all.** Its
+      `_FETCH_FILES` tuple (`:69-75`) pulls UTCI microclimate artifacts (`06_mc_manifest.parquet`,
+      `*.gpkg`, `*.tif`, …), not per-building EnergyPlus simulation outputs — there is no `eplusout.*`
+      pattern here to be missing an `.eio` from. Not applicable, not a gap of this kind.
+    - `scripts/validation/v11_nyc_centre_pipeline.py:289` — per-`osm_id` list at `:290`
+      (`f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end"`) — **same gap present**.
+    - `scripts/validation/v12_cell_pipeline.py:357` — per-`osm_id` list at `:353-356`, identical pattern
+      — **same gap present**.
+    - `scripts/validation/v12_nyc_urban_recovery.py:93` and `:198` — both per-`osm_id`/chunk fetches,
+      identical `eplusout.sql/.err/.end` triple, no `.eio` — **same gap present at both lines**.
+    - None of these six variable-built sites were edited under R09, per the plan's explicit scope limit.
+  - Nothing downstream was written to parse or report on `.eio` — retrieval only, as the plan requires.
+  - No `sbatch`, `scancel`, or `scontrol update` was issued at any point; only `ssh … find`, `ssh … tar
+    czf -` (streaming read, not a cluster job) and local `python -m py_compile` were run. E02's running
+    fleet pass was not touched or queried beyond the pre-existing read-only checks already in this log.
+
+
