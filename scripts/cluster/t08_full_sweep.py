@@ -169,6 +169,16 @@ def run_step3_mode(gdf: gpd.GeoDataFrame, schedule_lib: object,
     )
     elapsed = time.monotonic() - t0
 
+    # R07 (RULING D, OPEN-30): copy vintage_standard from the frame the builder
+    # was handed onto the manifest -- same process, same moment, nothing
+    # recomputed -- so both harvests can read it without re-deriving it.
+    vintage_lookup = pd.DataFrame({
+        "osm_id": gdf["osm_id"].astype(str),
+        "vintage_standard": gdf["vintage_standard"].astype(str),
+    }).drop_duplicates(subset="osm_id")
+    manifest["osm_id"] = manifest["osm_id"].astype(str)
+    manifest = manifest.merge(vintage_lookup, on="osm_id", how="left")
+
     n_ok = int((manifest["generation_status"] == "success").sum())
     print(f"    [{cell}/{mode}] {n_ok}/{len(manifest)} success in {elapsed:.1f}s")
     manifest.to_parquet(str(mode_dir / "03_manifest.parquet"), index=False)

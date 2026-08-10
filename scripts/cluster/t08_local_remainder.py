@@ -430,6 +430,11 @@ def harvest_cell_mode(cell: str, mode: str, sim_out: Path,
             err = (bdir / "eplusout.err").read_text(errors="replace")
             has_fatal = re.search(r"\*\*\s+Fatal\s+\*\*", err) is not None
 
+        # R07: manifests written before this change lack the column --
+        # missing stays the empty string, never a fabricated default.
+        vs = mrow.get("vintage_standard", "")
+        vintage_standard = "" if pd.isna(vs) else str(vs)
+
         row: dict = {
             "cell": cell,
             "city": CITY_OF.get(cell, cell),
@@ -443,6 +448,7 @@ def harvest_cell_mode(cell: str, mode: str, sim_out: Path,
             "has_fatal": has_fatal,
             "zoning_strategy": str(mrow.get("zoning_strategy", "")),
             "num_zones": int(mrow.get("num_zones", 0)) if pd.notna(mrow.get("num_zones")) else 0,
+            "vintage_standard": vintage_standard,
             "phaseE_total_eui": phase_e_eui,
         }
 
@@ -454,6 +460,111 @@ def harvest_cell_mode(cell: str, mode: str, sim_out: Path,
 
         rows.append(row)
     return pd.DataFrame(rows)
+
+
+# ── resume guard (R04): disarm FINDING 1's silent resume trap ────────────────
+# A mode's sim_done.txt records that Step 4 finished, but its harvested rows only
+# reach output_csv once every requested mode of that cell has run in the SAME
+# session (see the incremental-write call at the end of the cell loop in main()).
+# If a session dies mid-cell (as the halted E02 run did), earlier modes of that
+# cell are marked done but their rows were never written anywhere. A naive resume
+# then skips those modes (is_done() is True) and never recovers their rows either
+# (only the "all modes done" branch re-loads from output_csv) -- the fleet CSV
+# silently ends up missing every building from the modes that finished first.
+
+def _rows_present_in_csv(cell: str, mode: str, output_csv: Path) -> bool:
+    if not output_csv.exists():
+        return False
+    existing = pd.read_csv(str(output_csv))
+    if existing.empty or "cell" not in existing.columns or "mode" not in existing.columns:
+        return False
+    return bool(((existing["cell"] == cell) & (existing["mode"] == mode)).any())
+
+
+def recover_missing_done_modes(cells: list[str], modes: list[str], work_base: Path,
+                               output_csv: Path, build_date: str) -> None:
+    """For every (cell, mode) marked done whose rows are absent from output_csv,
+    re-harvest from the already-persisted manifest + sim_out on disk (never a
+    re-derivation of pipeline logic -- same manifest, same sim_out the original
+    run produced) and append the recovered rows to output_csv. If a pair cannot
+    be recovered (manifest or sim_out missing from disk), refuse to start and
+    name every offending pair -- do not silently drop it (FINDING 1)."""
+    missing = [(c, m) for c in cells for m in modes
+              if is_done(c, m, work_base) and not _rows_present_in_csv(c, m, output_csv)]
+    if not missing:
+        return
+
+    print(f"  [RESUME GUARD] {len(missing)} (cell, mode) pair(s) marked done with rows "
+          f"absent from {output_csv}: {missing}")
+
+    unrecoverable: list[tuple[str, str, Path, Path]] = []
+    recovered_dfs: list[pd.DataFrame] = []
+    cell_info_cache: dict[str, pd.DataFrame] = {}
+
+    for cell, mode in missing:
+        manifest_path = work_base / cell / f"step3_{mode}" / "03_manifest.parquet"
+        sim_out = work_base / cell / f"sim_out_{mode}"
+        if not manifest_path.exists() or not sim_out.exists():
+            unrecoverable.append((cell, mode, manifest_path, sim_out))
+            continue
+        if cell not in cell_info_cache:
+            cell_info_cache[cell] = build_cell_info(cell)
+        cell_info = cell_info_cache[cell]
+        if cell_info.empty:
+            unrecoverable.append((cell, mode, manifest_path, sim_out))
+            continue
+        manifest = pd.read_parquet(str(manifest_path))
+        df = harvest_cell_mode(cell, mode, sim_out, manifest, cell_info, build_date)
+        n_ok = int((df["status"] == "success").sum()) if not df.empty else 0
+        print(f"  [RESUME GUARD] re-harvested {cell}/{mode}: {len(df)} rows recovered "
+              f"({n_ok} success) from {manifest_path.parent} + {sim_out}")
+        recovered_dfs.append(df)
+
+    if unrecoverable:
+        detail = "\n".join(
+            f"  {c}/{m}: manifest={mp} (exists={mp.exists()})  sim_out={so} (exists={so.exists()})"
+            for c, m, mp, so in unrecoverable
+        )
+        sys.exit(
+            "STOP: the following (cell, mode) pairs are marked done (sim_done.txt present) but "
+            "their rows are absent from output_csv AND cannot be re-harvested (manifest or "
+            "sim_out missing from disk). Refusing to start -- resolve manually before resuming:\n"
+            f"{detail}"
+        )
+
+    if recovered_dfs:
+        recovered = pd.concat(recovered_dfs, ignore_index=True)
+        combined = (pd.concat([pd.read_csv(str(output_csv)), recovered], ignore_index=True)
+                   if output_csv.exists() else recovered)
+        output_csv.parent.mkdir(parents=True, exist_ok=True)
+        combined.to_csv(str(output_csv), index=False)
+        print(f"  [RESUME GUARD] wrote {len(recovered)} recovered rows -> {output_csv}")
+
+
+# ── R08: make the per-cell incremental write survive the resume guard ────────
+# The guard above (R04) writes recovered rows for ALL cells into output_csv at
+# startup. Without this, the cell loop's incremental write is a bare overwrite
+# from all_dfs -- which at that point holds only the cells processed so far --
+# so the first cell's write deletes every recovered row belonging to cells the
+# loop has not reached yet (FINDING 1 reproduced one level up, CP-R1 first-pass
+# audit). Fix: merge -- rows for (cell, mode) pairs `interim` covers replace the
+# file's prior rows for those pairs; rows for pairs not yet covered survive.
+
+def _write_incremental_csv(output_csv: Path, interim: pd.DataFrame) -> pd.DataFrame:
+    """Merge-write interim into output_csv. Returns the frame actually written."""
+    if output_csv.exists():
+        existing = pd.read_csv(str(output_csv))
+        if not existing.empty and {"cell", "mode"}.issubset(existing.columns):
+            covered = pd.MultiIndex.from_arrays(
+                [interim["cell"], interim["mode"]]
+            ).unique()
+            existing_keys = pd.MultiIndex.from_arrays([existing["cell"], existing["mode"]])
+            preserved = existing[~existing_keys.isin(covered)]
+            if not preserved.empty:
+                interim = pd.concat([preserved, interim], ignore_index=True)
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+    interim.to_csv(str(output_csv), index=False)
+    return interim
 
 
 # ── CP4 local report ──────────────────────────────────────────────────────────
@@ -616,6 +727,11 @@ def main() -> None:
     print("\n[AMENDMENT CHECK] Verifying orient() gate in builder.py ...")
     _verify_orient_gate()
 
+    # R04: recover (or refuse to start on) any mode marked done whose rows never
+    # reached output_csv -- must run before any new Step 2/3/4 work begins.
+    print("\n[RESUME GUARD] Checking for done-but-unharvested (cell, mode) pairs ...")
+    recover_missing_done_modes(cells, modes, work_base, output_csv, build_date)
+
     # Import helpers from t08_full_sweep (Steps 2 and 3)
     sys.path.insert(0, str(REPO / "scripts" / "cluster"))
     from t08_full_sweep import run_step2, run_step3_mode  # type: ignore
@@ -628,16 +744,23 @@ def main() -> None:
         print(f"  CELL: {cell}  (lat={cfg['lat']}, lon={cfg['lon']}, state={cfg['state']})")
         print(f"{'='*72}")
 
+        done_modes = [m for m in modes if is_done(cell, m, work_base)]
         modes_needed = [m for m in modes if not is_done(cell, m, work_base)]
+
+        # R04: load rows for every already-done mode, not only when the whole cell
+        # is done -- recover_missing_done_modes() above guarantees output_csv already
+        # holds them (real or recovered), so this must not be conditioned on
+        # modes_needed being empty (that was FINDING 1: partial-done cells lost rows).
+        if done_modes and output_csv.exists():
+            existing = pd.read_csv(str(output_csv))
+            cell_rows = existing[(existing["cell"] == cell) & (existing["mode"].isin(done_modes))]
+            if not cell_rows.empty:
+                all_dfs.append(cell_rows)
+                print(f"  Loaded {len(cell_rows)} existing rows for {cell}/{done_modes} "
+                      f"from {output_csv}")
+
         if not modes_needed:
-            print(f"  All modes done for {cell} — loading existing harvest ...")
-            # Load existing harvest rows for this cell from output CSV if present
-            if output_csv.exists():
-                existing = pd.read_csv(str(output_csv))
-                cell_rows = existing[existing["cell"] == cell]
-                if not cell_rows.empty:
-                    all_dfs.append(cell_rows)
-                    print(f"  Loaded {len(cell_rows)} rows from {output_csv}")
+            print(f"  All modes done for {cell} — using loaded harvest.")
             continue
 
         # Build cell metadata from phaseE fixture
@@ -691,11 +814,11 @@ def main() -> None:
             elapsed_mode = time.monotonic() - t_mode
             print(f"  [{cell}/{mode}] done in {elapsed_mode/60:.1f} min")
 
-        # Write incremental CSV after each cell (safe against crashes)
+        # Write incremental CSV after each cell (safe against crashes).
+        # R08: merge, not overwrite -- see _write_incremental_csv().
         if all_dfs:
             interim = pd.concat(all_dfs, ignore_index=True)
-            output_csv.parent.mkdir(parents=True, exist_ok=True)
-            interim.to_csv(str(output_csv), index=False)
+            interim = _write_incremental_csv(output_csv, interim)
             print(f"\n  [CSV] Incremental write: {len(interim)} rows -> {output_csv}")
 
     # Final assembly

@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 import subprocess
 import sys
@@ -248,7 +249,7 @@ def parse_cell(cell: str, sim_out: Path, fleet_lst: list[str],
             status = "success" if "EnergyPlus Completed Successfully" in txt else "failed"
         if (bdir / "eplusout.err").exists():
             err = (bdir / "eplusout.err").read_text(errors="replace")
-            has_fatal = "** Fatal **" in err
+            has_fatal = re.search(r"\*\*\s+Fatal\s+\*\*", err) is not None
             n_severe = err.count("** Severe")
             # E-LA-14 prevalence flag (plan §5 T11 point 8 / CP-D directive):
             # count CheckWarmupConvergence Severe signatures in the fetched .err.

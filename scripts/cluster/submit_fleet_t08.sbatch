@@ -8,8 +8,9 @@
 
 # T08 variant of submit_fleet.sbatch.
 # Same simulation logic; after E+ completes, deletes all non-essential output files
-# (*.eso, *.eio, *.mtd, *.rdd, *.mdd, *.htm, table files) to keep cluster storage bounded.
-# Keeps: eplusout.sql (results), eplusout.end (completion marker), eplusout.err (Fatal check).
+# (*.eso, *.mtd, *.rdd, *.mdd, *.htm, table files) to keep cluster storage bounded.
+# Keeps: eplusout.eio (simulated floor area), eplusout.sql (results),
+# eplusout.end (completion marker), eplusout.err (Fatal check).
 #
 # Usage: sbatch --array=1-N%16 --export=FLEET_DIR=<path> submit_fleet_t08.sbatch
 # FLEET_DIR must contain: idfs/<stem>.idf, weather/<epw>, fleet.lst
@@ -60,7 +61,6 @@ echo "Task ${SLURM_ARRAY_TASK_ID} finished with rc=${RC}"
 # T08 output trimming: keep only SQL + completion + error files; delete bulk output.
 # This is critical for fast_zone city passes (>800 GB untrimmed per city).
 rm -f "$OUTDIR"/*.eso \
-      "$OUTDIR"/*.eio \
       "$OUTDIR"/*.mtd \
       "$OUTDIR"/*.rdd \
       "$OUTDIR"/*.mdd \
@@ -78,7 +78,7 @@ rm -f "$OUTDIR"/*.eso \
       "$OUTDIR"/eplusout.rvaudit \
       "$OUTDIR"/eplusmtr.* \
       "$OUTDIR"/eplusout.mtr 2>/dev/null || true
-# Kept: eplusout.sql, eplusout.end, eplusout.err, task.rc
+# Kept: eplusout.eio, eplusout.sql, eplusout.end, eplusout.err, task.rc
 
-echo "Task ${SLURM_ARRAY_TASK_ID}: cleanup done, kept sql+end+err"
+echo "Task ${SLURM_ARRAY_TASK_ID}: cleanup done, kept eio+sql+end+err"
 exit $RC
