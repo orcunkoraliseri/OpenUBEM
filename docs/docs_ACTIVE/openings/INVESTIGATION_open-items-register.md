@@ -225,6 +225,68 @@ the `la_rural` `layout_assign` probe) while `openubem/outputs/comparisons/e02_fi
 
 ---
 
+### ▶️ Amendment 2026-08-10 — **E02 is COMPLETE on the cluster.** Read-only census, manager-verified.
+
+**What "complete" does and does not mean, stated first because it is easy to over-read.**
+**Completion is a statement about SLURM, not about correctness. No EUI has been derived from this
+census, and OPEN-01 does not close on it** — OPEN-01's own three-question audit is still owed: (a) the
+`layout_assign` denominator, (b) the fleet-wide denominator in all five modes, (c) a demonstration that
+all five modes came from one code state (see OPEN-01's umbrella block, §2).
+
+**The numbers.** E02 = 60 job arrays, 12 cells × 5 modes, **40,800 tasks**. Outcome:
+**40,755 COMPLETED (99.89%), 45 FAILED (0.11%), 0 TIMEOUT, 0 OUT_OF_MEMORY, 0 CANCELLED, 0 NODE_FAIL.**
+40,800 per-building directories exist on the cluster; `.err`/`.eio`/directory counts are equal across
+all 60 arrays; the `.end` completion-marker count is short by **exactly one** task — the
+`way_1240348353` `bad_alloc` death recorded in the CP-R2 correction below. Remote root:
+`/speed-scratch/o_iseri/fleets/e02_<cell>_<mode>/out/<stem>/`.
+
+**Failures by array (45 total):** `nyc_centre/auto`=2, `nyc_centre/fast_zone`=9,
+`nyc_rural/layout_assign`=3, `la_centre/auto`=1, `la_centre/floor`=1, `la_centre/layout_assign`=1,
+`la_urban/auto`=1, `la_urban/layout_assign`=3, `la_rural/auto`=7, `la_rural/floor`=7,
+`la_rural/fast_zone`=10.
+
+**Determinism, established by an accident of records-keeping.** Eight arrays were submitted **twice**
+(**OPEN-40**) and both runs produced identical task counts and identical failure counts, with the same
+buildings failing both times. **The pipeline is deterministic, and the 45 failures are reproducible
+properties of those buildings, not flaky infrastructure.**
+
+**Three new items opened by this census, all Theme C:** **OPEN-38** (`layout_assign` subsurface
+geometry fatal, 7 buildings across 3 cells), **OPEN-39** (`set -e` in the sbatch template silently
+skips the trim step and the `task.rc` write on every failed task — `task.rc` must never be used as a
+completion test), **OPEN-40** (eight arrays submitted a third time by a process no document explains —
+the same duplication that proves the pipeline deterministic, above).
+
+#### Correction to CP-R2's Risk-2 verdict (`PLAN_speed-resume.md`, "CP-R2 — SIGNED", 2026-08-09)
+
+🔴 **Not a fourth open item — this is evidence attaching to an existing sign-off.** The register itself
+never restated CP-R2's verdict text before this amendment, so there is nothing of this register's own
+to strike; the claim being corrected is the one recorded in `PLAN_speed-resume.md` (not edited here —
+out of scope for this pass), quoted exactly:
+
+> ~~| **`--mem=6G`** | **CLEAN** | **Zero OOM.** Exit codes across all tasks are only `0:0` and `1:0` —
+> no `137`/`125` kill signatures. All tasks ran at `ReqMem=6G`. |~~
+
+**Correction, 2026-08-10, from the full 40,800-task E02 census (the R05 probe CP-R2 signed on covered
+only 1,735 tasks):** `nyc_centre/fast_zone`'s task for stem **`way_1240348353`** — an 89-storey
+building (`_F0`…`_F88`) — died on `terminate called after throwing an instance of 'std::bad_alloc'`,
+SIGABRT, sacct `ExitCode=6:0`, with **no `Fatal` string anywhere in its `eplusout.err`** (the evidence
+is in the array `.log`, not the `.err`). sacct's state stayed `FAILED` and was **never**
+`OUT_OF_MEMORY` — this is also the one task missing an `.end` file, above. **"Zero OOM" is a statement
+about SLURM's cgroup-kill classifier, not about memory sufficiency: a C++ allocation failure inside the
+EnergyPlus process is not a cgroup OOM-kill, and `sacct` will not report it as one.** The claim to amend
+is specifically the word "Zero" read as "memory was sufficient everywhere" — one task's memory was not.
+
+**MaxRSS caution — cross-referenced, not duplicated.** `PLAN_speed-resume.md`'s own CP-R2 entry already
+carries this warning in full (its correction to the R05 entry): the `MaxRSS` sacct column has a
+**median of 0.3 MB** across the probe, with **three arrays reporting a 2.0 MB maximum** — both
+physically impossible for a running EnergyPlus process, because `sacct`'s RSS poller undersamples short
+tasks. **The column is a floor on peak memory, not the peak itself, and must not be read as one.** That
+plan doc's own stated conclusion — "the load-bearing evidence for Risk 2 is the zero-OOM census … not
+the RSS column" — is exactly the sentence the correction above narrows: the zero-OOM census was itself
+reading a classifier that cannot see a `bad_alloc`.
+
+---
+
 ### 🅿️ Closing amendment 2026-08-06 — **the arc is paused by the user; this is the resume brief**
 
 **User instruction:** *"je vais me concentrer sur d'autres projets … dès que j'ai temps frais, je vais
@@ -303,7 +365,20 @@ headline numbers that did not reproduce from the file they cited, and one stale 
 
 ---
 
-## 1. Summary — **31 tracked items** (OPEN-01 … OPEN-37; OPEN-23 excluded, OPEN-21 deferred, OPEN-05 and OPEN-25 closed — all four IDs retired; **OPEN-02 and OPEN-28 folded into OPEN-01** on 2026-08-09)
+## 1. Summary — **35 tracked items** (OPEN-01 … OPEN-41; OPEN-23 excluded, OPEN-21 deferred, OPEN-05 and OPEN-25 closed — all four IDs retired; **OPEN-02 and OPEN-28 folded into OPEN-01** on 2026-08-09)
+
+> **+3 on 2026-08-10: OPEN-38, OPEN-39, OPEN-40**, all found by the manager's read-only E02 completion
+> census (60 job arrays / 40,800 tasks, 40,755 COMPLETED / 45 FAILED — full numbers in §0's
+> 2026-08-10 amendment and in each item's own section). Like OPEN-34–37 before them, none was found by
+> running a task — all three were found by **auditing** the census against raw `sacct`/`.err` output.
+> **36 findings, 34 things to track**, arithmetic: 33 findings / 31 things to track (below) **+3** items,
+> **+0** foldings. ~~**Next free item ID: OPEN-41.**~~
+>
+> **Amended 2026-08-10 (later, after R10 landed): +1 — OPEN-41.** The E02 harvest completed (all 60
+> arrays, 40,800 building dirs on disk) and its failure census reconciled **0/0 in both directions**
+> against the 45 `sacct` FAILED tasks — but **43 of the 44 fatals carry only EnergyPlus's generic
+> trailer**, so the *causes* are unrecorded. Found by **auditing R10's own output**, not by running a
+> task. **37 findings, 35 things to track. Next free item ID: OPEN-42.**
 
 > **Count deliberately unchanged on 2026-08-10 although OPEN-37's defect is fixed.** The code fix
 > (R09) is verified, but the item also asserts that *every fleet harvested before 2026-08-10 lacks the
@@ -378,9 +453,16 @@ headline numbers that did not reproduce from the file they cited, and one stale 
 | OPEN-35 | **Two fallbacks invent the missing storey count and disagree** — archetype chosen at group-median storeys, geometry built at 1 | Simulation correctness | **2,611 / 8,160 = 32.00% of the fleet**; 1,031 of them given a mid/high-rise archetype and built at one storey | ✅ **mechanism verified + size measured** |
 | OPEN-36 | 🔴 **A signed completion record describes code that has never existed in any commit** — T07's tests were committed, its implementation never was | Register hygiene → **record integrity** | ~~unmeasured~~ **measured (N13): 596 entries swept, 1 governance gap — T07, the known one**; directly causes E-UTCI-12 | ✅ **verified from git**; **scope now bounded** |
 | OPEN-37 | **The harvest never fetches `.eio`, so simulated floor area cannot come home** — the cluster keeps the file, the tar that retrieves results does not ask for it. **✅ FIXED 2026-08-10 (R09), five files, 149=149=149 verified** | Reported numbers | every fetched fleet, all modes; blocked the simulated-vs-declared floor-area check on **E02's 40,800 runs** — **unblocked before E02's first harvest** | ✅ **verified at the source line + on the cluster; fix manager-verified** |
+| OPEN-38 | **`layout_assign` subsurface geometry defect** — 7 tasks across 3 cells die on EnergyPlus severe *"Base surface does not surround subsurface"*, escalating to a two-space fatal | Simulation correctness | 7 / 40,800 census-visible; mode already scoped by OPEN-01/OPEN-03 | ✅ **observed in the E02 census** |
+| OPEN-39 | **`set -e` in `submit_fleet_t08.sbatch` skips the trim step and the `task.rc` write on every failed task** — orphaned ~40 MB directories fleet-wide, and `task.rc` presence must never be used as a completion test | Register hygiene → cluster housekeeping | every failed task, every fleet this template has ever run (T08→T20) | ✅ **line numbers verified against the file** |
+| OPEN-40 | **Eight job arrays were submitted a third time by an unrecorded process** — job IDs fall outside both documented submission waves and no document explains them | Register hygiene → record integrity | 8 arrays; the duplication is also the evidence that made the pipeline's determinism provable (§0, 2026-08-10) | ✅ **job IDs verified outside both documented ranges**; ❓ **submitter untraced** |
+
+| OPEN-41 | **43 of the 45 fleet failures have no recorded cause** — the census captured EnergyPlus's generic trailer, not the preceding `** Severe **` line; `la_rural` carries 24 of 45 across three unrelated modes | Simulation correctness | 43 / 44 fatals unexplained; the failure *set* itself reconciles 0/0 against `sacct` | ✅ **count reconciled both directions**; ❓ **cause unknown for 43** |
 
 **Next free defect ID: E-LA-42** (verified by full sweep 2026-08-05, OPEN-05). **Next free UTCI defect
-ID: E-UTCI-17** (same sweep; stated in no other document). **Next free item ID: OPEN-38.**
+ID: E-UTCI-17** (same sweep; stated in no other document). ~~**Next free item ID: OPEN-41.**~~
+**Amended 2026-08-11: OPEN-41 was taken on 2026-08-10 (§1's later amendment) and its table row was
+missing here — added above. Next free item ID: `OPEN-42`.**
 
 > **Amendment 2026-08-05.** OPEN-28 added, found while auditing the `layout_assign` documentation
 > surfacing work (`layoutAssigner/PLAN_docs-explanation-surfacing.md`, closed the same day). It had
@@ -422,6 +504,12 @@ than merely incomplete.
 > multiplier-aware floor area read from `eplusout.eio` for `layout_assign`'s non-`applied` buildings;
 > (b) the same for **all five** modes fleet-wide; (c) a demonstration that all five modes came from
 > **one** code state. **Any one of the three unanswered leaves OPEN-01 open.**
+>
+> **Status, 2026-08-10: E02 is COMPLETE on the cluster** (§0's 2026-08-10 amendment — 40,755/40,800
+> COMPLETED, 99.89%). **That is a SLURM statement, not a correctness one — none of (a)/(b)/(c) has been
+> answered yet, no EUI has been derived, and OPEN-01 stays open.** The census also opened OPEN-38,
+> OPEN-39 and OPEN-40 and produced a correction to CP-R2's Risk-2 verdict — all in §0/§4, none of it
+> closing this item.
 
 **What is known.** In `layout_assign`, `match_storeys()` mutates the prototype **only** when it
 returns status `applied` — its own docstring is explicit
@@ -1764,6 +1852,138 @@ column of an otherwise-passing report. Read as a summary, it looks like a failed
 source line, it is a *missing request*. **A count of zero says nothing about the thing being counted
 until you check whether anyone asked for it** — the same shape as [[OPEN-36]], where a completion
 record was honest about work that was never committed.
+
+### OPEN-38 — `layout_assign` subsurface geometry defect ❓
+*Added 2026-08-10, found by the manager's read-only E02 completion census. Not what the census was looking for.*
+
+**What the census found.** Seven `layout_assign` tasks failed across three different cells —
+`nyc_rural`=3, `la_centre`=1, `la_urban`=3 — out of the 45 total E02 failures. The sampled `.err`
+files all carry the same EnergyPlus severe: *"Base surface does not surround subsurface"*, escalating
+to a two-space `**  Fatal  **`. **Mode-specific and reproducible** — the eight arrays submitted twice
+(OPEN-40) include several `layout_assign` arrays, and the same buildings failed both times.
+
+**Why this is not folded into OPEN-01/OPEN-03.** Those two items are about `layout_assign` mutating
+the *wrong* prototype storey count for buildings it still successfully simulates. This item is about
+buildings `layout_assign` **cannot simulate at all** — a geometry-construction failure at the
+subsurface/base-surface boundary, upstream of the storey-count question. `layout_assign` is already
+the mode both open items scope, and it is the mode adopted for zone/HVAC-topology studies (not
+certified for fleet EUI) — a third independent defect in the same mode raises the question of whether
+it is fit for that purpose at all, which no single item currently answers.
+
+**What is only believed, not yet measured:** that the sample generalizes to all 7, and that the
+failing buildings share a specific geometry condition (e.g. a subsurface overhang, a degenerate wall
+loop) the surviving `layout_assign` buildings do not.
+
+**First measurement:** count every `layout_assign` building carrying this message fleet-wide from the
+harvested `.err` files — grep the **two-space** form `"**  Fatal  **"` (the one-space form is the known
+E-LA-21 defect, OPEN-29/OPEN-05, and misses real fatals) — and check whether the failing buildings
+share a geometry condition the surviving ones do not.
+
+### OPEN-39 — `set -e` suppresses the trim step and the `task.rc` write on every failed cluster task ✅ **line numbers verified**
+*Added 2026-08-10, found by the manager's read-only E02 completion census while reasoning about the
+45 failed tasks' on-disk footprint. Not what the census was looking for.*
+
+**Verified directly against `scripts/cluster/submit_fleet_t08.sbatch` (read 2026-08-10):**
+
+| Line | Content |
+|---|---|
+| `18` | `set -e` |
+| `56` | `"${EP_DIR}/energyplus" -w "$EPW" -d "$OUTDIR" "$RUN_IDF"` |
+| `57`–`58` | `RC=$?` then `echo $RC > "${OUTDIR}/task.rc"` |
+| `63`–`80` | the trim block — deletes `.eso/.mtd/.rdd/.mdd/.htm/.tab/.csv/in.idf/expanded.idf/Energy+.idd/.dxf/.audit/.bnd/.dbg/.sln/.rvaudit/eplusmtr.*` |
+
+**The mechanism.** Line 18's `set -e` makes the whole script exit immediately on the first non-zero
+exit status. Line 56 runs EnergyPlus with no `if`/`||` guard around it — so when EnergyPlus itself
+exits non-zero, the script terminates **at line 56**, and lines 57–58 (`RC=$?`, the `task.rc` write)
+and the entire trim block (63–80) **never execute**. Every failed task therefore leaves an untrimmed
+directory: `in.idf`, `expanded.idf`, `Energy+.idd` (~40 MB combined per the trim-block comment's own
+budget reasoning), plus zero-byte or partial `.eso`/`.mtd` and whatever EnergyPlus wrote before dying.
+
+**Two consequences to state separately:**
+1. **Orphaned disk on `/speed-scratch`.** Every failed task across every fleet this template has run
+   (T08 through T20 — the header comment at line 9 calls this "the T08 variant"; the template is
+   carried forward unchanged, per OPEN-29's finding that E-LA-21 is replicated the same way across
+   scripts) leaves its full untrimmed output on disk.
+2. 🔴 **A failed task has no `task.rc`.** Its absence is the *expected* signature of `set -e` firing on
+   a non-zero EnergyPlus exit, not evidence of an incomplete or hung task. **`task.rc`'s presence must
+   never be used as a completion test** — the same shape as OPEN-29's standing rule for `has_fatal`
+   ("never use the `has_fatal` column"). Any harvest or resume logic that checks for `task.rc` before
+   treating a task as "done" would misclassify every failure this way.
+
+**Not yet measured, and not measured here:** the total orphaned bytes across all fleets on
+`/speed-scratch`, and whether any completion/harvest/resume script in this project actually keys on
+`task.rc`.
+
+**First measurement:** size the orphaned disk across all fleets on `/speed-scratch`, and grep the
+project's harvest/resume scripts to confirm none depends on `task.rc` for a completion decision.
+
+### OPEN-40 — Eight job arrays were submitted a third time by an unrecorded process ✅ **job IDs verified outside both documented ranges**; ❓ **submitter untraced**
+*Added 2026-08-10, found by the manager's read-only E02 completion census while reconciling job IDs
+against the two documented submission waves. Not what the census was looking for.*
+
+**The observation.** Job IDs `1177095`, `1177838`–`1177841`, `1177875`, `1178313`, `1178538` fall
+outside **both** documented submission ranges — wave 1, `1176411`–`1176599` (§0, "19 arrays / 19,931
+tasks queued at submission"), and wave 2, `1198104`–`1200571`. **No project document or scratchpad
+log explains them.** Affected arrays: `la_centre/layout_assign`, `la_rural/auto`, `la_rural/building`,
+`la_rural/floor`, `la_rural/layout_assign`, `la_rural/fast_zone`, `austin_urban/fast_zone`,
+`austin_rural/auto`.
+
+**This is the records defect this arc keeps uncovering, in a new place.** OPEN-36 found a completion
+record describing code no commit ever contained; OPEN-29 found defects open at their own defining
+line but absent from this register; both are gaps between what happened and what was written down.
+This is the same gap on the cluster's own submission history.
+
+**The silver lining, stated explicitly so it is not lost under the records-defect framing.** These
+duplicate submissions are exactly what proved the pipeline **deterministic** (§0, 2026-08-10 amendment,
+and OPEN-38's own evidence): both runs of all eight arrays produced identical task counts and identical
+failure counts, the same buildings failing both times. An accidental re-submission became a free
+reproducibility control.
+
+**First measurement:** trace the submitter — check shell history, scratchpad submit scripts
+(`e02_submit_remainder.sh` and siblings), and `sacct -j` submission timestamps for the eight IDs
+against every known driver invocation. **If it cannot be traced, that is itself the finding**, and the
+remedy is a submission log nobody can bypass — not a retroactive reconstruction.
+
+### OPEN-41 — 43 of the 45 fleet failures have no recorded cause, only EnergyPlus's generic trailer ✅ **44 fatal + 1 no-`.end` = 45, reconciled 0/0 against `sacct`**; ❓ **cause unknown for 43 of them**
+*Added 2026-08-10, found by the manager while auditing R10's failure census — the census answered "which
+buildings" completely and "why" almost not at all. Not what the census was looking for.*
+
+**The observation.** R10's harvest of all 60 arrays reconciled the failure set **exactly**: 44 fatal
+buildings (two-space `"**  Fatal  **"` test, E-LA-21) + 1 building with no `.end`
+(`nyc_centre/fast_zone`, the `std::bad_alloc` 89-storey case) = **45**, versus **45** unique `sacct`
+FAILED tasks, with **direction A = 0** (no local failure absent from `sacct`) and **direction B = 0**
+(no `sacct` failure absent locally), all 45 mapped to a building stem via `fleet.lst`. Completeness is
+not the problem. **The message census is:**
+
+| fatal message | count |
+|---|---|
+| `Program terminates due to preceding condition.` | 43 |
+| `CheckForRunawayPlantTemps: Simulation terminated because of run away plant temperatures, too hot` | 1 |
+
+`Program terminates due to preceding condition.` is EnergyPlus's **generic trailer**. It names no cause.
+The diagnostic content lives in the **preceding** `** Severe **` line, which the scanner never captured.
+So for 43 of 44 fatals we know the building, the cell and the mode, and nothing about the failure.
+
+**Why this is a defect and not just a missing nicety.** This is the same shape as E-LA-21 itself: a fatal
+test that returns something plausible while carrying no information. A census that reports "43 ×
+*preceding condition*" reads like a finding and is in fact a null result — and a null result that looks
+like a finding is exactly what this arc keeps being caught by (OPEN-36, OPEN-29, and R10's own
+all-zeros analysis run against an empty root).
+
+**Second observation, unexplained, recorded so it is not lost.** The 45 failures are **not uniformly
+distributed**: `la_rural` carries **24 of 45** across three separate modes (`fast_zone` 10, `auto` 7,
+`floor` 7) despite being one of the smallest cells at 149 buildings/mode — roughly a 4.7% failure rate
+in that cell against **0.11%** fleet-wide (45/40,800). `nyc_centre/fast_zone` carries 8 more. Failures
+concentrating in one small rural cell across unrelated zoning modes points at the **inputs for those
+buildings**, not at the mode implementations. That is a hypothesis, not a measurement.
+
+**First measurement:** re-scan the 44 `.err` files in the harvested corpus
+(`…\Temp\ubem_e02_harvest`, on disk, no cluster access needed) capturing the **`** Severe **` lines
+preceding each fatal**, not the trailer; group the distinct causes; then intersect the `la_rural`
+subset's building IDs across the three affected modes to test whether the **same buildings** fail in all
+three. If they do, the cause is per-building input data and this becomes an input-validation item; if
+they do not, it is mode-specific and splits. **Do not write a remedy plan before this scan** — the
+current evidence names no cause to remedy.
 
 ### OPEN-09 — `thermal_mass=True` drives warmup non-convergence, and "cosmetic" was never tested (E-LA-23) ✅ **C06 2026-08-06: (b) tested — "cosmetic" holds, with a quantified nuance**
 A matched control measured 96/150 (64%) engaged rows non-converging vs 8/150 (5.3%) in the control —

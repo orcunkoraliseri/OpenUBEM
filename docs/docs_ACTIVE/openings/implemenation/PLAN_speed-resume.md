@@ -1241,7 +1241,15 @@ see the pre-registered risk in the previous entry.
 | Risk | Verdict | Evidence |
 |---|---|---|
 | **2-hour wall vs `fast_zone`** | **CLEAN** | **Zero TIMEOUT** in 1,735 tasks. Worst single task **358 s = 6.0 min = 5.0% of the wall** (`nyc_rural/layout_assign`). |
-| **`--mem=6G`** | **CLEAN** | **Zero OOM.** Exit codes across all tasks are only `0:0` and `1:0` — no `137`/`125` kill signatures. All tasks ran at `ReqMem=6G`. |
+| ~~**`--mem=6G`**~~ | ~~**CLEAN**~~ | ~~**Zero OOM.** Exit codes across all tasks are only `0:0` and `1:0` — no `137`/`125` kill signatures. All tasks ran at `ReqMem=6G`.~~ |
+
+🔴 **Correction, 2026-08-10, from the full 40,800-task E02 census** (the row above was signed on the
+1,735-task R05 probe only). `nyc_centre/fast_zone`'s task for stem `way_1240348353` (89-storey building)
+died on `std::bad_alloc`/SIGABRT, sacct `ExitCode=6:0`, no `.end` file — and sacct classified it
+`FAILED`, **never** `OUT_OF_MEMORY`. "Zero OOM" is a statement about SLURM's cgroup-kill classifier, not
+about memory sufficiency: a C++ allocation failure is not a cgroup OOM-kill and `sacct` will not report
+it as one. Full detail and the `MaxRSS`-column caveat: register `INVESTIGATION_open-items-register.md`,
+§0 Amendment 2026-08-10, lines ~261-286 — not restated here.
 
 🔴 **One correction to the R05 entry above, which does not change its verdict but does change what the
 verdict rests on.** That entry justifies Risk 2 on `MaxRSS` peaking at 2,812 MB ("≈47% of 6G"). The
@@ -1379,5 +1387,65 @@ register as **OPEN-37**; next free item ID is now **OPEN-38**.
   - No `sbatch`, `scancel`, or `scontrol update` was issued at any point; only `ssh … find`, `ssh … tar
     czf -` (streaming read, not a cluster job) and local `python -m py_compile` were run. E02's running
     fleet pass was not touched or queried beyond the pre-existing read-only checks already in this log.
+
+#### R10 — E02 census, harvest of all 60 arrays, and failure reconciliation — completed 2026-08-10
+
+- **Nothing was submitted.** The queue was empty because the E02 pass had already *finished*, not because
+  it had been lost. `sacct` census over all 60 arrays: **40,800/40,800 tasks attempted, 40,755 COMPLETED
+  (99.89%), 45 FAILED, 0 TIMEOUT, 0 OOM-state, 0 CANCELLED.** Resubmission was therefore neither needed
+  nor correct, and none was issued.
+  - Eight arrays had been accidentally submitted twice. Both submissions produced **identical failure
+    counts with the same buildings failing both times** → the 45 failures are deterministic properties of
+    those buildings, not transient cluster faults. This is the evidence that closes the resubmit question.
+- **Artifacts — harvested corpus:** `C:\Users\o_iseri\AppData\Local\Temp\ubem_e02_harvest`, **60 arrays,
+  ~12 GB**. Manager-independent recount (not the harvest script's own numbers):
+  **40,800 building dirs = 40,800 `.err` = 40,800 `.eio`; `.end` = 40,799.**
+  The single `.end` deficit is `nyc_centre/fast_zone`, the only array fleet-wide where `end < dirs` — it is
+  the `std::bad_alloc` building (`way_1240348353`, 89 storeys), which dies before writing `.end`.
+  `.eio` coverage is **40,800/40,800 parsed, 0 parse failures**, so the multiplier-aware simulated floor
+  area needed for OPEN-01/OPEN-35 is available for every building in every one of the five modes.
+- **Deviations / honest execution record — the harvest did not run cleanly and must not be recorded as if
+  it had:**
+  - It took **three passes**. Pass 1 died at 36/60. Pass 2 (resume) ended at 58/60. Pass 3 recovered the
+    last two.
+  - Pass 2's two failures were `austin_suburban/floor` and `austin_suburban/fast_zone`, both
+    `ssh rc=255` / `Connection closed by 132.205.2.12 port 22` after ~50 rapid fetches.
+    **The script's own error text misdiagnosed this** as `/speed-scratch/.../out likely missing` — that
+    string is a hard-coded guess, not a finding. Before retrying, the remote dirs were checked through
+    `t08._ssh()`: both existed with **437** building dirs each. The cause was SSH rate-limiting.
+    Pass 3 added a 90 s pre-sleep and 120 s inter-attempt backoff and both arrays fetched **on attempt 1**,
+    437/437 each.
+  - The executor agent reported "completed" **twice while its work was unfinished** (once dead at 36/60,
+    once with a live background child at 48/60). Every number in this entry was re-derived by the manager
+    from on-disk file counts and the append-only harvest log, not taken from the agent's report.
+  - An earlier analysis run (20:23) produced `t3_counts.json` / `t4_fatal_records.json` /
+    `t4_fatal_messages.json` with **every array `"present": false`, all counts zero, and `[]` fatals**,
+    because it ran against a root that was still empty. Zero fatals against 45 known-FAILED tasks is the
+    "empty reported as zero" trap this project forbids. Those three files were **deleted**, not amended,
+    and regenerated against the populated root.
+- **Test status — failure census reconciled in BOTH directions, which is the load-bearing check:**
+  - Fatal detection used the **two-space** `"**  Fatal  **"` test (E-LA-21); the one-space form misses
+    real fatals. Result: **44 fatal buildings + 1 missing-`.end` building = 45.**
+  - `sacct` FAILED rows deduped to **45 unique tasks**; all **45/45** mapped to a building stem via each
+    array's `fleet.lst` (index sanity check: `la_rural_auto` line 22 → `way_472960972`, matched).
+  - **Direction A** (local fatal/missing-`.end` NOT in the sacct FAILED set): **0**.
+    **Direction B** (sacct FAILED with no local fatal/missing-`.end`): **0**.
+  - The 11 distinct cell/mode combinations carrying failures are identical on both sides. Distribution:
+    `la_rural/fast_zone` 10, `nyc_centre/fast_zone` 8 (+1 no-`.end`), `la_rural/auto` 7,
+    `la_rural/floor` 7, `la_urban/layout_assign` 3, `nyc_rural/layout_assign` 3, `nyc_centre/auto` 2,
+    and 1 each in `la_centre/auto`, `la_centre/floor`, `la_centre/layout_assign`, `la_urban/auto`.
+- **Notes — what this entry does NOT establish, stated so no one reads more into it:**
+  - **The failure *causes* are still unknown for 43 of the 44 fatals.** The message census returns
+    `"Program terminates due to preceding condition."` ×43 — that is EnergyPlus's generic trailer, which
+    names no cause; the diagnostic content is in the **preceding** severe line, which was not captured.
+    Only 1 of 44 is self-describing (`CheckForRunawayPlantTemps: … run away plant temperatures, too hot`).
+    We know *which* buildings failed and that the count reconciles exactly; we do not know *why*.
+    Raised as a register item rather than left implicit.
+  - 45/40,800 = **0.11%** attrition, non-uniformly distributed (`la_rural` carries 24 of 45 across three
+    modes) — the concentration is itself a signal and has not been explained.
+  - This entry closes the *retrieval* question only. **OPEN-01's three-question denominator audit is still
+    unstarted** and is gated on a user ruling, not on data.
+  - Read-only cluster access throughout: `sacct`, `ls`, `find`, `wc`, and `tar czf -` streaming reads. No
+    `sbatch`, `scancel`, or `scontrol` was issued; no other project's jobs were touched or queried.
 
 

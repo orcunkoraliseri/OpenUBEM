@@ -1072,7 +1072,11 @@ re-run that retains `eplusout.eio`.
 
 > # 🅿️ **PAUSED 2026-08-06 — the user is on other projects and will return.**
 > **Nothing is running: no local job, no cluster job, no executor session.** Nothing is cancelled and
-> no task is half-finished. **32 items, OPEN-01 … OPEN-36, next free ID OPEN-37.**
+> ~~no task is half-finished. **32 items, OPEN-01 … OPEN-36, next free ID OPEN-37.**~~
+> **Count updated 2026-08-10 (twice; the later figure governs), kept consistent with the register's own §1 header: 35 tracked items
+> (OPEN-01 … OPEN-40; IDs 05, 21, 23, 25 retired; OPEN-02 + OPEN-28 folded into OPEN-01), next free ID
+> OPEN-41.** New since the line above: OPEN-38, OPEN-39, OPEN-40 (E02 completion census, 2026-08-10 —
+> see the register's §0 amendment of that date for the numbers).
 >
 > **The resume brief is the closing amendment of**
 > `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — written to stand alone. The
@@ -1243,8 +1247,11 @@ claim carries an evidence mark — ✅ verified · 📄 documented, not re-verif
 ❓ unmeasured. **No 📄 or ⚠️ number goes into a plan without being re-derived first.**
 
 **Director prompt for a fresh manager session:**
-`docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-05.md` — self-contained, **current**.
-(The `..._2026-08-04.md` prompt is **spent** — marked superseded in-file; kept as historical record only.)
+~~`docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-05.md` — self-contained, **current**.~~
+**Amended 2026-08-11:** `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` —
+self-contained, **current**. It is written after E02 finished *and* was harvested, so it opens on
+audit → rule rather than on submission. **All earlier prompts (`..._2026-08-04/05/06/10.md`) are spent**
+and now live in `prompts/previous/`, each marked superseded in-file; kept as historical record only.
 Supporting documents for this arc live in `docs/docs_ACTIVE/openings/extra/`, per user instruction
 2026-08-05 — the arc folder itself stays clean.
 
