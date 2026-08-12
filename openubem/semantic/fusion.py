@@ -185,6 +185,33 @@ _OVERTURE_ATTR_COLUMN = {
     "year_built": "year_built", "use_class": "use_class",
 }
 
+# `fetch_overture()` unconditionally re-normalizes its input (E-UTCI-13):
+# reading an already-normalized cache (e.g. the height-cache module's cached
+# output) through it a second time nulls `levels`/`use_class`, since the
+# raw-schema columns `_normalize()` looks for (`num_floors`, `class`) no
+# longer exist. `height` alone survives because its column name is stable
+# across both passes.
+_NORMALIZED_OVERTURE_COLUMNS = {"id", "height", "levels", "use_class", "year_built", "geometry"}
+
+
+def _load_overture_layer(cfg) -> gpd.GeoDataFrame:
+    """Idempotent load for `OvertureSource.join`. If `FUSION_OVERTURE_SLICE_PATH`
+    already carries normalized schema on disk, read it directly and skip the
+    second normalization pass; a raw-schema slice or a live `endpoint` pull
+    still goes through `fetch_overture()` exactly as before."""
+    from openubem.acquisition.overture_fetcher import fetch_overture
+
+    slice_path = getattr(cfg, "FUSION_OVERTURE_SLICE_PATH", None)
+    if slice_path is not None:
+        raw = gpd.read_parquet(slice_path)
+        if set(raw.columns) == _NORMALIZED_OVERTURE_COLUMNS:
+            return raw
+
+    return fetch_overture(
+        slice_path=slice_path,
+        endpoint=getattr(cfg, "FUSION_OVERTURE_ENDPOINT", None),
+    )
+
 
 @register_source
 class OvertureSource(FusionSource):
@@ -203,12 +230,7 @@ class OvertureSource(FusionSource):
         if col is None or "geometry" not in getattr(gdf, "columns", []):
             return value, derived
 
-        from openubem.acquisition.overture_fetcher import fetch_overture
-
-        layer = fetch_overture(
-            slice_path=getattr(cfg, "FUSION_OVERTURE_SLICE_PATH", None),
-            endpoint=getattr(cfg, "FUSION_OVERTURE_ENDPOINT", None),
-        )
+        layer = _load_overture_layer(cfg)
         _assert_no_eui_columns(list(gdf.columns) + list(layer.columns))
         if len(layer) == 0:
             return value, derived

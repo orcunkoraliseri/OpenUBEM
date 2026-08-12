@@ -210,6 +210,12 @@ class BuildingIDF:
         epw_path = row.get("epw_path")
         if epw_path and Path(str(epw_path)).exists():
             _populate_site_location_from_epw(self.idf, Path(str(epw_path)))
+        else:
+            raise ValueError(
+                f"osm_id={row.get('osm_id')!r}: epw_path {epw_path!r} is missing or "
+                "does not exist -- refusing to build at the template's placeholder "
+                "Site:Location (Latitude=0.0, Longitude=0.0)"
+            )
 
     def assign_constructions(self) -> None:
         """Create opaque assemblies and glazing per DESIGN §3F (fact #20)."""
