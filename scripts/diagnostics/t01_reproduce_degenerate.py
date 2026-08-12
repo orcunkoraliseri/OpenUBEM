@@ -4,6 +4,7 @@ Reads the cached pre-fix IDF and counts surfaces with <3 distinct vertices.
 Then runs local EnergyPlus to confirm the Fatal.
 """
 from __future__ import annotations
+import re
 import subprocess
 import shutil
 import sys
@@ -105,7 +106,7 @@ def main():
 
     # Extract Severe/Fatal lines
     severe_lines = [l for l in err_text.splitlines()
-                    if any(kw in l for kw in ("** Severe **", "**  Fatal **", "** Fatal  **"))]
+                    if ("** Severe **" in l) or re.search(r"\*\*\s+Fatal\s+\*\*", l)]
     print("\nSevere/Fatal lines from eplusout.err:")
     for l in severe_lines[:30]:
         print(" ", l)

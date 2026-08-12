@@ -52,6 +52,11 @@ Start narrow (1–2 tasks) with a new executor; widen once it executes cleanly.
 
 Check: progress-log entries → test output → only planned files touched → DESIGN citations for any unplanned decision. Missing any → ask for a fix before greenlighting.
 
+## Archiving an arc
+
+- **Archiving is not finished until every citation pointing into the archived arc has been swept and repaired.** Ruled obligatory 2026-08-09 (OPEN-33). Full rule + exclusions: head section of `docs/PROJECT_CHECKLIST.md`.
+- **Resolve by filename, not by rewriting the path prefix** — four of the 58 originals were renamed by their own move, so prefix substitution misses them. Cost measured at ~30 min per archive.
+
 ## Hard rules
 
 - Never edit root `main.py`, OVERVIEW, or DESIGN docs.

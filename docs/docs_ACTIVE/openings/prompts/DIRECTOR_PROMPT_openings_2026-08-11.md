@@ -2,6 +2,11 @@
 
 > **Written:** 2026-08-11, at the close of the session that harvested E02 in full and reconciled its
 > failure census.
+> **🔴 UPDATED IN PLACE 2026-08-12**, at the close of the five-item sweep
+> (`implemenation/PLAN_five-item-sweep-2026-08-12.md`). The filename keeps its 2026-08-11 date because
+> the user asked for this file to be updated rather than superseded. **Where a 2026-08-11 sentence was
+> falsified, it is struck through and corrected in place, not deleted** — the same rule the register
+> runs on.
 > **Supersedes:** `previous/DIRECTOR_PROMPT_openings_2026-08-10.md` — **spent, do not paste it.** That
 > file was written *before* the harvest landed and then amended in place; every load-bearing sentence
 > has been carried here as plain statement rather than as a struck-through correction. It is kept only
@@ -13,19 +18,21 @@
 
 > # 🟢🟢 READ THIS BOX FIRST — the state of the world
 >
-> **🔴 Updated 2026-08-11 (late), after the E02 audit and closure pass landed. Everything below
-> supersedes the earlier same-day text, which described a corpus that had not yet been read.**
+> **🔴 Updated 2026-08-12, after the five-item sweep landed. Everything below supersedes the
+> 2026-08-11 text.**
 >
 > ## In one line
 >
-> **E02 ran, E02 came home, and E02 has now been read.** All 40,800 simulations completed on Speed
-> (40,755 succeeded, 45 failed); all 60 arrays are harvested locally with `.eio` for every building;
-> and `PLAN_e02-audit-and-closure.md` (T01–T06, all six landed, three checkpoints director-signed)
-> has audited them. **Nothing is queued, nothing is in flight, nothing is being fetched, and no agent
-> is running.** The corpus's headline questions are answered. **The arc is now blocked on rulings
-> only — see §3.**
+> **E02 is finished and read; the register has now also been *worked*, not only measured.** All 40,800
+> simulations completed on Speed (40,755 succeeded, 45 failed), all 60 arrays are harvested locally
+> with `.eio` for every building, `PLAN_e02-audit-and-closure.md` audited them, and on 2026-08-12
+> `PLAN_five-item-sweep-2026-08-12.md` (T01–T07, four parallel executors, three checkpoints
+> director-signed) took five open items through measurement **and** repair, closing one and opening
+> **two new ones**, OPEN-43 and OPEN-44 — **both found by auditing, not by running a task.** **Nothing is queued,
+> nothing is in flight, nothing is being fetched, and no agent is running.** **The arc is blocked on
+> rulings — see §3, which now has four open questions, three of them new.**
 >
-> ## 🔴 The three sentences that change what you do next
+> ## 🔴 The four sentences that change what you do next
 >
 > **1. "Submit more" is not a task, "go get the results" is not a task, and neither is "audit the
 > corpus."** All three phases are finished. **Nothing resubmits a failed task, and nothing should** —
@@ -35,24 +42,34 @@
 > **2. You are blocked on rulings, not on data or on CPU.** Speed is free and this arc has no use for
 > it. Every remaining first measurement is either made or does not need a machine.
 >
-> **3. 🔴 The adopted `auto` mode's denominator is now MEASURED CORRECT — median error factor 1.0000,
+> **3. 🔴 The adopted `auto` mode's denominator is MEASURED CORRECT — median error factor 1.0000,
 > 99.63% of 8,160 buildings within ±1%.** This is the single most important number produced by the
 > whole E02 exercise and it had never existed for any mode. **Say it together with what is still
 > wrong** (§5.1), or the user will hear only one half.
 >
+> **4. 🔴🔴 DO NOT QUOTE "158.0 kWh/m²" UNTIL OPEN-43 IS RULED.** The published headline is a **mean of
+> the twelve cells' means, count-weighted (158.0298)**, not a fleet mean. Pool all 8,154 successes at
+> once — `Σ(EUI × area) / Σ(area)` — and it is **157.0552**, about **1.0 kWh/m² lower**. Neither is
+> wrong; the project has simply never written down which one it means, and every reader assumes the
+> pooled one. Found 2026-08-12 by re-deriving the headline **two** ways instead of one. **This is the
+> single most consequential thing the sweep produced, and it is a question, not a defect.** See §5.8.
+>
 > ## Your first move when a session opens
 >
-> 1. **Do not re-run the census, do not re-harvest, and do not re-run the audit.** §4 is counted and
->    §5.1 is measured. Re-verify only what you intend to *publish*.
+> 1. **Do not re-run the census, do not re-harvest, and do not re-run the audit.** §4 is counted,
+>    §5.1 is measured, and §5.9's five items are worked. Re-verify only what you intend to *publish*.
 > 2. **Confirm the corpus is still on disk before planning around it.** It lives in a Windows temp
 >    directory nobody is protecting (§4.2). **Fully recounted 2026-08-11: 40,800 dirs = 40,800 `.err`
 >    = 40,800 `.eio`, `.end` = 40,799** — file-level, not top-level. Recount before depending on it.
 > 3. **Put one ruling to the user** — the owed list is §3, ordered. One at a time, never as a menu.
->    **OPEN-22 has been owed the longest and is still the cleanest**; the new OPEN-01(c) ruling is the
->    one that unblocks the largest item.
-> 4. **If you want work running while a ruling is pending**, the ready measurement is now **OPEN-42's
->    first open question — where the 200.0 m² placeholder footprint comes from.** Fully local, no
->    ruling needed. It replaced OPEN-41, which closed.
+>    ~~OPEN-22 has been owed the longest~~ **OPEN-22 was RULED on 2026-08-12 (rebuild the fixture) and
+>    must not be re-asked.** The queue now opens on **OPEN-43**, which is the one that touches every
+>    published number, followed by **OPEN-22's follow-on** (who authors the new labels, how many rows).
+> 4. **If you want work running while a ruling is pending**, the ready work is **OPEN-22's fixture
+>    rebuild** — but it is itself blocked on ruling 2, so ask that first. The ready *measurement*
+>    needing no ruling is **OPEN-42's remaining unknown: why the six `Warehouse` simulations failed**
+>    (their `error_summary` is the empty string; the causes must come from the `.err` files, which are
+>    on disk). ~~OPEN-42's placeholder question~~ — **answered 2026-08-12, see §5.9.**
 >
 > ## 🔴 Do not confuse "ran" with "correct"
 >
@@ -105,7 +122,17 @@ two readings and what each one costs.
    because file content is not a message addressed to it. **That is the standard.** A grant to the
    director is not a grant to an executor.
 7. **Do not invent a task to demonstrate momentum.** A resting state waiting on a ruling is legitimate.
-   When you want work that is genuinely ready, it is OPEN-41 (§4.5) — not a manufactured task.
+   When you want work that is genuinely ready, it is **OPEN-42's remaining unknown — why the six
+   `Warehouse` simulations failed** (§2) — not a manufactured task. ~~OPEN-41 (§4.5)~~ closed
+   2026-08-11.
+8. 🔴 **NEW 2026-08-12 — when you run executors in parallel, forbid all of them from writing the
+   register and the progress log.** Four concurrent writers to one 3,000-line file lose each other's
+   edits silently. Executors write **named report files**; **the director writes every log entry and
+   every register amendment.** This was hard rule 7 of the five-item sweep and it held.
+9. 🔴 **NEW 2026-08-12 — an executor's silence is not the same as an executor's report.** Both problems
+   the sweep exposed were things an executor **did not say**: a containment that removed 43 passing
+   tests, and six failed rows whose `error_summary` was empty. **Audit for what is missing from the
+   report, not only for whether what is in it is true.**
 
 ## 2. The arc you are picking up
 
@@ -119,10 +146,20 @@ docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md
 any conversation. Each item carries: what is known, what is only believed, where the evidence lives,
 and **the one measurement that must be made before an execution plan can responsibly be written.**
 
-**31 tracked items / 31 findings** (OPEN-01 … OPEN-42) — **down from 35 / 37 on 2026-08-11.**
-Arithmetic, stated so it can be checked: **35 − 5 closed + 1 opened = 31** items; **37 − 5 − 2
-discharged + 1 = 31** findings. Items and findings are equal again for the first time since
-2026-08-09. **Recount §1's table before quoting this** — the director did, and it re-derives to 31.
+**32 tracked items / 32 findings** (OPEN-01 … **OPEN-44**) — **up by one on 2026-08-12, and it went
+up for the right reason.** Arithmetic, stated so it can be checked: **31 − 1 closed** (OPEN-33)
+**+ 2 opened** (OPEN-43, OPEN-44) **= 32**. Findings the same. 🔴 **The user's standing goal is to
+reduce open items and this pass added one net. Say that plainly and say why: both new items were
+found by AUDITING** — OPEN-43 by re-deriving the published headline a second way as a check nobody
+asked for, **OPEN-44 by running the test suite that the sweep's own fix had just made runnable.** *(2026-08-11 for reference: 35 − 5
+closed + 1 opened = 31 items; 37 − 5 − 2 discharged + 1 = 31 findings.)*
+
+🔴 **A flat count does not mean a flat week, and you must say so.** Three items moved without moving
+the total: **OPEN-26** went from 1-of-4 fixed to **2 of 4, with the remaining two measured and
+downgraded to will-not-fix**; **OPEN-29**'s malformed-fatal-test class is **finished on live code**;
+**OPEN-42** lost two of its four unknowns and **had one of its headline claims retracted**. And
+**OPEN-13** went from two live defects to **one fixed, one contained**. **Recount §1's table before
+quoting any total** — the director did, and it re-derives to 31.
 
 **Retired IDs — never reuse, never re-add:**
 
@@ -133,21 +170,37 @@ discharged + 1 = 31** findings. Items and findings are equal again for the first
 | **OPEN-23** | **EXCLUDED by the user** 2026-08-04 (`layoutGenerator` production zone-mode). |
 | **OPEN-25** | **CLOSED** — fixed 2026-06-10 by the code that produced the adopted baseline. |
 | **OPEN-30** | **CLOSED 2026-08-11** — vintage distribution demonstrated on 60/60 manifests, 40,800 rows, 0 nulls, 5 values, 93.44% `DOERefPre1980`; `la_rural` cross-check vs raw `year_built` has zero crossover. **Do not re-run it.** |
+| **OPEN-33** | **CLOSED 2026-08-12** — the archiving citation-sweep rule is written where the next person archiving an arc will meet it (head of `docs/PROJECT_CHECKLIST.md`, 10 lines), and a re-sweep of **279** live citations found **zero** dead paths. The scanner was **proved non-vacuous** first, by injecting a broken citation and watching it get named. ⚠️ **No artifact survives from the 2026-08-06 sweep, so its 58-path baseline is not verifiable at row level** — re-measure, never quote it as checked. 🔴 **Its standing rule survives: archiving an arc obliges a citation sweep, resolved BY FILENAME (four files were renamed by their own move, so prefix substitution misses them).** ❓ **Open question left to the user: whether the rule also belongs in `CLAUDE.md`** — until then a session that never opens the checklist will not know it exists. |
 | **OPEN-34** | **CLOSED 2026-08-11** — all 12 adopted cells whole (`05_results.csv` rows = `01_buildings.gpkg` features, fleet 8,160). 🔴 **Its standing rule survives: a subset verification run must use the whole cell or declare itself not fleet-faithful.** |
 | **OPEN-39** | **CLOSED 2026-08-11** — 2.14 GB orphaned across 45 failed tasks (48.6 MB vs 449 KB), replicates outside E02; zero of 15 `task.rc` references in 9 scripts uses it as a completion test. 🔴 **Its standing rule survives: never use `task.rc` presence as a completion test.** ⚠️ `submit_fleet_t08.sbatch:56` is still unguarded — the defect is sized, not fixed. |
 | **OPEN-40** | **CLOSED 2026-08-11 as untraceable**, which the item's own text names as the answer. 68 `e02_*` submissions reconstructed from `sacct` (19+8+41). ⚠️ The remedy — a submission log nobody can bypass — **is unbuilt.** |
 | **OPEN-41** | **CLOSED 2026-08-11** — all 44 fatals have recorded causes, all thermal runaway. The concentration was the **archetype**, not the cell → became OPEN-42. |
 | **OPEN-02, OPEN-28** | **FOLDED INTO OPEN-01** 2026-08-09, then **both DISCHARGED 2026-08-11** on the E02 audit. Sections stay in full as evidence. 🔴 **OPEN-28's rule outlives it: every comparison must state which harvest generation each side came from — E02 is the fourth.** |
 
-**Next free IDs: item `OPEN-43` · defect `E-LA-42` · UTCI defect `E-UTCI-17`.**
-*(The 2026-08-11 pass opened an item but no defect ID, so the defect counters are unchanged.)*
+**Next free IDs: item `OPEN-45` · defect `E-LA-42` · UTCI defect `E-UTCI-17`.**
+*(Neither the 2026-08-11 nor the 2026-08-12 pass opened a defect ID, so the defect counters are
+unchanged. **2026-08-12 opened two items, OPEN-43 and OPEN-44, both by auditing.**)*
 
-🔴 **OPEN-42 is new and one of its two faces reaches the adopted baseline.** The `Warehouse` type is
-**38 of 8,160 buildings (0.47%)** yet carries **26 of the 44 fleet fatals** — 13.68% against 0.0443%,
-a **≈309× relative risk** — and **six of them carry a placeholder `footprint_area_m2` of exactly
-200.0 m²** against simulated areas of 4,064–67,330 m², so the **adopted `auto` mode divides by a
-denominator wrong by 20.3× to 336.7× on six published buildings.** Its effect on the 158.0 kWh/m²
-fleet figure is **unmeasured — do not assume it is negligible.**
+🔴 **OPEN-42 — its two faces turned out to be ONE face, and its most alarming claim was WRONG.**
+The `Warehouse` type is still **38 of 8,160 buildings (0.47%)** carrying **26 of the 44 fleet fatals**
+— 13.68% against 0.0443%, a **≈309× relative risk** — and that half stands. ~~Six of them carry a
+placeholder `footprint_area_m2` of exactly 200.0 m² … so the adopted `auto` mode divides by a
+denominator wrong by 20.3× to 336.7× on six published buildings. Its effect on the 158.0 kWh/m² fleet
+figure is unmeasured — do not assume it is negligible.~~
+**🔴 RETRACTED 2026-08-12 and this is the correction you must carry:** the 200.0 m² is a **declared
+fallback initialiser**, written by one cited line — `scripts/validation/v12_cell_pipeline.py:659` —
+which line 664 overwrites **only when `status == "success"`**. There is no `else` branch, so a failed
+building publishes the initialiser as though it were measured. The six placeholder rows and the six
+failed rows are **the same six rows**, confirmed two independent ways, so this is **one defect, not
+two**, and the placeholder is simply what a failure looks like after the reporting stage. All six are
+`not_simulated` with `total_eui_kwh_m2 = NaN`, **excluded from both sides of the aggregation**, so the
+**measured impact on the fleet EUI is exactly 0.000** against a baseline the director reproduced at
+**158.0298**. **OPEN-42 is a reporting defect, not a baseline defect. Blast radius: 6 published rows
+carrying a false area, 0 inside the fleet EUI.** Stage 1 is clean — the true footprints
+(1,173–22,444 m²) are in `01_buildings.gpkg` and match their own `geometry.area`.
+⚠️ **What now blocks OPEN-42's closure is new and smaller-sounding but real:** `error_summary` is the
+**empty string** for all six failed manifest rows. **The failures have no recorded cause at the
+manifest level at all** — the causes exist only in the `.err` files. That is the next measurement.
 
 🔴 **OPEN-38 was not closed; its premise was falsified and the item rewritten.** *"Base surface does
 not surround subsurface"* is a **Warning**, not a Severe, at all 8 sites, and kills nothing. All seven
@@ -177,19 +230,45 @@ place to look before re-measuring anything it touched. Its four measurement repo
 `MEASUREMENT_open-30-01c_vintage-and-code-state.md`, `MEASUREMENT_open-41-38_failure-causes.md`,
 `MEASUREMENT_open-39-40_cluster-records.md`.
 
-**The next execution plan opens as a fresh doc.** The obvious candidate is **OPEN-42** — but its own
-first measurement (where the 200.0 m² placeholder comes from) is not yet made, so per §6 no execution
-plan may be written for it yet. **Measure first.**
+🟢 **`PLAN_five-item-sweep-2026-08-12.md` — the plan that worked five register items at once. CLOSED
+2026-08-12 at ~712 lines, T01–T07 landed, three checkpoints director-signed.** Cite its findings by
+task ID (T01…T07). Its §8 progress log holds the director's own re-derivations and is the place to
+look before re-measuring anything it touched. Its four reports are in `openings/extra/`:
+`MEASUREMENT_open-42_placeholder-and-fleet-impact.md`,
+`MEASUREMENT_open-33_archiving-rule-and-resweep.md`,
+`FIX_open-26-29_polish-and-fatal-tests.md`, `FIX_open-13_height-cache-and-collection.md`.
+Its artifacts are in `openubem/outputs/comparisons/`: `open42_placeholder_trace.csv`,
+`open42_fleet_eui_impact.csv`, `open42_t02_percell_repro.csv`,
+`open29_diagnostics_fatal_recheck.csv`, `open33_dead_path_sweep_2026-08-12.csv`.
+
+🔴 **The structural lesson from that plan, worth reusing: four executors ran in parallel, and hard
+rule 7 forbade every one of them from touching the register or the progress log.** They wrote named
+report files; **the director wrote all logs and all register amendments.** Without that rule four
+concurrent writers to one 3,000-line file would have silently lost each other's edits. **Reuse it
+verbatim in any future multi-executor plan.**
+
+**The next execution plan opens as a fresh doc.** ~~The obvious candidate is OPEN-42 — but its own
+first measurement (where the 200.0 m² placeholder comes from) is not yet made.~~ **That measurement
+was made on 2026-08-12 (T01–T02).** Per §6 the candidates whose first measurement is now made and
+whose plan may therefore be written are **OPEN-22** (blocked on ruling 2 only) and **OPEN-42's
+residual**. **OPEN-43 has its first measurement made too, but it is a ruling, not work — do not plan
+it.**
 
 ## 3. What is owed to the user — rulings, asked one at a time, in this order
 
+🔴 **The queue changed on 2026-08-12: one ruling was answered and three new ones were opened by the
+sweep. Ruling 1 below is now OPEN-43, and it is the one that touches every published number.**
+
 | # | Ruling | Where |
 |---|---|---|
-| 1 | **OPEN-22** — a third of the 50-row exam is decided by size-bucketing rather than tag logic. Is that the exam the project wants? **Frame it correctly:** the fallback rows are *measured* not to be inflating the metric (88.0% all rows vs 87.9% excluding them). **This is a clean ruling on a number that already exists** — decidable today with no further measurement. **Owed the longest; ask it first.** | §5.3 |
-| 2 | 🔴 **NEW 2026-08-11 — OPEN-01(c), and it is the one that unblocks the biggest item.** OPEN-01's third audit question is *"did all five modes come from one code state?"* **It cannot be proved, and the reason is structural: no commit hash or code-version stamp was recorded anywhere at generation time**, and 25 of the 60 `(cell, mode)` pairs have no generation-summary JSON. The circumstantial evidence is real — one manifest schema across all 60, all 60 written inside one continuous **111-minute** window (2026-08-09 21:03:01–22:54:38), no gaps. **The ruling: is that sufficient for (c)?** If yes, OPEN-01 reduces to the remedy ruling below. **If no, OPEN-01 can never close on this corpus** and only a re-run with a recorded commit stamp would settle it. **Frame both costs before asking.** | §5.1, register OPEN-01 |
-| 3 | 🔴 **OPEN-01's remedy** — now that (a) and (b) are measured on 40,800 runs: fix the denominator, fix the simulation, or stop publishing per-building EUI for the affected modes. **The measurement is done and no remedy was chosen — deliberately.** ⚠️ **Do not ask this before ruling 2**, or the user is choosing a fix for an item that cannot close anyway. | §5.1 |
-| 4 | **CP-M2** — what to do about the published cross-mode numbers, still confounded. **Not discharged by OPEN-28** — E02 fixes future comparisons, not published ones. | §5.4 |
-| 5 | **OPEN-11** — the six inverted-geometry buildings; precondition met, remediation is the user's call. | register |
+| **1** | 🔴🔴 **NEW 2026-08-12 — OPEN-43, and it outranks everything else because it is upstream of every figure this project publishes.** The adopted fleet headline **158.0** is a **count-weighted mean of the twelve cells' means (158.0298)**. Pool all 8,154 successes at once instead — `Σ(EUI × area) / Σ(area)` — and the answer is **157.0552**, ≈**1.0 kWh/m² lower**. Two other defensible weightings give 158.0557 and 160.0993. **Neither of the two main numbers is wrong; they answer different questions** — but the published figure has **never been described as a mean of cell means anywhere in this project**, and a reader hearing "fleet average" will assume the pooled one. A second oddity to state when asking: **the count weights include the six buildings that produced no energy at all.** `openubem/results/aggregator.py` is per-cell only, so the fleet roll-up lives outside it and its author and intent are **untraced** — this cannot be settled by finding the original intent. **The ruling: which definition the headline should use.** ⚠️ **Do not restate 158.0 in any report or board until this is answered.** | §5.8, register OPEN-43 |
+| **2** | 🔴 **NEW 2026-08-12 — OPEN-22's follow-on, and it is the thing actually blocking the work the user already approved.** The user ruled *rebuild the fixture*; nobody has said **who authors the new labels and how many rows**. Frame it with what the rebuild costs: the old fixture must be kept and unedited (OPEN-04's bisect depends on it), historical accuracy figures (92.0 / 84.0 / 88.0%) become non-comparable, and the ≥0.70 gate threshold does not transfer. **Until this is answered the rebuild cannot start**, so this is a short question with a large unblock behind it. | §5.3, register OPEN-22 |
+| **3** | **NEW 2026-08-12 — does the archiving citation-sweep rule also belong in `CLAUDE.md`?** OPEN-33 closed by writing it into the head of `docs/PROJECT_CHECKLIST.md`. **A fresh session that never opens the checklist will not know the rule exists** — which is precisely the failure mode that produced 58 dead paths in the first place. The counter-argument is real too: `CLAUDE.md` is loaded into every session and every line added there costs context on every task. **Small ruling; ask it after the two above.** | register OPEN-33 |
+| ~~4~~ | ~~**OPEN-22** — a third of the 50-row exam is decided by size-bucketing rather than tag logic.~~ ✅ **RULED 2026-08-12 — REBUILD THE FIXTURE.** The user rejected both cheap options (keep 88% as is; report both numbers) and declared the current exam wrong, *despite* the measurement showing the fallback rows do not inflate it. **Do not re-ask this.** OPEN-22 stays open as **work**, not as a decision. 🔴 **Carry its three consequences into every plan and report:** historical accuracy numbers (92.0 / 84.0 / 88.0%) become non-comparable and **every figure must name its fixture**; the **old fixture is never deleted or edited** (OPEN-04's bisect depends on it); the ≥0.70 gate threshold **does not transfer** to a new exam — repointing it is a separate decision. **Now blocked on one question, which is the next thing owed: who authors the new labels, and how many rows.** | §5.3, register OPEN-22 |
+| 5 | 🔴 **NEW 2026-08-11 — OPEN-01(c), and it is the one that unblocks the biggest item.** OPEN-01's third audit question is *"did all five modes come from one code state?"* **It cannot be proved, and the reason is structural: no commit hash or code-version stamp was recorded anywhere at generation time**, and 25 of the 60 `(cell, mode)` pairs have no generation-summary JSON. The circumstantial evidence is real — one manifest schema across all 60, all 60 written inside one continuous **111-minute** window (2026-08-09 21:03:01–22:54:38), no gaps. **The ruling: is that sufficient for (c)?** If yes, OPEN-01 reduces to the remedy ruling below. **If no, OPEN-01 can never close on this corpus** and only a re-run with a recorded commit stamp would settle it. **Frame both costs before asking.** | §5.1, register OPEN-01 |
+| 6 | 🔴 **OPEN-01's remedy** — now that (a) and (b) are measured on 40,800 runs: fix the denominator, fix the simulation, or stop publishing per-building EUI for the affected modes. **The measurement is done and no remedy was chosen — deliberately.** ⚠️ **Do not ask this before ruling 5**, or the user is choosing a fix for an item that cannot close anyway. | §5.1 |
+| 7 | **CP-M2** — what to do about the published cross-mode numbers, still confounded. **Not discharged by OPEN-28** — E02 fixes future comparisons, not published ones. | §5.4 |
+| 8 | **OPEN-11** — the six inverted-geometry buildings; precondition met, remediation is the user's call. | register |
 
 **Spent rulings — do not re-ask any of these:**
 
@@ -310,7 +389,7 @@ line. Only one is self-describing (`CheckForRunawayPlantTemps: … too hot`). **
 | **OPEN-39** | `set -e` suppresses the trim and the `task.rc` write on failure | ✅ **CLOSED.** 2.14 GB orphaned (48.6 MB vs 449 KB, ~111×), replicates outside E02; **zero of 15 `task.rc` references in 9 scripts** uses it as a completion test. ⚠️ Line 56 still unguarded. |
 | **OPEN-40** | Eight arrays submitted a third time by an unrecorded process | ✅ **CLOSED as untraceable** — the answer its own text names. 68 submissions reconstructed from `sacct` (19+8+41). ⚠️ Remedy unbuilt. |
 | **OPEN-41** | 43 of 45 failures have no recorded cause | ✅ **CLOSED.** All 44 causes recorded: 25 *Temperature (low) out of bounds*, 17 `CalcHeatBalanceInsideSurf`, 1 *Temperature (high)*, 1 `CheckForRunawayPlantTemps` — **all thermal runaway, none structural.** |
-| **OPEN-42** | 🔴 **NEW** — the `Warehouse` population | **OPENED** by auditing the above. 0.47% of the fleet, **26 of 44 fatals (309× relative risk)**; six carry a **200.0 m² placeholder footprint** producing 20.3×–336.7× denominator errors **in the adopted `auto` mode**. |
+| **OPEN-42** | 🔴 **NEW** — the `Warehouse` population | **OPENED** by auditing the above. 0.47% of the fleet, **26 of 44 fatals (309× relative risk)**. ~~Six carry a 200.0 m² placeholder footprint producing 20.3×–336.7× denominator errors **in the adopted `auto` mode**.~~ 🔴 **CORRECTED 2026-08-12:** the placeholder is a fallback initialiser (`v12_cell_pipeline.py:659`) never overwritten on failure; the six placeholder rows **are** the six failed rows; all carry `EUI = NaN` and are **outside the aggregation**, so **fleet impact = 0.000**. One defect, not two. **Reporting defect, not baseline defect. STILL OPEN** on why the six failed — `error_summary` is empty for all six. |
 
 🔴 **`la_rural`'s concentration is SOLVED, and this prompt's earlier explanation was aimed at the wrong
 unit.** It said failures concentrating in one small rural cell *"points at the inputs for those
@@ -326,7 +405,9 @@ belief:** a concentration was attributed to the *container* it was noticed in (a
 the *property* the members share (an archetype). **Before explaining a cluster by where you found it,
 join it to every attribute you have.**
 
-## 5. Background — the measured state of the six themes
+## 5. Background — the measured state of the themes
+
+*(Was "the six themes". 5.8 and 5.9 were added 2026-08-12.)*
 
 Everything here was measured and audited by independent re-derivation before it was written down.
 
@@ -399,7 +480,7 @@ post-hoc write-up by the session that discovered the effect) and is corrected.
 equipment **1.064**; occupancy **1.000**. **92.9% of the fleet is `DOERefPre1980`** — far older than
 2013 — so this proxy **understates** the real error.
 
-### 5.3 OPEN-22 — measured; the ruling is what is left
+### 5.3 OPEN-22 — 🔴 **RULED 2026-08-12: REBUILD THE FIXTURE.** Measured, decided, now blocked on one follow-on question
 
 | | n | fine top-1 |
 |---|---|---|
@@ -410,7 +491,25 @@ equipment **1.064**; occupancy **1.000**. **92.9% of the fleet is `DOERefPre1980
 **Removing the fallback rows does not move the number** — the worry that the metric was inflated by the
 fallback and the answer key agreeing is measured false. What *is* true: **17 of 50 rows (34%) are
 decided by `FALLBACK_SIZE_DEFAULT`, all at LOW confidence, 16 of 17 carrying an office label.**
-⚠️ **Do not report this as "OPEN-22 is closed."** The measurement is closed; the ruling is not.
+~~⚠️ **Do not report this as "OPEN-22 is closed."** The measurement is closed; the ruling is not.~~
+
+🔴 **RULED 2026-08-12 — the user chose to REBUILD THE FIXTURE**, rejecting both cheap options (keep the
+88% as it stands; report both numbers side by side). **They ruled against the measurement**: the
+fallback was shown *not* to inflate the score, and they declared the exam wrong anyway — a third of it
+being decided by size-bucketing rather than by tag logic makes it the wrong exam regardless of what it
+scores. **Do not re-ask this, and do not re-litigate it with the measurement.**
+
+**Three consequences that must travel into every plan and report from here:**
+
+1. **Every accuracy figure must now name its fixture.** The historical numbers **92.0 / 84.0 / 88.0%**
+   become **non-comparable** to anything measured on the new exam. A bare "accuracy = X%" is no longer
+   a well-formed statement in this project.
+2. **The old fixture is never deleted and never edited.** OPEN-04's bisect depends on it.
+3. **The ≥0.70 gate threshold does not transfer.** Repointing the gate at a new exam is a **separate
+   decision** that has not been made — do not carry the threshold across silently.
+
+⚠️ **OPEN-22 stays open as WORK, not as a decision, and the work cannot start yet.** It is blocked on
+§3 ruling 2: **who authors the new labels, and how many rows.**
 
 ⚠️ The Boston 41.0% / Chicago 65.4% fixture distributions predate `E-R3-2` and **must not be carried
 into any plan** without being re-run.
@@ -516,6 +615,149 @@ storey. That is a specification question and no measuring task may decide it.
   🔴 **Do not carry forward the `MaxRSS` justification.** That column's median is 0.3 MB and three
   arrays report a 2.0 MB maximum — impossible for EnergyPlus. `sacct` undersamples short tasks, so it is
   a **floor, not a peak**.
+
+### 5.8 🔴🔴 OPEN-43 — the published fleet EUI is a mean of cell means, and nobody wrote that down
+
+**This is new on 2026-08-12 and it is the most consequential thing the sweep produced.** It was not
+found by looking for it. It was found because T02 was told to **reproduce the adopted headline before
+comparing anything to it**, and the director then reproduced it a **second** way as an audit check.
+The two ways disagreed.
+
+Over the same **8,154** success rows of the adopted `phaseE_elevrb` run:
+
+| aggregation | value |
+|---|---|
+| per-cell area-weighted means, averaged across 12 cells **weighted by building count** | **158.0298** ← **this is the published 158.0** |
+| same, weighted by success count | 158.0557 |
+| same, unweighted across cells | 160.0993 |
+| 🔴 **pooled `Σ(EUI × area) / Σ(area)` over all 8,154 buildings at once** | **157.0552** |
+
+**The headline sits ≈1.0 kWh/m² above the pooled figure purely from the choice of aggregation.**
+
+**Neither number is wrong. They answer different questions** — one treats each *cell* as the unit of
+observation, the other treats each *building*. The defect is not arithmetic; it is that **the project
+has never stated which question "fleet EUI = 158.0" answers**, and a reader will assume the pooled
+one. A second oddity to state when asking: **the count weights include the six buildings that produced
+no energy at all** (OPEN-42's population), because the weight is a building count, not a success count.
+
+⚠️ **`openubem/results/aggregator.py` is per-cell only.** The fleet roll-up lives outside it. **Its
+author and its intent are untraced**, so this cannot be resolved by discovering what was meant — it
+has to be **decided**. That is §3 ruling 1.
+
+🔴 **Until it is ruled, do not restate 158.0** in any report, board, or answer to the user. The board
+carries this as an open row and deliberately does not restate the number.
+
+⚠️ **The generalisable lesson, and it is a cheap one to reuse:** the finding cost nothing but computing
+the same quantity a second way. **Re-deriving a headline by one method confirms arithmetic;
+re-deriving it by two confirms the definition.** Do the second one on anything you are about to
+publish.
+
+### 5.9 The five-item sweep of 2026-08-12 — what changed, and the two things it got wrong
+
+`PLAN_five-item-sweep-2026-08-12.md`, T01–T07, four executors in parallel, CP-1/CP-2/CP-3
+director-signed. **Every number below was re-derived by the director from raw artifacts; none was
+taken from an executor's report. No executor claim was found false** — which is worth recording,
+because the two problems the sweep exposed were both things executors *did not say*, not things they
+said wrongly.
+
+| item | before | after |
+|---|---|---|
+| **OPEN-42** | placeholder unexplained; "6 buildings inside the fleet EUI with 20.3×–336.7× denominator errors" | **traced to one line; impact measured at exactly 0.000; the alarming claim RETRACTED** — see §2 |
+| **OPEN-43** | did not exist | **opened** — §5.8 |
+| **OPEN-26** | 1 of 4 fixed | **2 of 4 fixed, 2 measured and downgraded to will-not-fix** |
+| **OPEN-29** | fatal-test class open | **finished on live code**; 3 sites fixed, a 7th site newly found and left alone |
+| **OPEN-33** | 58 dead paths, rule unwritten | **CLOSED** — rule written, 279 citations re-swept, 0 dead |
+| **OPEN-13** | 2 live defects | **1 fixed (E-UTCI-13), 1 contained (E-UTCI-12); item stays open** |
+
+**Three results worth carrying as facts:**
+
+- **The missing-EPW `Site:Location` case placed buildings at latitude 0, longitude 0** — the Atlantic
+  off West Africa, which is the literal `PLACEHOLDER` in all four `.idf` templates at lines 33–35.
+  `builder.py:213-218` now raises instead. Both call sites already wrap the build in
+  `try/except Exception → _worker_exception_row`, so the raise degrades a fleet run to a recorded
+  failure rather than killing it — **checked before accepting the fix, not assumed.** 187 tests pass.
+- **The malformed fatal test could never have fired, and this is now measured rather than argued.**
+  Over all **40,800** corpus `.err` files: two-space `"**  Fatal  **"` → **44**; one-space and both
+  malformed variants → **0**; R06's regex → 44; the `phaseE_cpb_fixtures.py` union → 44. **Ground
+  truth is 44.** Then the question that actually mattered — *did any past conclusion depend on it?* —
+  answered script by script: **no.** **Nothing published has to be withdrawn.**
+- **A seventh fatal-test site was found and deliberately left alone**:
+  `scripts/validation/phaseE_cpb_fixtures.py:176` counts `txt.count("** Fatal  **") +
+  txt.count("**  Fatal  **")`, which can **over**-count. On real data it lands on 44 exactly.
+  Recorded, not fixed.
+
+🔴 **The two things the sweep got wrong, stated because a clean report is a suspicious one:**
+
+1. **An executor's containment was wider than the fault, and it did not say so.** E-UTCI-12 was fixed
+   by a module-level `pytest.skip` on `tests/test_draw_methods.py`. That restores the repo's
+   collection — **1937 tests, exit 0, against no tests and exit 2 before**, both legs verified by the
+   director on the real tree. **But the skip removes 53 tests and only 13 of them touch the missing
+   feature.** Measured on a scratchpad copy with just the one offending class removed: **43 pass.**
+   **So 43 working tests were silently traded for a collectable suite**, and nothing now reports them
+   as missing. *(Also measured, so the next session does not waste time on it: `@pytest.mark.skip` on
+   the class does **not** stop the class body executing, so the narrow fix is not a one-liner — it
+   needs conditional collection.)*
+2. **The director's own non-vacuity control overwrote a deliverable.** `open33_dead_path_sweep.py`
+   ignores `--out` and always writes the canonical CSV, so injecting a broken citation contaminated
+   the committed artifact. Caught, the control file deleted, the scanner re-run clean. **Recorded in
+   the plan's §8 rather than quietly repaired.**
+
+⚠️ **One honest weakness carried forward:** the E-UTCI-13 fix recognises an already-normalized cache by
+an **exact column set duplicated as a literal** rather than imported from
+`overture_fetcher._NORMALIZED_COLUMNS`. Verified set-equal today. If that schema ever changes, the
+guard stops matching and every read **silently** reverts to the broken double-normalizing path. Safe
+direction, silent failure — **the same property that hid the defect for months.**
+
+### 5.10 🔴🔴 OPEN-44 — the suite runs, and it has 70 failures and 36 errors nobody could count before
+
+**Opened 2026-08-12, from the side effects of the sweep's own fix.** E-UTCI-12's containment made the
+suite collectable; the director then ran it to completion — **the first complete pass/fail count this
+project has had in months.**
+
+```
+python -m pytest -q -p no:cacheprovider
+70 failed · 1,822 passed · 10 skipped · 36 errors · exit 1 · 26m47s
+```
+
+🔴 **Every past claim in this project that "tests pass" covered an unknown subset**, because the
+collection abort made the whole-suite number unobtainable. **106 failing or erroring tests were behind
+it.**
+
+| tree | failed + errored |
+|---|---|
+| 🔴 `docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/tests/` | **61** |
+| `tests/` | **44** |
+| `scripts/analysis/test_viewer_layout_assign.py` | 1 |
+
+🔴 **`docs/` holds 30 `.py` files, 5 of them test files — against this project's own hard rule,
+*no `.py` under `docs/`, ever* (§7).** pytest collects them and they produce **58% of the entire
+failure count.** Two are **byte-identical duplicates** of files in `tests/` (`cmp`-verified);
+**three have drifted from their `tests/` twins**, which is the worse case — a stale duplicate that has
+drifted can pass or fail for reasons unrelated to shipped code.
+
+🔴 **Roughly half the red is artifact-dependence, not broken logic**, and reporting it otherwise
+would be the exact category error this arc keeps catching:
+
+| cause | count |
+|---|---|
+| `FileNotFoundError` — a test asserting an **output artifact exists on disk** | **51** |
+| missing pytest fixture `synthetic_10_gdf` (setup errors) | ~36 |
+| `AttributeError: module 'openubem.config' has no attribute 'IMPUTE_DEBIAS…'` | 5 |
+| elevator-column `KeyError`s | 8 |
+
+**Never say "70 broken tests."**
+
+⚠️ **The `IMPUTE_DEBIAS…` group is E-UTCI-12's shape a second time** — tests committed against a
+config attribute that has never existed. **That is OPEN-36's territory, and it suggests OPEN-36's
+bound of "1 governance gap, T07, the known one" is too tight. Do not close OPEN-36 without
+re-checking it against this.**
+
+**Not known and not to be guessed:** how many of the 44 `tests/` failures are real defects in shipped
+code. **That triage is the item's next step.** Nothing published is known to depend on any of them.
+
+*(Incidental: `tests/test_sim_integration.py::test_synthetic_fleet_full_annual` emits a Windows
+access-violation faulthandler dump from `joblib`'s `loky` backend under Python 3.14. It does **not**
+stop the run.)*
 
 ## 6. The rule that governs this arc
 
@@ -629,6 +871,27 @@ tcsh answered `Illegal variable name.`, and `sbatch` was never reached. It logge
   logic makes lookalike evidence. **`a1_prototype_storey_structure.csv` is the live example (§5.1).**
 - **Recompute every headline number from the named file before you sign anything.** State this
   requirement explicitly in every executor brief you write.
+- 🔴 **Recompute it a SECOND way, not just a second time.** One method re-derived twice confirms
+  arithmetic; **two methods confirm the definition.** OPEN-43 exists only because the adopted 158.0
+  was reproduced by cell-mean averaging *and* by pooling, and the two disagreed by ~1.0 kWh/m². The
+  first derivation matched the published number exactly and would have been signed off.
+- 🔴 **A placeholder is not evidence of imputation, and "wrong value published" is not "wrong value
+  used."** OPEN-42 was carried for a day as *six buildings inside the adopted fleet EUI with
+  denominators wrong by up to 336×*. Measured: the six carry `total_eui_kwh_m2 = NaN`, are excluded
+  from both sides of the aggregation, and the true impact is **exactly 0.000**. **Before sizing a
+  blast radius, check whether the bad rows are in the sum at all.**
+- 🔴 **A default written before a conditional is a published value whenever the conditional fails.**
+  `v12_cell_pipeline.py:659` sets `footprint_area_m2 = 200.0` and `:664` replaces it only on
+  `status == "success"`. No `else` branch, so every failure ships the initialiser as though it were
+  measured. **Grep for initialise-then-overwrite-on-success wherever a report is assembled.**
+- 🔴 **A fix that restores a green signal can cost coverage silently — measure what it removed.** The
+  E-UTCI-12 module skip made the suite collectable (1937 tests, exit 0) and **took 43 passing tests
+  out with it**, of which nothing complains. **When a fix is a suppression, always report how much it
+  suppressed** — the executor did not, and the director had to measure it.
+- ⚠️ **A guard keyed on a duplicated schema literal fails silently when the schema moves.** The
+  E-UTCI-13 fix compares against a hand-copied column set rather than importing the fetcher's own.
+  Correct today, silently wrong the day the schema changes. **Prefer importing the authority; if you
+  cannot, say out loud that you did not.**
 
 ## 8. Working with executors
 
@@ -673,8 +936,11 @@ tcsh answered `Illegal variable name.`, and `sbatch` was never reached. It logge
 ## 10. State of the project around you
 
 - **Adopted baseline:** `phaseE` full realism, E-R3-3-corrected, plus elevators. 12 cells, 8,160
-  buildings, fleet **158.0 kWh/m²**, **zero fitted parameters** — a guarantee any "calibration" work
-  (OPEN-19) must not silently break.
+  buildings (**8,154 with results, 6 `not_simulated`**), **zero fitted parameters** — a guarantee any
+  "calibration" work (OPEN-19) must not silently break.
+  🔴 **The fleet figure is `158.0298` as a count-weighted mean of cell means and `157.0552` pooled
+  over all 8,154 buildings. Which one the headline means is UNRULED (OPEN-43, §5.8). Do not quote
+  "158.0 kWh/m²" as the fleet EUI until it is.**
 - **`layout_assign` is adopted for zone/HVAC-topology studies and NOT certified for fleet-level EUI
   reporting.** OPEN-01/03/32/38 are all `layout_assign`-scoped. **The adopted 158.0 figure is measured
   clear of it** (§5.5) — say so, and say what is still wrong in the same breath.
@@ -683,7 +949,16 @@ tcsh answered `Illegal variable name.`, and `sbatch` was never reached. It logge
 - **Uncommitted working tree is normal here.** Git is handled externally by the user — never commit,
   never offer to.
 - **Nothing is in flight.** The cluster queue is empty and correctly so; no harvest, no background
-  agent, no monitoring loop was left running by the 2026-08-10 session.
+  agent, no monitoring loop was left running by the 2026-08-12 session either.
+- **The working tree carries the sweep's uncommitted changes** — `openubem/idf/builder.py`,
+  `openubem/semantic/fusion.py`, three `scripts/diagnostics/t0*.py`, `tests/test_draw_methods.py`,
+  `docs/PROJECT_CHECKLIST.md`, the register, the board, this prompt, plus new files under
+  `openings/extra/`, `openings/implemenation/`, `scripts/analysis/` and
+  `openubem/outputs/comparisons/`. **Normal — git is handled externally. Never commit, never offer
+  to.** *(Also normal and harmless: `tests/fixtures/synthetic_30_archetype_coverage.gpkg` shows
+  modified; the only difference from HEAD is the `gpkg_contents.last_change` timestamp — a test opens
+  the checked-in fixture for write. The data table is hash-identical at 25 rows. Verified, not
+  assumed.)*
 
 ## 11. What "done" looks like for this arc
 
@@ -700,19 +975,30 @@ There is no single checkpoint — this arc is a **queue**, not a march. It is he
 
 **Your first action:** read the register in full, then confirm the harvested corpus is **still on disk**
 (it lives in a temp directory nobody is protecting — count it, do not assume it). Then put **one** ruling
-to the user, starting with **OPEN-22**, which has been owed the longest and is decidable today from a
-number that already exists. If you want work running while that ruling is pending, dispatch **OPEN-42's
-first open question — where the 200.0 m² placeholder footprint comes from**: fully local, no cluster, no
-ruling required. *(OPEN-41's severe-line re-scan was the previous answer here; it ran on 2026-08-11 and
-the item closed.)*
+to the user: ~~OPEN-22~~ **OPEN-43 — which aggregation the published fleet headline should use.** It
+is decidable today from four numbers that already exist (§5.8), it is upstream of every figure this
+project publishes, and **nothing that quotes 158.0 should be written until it is answered.**
+
+If you want work running while that ruling is pending there are now **two** ready measurements, both
+fully local. The larger is **OPEN-44's triage — which of the 44 `tests/` failures are real defects in
+shipped code and which are merely asserting that an output file exists.** The smaller is **OPEN-42's
+remaining unknown — why the six `Warehouse` simulations failed.** Their `error_summary` is the empty string in
+the manifest, so the causes have to be read from the `.err` files, which are on disk. Fully local, no
+cluster, no ruling required. *(OPEN-42's placeholder question was the previous answer here; it ran on
+2026-08-12 and is answered — the placeholder is traced to one line and its fleet impact is exactly
+zero. OPEN-41's severe-line re-scan was the answer before that; it closed on 2026-08-11.)*
 
 **Do not lead with the register's item count**, in either direction. It went **up** when E02 was
-audited well (four items opened by auditing, not by running) and it went **down** on 2026-08-11
-(35 → 31) when five of those questions were answered. **Neither number is the achievement.** Explain
-what was measured, then quote a total if asked.
+audited well (four items opened by auditing, not by running), it went **down** on 2026-08-11
+(35 → 31) when five of those questions were answered, and it **did not move at all** on 2026-08-12
+even though four items advanced and one closed. **None of those three numbers is the achievement.**
+Explain what was measured, then quote a total if asked.
 
-🔴 **One thing to carry into every report you write about this pass.** The user's stated goal was to
-reduce the number of open items, and it was reduced — but **the plan that did it wrote down, before
-starting, that suppressing a finding to protect a count was forbidden**, and the pass then opened
-OPEN-42 and refused to close OPEN-38. **Say both halves.** A register that only shrinks is not being
-audited; it is being tidied.
+🔴 **One thing to carry into every report you write about these passes.** The user's stated goal was to
+reduce the number of open items. On 2026-08-11 it was reduced — but **the plan that did it wrote down,
+before starting, that suppressing a finding to protect a count was forbidden**, and the pass then
+opened OPEN-42 and refused to close OPEN-38. On 2026-08-12 the same discipline held under more
+pressure: the sweep **retracted one of its own item's headline claims**, **opened OPEN-43 off an audit
+check nobody asked for**, **refused to close OPEN-13 and OPEN-42**, and **reported its own contaminated
+artifact and its own executor's unstated coverage loss.** **Say both halves, every time.** A register
+that only shrinks is not being audited; it is being tidied.

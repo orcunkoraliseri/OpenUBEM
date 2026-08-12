@@ -41,6 +41,16 @@ frozen `docs_DONE/` arc records, the read-only `docs_main/` specs, and the parke
 `docs_TODO/layoutgenerator/` set were deliberately left unedited — they are resolved by this table
 instead. Tracked as **OPEN-33** in the open-items register.
 
+**🔴 Archiving rule — ruled obligatory 2026-08-09, written here 2026-08-12 (OPEN-33).** Archiving an
+arc into `docs_DONE/` is **not finished** until every citation pointing into it, from every live
+document, has been swept and repaired. Resolve stale citations **by filename, not by path
+rewriting** — four of the 58 originals were renamed by their own move (gained a `DONE_`/`DONE-`
+prefix or were re-nested under a new `DONE/` folder), so a straight prefix substitution misses
+them; matching on the (possibly `DONE_`/`DONE-`-stripped) filename finds them instead. **Standing
+exclusions**, unchanged: `docs_DONE/` arc records, `docs_main/` specs, and
+`docs_TODO/layoutgenerator/` are never edited to chase a citation — they are resolved through the
+migration table above instead. **Measured cost: ~30 minutes per archive.**
+
 ---
 
 > **Last updated:** 2026-07-26 (**🔒 ARC L — E-LA-20 FIX ARC CLOSED, CP-C SIGNED.** The multilayer-fix

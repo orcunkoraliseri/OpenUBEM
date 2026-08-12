@@ -9,6 +9,7 @@ Usage: python scripts/diagnostics/t06_validate_relation6374725.py
 """
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -150,7 +151,7 @@ def main():
     mismatch_lines = [l for l in err_text.splitlines()
                       if "mismatch" in l.lower() or "vertex" in l.lower()]
     severe_lines = [l for l in err_text.splitlines()
-                    if any(kw in l for kw in ("** Severe **", "** Severe  **", "**  Fatal **", "** Fatal  **"))]
+                    if any(kw in l for kw in ("** Severe **", "** Severe  **")) or re.search(r"\*\*\s+Fatal\s+\*\*", l)]
     if mismatch_lines:
         print("\n  vertex/mismatch lines in eplusout.err:")
         for l in mismatch_lines[:10]:

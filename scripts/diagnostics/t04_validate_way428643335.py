@@ -8,6 +8,7 @@ Usage: python scripts/diagnostics/t04_validate_way428643335.py
 """
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import sys
@@ -130,7 +131,7 @@ def main():
 
     degen_lines = [l for l in err_text.splitlines() if "degenerate" in l.lower()]
     severe_lines = [l for l in err_text.splitlines()
-                    if any(kw in l for kw in ("** Severe **", "** Severe  **", "**  Fatal **", "** Fatal  **"))]
+                    if any(kw in l for kw in ("** Severe **", "** Severe  **")) or re.search(r"\*\*\s+Fatal\s+\*\*", l)]
     if degen_lines:
         print("\n  degenerate lines in eplusout.err:")
         for l in degen_lines[:10]:
