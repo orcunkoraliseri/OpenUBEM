@@ -1073,10 +1073,16 @@ re-run that retains `eplusout.eio`.
 > # 🅿️ **PAUSED 2026-08-06 — the user is on other projects and will return.**
 > **Nothing is running: no local job, no cluster job, no executor session.** Nothing is cancelled and
 > ~~no task is half-finished. **32 items, OPEN-01 … OPEN-36, next free ID OPEN-37.**~~
-> **Count updated 2026-08-10 (twice; the later figure governs), kept consistent with the register's own §1 header: 35 tracked items
+> ~~**Count updated 2026-08-10 (twice; the later figure governs), kept consistent with the register's own §1 header: 35 tracked items
 > (OPEN-01 … OPEN-40; IDs 05, 21, 23, 25 retired; OPEN-02 + OPEN-28 folded into OPEN-01), next free ID
 > OPEN-41.** New since the line above: OPEN-38, OPEN-39, OPEN-40 (E02 completion census, 2026-08-10 —
-> see the register's §0 amendment of that date for the numbers).
+> see the register's §0 amendment of that date for the numbers).~~
+> **🔴 Count updated 2026-08-11 (the E02 audit and closure pass; this figure governs), kept consistent
+> with the register's own §1 header: 31 tracked items / 31 findings (OPEN-01 … OPEN-42; IDs 05, 21, 23,
+> 25, 30, 34, 39, 40, 41 retired; OPEN-02 + OPEN-28 folded into OPEN-01 and both discharged), next free
+> item ID `OPEN-43`, next free defect IDs `E-LA-42` and `E-UTCI-17` unchanged.** Arithmetic:
+> **35 − 5 closed + 1 opened = 31.** The live table was re-counted programmatically after the edit and
+> re-derives to 31. Detail in the dated amendment further down this section.
 >
 > **The resume brief is the closing amendment of**
 > `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — written to stand alone. The
@@ -1230,6 +1236,43 @@ re-run that retains `eplusout.eio`.
 > **What compute cannot fix:** OPEN-19 needs code, not cycles (no climate-zone or code-year switch
 > exists; LA's HVAC comes from a Buffalo prototype); OPEN-11 needs a user decision, not a measurement.
 > **The paragraph below is the 2026-08-05 snapshot and is left unedited, per the append-only rule.**
+
+> **🔴 Amended 2026-08-11 (later) — the E02 audit and closure pass.
+> The register is now at 31 tracked items / 31 findings, down from 35 / 37.**
+> Plan: `docs/docs_ACTIVE/openings/implemenation/PLAN_e02-audit-and-closure.md` — T01–T06, all six
+> landed, three checkpoints director-signed by independent re-derivation from raw artifacts.
+> **Arithmetic, so it can be checked: 35 − 5 closed + 1 opened = 31.**
+>
+> **Closed:** **OPEN-30** (vintage demonstrated on 60/60 manifests, 40,800 rows, 5 distinct values,
+> 93.44% `DOERefPre1980` vs the 92.9% expected, zero crossover against raw `year_built`) ·
+> **OPEN-34** (all 12 adopted cells whole — `05_results.csv` rows = `01_buildings.gpkg` features,
+> fleet 8,160) · **OPEN-39** (2.14 GB orphaned by failed tasks; zero of 15 `task.rc` references in 9
+> scripts uses it as a completion test) · **OPEN-40** (submitter untraceable, which its own text names
+> as the answer) · **OPEN-41** (all 44 fatals now have recorded causes — all thermal runaway, none
+> structural). **Discharged:** **OPEN-02** and **OPEN-28**, the two findings folded under OPEN-01.
+>
+> 🟢 **The headline result: the adopted `auto` mode's EUI denominator is measured correct** — median
+> error factor **1.0000**, **99.63% of 8,160 buildings within ±1%**, from all 40,800 `.eio` files with
+> 0 parse failures. No mode had ever had this measured before.
+>
+> 🔴 **And three things that are wrong, stated in the same breath:**
+> **(1)** `building` mode simulates exactly **one storey** while its published denominator multiplies
+> footprint by `levels` — median error factor **0.5000**. E01c's *"verified sound at HEAD"* verdict on
+> that mode did **not** cover the denominator.
+> **(2)** **OPEN-42 opened:** the `Warehouse` type is 0.47% of the fleet but carries **26 of the 44
+> fatals** (**≈309× relative risk**), and **six of them carry a placeholder `footprint_area_m2` of
+> exactly 200.0 m²**, so the adopted `auto` mode divides by a denominator wrong by **20.3×–336.7× on
+> six published buildings.** Its effect on the 158.0 kWh/m² fleet figure is **unmeasured.**
+> **(3)** **OPEN-38's premise was falsified, not closed** — *"Base surface does not surround
+> subsurface"* is a **Warning**, not a Severe, and kills nothing; all 7 `layout_assign` fatals are
+> thermal runaway in the zone `LAUNDRYROOMFLR1`, and one building with the malformed geometry
+> **completes and publishes results.**
+>
+> **OPEN-01 did NOT close.** Its (a) and (b) are answered on 40,800 runs; **(c) — one code state —
+> cannot be proved, because no commit hash was recorded at generation time.** A ruling is owed on
+> whether the circumstantial evidence suffices, or OPEN-01 can never close on this corpus.
+> **Rulings owed, in order: OPEN-22 · OPEN-01(c) · OPEN-01's remedy · CP-M2 · OPEN-11.**
+> **Nothing is queued, nothing is in flight, no agent is running, and Speed is not needed.**
 
 `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — **29 items, OPEN-01 … OPEN-32**
 (**OPEN-23 `layoutGenerator` excluded by the user 2026-08-04**, ID retired — not a direction being

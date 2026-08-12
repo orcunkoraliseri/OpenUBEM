@@ -13,36 +13,46 @@
 
 > # 🟢🟢 READ THIS BOX FIRST — the state of the world
 >
+> **🔴 Updated 2026-08-11 (late), after the E02 audit and closure pass landed. Everything below
+> supersedes the earlier same-day text, which described a corpus that had not yet been read.**
+>
 > ## In one line
 >
-> **E02 ran, E02 came home, and neither the running nor the coming home tells you anything about the
-> physics.** All 40,800 simulations completed on Speed (40,755 succeeded, 45 failed); all 60 arrays are
-> harvested to local disk with `.eio` for every building. **Nothing is queued, nothing is in flight,
-> nothing is being fetched.** The arc's remaining work is **audit → rule**, and the audit is gated on a
-> user ruling, not on data.
+> **E02 ran, E02 came home, and E02 has now been read.** All 40,800 simulations completed on Speed
+> (40,755 succeeded, 45 failed); all 60 arrays are harvested locally with `.eio` for every building;
+> and `PLAN_e02-audit-and-closure.md` (T01–T06, all six landed, three checkpoints director-signed)
+> has audited them. **Nothing is queued, nothing is in flight, nothing is being fetched, and no agent
+> is running.** The corpus's headline questions are answered. **The arc is now blocked on rulings
+> only — see §3.**
 >
-> ## 🔴 The two sentences that change what you do next
+> ## 🔴 The three sentences that change what you do next
 >
-> **1. "Submit more" is not a task, and neither is "go get the results."** Both phases are finished.
-> **Nothing resubmits a failed task, and nothing should** — the 45 failures are EnergyPlus fatals that
-> reproduce identically (this is not a guess: eight arrays were accidentally run twice and the same
-> buildings failed both times, identical counts — §4.3).
+> **1. "Submit more" is not a task, "go get the results" is not a task, and neither is "audit the
+> corpus."** All three phases are finished. **Nothing resubmits a failed task, and nothing should** —
+> the 45 failures are EnergyPlus fatals that reproduce identically (eight arrays were accidentally run
+> twice and the same buildings failed both times — §4.3).
 >
-> **2. You are not blocked on data; you are blocked on a ruling.** The corpus that OPEN-01 and OPEN-35
-> need is on disk in all five modes. What is missing is the user's decision on the owed rulings in §3.
+> **2. You are blocked on rulings, not on data or on CPU.** Speed is free and this arc has no use for
+> it. Every remaining first measurement is either made or does not need a machine.
+>
+> **3. 🔴 The adopted `auto` mode's denominator is now MEASURED CORRECT — median error factor 1.0000,
+> 99.63% of 8,160 buildings within ±1%.** This is the single most important number produced by the
+> whole E02 exercise and it had never existed for any mode. **Say it together with what is still
+> wrong** (§5.1), or the user will hear only one half.
 >
 > ## Your first move when a session opens
 >
-> 1. **Do not re-run the census and do not re-harvest.** §4 is counted — from `sacct`, from `find` on
->    the cluster, and from an independent local recount of the extracted corpus. Trust it; re-verify
->    only what you intend to *publish*.
+> 1. **Do not re-run the census, do not re-harvest, and do not re-run the audit.** §4 is counted and
+>    §5.1 is measured. Re-verify only what you intend to *publish*.
 > 2. **Confirm the corpus is still on disk before planning around it.** It lives in a Windows temp
->    directory nobody is protecting (§4.2). Counting it is one command. **Verified present 2026-08-11:
->    60 array directories.** That check was top-level only — recount files before depending on them.
-> 3. **The one fully-local, fully-unblocked measurement is OPEN-41** — re-scan the 44 `.err` files for
->    the **`** Severe **` line preceding each fatal** instead of EnergyPlus's generic trailer. No cluster
->    access, no ruling needed. It is the natural thing to dispatch while a ruling is pending.
-> 4. **Put one ruling to the user** — the owed list is §3, ordered. One at a time, never as a menu.
+>    directory nobody is protecting (§4.2). **Fully recounted 2026-08-11: 40,800 dirs = 40,800 `.err`
+>    = 40,800 `.eio`, `.end` = 40,799** — file-level, not top-level. Recount before depending on it.
+> 3. **Put one ruling to the user** — the owed list is §3, ordered. One at a time, never as a menu.
+>    **OPEN-22 has been owed the longest and is still the cleanest**; the new OPEN-01(c) ruling is the
+>    one that unblocks the largest item.
+> 4. **If you want work running while a ruling is pending**, the ready measurement is now **OPEN-42's
+>    first open question — where the 200.0 m² placeholder footprint comes from.** Fully local, no
+>    ruling needed. It replaced OPEN-41, which closed.
 >
 > ## 🔴 Do not confuse "ran" with "correct"
 >
@@ -109,7 +119,10 @@ docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md
 any conversation. Each item carries: what is known, what is only believed, where the evidence lives,
 and **the one measurement that must be made before an execution plan can responsibly be written.**
 
-**35 tracked items / 37 findings** (OPEN-01 … OPEN-41).
+**31 tracked items / 31 findings** (OPEN-01 … OPEN-42) — **down from 35 / 37 on 2026-08-11.**
+Arithmetic, stated so it can be checked: **35 − 5 closed + 1 opened = 31** items; **37 − 5 − 2
+discharged + 1 = 31** findings. Items and findings are equal again for the first time since
+2026-08-09. **Recount §1's table before quoting this** — the director did, and it re-derives to 31.
 
 **Retired IDs — never reuse, never re-add:**
 
@@ -119,9 +132,29 @@ and **the one measurement that must be made before an execution plan can respons
 | **OPEN-21** | **DEFERRED by the user** to `docs/docs_TODO/mixed_use_classification.md`. **Closed to further asking — never put it to the user again.** |
 | **OPEN-23** | **EXCLUDED by the user** 2026-08-04 (`layoutGenerator` production zone-mode). |
 | **OPEN-25** | **CLOSED** — fixed 2026-06-10 by the code that produced the adopted baseline. |
-| **OPEN-02, OPEN-28** | **FOLDED INTO OPEN-01** 2026-08-09 by user instruction. Both sections stay in full as evidence; one closure condition, so one tracked item. |
+| **OPEN-30** | **CLOSED 2026-08-11** — vintage distribution demonstrated on 60/60 manifests, 40,800 rows, 0 nulls, 5 values, 93.44% `DOERefPre1980`; `la_rural` cross-check vs raw `year_built` has zero crossover. **Do not re-run it.** |
+| **OPEN-34** | **CLOSED 2026-08-11** — all 12 adopted cells whole (`05_results.csv` rows = `01_buildings.gpkg` features, fleet 8,160). 🔴 **Its standing rule survives: a subset verification run must use the whole cell or declare itself not fleet-faithful.** |
+| **OPEN-39** | **CLOSED 2026-08-11** — 2.14 GB orphaned across 45 failed tasks (48.6 MB vs 449 KB), replicates outside E02; zero of 15 `task.rc` references in 9 scripts uses it as a completion test. 🔴 **Its standing rule survives: never use `task.rc` presence as a completion test.** ⚠️ `submit_fleet_t08.sbatch:56` is still unguarded — the defect is sized, not fixed. |
+| **OPEN-40** | **CLOSED 2026-08-11 as untraceable**, which the item's own text names as the answer. 68 `e02_*` submissions reconstructed from `sacct` (19+8+41). ⚠️ The remedy — a submission log nobody can bypass — **is unbuilt.** |
+| **OPEN-41** | **CLOSED 2026-08-11** — all 44 fatals have recorded causes, all thermal runaway. The concentration was the **archetype**, not the cell → became OPEN-42. |
+| **OPEN-02, OPEN-28** | **FOLDED INTO OPEN-01** 2026-08-09, then **both DISCHARGED 2026-08-11** on the E02 audit. Sections stay in full as evidence. 🔴 **OPEN-28's rule outlives it: every comparison must state which harvest generation each side came from — E02 is the fourth.** |
 
-**Next free IDs: item `OPEN-42` · defect `E-LA-42` · UTCI defect `E-UTCI-17`.**
+**Next free IDs: item `OPEN-43` · defect `E-LA-42` · UTCI defect `E-UTCI-17`.**
+*(The 2026-08-11 pass opened an item but no defect ID, so the defect counters are unchanged.)*
+
+🔴 **OPEN-42 is new and one of its two faces reaches the adopted baseline.** The `Warehouse` type is
+**38 of 8,160 buildings (0.47%)** yet carries **26 of the 44 fleet fatals** — 13.68% against 0.0443%,
+a **≈309× relative risk** — and **six of them carry a placeholder `footprint_area_m2` of exactly
+200.0 m²** against simulated areas of 4,064–67,330 m², so the **adopted `auto` mode divides by a
+denominator wrong by 20.3× to 336.7× on six published buildings.** Its effect on the 158.0 kWh/m²
+fleet figure is **unmeasured — do not assume it is negligible.**
+
+🔴 **OPEN-38 was not closed; its premise was falsified and the item rewritten.** *"Base surface does
+not surround subsurface"* is a **Warning**, not a Severe, at all 8 sites, and kills nothing. All seven
+`layout_assign` fatals are **thermal runaway in the zone `LAUNDRYROOMFLR1`** — the substituted
+prototype's laundry room, same zone token as OPEN-06. One of the 8 buildings with malformed door
+geometry **completes successfully and publishes results.** *(Second item in this register whose stated
+cause was a co-occurring message. **A severity marker is evidence; proximity to a fatal is not.**)*
 
 ⚠️ **OPEN-37 is fixed in code but deliberately still counted.** R09 fixed the `.eio` fetch gap and it is
 verified, but the item also asserts *every fleet harvested before 2026-08-10 lacks the file locally* —
@@ -133,16 +166,30 @@ way; keep the spelling**). Supporting docs go in `openings/extra/`. Reporting sn
 `openings/reporting/`.
 
 🟠 **`PLAN_speed-resume.md` is at 1,451 lines — past the ~1,000-line close threshold.** Its work is
-finished through **R10**. **Do not append new tasks to it.** The next execution plan opens as a fresh
-doc (or a `PLAN_speed-resume_REMAINder.md`) citing prior findings by ID.
+finished through **R10**. **Do not append new tasks to it.** Cite its findings by ID (R01…R10).
+
+🟢 **`PLAN_e02-audit-and-closure.md` — the plan that audited the corpus. CLOSED 2026-08-11 at ~1,060
+lines, all six tasks landed, all three checkpoints director-signed. Do not append to it either.**
+Cite its findings by task ID (T01…T06). Its §9 holds the director's own re-derivations — the
+independent `.eio` parse, the `Warehouse` archetype join, the `LAUNDRYROOMFLR1` chain — and is the
+place to look before re-measuring anything it touched. Its four measurement reports are in
+`openings/extra/`: `MEASUREMENT_open-01_denominator-audit-e02.md`,
+`MEASUREMENT_open-30-01c_vintage-and-code-state.md`, `MEASUREMENT_open-41-38_failure-causes.md`,
+`MEASUREMENT_open-39-40_cluster-records.md`.
+
+**The next execution plan opens as a fresh doc.** The obvious candidate is **OPEN-42** — but its own
+first measurement (where the 200.0 m² placeholder comes from) is not yet made, so per §6 no execution
+plan may be written for it yet. **Measure first.**
 
 ## 3. What is owed to the user — rulings, asked one at a time, in this order
 
 | # | Ruling | Where |
 |---|---|---|
-| 1 | **OPEN-22** — a third of the 50-row exam is decided by size-bucketing rather than tag logic. Is that the exam the project wants? **Frame it correctly:** the fallback rows are *measured* not to be inflating the metric (88.0% all rows vs 87.9% excluding them). **This is a clean ruling on a number that already exists** — it is the only owed ruling that is decidable today without any further measurement. | §5.3 |
-| 2 | **CP-M2** — what to do about the published cross-mode numbers, now confirmed confounded. | §5.4 |
-| 3 | **OPEN-11** — the six inverted-geometry buildings; precondition met, remediation is the user's call. | register |
+| 1 | **OPEN-22** — a third of the 50-row exam is decided by size-bucketing rather than tag logic. Is that the exam the project wants? **Frame it correctly:** the fallback rows are *measured* not to be inflating the metric (88.0% all rows vs 87.9% excluding them). **This is a clean ruling on a number that already exists** — decidable today with no further measurement. **Owed the longest; ask it first.** | §5.3 |
+| 2 | 🔴 **NEW 2026-08-11 — OPEN-01(c), and it is the one that unblocks the biggest item.** OPEN-01's third audit question is *"did all five modes come from one code state?"* **It cannot be proved, and the reason is structural: no commit hash or code-version stamp was recorded anywhere at generation time**, and 25 of the 60 `(cell, mode)` pairs have no generation-summary JSON. The circumstantial evidence is real — one manifest schema across all 60, all 60 written inside one continuous **111-minute** window (2026-08-09 21:03:01–22:54:38), no gaps. **The ruling: is that sufficient for (c)?** If yes, OPEN-01 reduces to the remedy ruling below. **If no, OPEN-01 can never close on this corpus** and only a re-run with a recorded commit stamp would settle it. **Frame both costs before asking.** | §5.1, register OPEN-01 |
+| 3 | 🔴 **OPEN-01's remedy** — now that (a) and (b) are measured on 40,800 runs: fix the denominator, fix the simulation, or stop publishing per-building EUI for the affected modes. **The measurement is done and no remedy was chosen — deliberately.** ⚠️ **Do not ask this before ruling 2**, or the user is choosing a fix for an item that cannot close anyway. | §5.1 |
+| 4 | **CP-M2** — what to do about the published cross-mode numbers, still confounded. **Not discharged by OPEN-28** — E02 fixes future comparisons, not published ones. | §5.4 |
+| 5 | **OPEN-11** — the six inverted-geometry buildings; precondition met, remediation is the user's call. | register |
 
 **Spent rulings — do not re-ask any of these:**
 
@@ -234,9 +281,16 @@ line. Only one is self-describing (`CheckForRunawayPlantTemps: … too hot`). **
 - Genuine physical fatals with distinct causes: `CalcHeatBalanceInsideSurf` reaching **90,915.77 °C**
   during warmup (`nyc_centre/auto`, `way_266149332`); `CheckForRunawayPlantTemps` "too hot"
   (`la_centre/auto`); temperature-out-of-bounds severes across four cells.
-- 🔴 **One recurring geometry defect, mode-specific:** *"Base surface does not surround subsurface"* in
-  **`layout_assign` mode in three different cells** (`nyc_rural`, `la_centre`, `la_urban`). All seven
-  `layout_assign` failures fit this pattern → **OPEN-38**.
+- ~~🔴 **One recurring geometry defect, mode-specific:** *"Base surface does not surround subsurface"*
+  in **`layout_assign` mode in three different cells** (`nyc_rural`, `la_centre`, `la_urban`). All
+  seven `layout_assign` failures fit this pattern → **OPEN-38**.~~
+  🔴 **CORRECTED 2026-08-11 — this was wrong, and it was wrong in the way this project keeps getting
+  caught.** That message is a **`** Warning **`**, not a Severe, at all 8 sites where it occurs, and
+  **it kills nothing.** The seven `layout_assign` failures all die on **thermal runaway in the zone
+  `LAUNDRYROOMFLR1`** (−12,459 / −23,743 / −11,950 / −15,491 / −12,901 / −59,865 / **+182,399 °C**) —
+  the substituted prototype's laundry room, the **same zone token as OPEN-06**. The geometry message
+  merely co-occurred, and a **ten-task sample read by eye** promoted a co-occurrence to a cause.
+  **An eighth building carrying the same warning completes successfully and publishes results.**
 - 🔴 **One memory failure `sacct` never labelled as one.** `nyc_centre/fast_zone`, `way_1240348353` — an
   **89-storey** stem (`_F0`…`_F88`) — died on `terminate called after throwing an instance of
   'std::bad_alloc'`, SIGABRT, `ExitCode=6:0`. No `Fatal` string anywhere in its `eplusout.err`; the
@@ -248,29 +302,66 @@ line. Only one is self-describing (`CheckForRunawayPlantTemps: … too hot`). **
 
 ### 4.5 The four items E02 opened — all in the register, one of them ready to run
 
-| Item | What it is | First measurement | Ready? |
-|---|---|---|---|
-| **OPEN-38** | **`layout_assign` subsurface geometry defect** — 7 buildings, 3 cells, mode-specific and reproducible. | Count every `layout_assign` building carrying the message fleet-wide from the harvested `.err` files; check whether survivors share the geometry condition. | ✅ local corpus |
-| **OPEN-39** | **`set -e` suppresses the trim and the `task.rc` write on failure** (`submit_fleet_t08.sbatch:18`, `:58`, `:63-80`). Byte-identical template T08→T20, so true of every fleet pass. | Size the orphaned disk on `/speed-scratch` across all fleets; confirm no completion test depends on `task.rc`. | needs read-only cluster |
-| **OPEN-40** | **Eight arrays submitted a third time by an unrecorded process.** | Trace the submitter. If untraceable, that is the finding and the fix is a submission log nobody can bypass. | local |
-| **OPEN-41** | 🟢 **43 of 45 failures have no recorded cause.** | Re-scan the 44 `.err` files in the harvested corpus capturing the **`** Severe **` lines preceding each fatal**; group distinct causes; then intersect the `la_rural` subset's building IDs across its three affected modes. | ✅ **fully local, no ruling needed — this is the dispatchable task** |
+**🔴 All four were measured on 2026-08-11. Three closed, one was rewritten, and a fifth opened.**
 
-🔴 **OPEN-41 carries an unexplained concentration worth stating to the user:** `la_rural` holds **24 of
-the 45** failures across three unrelated modes (`fast_zone` 10, `auto` 7, `floor` 7) despite being one
-of the smallest cells at 149 buildings/mode — ≈**4.7%** in that cell against **0.11%** fleet-wide.
-Failures concentrating in one small rural cell across unrelated zoning modes points at the **inputs for
-those buildings**, not the mode implementations. **That is a hypothesis, not a measurement** — the
-intersection test above is what decides it.
+| Item | What it is | Outcome 2026-08-11 |
+|---|---|---|
+| **OPEN-38** | ~~`layout_assign` subsurface geometry defect — 7 buildings die on the severe~~ | 🔴 **PREMISE FALSIFIED, item rewritten, STILL OPEN.** The message is a **Warning**, not a Severe, at all 8 sites, and kills nothing. All 7 fatals are **thermal runaway in zone `LAUNDRYROOMFLR1`**. The 8th building **completes and publishes** from malformed geometry. |
+| **OPEN-39** | `set -e` suppresses the trim and the `task.rc` write on failure | ✅ **CLOSED.** 2.14 GB orphaned (48.6 MB vs 449 KB, ~111×), replicates outside E02; **zero of 15 `task.rc` references in 9 scripts** uses it as a completion test. ⚠️ Line 56 still unguarded. |
+| **OPEN-40** | Eight arrays submitted a third time by an unrecorded process | ✅ **CLOSED as untraceable** — the answer its own text names. 68 submissions reconstructed from `sacct` (19+8+41). ⚠️ Remedy unbuilt. |
+| **OPEN-41** | 43 of 45 failures have no recorded cause | ✅ **CLOSED.** All 44 causes recorded: 25 *Temperature (low) out of bounds*, 17 `CalcHeatBalanceInsideSurf`, 1 *Temperature (high)*, 1 `CheckForRunawayPlantTemps` — **all thermal runaway, none structural.** |
+| **OPEN-42** | 🔴 **NEW** — the `Warehouse` population | **OPENED** by auditing the above. 0.47% of the fleet, **26 of 44 fatals (309× relative risk)**; six carry a **200.0 m² placeholder footprint** producing 20.3×–336.7× denominator errors **in the adopted `auto` mode**. |
+
+🔴 **`la_rural`'s concentration is SOLVED, and this prompt's earlier explanation was aimed at the wrong
+unit.** It said failures concentrating in one small rural cell *"points at the inputs for those
+buildings"* and flagged it **a hypothesis, not a measurement**. The hypothesis was half right: it is
+the inputs — but **the unit is the archetype, not the cell.** `Warehouse` is **38 of 8,160 buildings
+(0.47%)** and carries **26 of the 44 fatals**: **13.68% of Warehouse tasks fail against 0.0443% of
+everything else, ≈309×.** All **11** `la_rural` failing buildings are Warehouses with `no_floors`; the
+cell holds 25 Warehouses of 149 and is simply Warehouse-dense. **36 of 44 failures carry `no_floors`.**
+The cross-mode intersection came back **split** — 6 of 11 fail in all three modes, 5 are mode-specific.
+
+⚠️ **Generalisable lesson, and it is the second time this exact shape has cost this arc a wrong
+belief:** a concentration was attributed to the *container* it was noticed in (a cell) rather than to
+the *property* the members share (an archetype). **Before explaining a cluster by where you found it,
+join it to every attribute you have.**
 
 ## 5. Background — the measured state of the six themes
 
 Everything here was measured and audited by independent re-derivation before it was written down.
 
-### 5.1 OPEN-01 — measured, large, unremediated. **This is the item the fleet unblocks.**
+### 5.1 OPEN-01 — 🔴 **REWRITTEN 2026-08-11: (a) and (b) are now measured on all 40,800 runs.**
 
-Only **877 of 6,939** non-`applied` buildings (12.6%) divide by the right floor area. Median error
-factor **2.0**, range **0.118×–10.0×**. Of 28 archetype tokens only **two** carry a `ZoneGroup` list
+**The fleet-scale denominator measurement this item waited months for now exists.** All 40,800 `.eio`
+files parsed, **0 parse failures**; join **8,160 matched / 0 unmatched in both directions in every
+mode**.
+
+| mode | median error factor | mean | range | within ±1% |
+|---|---|---|---|---|
+| 🟢 **`auto`** — the adopted baseline's mode | **1.0000** | 1.0592 | 0.9998–336.65 | **99.63%** |
+| `floor` | 1.0000 | 1.0593 | 0.4953–336.65 | 98.43% |
+| `fast_zone` | 1.0000 | 1.0631 | 0.8390–336.65 | 94.80% |
+| `layout_assign` | 0.9999 | 1.4977 | 0.0557–353.998 | **15.37%** |
+| 🔴 **`building`** | **0.5000** | 0.6287 | 0.0095–112.22 | **39.94%** |
+
+🔴 **`building` mode simulates exactly one storey.** Its simulated area ÷ **bare `footprint_area_m2`**
+(no `levels`) is **median 1.000000, 98.43% within ±1%** — the mode builds one zone of one storey while
+the published denominator multiplies footprint by `levels`, whose fleet median is 2. **The 0.5 is the
+storey count, not noise.** ⚠️ `building` mode was recorded *"verified sound at HEAD"* by E01c on
+2026-08-06 — **that verification did not cover the denominator.** State both together.
+
+**`layout_assign` non-`applied` (n=6,939): median 0.9474, range 0.0557–10.0008, 2.05% within ±1%.**
+⚠️ **This does not reproduce the older inferred figures** below (median 2.0, 12.6% correct). Both agree
+the defect is large; they disagree on shape. **Recorded, not reconciled** — the E02 number is a direct
+measurement, the old one an inference.
+
+~~Only **877 of 6,939** non-`applied` buildings (12.6%) divide by the right floor area. Median error
+factor **2.0**, range **0.118×–10.0×**.~~ *(Superseded above; kept because it is cited elsewhere.)*
+Of 28 archetype tokens only **two** carry a `ZoneGroup` list
 multiplier: `MidriseApartment` 3 bands → **4** storeys, `HighriseApartment` 3 bands → **10**.
+**Confirmed on the corpus: 2,850 zones fleet-wide have a list multiplier > 1 —
+`MidriseApartment` 2,818 / `HighriseApartment` 32, all in `layout_assign`, zero on any third
+archetype or any other mode.**
 
 ⚠️ **A trap that will catch you if you skip this.**
 `openubem/outputs/comparisons/a1_prototype_storey_structure.csv` looks like it answers this item and
@@ -278,10 +369,21 @@ does not: its `num_modelled_storeys` is the **band count**, and its `has_multipl
 `Zone.Multiplier` only — blind to `ZoneGroup`'s list multiplier, reading `False` for both archetypes
 that have one. **Do not cite it.**
 
-**The audit this corpus enables must answer three questions** (the OPEN-02/OPEN-28 merge): the
-`layout_assign` denominator, the fleet-wide denominator in all five modes, and a demonstration that all
-five modes came from one code state. **Any one unanswered leaves OPEN-01 open.** The data for all three
-is now on disk (§4.2). **The audit has not started, and it is gated on a ruling, not on data.**
+**The audit had to answer three questions** (the OPEN-02/OPEN-28 merge): the `layout_assign`
+denominator, the fleet-wide denominator in all five modes, and a demonstration that all five modes came
+from one code state. **(a) and (b) are answered above. (c) is not, and cannot be** — see §3 ruling 2.
+**Any one unanswered leaves OPEN-01 open, so OPEN-01 is open.** ✅ **The audit is done**
+(`PLAN_e02-audit-and-closure.md` T04, CP-2 director-signed); **OPEN-02 and OPEN-28 both discharged on
+it.**
+
+🔴 **CP-2's re-derivation, for whoever needs to trust these numbers.** The director wrote an
+independent `.eio` parser and reproduced the control building `la_urban/way_401904735`
+(`MidriseApartment`, `one_zone_per_floor`, 3 storeys): `auto` 3 zones → 5,551.35 m² → factor
+**1.00000**; `building` **1 zone** → 1,850.45 m² → **0.33333**; `layout_assign` 27 zones, plain sum
+5,551.26 but multiplier-aware **7,401.68** with `Zone List Multiplier = 2` → **1.33331 against 4/3, or
+0.0018% off.** Declared area re-read by hand: 1850.454098 × 3.0 = **5,551.362295**. Every figure
+byte-identical to the executor's CSV. ⚠️ **Note the trap the plain sum sets:** for that building the
+unweighted sum sits 0.0018% from the declared area — **it would have looked correct.**
 
 **Retaining `.eio` was measured cheap** (median 76,068 B, **12.6%** marginal cost) — the ">800 GB per
 city" justification covered eleven file types together; `.eio` alone was never the cost.
@@ -352,13 +454,31 @@ run reproduces the adopted fixture exactly.
 🔴 **Standing consequence — put this in every future executor brief:** *a verification run on a subset
 of a cell must use the whole cell, or state that its archetypes are not fleet-faithful.*
 
+✅ **OPEN-34 CLOSED 2026-08-11.** Its last question — *did any published result actually come from a
+batch small enough for this to fire?* — was recorded here as **reasoning, not measurement**. Measured:
+**all 12 adopted cells are whole**, `05_results.csv` rows = `01_buildings.gpkg` features in every cell,
+difference **0**, fleet **8,160**. No published number was ever exposed to the effect. 🔴 **The
+standing consequence above survives the closure — the item closed because nothing broke the rule, not
+because the rule stopped applying.**
+
 🔴 **OPEN-35 is the more serious of the two.** Two code paths invent the missing storey count and
 **disagree**: Stage 2 picks the archetype off the group median, Stage 3 builds the geometry at **1**
 (`footprint.py:58-63`). **Size measured: 2,611 of 8,160 = 32.00% of the fleet** persisted at
 `levels = 1.0`, of which **1,031 were given a mid- or high-rise archetype and built as a single
 storey** — classified as a multi-storey building, simulated as a one-storey one, EUI divided by one
 storey's area. True in full-cell runs, and it is the population every published result came from.
-**The harvested `.eio` files are the independent check, and they are now on disk.**
+~~**The harvested `.eio` files are the independent check, and they are now on disk.**~~
+
+✅ **The independent check has now been made (2026-08-11), and the mechanism is PROVED at the
+simulation boundary rather than inferred from source. OPEN-35 stays open — the remaining question is
+DESIGN, not measurement.** Restricted to those 2,611 buildings: **100% within ±1% in `auto`,
+`building` and `floor`** — *by construction*, because those modes build zones from `levels`, so a wrong
+`levels` makes geometry and denominator wrong **together and consistently** — against **mean 2.3728 and
+only 17.92% within ±1% under `layout_assign`**, which assigns storeys from the archetype instead.
+🔴 **That internal consistency is the trap, and it is why nothing caught this before:** a check whose
+two sides share the same error always passes. It took a mode that derives storeys differently to expose
+it. **What is still undecided is which fallback is *intended*** — archetype-median storeys, or one
+storey. That is a specification question and no measuring task may decide it.
 
 ### 5.7 What the R-series fixed before the fleet ran — do not redo any of it
 
@@ -444,6 +564,14 @@ tcsh answered `Illegal variable name.`, and `sbatch` was never reached. It logge
 - **Speed has two login nodes** (`speed-submit1`, `speed-submit2`) served **round-robin**, and **`/tmp`
   is node-local**. A file written to `/tmp` by one command is invisible to the next. **Use the
   NFS-shared home directory (`~`)** for anything that must survive between commands.
+- 🔴 **An `_ssh()` command string of ≥8,192 characters fails with `Unmatched '.`** — a tcsh parse
+  limit, **not** a Python quoting bug: reproduced with a quote-free payload, 8,104 chars succeeds and
+  8,192 fails, exactly at the boundary. **Found 2026-08-11 and previously undocumented anywhere in this
+  project.** It fails the way this project's cluster failures always fail — silently, with a message
+  that looks like your own bug. **Chunk any batched remote command under ~7,500 characters.**
+  `scripts/analysis/e02_cluster_readonly_audit.py` does this already (`REMOTE_CMD_SAFE_LEN = 7500`);
+  no other script currently builds a command long enough to hit it, which is why this is a standing
+  fact and not a register item.
 - **A failed task has no `task.rc`** (OPEN-39) — never use its presence as a completion test. It also
   leaves an **untrimmed** ~40 MB directory.
 - **The `e02` tag override is mandatory for any harvest.** `t08_harvest_results.py:42` still hard-codes
@@ -479,7 +607,22 @@ tcsh answered `Illegal variable name.`, and `sbatch` was never reached. It logge
   real fatals; both have coexisted in this repo for months.
 - **A fatal *count* is not a fatal *cause*.** EnergyPlus's `Program terminates due to preceding
   condition.` names nothing; the content is in the preceding `** Severe **` line. A census that reports
-  the trailer 43 times has returned a null result dressed as a finding (OPEN-41).
+  the trailer 43 times has returned a null result dressed as a finding (OPEN-41, closed 2026-08-11).
+  ⚠️ **And the trailer has a decoy:** `..... Last severe error=` repeats the mechanism a few lines
+  *below* the fatal. Scan **backwards from the fatal**, not forwards.
+- 🔴 **A severity marker is evidence; proximity to a fatal is not.** Twice now an item has been opened
+  on a message that merely co-occurred with the failure — OPEN-22's premise, then OPEN-38's, where a
+  `** Warning **` was recorded as the Severe that killed seven runs. **Read the marker on the line
+  before you attribute a cause.**
+- 🔴 **Before explaining a cluster by *where* you found it, join it to every attribute you have.**
+  `la_rural`'s 24-of-45 failure share was attributed to the cell for a week; it was the **archetype**
+  (`Warehouse`, 0.47% of the fleet, 26 of 44 fatals, ≈309× relative risk). The container you noticed a
+  pattern in is rarely the property that causes it.
+- 🔴 **Internal consistency is what a self-referential error looks like.** OPEN-35's 2,611 buildings
+  sit **100% within ±1%** of their own denominator in three modes — because a wrong `levels` makes the
+  geometry and the denominator wrong *together*. **A check that passes because both sides share the
+  error is not a check.** It took a mode that derives storeys differently (`layout_assign`, 17.92%) to
+  expose it.
 - A parser that finds nothing must **say so**, never report `0`.
 - **A before/after is not reportable until the "before" is shown to differ from the "after."**
 - Check what generated a figure or CSV before concluding from it — a script that reimplements pipeline
@@ -557,9 +700,19 @@ There is no single checkpoint — this arc is a **queue**, not a march. It is he
 
 **Your first action:** read the register in full, then confirm the harvested corpus is **still on disk**
 (it lives in a temp directory nobody is protecting — count it, do not assume it). Then put **one** ruling
-to the user, starting with **OPEN-22**, which is the only owed ruling backed by a number that already
-exists and is therefore decidable today. If you want work running while that ruling is pending, dispatch
-**OPEN-41's severe-line re-scan** — fully local, no cluster, no ruling required.
+to the user, starting with **OPEN-22**, which has been owed the longest and is decidable today from a
+number that already exists. If you want work running while that ruling is pending, dispatch **OPEN-42's
+first open question — where the 200.0 m² placeholder footprint comes from**: fully local, no cluster, no
+ruling required. *(OPEN-41's severe-line re-scan was the previous answer here; it ran on 2026-08-11 and
+the item closed.)*
 
-**Do not lead with the register's item count.** It goes **up** when work is done well — E02 alone added
-four. Explain that measuring opens items before quoting any total.
+**Do not lead with the register's item count**, in either direction. It went **up** when E02 was
+audited well (four items opened by auditing, not by running) and it went **down** on 2026-08-11
+(35 → 31) when five of those questions were answered. **Neither number is the achievement.** Explain
+what was measured, then quote a total if asked.
+
+🔴 **One thing to carry into every report you write about this pass.** The user's stated goal was to
+reduce the number of open items, and it was reduced — but **the plan that did it wrote down, before
+starting, that suppressing a finding to protect a count was forbidden**, and the pass then opened
+OPEN-42 and refused to close OPEN-38. **Say both halves.** A register that only shrinks is not being
+audited; it is being tidied.

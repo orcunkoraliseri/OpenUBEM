@@ -299,6 +299,19 @@
      the only one backed by a number that already exists &middot; <b>what can run without you</b>:
      re-reading the 44 failure files for the line <em>before</em> the generic one, entirely on your own
      machine</div>
+  <div class="stamp mono">State as of 2026-08-11 (later) &middot; <b>the E02 audit and closure pass is
+     finished</b> &mdash; six tasks, all done, nothing left in progress &middot; the 40,800-simulation
+     corpus was counted from disk before anything else read it: 40,800 building folders, 40,800 error
+     files, 40,800 floor-area files, 40,799 completion files, the one gap being the known
+     out-of-memory building &middot; <b>all 44 crash files now carry a recorded cause</b> &mdash; every
+     one a numerical temperature blow-up, none a broken input or a missing object &middot; <b>the
+     `auto` floor-area mode is confirmed correct</b> (99.63% of buildings within 1%) and the `building`
+     mode is confirmed wrong &mdash; it simulates one storey and divides by the whole building &middot;
+     cluster housekeeping and the untraced 9 August submissions were checked and closed out &middot;
+     <b>five register items closed, two findings discharged, one new item opened</b> (`Warehouse`
+     buildings &mdash; 0.47% of the fleet, 26 of the 44 crashes, six with placeholder footprints)
+     &middot; <b>the register moved from 35 tracked items to 31</b> &middot; measuring keeps opening
+     items as well as closing them, and that is the system working as intended, not a setback</div>
 </header>
 
 <section class="counts" id="counts"></section>
@@ -353,7 +366,7 @@
   <div>Generated from the plan's task table. The plan doc is the binding record; this board is the same
        data, filterable. Measurement reports land in <span class="mono">docs/docs_ACTIVE/openings/extra/</span>;
        supporting tables in <span class="mono">openubem/outputs/comparisons/</span>.</div>
-  <div class="mono">Register of all open work: docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md &middot; 35 items &middot; next free ID OPEN-42 &middot; on 6 Aug: 2 opened (both by auditing, not by running), 1 closed &middot; 9 Aug: arc resumed, no items opened or closed &mdash; one ruling taken (CP-M3 + two others), the cluster restart prepared &middot; 10 Aug: the full 40,800-simulation pass found already complete, all results collected, 4 items opened (all four by auditing, none by running a task), none closed</div>
+  <div class="mono">Register of all open work: docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md &middot; 31 items &middot; next free ID OPEN-43 &middot; on 6 Aug: 2 opened (both by auditing, not by running), 1 closed &middot; 9 Aug: arc resumed, no items opened or closed &mdash; one ruling taken (CP-M3 + two others), the cluster restart prepared &middot; 10 Aug: the full 40,800-simulation pass found already complete, all results collected, 4 items opened (all four by auditing, none by running a task), none closed &middot; 11 Aug: the E02 audit and closure pass landed &mdash; 5 closed, 2 findings discharged, 1 opened (OPEN-42, Warehouse buildings); register 35 &rarr; 31</div>
 </footer>
 </div>
 
@@ -497,6 +510,19 @@ const WP=[
    "<b>The measurement everything else is for was one missing line away from being impossible.</b> The cluster writes a file recording the floor area EnergyPlus really used &mdash; the number needed to settle whether 87% of buildings are divided by the wrong area &mdash; and the step that packs results up to send back was never asking for it. It was fixed in all five collectors, and proved the way this project requires: <b>149 on the cluster, 149 in the parcel, 149 unpacked on your machine</b>, with the old behaviour demonstrated first at zero, so the before genuinely differs from the after. <b>It landed before the fleet was collected, which is the only reason the measurement is possible at all</b> &mdash; had it landed a day later, 40,800 simulations would have come home without the one file they were run for. <b>What it does not do:</b> nothing already collected before 10 August gained the file. Every earlier fleet is still missing it, which is why this item stays open on the register even though the code is fixed.","done · verified three ways"],
   ["R10","Collect the whole fleet and account for every failure","done",
    "<b>All 60 job groups are on your machine, about 12 GB, and I recounted them myself rather than trusting the collector:</b> 40,800 building folders, 40,800 error files, 40,800 floor-area files, 40,799 completion files. The single missing completion file is the 89-storey building that runs out of memory before it can write one. <b>The check that matters was run in both directions:</b> 45 failures found in the files on your machine, 45 failures recorded by the cluster, nothing on either side the other cannot account for, every one traced to a named building. <b>The collection did not go smoothly and is not recorded as though it had.</b> It took three passes; two groups failed on connection refusals that the script's own error message blamed on missing directories &mdash; a hard-coded guess, not a finding &mdash; when the real cause was the cluster rate-limiting rapid requests; slowing the requests down fetched both on the first try. The executor reported itself finished twice while it was not. And an early analysis run reported every group empty with zero failures because it ran before the files arrived: <b>zero failures against 45 known ones means the scanner is broken, not the fleet clean</b>, so those files were deleted and regenerated rather than patched. <b>What this does not establish:</b> nothing was resubmitted and nothing should be &mdash; eight groups had accidentally run twice and the same buildings failed both times, so the failures are properties of those buildings, not bad luck. And 40,755 clean runs is a statement about the job scheduler, not about building physics. <b>No energy number from this pass has been checked.</b> <b>Two reservations to carry:</b> the 12 GB sits in a Windows temporary folder that the system may clear without warning &mdash; about 40 minutes to fetch again &mdash; and for 43 of the 45 failures we know <em>which</em> building failed and nothing about <em>why</em>, which is now its own tracked item.","done · recounted independently, failures reconciled both ways"]]],
+ ["L","E02 audit and closure pass — completed 11 August",[
+  ["T01","Corpus integrity gate","done",
+   "Counted what is actually on disk from the 40,800-simulation fleet before anything else read it: <b>40,800 building folders, 40,800 error files, 40,800 floor-area files, 40,799 completion files.</b> The single missing one is the known building that ran out of memory. Nothing had been lost.","corpus intact"],
+  ["T02","Why the 45 failures failed","done",
+   "Every one of the 44 crash files now has a recorded cause. <b>All 44 are numerical blow-ups where the simulated temperature runs away</b> — none is a broken input file or a missing object. One building was found that carries the same faulty door geometry as the crashed ones but finishes anyway and publishes results.","44 of 44 causes recorded"],
+  ["T03","Building vintage, demonstrated","done",
+   "Read all 60 build manifests: <b>40,800 rows, no gaps, five distinct construction vintages, 93.44% pre-1980</b> — matching the 92.9% the project expected. Cross-checked against the raw survey years with zero contradictions. This closed an item that had been open since 5 August.","matches expectation · zero contradictions"],
+  ["T04","The floor-area audit","done",
+   "The big one. Parsed all 40,800 files EnergyPlus writes recording the floor area it actually simulated, and compared each against the floor area the published results divide by. <b>The adopted <span class='mono'>auto</span> mode is correct</b> — 99.63% of buildings within 1%. One other mode, <span class='mono'>building</span>, turned out to simulate only one storey while its published numbers divide by the full building height.","auto confirmed · building confirmed wrong"],
+  ["T05","Cluster housekeeping and the untraced submission","done",
+   "Failed jobs leave about 2.14 GB of un-cleaned output on the cluster because the cleanup step is skipped when a job fails. Checked every script: none depends on the file that goes missing, so nothing is broken by it. The eight mystery job submissions from 9 August remain untraceable — which the item itself says is the answer.","housekeeping checked · submission stays untraced"],
+  ["T06","The closure pass","done",
+   "Confirmed every one of the 12 published city cells was built from its complete building list, then updated the register, this board and the project checklist.","register, board and checklist updated"]]],
  ["E","Standing obligations — these never close",[
   ["S01b","The register amendment — applied and verified","done",
    "Written into the register and the checklist. It now holds <b>30 items</b>, and every wrong statement is still visible — struck through, dated, with the correction beneath it. Verified against the register itself rather than the executor's summary: totals agree everywhere they appear, the new items exist as full entries, and nothing was deleted.","applied · audited"],

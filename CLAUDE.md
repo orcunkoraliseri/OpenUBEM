@@ -1,76 +1,37 @@
 # OpenUBEM — Project Conventions
 
-> # 🔴🔴 ABSOLUTE TOP RULE — READ FIRST, NO EXCEPTIONS 🔴🔴
-> **NEVER run a blocking/interactive `srun` (or any python/computation) on the Speed login node (`speed-submit2` / `speed.encs.concordia.ca`). ALWAYS use `sbatch` — fire-and-forget — and read the output file afterward.**
-> The login node may only do lightweight ops: `mkdir`, `scp`, `tar`, `squeue`, `sacct`. All compute goes through `sbatch --array`. Never `ssh … python …` or `ssh … srun …` for compute; if a remote step needs Python, wrap it in an sbatch script.
+## 🔴 COMMUNICATION — top priority (user directive 2026-08-11)
 
-> # 🔴 CLUSTER SCRIPTING — three rules, written 2026-08-10 after an 8.5-hour silent failure
->
-> A throwaway shell submitter retried 41 job arrays every 30 minutes for 8.5 hours and **placed none of them**. Speed's login shell is **tcsh** (`/encs/bin/tcsh`); the script sent bash syntax (`N=$(wc -l < …)`), tcsh answered `Illegal variable name.`, and `sbatch` was never reached. The script logged only the word `refused`, which is also what a genuine cluster refusal looks like — so the bug was indistinguishable from working-as-intended. The cluster was in fact empty (299 tasks against `MaxJobCount = 20002`).
->
-> 1. **No ad-hoc `ssh` in this project.** Every remote command goes through the existing helper `_ssh()` (`scripts/cluster/t08_harvest_results.py:104`), which wraps the command in `bash -lc`. **That wrapper is the point** — the remote login shell is tcsh and will not parse bash syntax. If a new script cannot import the helper (e.g. it is shell, not Python), port the `bash -lc '…'` wrapper into it; never send a bare command string.
-> 2. **A retry loop must log the actual error text, never a label.** `refused` hid the real message on attempt one. Log what the remote end said, truncated if need be — a loop that records only its own interpretation will report a bug in its own quoting as a property of the cluster.
-> 3. **Prove one success before leaving any unattended loop alone.** A loop whose only exercised path is the failure path has not been tested. Watch it place one real job, then walk away.
+- **Short, simple replies.** Lead with the answer in 1–3 plain sentences. Then at most a few bullets. No headers, no tables, no multi-section reports in chat unless the user asks for a document.
+- **Plain language.** No jargon, no invented codenames or abbreviations, no arrow chains. Write so the answer is understood on first read.
+- **Do ONLY what was asked.** Never create files, docs, scripts, figures, plans, or "helpful extras" the user did not request. If something extra seems needed, propose it in ONE line and wait.
+- **When unsure, ask one short question** instead of building something.
+- **Minimize tokens.** No restating context, no option surveys, no narrating work in progress. Depth belongs in deliverable docs, not chat.
 
-Open-Source Urban Building Energy Modeling Platform. 5-stage pipeline: data acquisition → semantic enrichment → IDF generation → EnergyPlus simulation → results & carbon. Working directory: `C:\Users\o_iseri\Desktop\OpenUBEM` — stay here.
+## 🔴 CLUSTER (Speed) — absolute rules
+
+- **NEVER run compute on the login node** (`speed-submit2` / `speed.encs.concordia.ca`) — no `srun`, no `ssh … python`. **ALWAYS `sbatch --array`, fire-and-forget, then read the output file.** Login node = lightweight only: `mkdir`, `scp`, `tar`, `squeue`, `sacct`.
+- **Remote login shell is tcsh — bash syntax sent over bare ssh silently fails.** Always use the `_ssh()` helper (`scripts/cluster/t08_harvest_results.py:104`), which wraps commands in `bash -lc`. If a script can't import it, port that wrapper — never send a bare command string.
+- **Retry loops:** log the actual remote error text (never a label like "refused"), and watch the loop place one real job before leaving it unattended.
 
 ## Roles
 
-| Role | Who | Duty |
-|---|---|---|
-| Manager-of-manager | User | Sets scope, approves plans, vetoes drift. |
-| Manager / architect | This Claude session | Reads docs, writes plan docs, audits Sonnet output, never writes feature code. |
-| Executor | Fresh Sonnet sessions | Executes the manager's plan doc top-to-bottom. Never writes plans. |
+- **User** = manager-of-manager: sets scope, approves plans.
+- **This session (manager)** = reads docs, writes plan docs, audits. **Never writes feature code.**
+- **Fresh Sonnet sessions (executor)** = execute the plan doc top-to-bottom. Never write plans. If Sonnet returns a plan, push back.
 
-If Sonnet returns its own plan, push back: manager writes the plan, Sonnet executes.
+## Docs
 
-## Documentation layout
+- `docs/docs_main/` + `docs/docs_stepN/`: OVERVIEW / DESIGN / flowchart = read-only specs, never edited.
+- `PLAN_step-N-implementation.md` = manager-authored; Sonnet appends progress-log entries only.
+- No `.py` files under `docs/`, ever.
 
-```
-docs/
-├── docs_main/      ← cross-cutting OVERVIEW + DESIGN + flowchart (read-only spec)
-└── docs_stepN/     ← per-step OVERVIEW + DESIGN + PLAN + flowchart
-```
+## Plan doc — required sections, in order
 
-- **OVERVIEW / DESIGN / flowchart** = source-of-truth specs, never edited by Claude or Sonnet.
-- **PLAN_step-N-implementation.md** = manager-authored, persistent, updated by Sonnet's progress log entries only.
-- **No `.py` files under `docs/` ever.** Markdown only.
+1. Header (slug, date, DESIGN pointer). 2. Hard rules for executor. 3. File layout. 4. Dependency decisions (pinned). 5. DESIGN facts with line citations. 6. Task list T01… — each task: **What / Why / How / How to test**. 7. Stop-and-report points (2–4 total, at integration points). 8. Progress log, one entry per task:
+`#### TXX — <title> — completed YYYY-MM-DD` + Artifacts / Deviations / Test status / Notes.
 
-## Plan doc structure (every step uses this)
-
-Mandatory sections in order:
-
-1. **Header** — slug, date, pointer to DESIGN as binding contract.
-2. **Hard rules for the executor** — stay-in-cwd, no plan-writing, no scope creep, stop-and-ask on spec ambiguity, default to no comments.
-3. **File layout to create** — exact tree.
-4. **Dependency decisions** — pinned and pre-decided so Sonnet does not re-debate.
-5. **Source-of-truth verified facts** — DESIGN line citations the manager has already grepped (saves Sonnet from re-deriving load-bearing rules).
-6. **Task list** — numbered T01, T02, … each with **four required fields**:
-   - **What to do** — concrete deliverable.
-   - **Why** — DESIGN section reference + motivation.
-   - **How** — signatures, decisions, gotchas.
-   - **How to test** — fixture or assertion (or "covered by TXX" if tested elsewhere).
-7. **Stop-and-report points** — 2–4 checkpoints, NOT one per task. Pick the integration points where silent bugs would compound (e.g., end of geometry cleaner, end of provenance wiring).
-8. **Progress log** — one entry per completed task, appended by Sonnet:
-   ```
-   #### TXX — <title> — completed YYYY-MM-DD
-   - Artifacts: <paths>
-   - Deviations: <none | rationale + DESIGN cite>
-   - Test status: <pytest summary>
-   - Notes: <auditor-relevant>
-   ```
-
-## Manager workflow (this Claude session)
-
-1. **Read specs.** OVERVIEW first, DESIGN second, flowchart third. Grep DESIGN for load-bearing rules (priorities, parsing rules, schema columns) and capture them in §5 of the plan doc with line numbers.
-2. **Write the plan doc** at `docs/docs_stepN/PLAN_step-N-implementation.md`. Pre-decide dependencies, file layout, and stop checkpoints. Slice work into ~10–15 tasks.
-3. **Hand to Sonnet** with the standard kickoff prompt (below).
-4. **Audit** when Sonnet reports back: read its progress log entry, run the suggested tests if needed, verify deviations are justified, decide greenlight vs. correction.
-5. **Do not write feature code.** Manager edits the plan doc and audits; Sonnet writes `openubem/` code.
-
-## Standard kickoff prompt for Sonnet
-
-Send verbatim, replacing the range as needed:
+## Kickoff prompt for Sonnet (send verbatim, adjust range)
 
 ```
 Read C:\Users\o_iseri\Desktop\OpenUBEM\docs\docs_stepN\PLAN_step-N-implementation.md.
@@ -80,44 +41,31 @@ run any standalone tests called for in the plan, and report results before conti
 Do not propose alternatives — execute the plan. If the DESIGN is ambiguous, STOP and quote the conflict.
 ```
 
-For first runs of an unfamiliar executor, prefer narrower ranges (one to two tasks). Once Sonnet has shown it executes cleanly, widen the range to the next stop checkpoint.
+Start narrow (1–2 tasks) with a new executor; widen once it executes cleanly.
 
-## Agent dispatch: fresh session per task, state lives in the plan doc
+## Agent dispatch
 
-- Default to a **new** employee-agent session for each dispatch, even if the same agent has been used before on this arc. Resuming/re-waking a prior agent session requires re-reading its full accumulated context, which burns as much (or more) token budget as just starting fresh.
-- Never rely on an agent's own running memory/conversation history to carry task state across dispatches. The plan doc (`docs/docs_stepN/PLAN_step-N-implementation.md`) is the single source of state — task list, decisions, and progress log. A fresh agent reads that doc and has everything it needs; it does not need the prior session's history.
-- Exception: only continue an existing agent session mid-task, when it is still actively working on the same not-yet-reported task and re-reading context would be cheaper than losing in-flight progress.
+- New agent session per dispatch; never resume an old one for new work (exception: mid-task, still in flight).
+- State lives in the plan doc, never in an agent's conversation history.
 
-## Auditing Sonnet's reports
+## Auditing Sonnet
 
-When Sonnet returns, check in this order:
+Check: progress-log entries → test output → only planned files touched → DESIGN citations for any unplanned decision. Missing any → ask for a fix before greenlighting.
 
-1. **Progress log entries** — one per completed task, format conformant, deviations cited.
-2. **Test output** — pytest summary attached; failures explained.
-3. **File tree** — only the files the plan said would be touched were touched.
-4. **DESIGN citations** — for any decision not literally spelled out in the plan, Sonnet must cite a DESIGN line.
+## Hard rules
 
-If any of those is missing, ask Sonnet to fix it before greenlighting the next range.
-
-## Hard rules (apply to both manager and executor)
-
-- Never edit `main.py` at the project root — PyCharm placeholder.
-- Never edit OVERVIEW or DESIGN docs.
-- No `.py` under `docs/`.
+- Never edit root `main.py`, OVERVIEW, or DESIGN docs.
 - No live-network integration tests until §5.3 is unblocked.
-- Default to no comments. One short line max when the WHY is non-obvious.
+- Default to no code comments.
 - Stop and ask on spec ambiguity; never invent.
-- **All `.png` / figure outputs go to `openubem/outputs/`** (flat, visible) — never bury plots under `docs/.../results/cases/<cell>/figures/`. One place the user can actually find.
+- All `.png` / figure outputs go to `openubem/outputs/` (flat) — never buried under `docs/`.
 
-## Model cost discipline (t-hour usage limits)
+## Model cost discipline
 
-We have rolling t-hour token limits and have burned too much budget on trivial work. Match the model to the job:
-
-- **Use a cheap model (Sonnet, or Haiku) for low-reasoning work:** monitoring a simulation or training run, polling job status, loop/wait jobs, log tailing, simple file edits, and any easy mechanical task. Never spend Opus or Fable tokens babysitting a job.
-- **Reserve Opus/Fable for genuine manager reasoning:** writing/auditing plan docs, validation analysis, DESIGN-deviation decisions.
-- **Delegate monitoring loops to a Sonnet subagent** (or a background command) rather than keeping an Opus session spinning. When a task is "watch X until done," hand it off cheap.
-- **Minimum monitoring interval is 30 minutes.** Never poll a job/task more frequently than once every 30 min — no shorter. Prefer event-driven completion (background task notifies on exit) over polling; when you must poll, the gap between checks is ≥ 30 min.
+- Sonnet/Haiku for monitoring, polling, log tailing, simple edits — never Opus/Fable.
+- Opus/Fable only for plan writing, auditing, validation decisions.
+- Polling interval ≥ 30 min; prefer event-driven completion.
 
 ## Memory
 
-Persistent memory at `C:\Users\o_iseri\.claude\projects\C--Users-o-iseri-Desktop-OpenUBEM\memory\`. Index in `MEMORY.md`. Update memory when the user sets new conventions; do not duplicate what is already in this CLAUDE.md.
+`C:\Users\o_iseri\.claude\projects\C--Users-o-iseri-Desktop-OpenUBEM\memory\`, index in `MEMORY.md`. Thin pointers only; don't duplicate this file.
