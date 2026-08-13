@@ -9,7 +9,9 @@ OPEN-02, OPEN-28, OPEN-35. **Does not close OPEN-01 or OPEN-35** — see §7.
 
 ---
 
-## 0. Lead: `auto` — the mode the adopted 158.0 kWh/m² baseline came from
+## 0. Lead: `auto` — the mode the adopted ~~158.0~~ **157.1 kWh/m²** (pooled: total simulated energy ÷
+total simulated floor area; the struck figure was a count-weighted mean of the 12 cell means,
+superseded 2026-08-12, OPEN-43) baseline came from
 
 n = 8,160. **Median error factor = 1.0000.** Mean = 1.0592 (pulled up by a 6-building tail, §6).
 Range 0.9998× – 336.65×. **99.63% (8,130 / 8,160) sit within ±1% of 1.0.**

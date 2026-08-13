@@ -44,8 +44,8 @@ def parse_err_file(err_path: Path) -> tuple[int, int, str]:
         n_warnings, n_severe = 0, 0
 
     # Collect first severe line for summary
-    severe_lines = [l.strip() for l in text.splitlines() if "** Severe **" in l]
-    error_summary = severe_lines[0] if severe_lines else ""
+    from openubem.results.err_parse import first_severe
+    error_summary = first_severe(text)
     return n_warnings, n_severe, error_summary
 
 

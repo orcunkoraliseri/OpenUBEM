@@ -125,7 +125,9 @@ and records it in the register. **A task that produces a number is finished at t
 - Existing evidence CSVs: `openubem/outputs/comparisons/open01_denominator_audit.csv` (40,800 rows),
   `e02_simulated_floor_area.csv` (40,800 rows), `open41_failure_causes.csv`.
 - The adopted baseline is **`phaseE` + E-R3-3 + elevators, 12 cells, 8,160 buildings, fleet
-  158.0 kWh/m²**, and it runs in **`auto`** mode — the mode the six buildings publish in.
+  ~~158.0~~ 157.1 kWh/m²** (pooled: total simulated energy ÷ total simulated floor area; the struck
+  figure was a count-weighted mean of the 12 cell means, superseded 2026-08-12, OPEN-43), and it runs
+  in **`auto`** mode — the mode the six buildings publish in.
 
 **OPEN-13 / E-UTCI-12**
 - `tests/test_draw_methods.py:645` references `imp._draw_tier`. **Verified 2026-08-12:** the symbol
@@ -226,7 +228,10 @@ untraced answer is a valid result and is far better than a guessed one.**
 
 ---
 
-### T02 — OPEN-42: what the six buildings do to the adopted 158.0 kWh/m² fleet figure *(MEASUREMENT ONLY)*
+### T02 — OPEN-42: what the six buildings do to the adopted ~~158.0~~ 157.1 kWh/m² fleet figure
+(pooled: total simulated energy ÷ total simulated floor area; the struck figure was a count-weighted
+mean of the 12 cell means, superseded 2026-08-12, OPEN-43) *(MEASUREMENT ONLY — task body below is
+the historical instruction as given; not restated per-line, see §4/OPEN-43 for the adopted figure)*
 
 **What.** Measure the effect of the six wrong denominators on the **adopted** fleet EUI. The register
 states this is *"unmeasured and must not be assumed negligible."* Replace the assumption with a number.

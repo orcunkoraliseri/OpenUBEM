@@ -78,7 +78,7 @@ class TestOutputs:
         assert sqlite.Option_Type == "SimpleAndTabular"
 
     def test_hvac_meters_count(self):
-        assert len(HVAC_METERS) == 13
+        assert len(HVAC_METERS) == 14
 
     def test_hvac_meters_phase_e_required(self):
         required = {
@@ -89,6 +89,7 @@ class TestOutputs:
             "InteriorEquipment:NaturalGas",
             "Cooking:InteriorEquipment:Electricity",
             "Refrigeration:InteriorEquipment:Electricity",
+            "Elevators:InteriorEquipment:Electricity",
         }
         assert required.issubset(set(HVAC_METERS))
 
@@ -105,4 +106,4 @@ class TestOutputs:
         idf = _fresh_idf()
         write_outputs(idf)
         meters = idf.idfobjects["OUTPUT:METER"]
-        assert len(meters) == 13
+        assert len(meters) == 14

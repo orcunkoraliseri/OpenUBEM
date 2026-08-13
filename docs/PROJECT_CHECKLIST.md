@@ -51,6 +51,17 @@ exclusions**, unchanged: `docs_DONE/` arc records, `docs_main/` specs, and
 `docs_TODO/layoutgenerator/` are never edited to chase a citation — they are resolved through the
 migration table above instead. **Measured cost: ~30 minutes per archive.**
 
+**🔴 Classification before/after gate — ruled obligatory 2026-08-09 (CP-M3), written here
+2026-08-12 (OPEN-31).** No change to `openubem/semantic/building_classifier.py` that can move
+classification is adopted until the labelled fixture has been run on **both** sides of the change
+and **both** accuracy numbers are recorded. A single "after" number does not satisfy the gate. What
+it would have caught: E-R3-3 cost **4 points** of fine top-1 and reclassified **13.4%** of the shared
+fleet, and **neither number existed at adoption time** — attributing the drift later took a
+five-commit bisection, six weeks late. **What this ruling does not do:** it does not re-open any
+already-adopted change retroactively (re-running M01–M05 is forbidden), and it does not certify the
+fixture itself — OPEN-22 is rebuilding the labelled exam, and if the fixture changes, this gate
+follows it. Also written at the head of `openubem/semantic/building_classifier.py`.
+
 ---
 
 > **Last updated:** 2026-07-26 (**🔒 ARC L — E-LA-20 FIX ARC CLOSED, CP-C SIGNED.** The multilayer-fix
@@ -138,7 +149,9 @@ migration table above instead. **Measured cost: ~30 minutes per archive.**
 
 **Adopted simulation baseline — UNCHANGED, and untouched by everything in Arc L.**
 `phaseE` + E-R3-3 correction + elevators. NYC −31.3% / LA −3.6% / Austin −30.5%, fleet
-158.0 kWh/m². It resolves `thermal_mass=False` on every built row, so the E-LA-20 fix is provably
+~~158.0~~ **157.1 kWh/m²** (pooled: total simulated energy ÷ total simulated floor area; the struck
+figure was a count-weighted mean of the 12 cell means, superseded 2026-08-12, OPEN-43). It resolves
+`thermal_mass=False` on every built row, so the E-LA-20 fix is provably
 inert on it (F10, by construction — no re-simulation was needed to establish this).
 
 **Arc L — `layoutAssigner` — 🔄 RE-OPENED 2026-07-26 as the Q3 storey-matching arc.** The park

@@ -39,18 +39,15 @@ from openubem.semantic import draw_methods as dm
 from openubem.semantic import imputation as imp
 from openubem.semantic.imputation import impute_missing
 
-pytest.skip(
-    "OPEN-17 / E-UTCI-12: the draw tier's router wiring (`imputation._draw_tier`, "
-    "`_CANONICAL_TIER_ORDER` / `_TIER_HANDLER_NAMES` including \"draw\", "
-    "`config.IMPUTE_DRAW_METHOD_BY_TARGET`) has never been implemented in "
-    "openubem/semantic/imputation.py or openubem/config.py -- this module's "
-    "collection-time reference to `imp._draw_tier` is what previously aborted "
-    "`pytest -q` for the whole repo. Implementing the draw tier is a promotion "
-    "decision that belongs to the user (OPEN-17), not something this collection "
-    "fix may take. Skipped module-level, not deleted or weakened, pending that "
-    "decision.",
-    allow_module_level=True,
-)
+# OPEN-13 / OPEN-17 / OPEN-36: the draw tier's router wiring (`imputation._draw_tier`,
+# `imputation._draw_stratum_col_for`) has never been implemented in
+# openubem/semantic/imputation.py -- a class-body-level (collection-time) reference to
+# these two names is what previously aborted `pytest -q` for the whole repo (OPEN-13).
+# Implementing the draw tier is a promotion decision that belongs to the user (OPEN-17),
+# not something a collection fix may take. `_HAS_DRAW_TIER` narrows the resulting skip to
+# only the one class whose body needs the missing symbols at definition time
+# (`TestNoEUILeakage`); every other test in this module collects and runs normally.
+_HAS_DRAW_TIER = hasattr(imp, "_draw_tier") and hasattr(imp, "_draw_stratum_col_for")
 
 
 # ── T01 -- registry scaffold + opt-in config surface + byte-identity floor ──
@@ -641,26 +638,35 @@ class TestDrawTierRouting:
 
 # ── T08 -- zero-fitted-params structural guard + whole-tier determinism ────
 
+@pytest.mark.skipif(
+    not _HAS_DRAW_TIER,
+    reason=(
+        "OPEN-13 / OPEN-17 / OPEN-36: `imputation._draw_tier` and "
+        "`imputation._draw_stratum_col_for` do not exist yet (the draw tier's router "
+        "wiring has never been implemented -- promoting it is OPEN-17, a DESIGN "
+        "decision this test may not take). Narrowed from a module-level skip so the "
+        "other tests in this file, which do not need these two symbols, run again."
+    ),
+)
 class TestNoEUILeakage:
     """Mirrors `test_ml_imputer.py::TestNoEUILeakage` / `test_debias.py::
     TestNoEUILeakage`'s `__code__.co_names` structural pin (Part II §II.1
     rule 3): no draw function or `_draw_tier` may ever reference an EUI/
     `total_eui`/`*_eui_kwh_m2`-like name."""
 
-    _FUNCS = (
-        dm.draw_kde,
-        dm.draw_pmm,
-        dm.draw_hotdeck,
-        dm.draw_resid,
-        dm.draw_catfreq,
-        dm.draw_abb,
-        dm._empirical_freqs,
-        imp._draw_tier,
-        imp._draw_stratum_col_for,
-    )
-
     def test_no_function_code_references_eui_by_name(self):
-        for func in self._FUNCS:
+        funcs = (
+            dm.draw_kde,
+            dm.draw_pmm,
+            dm.draw_hotdeck,
+            dm.draw_resid,
+            dm.draw_catfreq,
+            dm.draw_abb,
+            dm._empirical_freqs,
+            imp._draw_tier,
+            imp._draw_stratum_col_for,
+        )
+        for func in funcs:
             referenced = set(func.__code__.co_names)
             leaked = [n for n in referenced if "eui" in n.lower()]
             assert not leaked, (

@@ -39,6 +39,8 @@ HVAC_METERS: tuple[str, ...] = (
     "Refrigeration:InteriorEquipment:Electricity",
     "InteriorLights:Electricity",
     "InteriorEquipment:Electricity",
+    # OPEN-46 T05: elevator subcategory meter, so future runs record the 10th end-use.
+    "Elevators:InteriorEquipment:Electricity",
 )
 
 

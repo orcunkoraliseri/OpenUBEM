@@ -622,8 +622,8 @@ def build_sim_manifest(idf_manifest: pd.DataFrame, sim_out_dir: Path,
             matches = _re.findall(r"(\d+)\s+Warning;\s*(\d+)\s+Severe", etxt)
             if matches:
                 n_warnings, n_severe = int(matches[-1][0]), int(matches[-1][1])
-            severes = [l.strip() for l in etxt.splitlines() if "** Severe **" in l]
-            error_summary = severes[0] if severes else ""
+            from openubem.results.err_parse import first_severe
+            error_summary = first_severe(etxt)
 
         sim_rows.append({
             "osm_id": oid_raw,

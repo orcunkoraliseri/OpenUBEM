@@ -37,6 +37,7 @@ from openubem.idf.hvac import assign_hvac
 from openubem.idf.dhw import assign_dhw
 from openubem.idf.cooking import assign_cooking
 from openubem.idf.refrigeration import assign_refrigeration
+from openubem.idf.elevators import assign_elevators
 from openubem.idf.opaque_assembly import build_opaque_assembly
 from openubem.idf.outputs import write_outputs
 from openubem.semantic.schedules import write_schedules_to_idf
@@ -605,6 +606,7 @@ class BuildingIDF:
         assign_dhw(self.idf, row, extruded_zones)
         assign_cooking(self.idf, row, extruded_zones)
         assign_refrigeration(self.idf, row, extruded_zones)
+        assign_elevators(self.idf, row, extruded_zones)
 
         # 3I: outputs
         write_outputs(self.idf, trim_hourly=self.trim_outputs)

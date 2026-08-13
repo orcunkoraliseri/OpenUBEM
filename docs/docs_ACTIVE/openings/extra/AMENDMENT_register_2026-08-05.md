@@ -190,7 +190,9 @@ A `layout_assign` EUI could be approximately correct while both of its inputs ar
 wrong — which is a weaker footing than a number that is right component-wise, because the
 cancellation is coincidental and will not hold under any change to either mechanism.
 
-**Explicitly not claimed:** that the adopted fleet baseline (158.0 kWh/m²) is affected. OPEN-01 item 3
+**Explicitly not claimed:** that the adopted fleet baseline (~~158.0~~ **157.1 kWh/m²** (pooled: total
+simulated energy ÷ total simulated floor area; the struck figure was a count-weighted mean of the 12
+cell means, superseded 2026-08-12, OPEN-43)) is affected. OPEN-01 item 3
 — *whether any adopted result depends on `layout_assign`* — is **still unmeasured**, and register
 line 148 requires it be confirmed rather than assumed. **That confirmation is this item's first
 measurement**, and it is cheap.

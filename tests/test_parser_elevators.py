@@ -1,9 +1,21 @@
-"""T05: Elevators surfaced as its own end-use column in the results breakdown.
+"""OPEN-46 T05: Elevators surfaced as their own end-use column in the results breakdown.
 
-Elevators are ElectricEquipment, so their kWh is already inside the hourly
-`Zone Electric Equipment Electricity Energy` (equipment_eui) and therefore already
-in total. T05 breaks them out into a mutually-exclusive 10th end-use while keeping
-BOTH total_eui and gwp_total numerically invariant.
+Elevators are ElectricEquipment, so when the Elevators:InteriorEquipment:Electricity meter
+is present their kWh is already inside the hourly `Zone Electric Equipment Electricity
+Energy` (equipment_eui) and therefore already in total. The parser breaks them out into a
+mutually-exclusive 10th end-use while keeping BOTH total_eui and gwp_total numerically
+invariant.
+
+🔴 Scope of what these tests cover, 2026-08-12. They exercise the REPORTING path only:
+`openubem/results/parser.py`, `openubem/idf/outputs.py` and `openubem/results/carbon.py`.
+The de-folding is GUARDED — it fires only when the meter carried energy; a SQL without the
+meter yields elevators_eui_kwh_m2 = 0.0 with equipment and total left bit-identical.
+
+🔴 What these tests do NOT cover: `openubem/idf/builder.py` never calls
+`openubem.idf.elevators.assign_elevators`, so IDFs built from the live tree today emit no
+elevator ElectricEquipment and therefore no elevator meter. Nothing here asserts that the
+load is present in a built IDF; wiring it is a separate ruling reserved for the user
+(see tests/test_step3_orchestrator.py, which deliberately carries no elevator-in-IDF test).
 """
 import sqlite3
 from pathlib import Path

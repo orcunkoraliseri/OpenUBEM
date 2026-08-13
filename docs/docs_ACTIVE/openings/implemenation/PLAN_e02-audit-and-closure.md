@@ -374,7 +374,9 @@ file.**
 
 **(b) OPEN-01(b) — the same fleet-wide, in all five modes.** This is the number that has never existed
 for any mode: *does the adopted `auto` path divide by the right area?* Report `auto` first and
-prominently — it is the mode the adopted 158.0 kWh/m² baseline came from.
+prominently — it is the mode the adopted ~~158.0~~ **157.1 kWh/m²** (pooled: total simulated energy ÷
+total simulated floor area; the struck figure was a count-weighted mean of the 12 cell means,
+superseded 2026-08-12, OPEN-43) baseline came from.
 
 **(c) OPEN-28 — the generation confound, bounded.** E02 is a **fourth** harvest generation, and its
 declared area comes from a **third-generation** file (`05_results.csv`). Quantify the confound rather
