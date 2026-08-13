@@ -434,9 +434,55 @@ Speed with `Unmatched '.` — a tcsh parse limit, reproduced with a quote-free p
 hit it now chunks under 7,500 chars and no other script builds commands that long. It is filed as a
 **standing operational fact** in the director prompt's cluster section, where facts of that shape live.
 
+**Amended 2026-08-12 (evening — the rulings-and-five-items sweep, `implemenation/PLAN_rulings-and-five-items-2026-08-12.md`, T01–T10, five parallel executors, every headline re-derived by the director from raw artifacts).**
+
+**Count arithmetic: 32 − 3 closed (OPEN-43, OPEN-31, OPEN-04) + 3 opened (OPEN-45, OPEN-46, OPEN-47) = 32.** Findings 32 → 32. 🔴 **Three of the four rulings the user took today were closed out; three new items were opened, and all three came from auditing a result rather than from running a task.** That is now the dominant way this register grows, for the fifth consecutive pass.
+
+**Rulings taken by the user 2026-08-12 and discharged the same day:**
+
+1. 🔵 **OPEN-43 — RULED AND CLOSED. The published fleet EUI is `157.1 kWh/m²`, pooled: total simulated energy ÷ total simulated floor area over all 8,154 successful buildings.** The user delegated the choice ("*tu progress selon la plus bon precision*"); the director ruled pooled because it is the physical definition of an intensity, it is what a reader of "fleet EUI" assumes, and — unlike the mean-of-cell-means — **it does not change if the 12 cells are re-cut.** All four aggregations re-derived twice, independently, agreeing to 4 dp: **pooled 157.0552** · count-weighted **158.0298** (the struck figure) · success-weighted **158.0557** · unweighted **160.0993**; n_total 8,160, n_success 8,154, floor area 23,545,868.4 m². ~~158.0~~ restated with its definition beside it in **13 live files**; archived trees (`docs_DONE/`, `docs_main/`, `docs_VALIDATION/`) deliberately untouched as historical record. Reference implementation: `scripts/analysis/open43_fleet_aggregations.py`. Report: `extra/FIX_open-43_fleet-aggregation.md`. **ID retired.**
+2. ✅ **OPEN-31 — CLOSED.** The CP-M3 before/after gate is now written in **two** places: a docstring block at the head of `openubem/semantic/building_classifier.py`, and the head section of `docs/PROJECT_CHECKLIST.md`. Director-verified that **both files' diffs are comment/docstring only — no executable line changed.** Report: `extra/FIX_open-31_classification-gate.md`. **ID retired.**
+3. ✅ **OPEN-33 — CLOSED** (its last leg, written by the director): `CLAUDE.md` now carries an "Archiving an arc" section pointing at the full rule in `PROJECT_CHECKLIST.md`.
+4. ✅ **OPEN-04 — CLOSED, hypothesis REFUTED.** The surviving explanation for the 92.0% → 88.0% accuracy drift was "tag coverage got worse, so more buildings fall back to size-guessing." **It is false. `FALLBACK_SIZE_DEFAULT` fires on exactly the same 17 of 50 rows at all four checkpoints (`7635ce2`, `67ede73`, `0df422e`, HEAD) — not one row ever crosses that boundary.** The drift is entirely within-rule reassignment from the E-R3-3 office/apartment tier rewrite plus one hotel-tier routing fix. 🔴 **One fact worth carrying forward: the historical 92.0% is not reproducible and never will be** — the harness reproduces 84.0/88.0/88.0 exactly but returns 66.0% at `7635ce2`, because **the very next commit (`67ede73`) rewrote 14 of the fixture's 50 answers in the same commit that changed the classifier.** A score graded against a since-rewritten answer key cannot be re-graded. Evidence: `openubem/outputs/comparisons/open04_ruletoken_by_commit.csv`; report `extra/MEASUREMENT_open-04_tag-coverage-hypothesis.md`. **ID retired.**
+
+**Items that grew or advanced (all still open):**
+
+- ⚠️ **OPEN-22 — the tag-rich fixture exists and it does what it was built to do.** `tests/fixtures/labelled_archetypes_tagrich_v2.csv`: 100 rows stratified from the director-verified 592-row tag-rich pool, seed `20260812`, **labelled from source tag evidence by a script that never imports the classifier** (director-verified: the builder does not import it; only the separate grader does), 2 rows marked `UNDETERMINED` and excluded. **Size-guessing fell from 34.0% (17/50) to 3.1% (3/98)** — the entire purpose of the rebuild. Accuracy **88.8%** overall, **91.6%** excluding fallback; the old fixture's 88.0% precondition reproduced first. Director re-graded both fixtures from scratch: **every figure matches exactly.** Still open: **no pytest test is wired to the new fixture** (deliberately deferred — `tests/` had a concurrent executor), and **the 0.70 gate in `test_fine_top1` is not transferable to a different exam — that threshold decision is owed to the user.** The 70 `building=roof` rows were kept in the pool and labelled `OpenUBEMUnknown`; see OPEN-47 for the external corroboration that `building=roof` means an open-sided canopy.
+- 🔴 **OPEN-36 — the bound does not hold, and the item grows. 6 genuine governance gaps, not 1.** The re-sweep re-verified all 596 completion entries at HEAD (N13's own script did not survive, so it was rewritten: `scripts/analysis/open36_governance_resweep.py`). Gaps trace to **4 distinct incidents**: T07's known one, T09b, T11.8 and T11.8b (the `IMPUTE_DEBIAS_NEWERSKEW` / `_DEBIAS_NEWERSKEW_QMAP*` / `_DEBIAS_SKIPPED_THINSTRATUM` cluster), and two unrelated T04 entries. **Director-verified independently for the debias cluster: `openubem/config.py` contains no `IMPUTE_DEBIAS` attribute of any kind, on any branch — the only tree hits are the executors' own output files.** The re-sweep also found a **methodology bug in N13's own correction**: an unrestricted repo-wide `git log -S` that mistook a plan document's prose for committed code. Non-vacuity control passes (the sweep finds T07's known gap). **Failure rate is 6 of 444 checkable entries — 1.4%, not 0.2%. This changes OPEN-36 from "one bad record" to "completion records are unreliable as a class."** Report: `extra/MEASUREMENT_open-36_governance-resweep.md`.
+- 🔴 **OPEN-44 — fully triaged, and it reads far better than "70 broken tests."** All 106 nodes classified, zero left `UNTRIAGED`: **65 `artifact-missing`** (a test asserting an output file exists on disk — fails on any machine where it was never regenerated), **21 `tests-for-code-that-never-existed`**, **17 `fixture-wiring`**, **2 `stale-expectation`**, and **exactly 1 `REAL-DEFECT`** — a `NameError` on an undefined `zones_found` at `scripts/analysis/test_viewer_layout_assign.py:24`, in a script, not in shipped code. Tree split confirmed: 61 in the archived elevators tree, 44 in `tests/`, 1 in `scripts/analysis/`. The `synthetic_10_gdf` errors are a **missing `conftest.py` in the archived tree**, not a missing fixture file. `tests/`-only run: **25 failed · 1,788 passed · 10 skipped · 19 errors, 18m14s.** Report: `extra/MEASUREMENT_open-44_test-triage.md`; row-level CSV `openubem/outputs/comparisons/open44_test_triage.csv`. **Nothing published is known to depend on any of the 106.**
+- 🟡 **OPEN-13 — 43 innocent tests recovered.** The module-level skip on `tests/test_draw_methods.py` is replaced by a `_HAS_DRAW_TIER` guard; the single class-body-level reference to `imp._draw_tier` that aborted collection was moved inside its test method, and only `TestNoEUILeakage` is now skipped. Director re-ran both checks: **43 passed · 9 failed · 1 skipped**, and whole-repo collection **1,990 collected, exit 0** (up from 1,937). `_draw_tier` itself is still not implemented — that is OPEN-17, a DESIGN decision, and was deliberately not touched. Report: `extra/FIX_open-13_narrow-skip.md`.
+- ⚠️ **OPEN-42 — the last unknown is answered, and the answer is "not locally recoverable."** The adopted run's own `eplusout.err`/`.end` for the six do not survive: **all six `work_dir`s exist and are empty (0 files)** — director-verified — and the six are absent from the T17–T20 harvest caches and from `cache/`. Per the plan's rule that is reported as a complete result, not backfilled with a hypothesis. The six re-derive exactly from the adopted manifests: **8,154 success / 6 failed**, `n_severe` 26/7/4/12/4/24, five in `la_rural` and one in `la_urban`. Corroborating traces from *other* campaigns (labelled as such, not conflated) reproduce the OPEN-11 stage-2 signature — and confirm the `thermal_mass=True` remediation was **never wired into `v12_cell_pipeline.py`** (grep: zero matches). Report: `extra/MEASUREMENT_open-42_six-failures.md`.
+
+**Three new items, all opened by auditing:**
+
+- 🔴 **OPEN-45** (§2) — the `Severe` marker is matched with **one** space, so **`error_summary` is empty for all 8,160 buildings**, not just the failures.
+- 🔴 **OPEN-46** (§4) — **the elevator end-use breakout was never merged into the live tree**, and three of five archived test twins had the expectation removed rather than the feature added.
+- 🔴 **OPEN-47** (§6) — **the office size-tier thresholds are untraced to any external source**, and this project's own deep-research document contains a **fabricated citation**.
+
 ---
 
-## 1. Summary — **32 tracked items** (OPEN-01 … **OPEN-44**; OPEN-23 excluded, OPEN-21 deferred, OPEN-05, OPEN-25, **OPEN-30, OPEN-33, OPEN-34, OPEN-39, OPEN-40 and OPEN-41** closed — all ten IDs retired; **OPEN-02 and OPEN-28 folded into OPEN-01** on 2026-08-09 and **both discharged 2026-08-11**)
+**Amended again 2026-08-12 (night — the three-new-items sweep, `implemenation/PLAN_three-new-items-2026-08-12.md`, T01–T07, four executors, every headline re-derived by the director from raw artifacts).**
+
+**Count arithmetic: 32 − 0 closed + 1 opened (OPEN-48) = 33.** Findings 32 → 33. 🔴 **None of the three items closed. One of them was materially reversed, and the audit of that reversal opened OPEN-48 — the sixth consecutive pass in which this register grew by checking a result rather than by running a task.**
+
+🔴 **The headline correction of this pass, and it runs the opposite way to the fear it corrects.** OPEN-46 was opened on the belief that the elevator end-use breakout "was never merged into the live tree," with the reassurance attached that the fleet figure was nevertheless safe because elevator energy sat folded inside `equipment_eui_kwh_m2`. **The mechanical half of that was right and the conclusion drawn from it was wrong.** The adopted `phaseE_elevrb` outputs **already carry `elevators_eui_kwh_m2` and `gwp_elevators_kgco2_m2` columns**: across all 12 cells and 8,160 rows, **3,561 are non-zero, summing to 12,508.8 kWh/m²**, and in `nyc_urban` exactly **87** are non-zero — precisely the 87 elevator-eligible buildings. Against the pre-elevator `phaseE` run the **median** of `|Δtotal_eui − elevators_eui|` is **exactly 0**. ✅ **Elevator energy is in the adopted run and inside the published 157.1 kWh/m². Nothing is missing from the published number, and it was never folded into equipment — it was de-folded out of it, which is precisely why the check that looked at equipment saw nothing.**
+
+🔴 **What is actually broken is larger: the adopted run cannot be reproduced from this repository.** Live `openubem/idf/builder.py` never calls `assign_elevators`; live `parser.py`, `outputs.py` and `carbon.py` have no elevator column, meter or GWP term — yet the adopted outputs carry all of it. The wiring existed in the working tree when the run was made and **was never committed**; commit `ef19141` added only the archived copies under `docs/docs_DONE/` plus three orphan live files. **Registered as OPEN-48.**
+
+⚠️ **A method note that belongs in the register, not only in the plan.** The director's own first check reproduced the executor's wrong conclusion, by the same route: both measured change in `equipment_eui_kwh_m2`, the column the de-folding transform moves energy *out of*, where the effect is invisible by construction. **Check the invariant a transform preserves — here the total — not the column it moves energy between.**
+
+**The other two items both advanced, and neither closed:**
+
+- ⚠️ **OPEN-45 — fixed where it was authorised, and the underlying fact this project had been repeating turns out to be wrong.** A single whitespace-tolerant helper (`openubem/results/err_parse.py`, 16 tests) now backs `v12_cell_pipeline.py:625` and `make_manifest_from_cluster.py:47`; load-bearing one-space sites **2 → 0**. 🔴 **But the "two spaces" rule is only half right.** Director censused every marker in all 64 real `.err` files on this machine: **`** Warning **` one space both sides (4,881), `** Severe  **` one space before and two after (37), `**  Fatal  **` two both sides (1).** Consequence: **a literal written for two-spaces-both-sides misses `Severe` exactly as badly as the one-space literal did** — which is the live state of `tests/test_sim_integration.py:171`, matching **0 of the 37** real Severe lines. That site and `openubem/simulation/runner.py:140` were outside the executor's write-set, correctly flagged rather than edited, and **keep OPEN-45 open**.
+- ⚠️ **OPEN-47 — the source exists, and the item stays open for a different reason than it was opened for.** The thresholds trace to **Chen, Hong & Piette (2017), *Applied Energy* 205, 323–335, Table 1** — director-verified by opening the PDF and finding `Small office (<2322 m2 and <= 3 floors)` / `Medium office* (2322 to 9290 m2, <= 5 floors)` / `Large office (>9290 m2 or >=6 Floors)` verbatim, and by Crossref-checking DOI `10.1016/j.apenergy.2017.07.128`. Hong et al. (2015), which the code and `RESULT_I02` both credited, contains **zero** occurrences of either number. Caveat that must travel with the finding: **it is CityBES's own case-study table, not a citation to an external standard.** 🔴 **A divergence found in the quoted text and not yet adjudicated: the source's rule is area AND floor count; `building_classifier.py:175-177` tests area only.** The citation audit also found **a second fabricated DOI** (Sun et al. 2021 given as `10.1016/j.enbuild.2020.110586` — director-checked, **HTTP 404**; the real one is `…110603`) and **a systemic wrong-locator pattern** across every Deru et al. (2011) row.
+
+**One new item:**
+
+- 🔴 **OPEN-48** (§7) — **the adopted baseline run cannot be reproduced from the current repository.** The elevator wiring that produced it was never committed.
+
+---
+
+## 1. Summary — **33 tracked items** (OPEN-01 … **OPEN-48**; OPEN-23 excluded, OPEN-21 deferred, OPEN-05, OPEN-25, **OPEN-30, OPEN-33, OPEN-34, OPEN-39, OPEN-40 and OPEN-41** closed — all ten IDs retired; **OPEN-02 and OPEN-28 folded into OPEN-01** on 2026-08-09 and **both discharged 2026-08-11**)
 
 > **Count arithmetic for 2026-08-12 (the five-item sweep), stated so it can be checked.** **31 tracked
 > items at the start, −1 closed** (OPEN-33), **+2 opened** (OPEN-43, **OPEN-44**) = **32**.
@@ -596,7 +642,7 @@ finding — row added below in the same edit that opened it. No defect ID was op
 the test suite, which OPEN-13's own fix had just made possible, returned **70 failed / 1,822 passed /
 36 errors**. **Two items opened in one day, both by auditing rather than by running a task.** No
 defect ID was opened by either; `E-LA-42` and `E-UTCI-17` are unchanged.
-**Next free item ID: `OPEN-45`.**
+**Next free item ID: `OPEN-49`.** *(Corrected 2026-08-12 night: this line had gone stale at `OPEN-45` while the director prompt was already at `OPEN-48`. OPEN-45, OPEN-46 and OPEN-47 were opened on 2026-08-12 evening and OPEN-48 on 2026-08-12 night.)*
 
 > **Amendment 2026-08-05.** OPEN-28 added, found while auditing the `layout_assign` documentation
 > surfacing work (`layoutAssigner/PLAN_docs-explanation-surfacing.md`, closed the same day). It had
@@ -1247,6 +1293,56 @@ confirmation is this item's first measurement**, and it is cheap.
 >
 > **Still open, unchanged:** the **net** of the two opposing errors. M06 answered the prior question
 > (does it reach the adopted numbers — no), not this item's own question.
+
+---
+
+### OPEN-45 — The pipeline looks for `** Severe **` with one space, so no building in the fleet has a recorded error 🔴 **OPENED 2026-08-12**
+
+> **Amended 2026-08-12 (night, T01–T02 of `PLAN_three-new-items-2026-08-12.md`). Advanced, not
+> closed.** A shared whitespace-tolerant matcher — `openubem/results/err_parse.py`
+> (`SEVERE_RE`/`FATAL_RE`/`WARNING_RE`, `first_severe`, `count_severe`, `has_fatal`) with 16 tests —
+> now backs `scripts/validation/v12_cell_pipeline.py:625` and
+> `scripts/cluster/make_manifest_from_cluster.py:47`. **Load-bearing one-space sites 2 → 0**,
+> director-verified from both diffs. The sweep classified 25 sites in total
+> (`openubem/outputs/comparisons/open45_severe_literal_sweep.csv`): 15 spent one-off repair or
+> diagnostic scripts, listed and deliberately not edited, and 8 already correct.
+>
+> **Non-vacuity control, re-derived by the director on a real file rather than read from the report**
+> (`docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/a2_run_multiplier/eplusout.err`,
+> whose real line is `'   ** Severe  ** Transformer Overloaded'`): the old one-space check returns
+> `[]`; `first_severe()` returns the line.
+>
+> 🔴 **A correction to this project's own stated fact.** Censusing every marker in all **64** real
+> `.err` files on this machine gives: **`** Warning **`** one space both sides (**4,881**),
+> **`** Severe  **`** one space before / two after (**37**), **`**  Fatal  **`** two both sides
+> (**1**). **The "two spaces" rule we have been repeating is only half right, and a literal written
+> for two-spaces-both-sides misses `Severe` exactly as badly as the one-space literal did.** This is
+> why the helper tolerates any run of whitespace instead of enumerating spellings.
+>
+> 🔴 **Why it stays open — two live sites remain, both outside the executor's authorised write-set and
+> correctly flagged rather than edited:** `tests/test_sim_integration.py:171` matches
+> `"**  Severe  **"`, which matches **0 of the 37** real Severe lines — a live latent instance of the
+> same bug; and `openubem/simulation/runner.py:140` matches `"**  Fatal  **"`, which does match the
+> one real Fatal instance found but is a bare literal rather than the tolerant helper.
+>
+> **Leg B — the cause is not backfillable, and the scope is wider than the six failures.**
+> Director-re-derived over all rows, not a sample: **12 adopted manifests, 8,160 rows, every
+> `work_dir` exists and every one is empty — 8,160 empty, 0 with any file.** Reported as a complete
+> result, not backfilled with a hypothesis. Report: `extra/FIX_open-45_severe-matcher.md`.
+
+
+**How it was found.** T07 (OPEN-42) was told to find out why the six failed buildings carry an empty `error_summary`. The answer turned out not to be about the six.
+
+**The defect.** `scripts/validation/v12_cell_pipeline.py:625` collects error lines with `if "** Severe **" in l` — **one space each side.** EnergyPlus writes `** Severe  **` — **two spaces after "Severe".** The substring never matches. `error_summary` is therefore assigned `""` on every path.
+
+**Measured, director-verified, not inferred:**
+- The one-space literal is present at `:625`, read from the file.
+- Real `.err` files in this repo contain `** Severe  **` (two spaces), confirmed byte-for-byte with `cat -A`.
+- **Across all twelve adopted `04_simulation_manifest.parquet` files — 8,160 rows — the count of non-empty `error_summary` values is 0.**
+
+**Why it matters, and why it is not an emergency.** `n_severe` and `n_warnings` are parsed by a *different* regex (`(\d+)\s+Warning;\s*(\d+)\s+Severe`) which **does** match, so the failure *counts* on which OPEN-41 and OPEN-42 rest are sound. What is lost is the **cause text** — which is exactly what T07 went looking for and could not find. **No published number is affected. The cost is diagnostic: every future failure will also arrive causeless until this is fixed.**
+
+🔴 **This is the third instance of the same two-space bug in this codebase**, after the `has_fatal` column (measured wrong, never to be used) and the `** Fatal **` matcher. **A fix should sweep for the whole family, not patch line 625.** No fix was made inside a measurement task, by rule.
 
 ---
 
@@ -2807,6 +2903,89 @@ remediation decision, not a measurement.
 
 ---
 
+### OPEN-46 — The elevator end-use breakout exists only in the archived arc's own copy of the code, never in the live tree 🔴 **OPENED 2026-08-12**
+
+> 🔴 **REVERSED AND AMENDED 2026-08-12 (night, T03–T05 of `PLAN_three-new-items-2026-08-12.md`). The
+> premise above is wrong. Read this before quoting anything in this section.**
+>
+> **What is true: elevator energy IS in the adopted run and IS inside the published
+> `157.1 kWh/m²`.** All 12 `docs_VALIDATION/validations/overAll/results/phaseE_elevrb/*/05_results.csv`
+> already carry **`elevators_eui_kwh_m2`** and **`gwp_elevators_kgco2_m2`** columns. Across 8,160
+> rows, **3,561 are non-zero**, summing to **12,508.8 kWh/m²**; in `nyc_urban` exactly **87** are
+> non-zero — precisely the 87 buildings whose archetype appears in `elevators_by_archetype.json`.
+> Against the pre-elevator `phaseE` run, the **median** of `|Δtotal_eui − elevators_eui|` is **exactly
+> 0** in `nyc_urban` and `austin_centre`: the entire change in the total column *is* the elevator
+> column.
+>
+> ⚠️ **Why both the executor and the director first got this wrong, recorded because the lesson
+> transfers.** Both checked `equipment_eui_kwh_m2` and found it flat for the 87 eligible buildings,
+> and read flat as absence. **Flat is what de-folding produces** — the load is added, then subtracted
+> back out of equipment into its own column. The earlier framing in this register ("elevator energy
+> sits folded inside `equipment_eui_kwh_m2`") is also wrong for the same reason: it is *de-folded out*
+> of equipment, not folded into it. **Check the invariant a transform preserves — the total — not the
+> column it moves energy between.**
+>
+> 🔴 **What is genuinely broken, and it is larger than the item as opened: the adopted run cannot be
+> reproduced from this repository.** Live `openubem/idf/builder.py` never calls `assign_elevators`
+> (`git log --all -S assign_elevators -- openubem/idf/builder.py` is empty; the only commit ever to
+> touch the string is `ef19141`, which added the **archived** copies plus three orphan live files).
+> **Split out as OPEN-48**, which is where that defect now lives.
+>
+> ✅ **What T05 delivered — the reporting path restored, guarded, with the total proven invariant.**
+> `parser.py` (`_ELEVATOR_METER`, guarded de-fold at `:346-349`), `outputs.py:43` (14th meter),
+> `carbon.py` (`gwp_elevators_kgco2_m2`), `aggregator.py` (`_STEP5_COLS`). The guard: the column is
+> **always** set, and `if elevators_kwh:` gates the de-fold — meter absent ⇒ `0.0` and no de-folding.
+> The archived parser subtracts unconditionally at `:306`; this one does not. The executor
+> independently confirmed the restored shape is the one that produced the adopted files: **the adopted
+> CSV header order matches the archived `_STEP5_COLS` position-for-position**, `elevators` between
+> `refrigeration` and `total`.
+>
+> **Invariant gate, re-derived by the director on a different SQL file than the executor used**
+> (`scratchpad/t3_cleanzoning_work/cross/sim/way/cc_cross/eplusout.sql`; HEAD's parser loaded
+> side-by-side with the working-tree parser): **12 shared keys, all bit-identical**, `total_eui_kwh_m2`
+> `0x1.d492d97e88c30p+7` before and after, the only difference being the new key at `0.0`.
+> Non-vacuity, meter present: a 12,000 kWh elevator meter injected into a copy of a real SQL gives
+> elevators `3.5294117647058822`, equipment `63.73196294400685 → 60.20255117930097` (Δ exactly the
+> elevator EUI), `|total − Σ(10 end-uses)| = 0.0`, `gwp_total` Δ `0.0`; the total moves **2.84e-14
+> (1 ULP)** between the absent and present paths — float re-association, reported by the executor
+> rather than hidden.
+>
+> **Tests, director-re-run: 147 passed** across the six affected files; `pytest --collect-only -q` =
+> **2006** (the plan's 1,990 was stale — parallel executors landed new tests), **no drop**.
+> 🔴 **`tests/test_parser_elevators.py` passes 8/8 with every original assertion intact — nothing was
+> weakened.** `tests/test_step3_orchestrator.py` was correctly left untouched: its
+> `test_medium_office_idf_contains_elevator_equipment` asserts a *built IDF* contains the Elevators
+> object, which is the load wiring and out of scope.
+>
+> **Why it stays open:** the reporting path is restored but **the live tree still emits no elevator
+> equipment**, so anything simulated today reports `0.0`. Re-wiring the physical load is a user
+> ruling, not an executor's call. Reports: `extra/MEASUREMENT_open-46_sql-subcategory-probe.md`,
+> `extra/MEASUREMENT_open-46_divergence-inventory.md`, `extra/FIX_open-46_elevator-breakout.md`.
+>
+> **T03 note.** The probe of the adopted run's own SQL **stopped without an answer, correctly**: every
+> `sql_path` points under `%TEMP%\ubem_elev_rebaseline\` and all twelve cell roots contain **0 files**.
+> A synthetic-SQL control confirms the probe query works, so this is a real absence, not a broken
+> scanner. **No substitute SQL was generated and reported as the adopted run's** — the one failure mode
+> that would have made the task worthless.
+
+
+**How it was found.** T05's triage of OPEN-44 asked why `tests/test_parser_elevators.py` fails live.
+
+**What is true, director-verified by direct read:**
+- `openubem/results/parser.py` documents and computes **9 end-uses** and contains **no** `elevators_eui_kwh_m2`. `openubem/idf/outputs.py` carries **13** meters and **no** elevator meter.
+- The archived copy at `docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/openubem/results/parser.py:305-321` **does** have it, including the de-folding line `eui["equipment_eui_kwh_m2"] -= eui["elevators_eui_kwh_m2"]`, and the archived `outputs.py` expects **14** meters.
+- Of the five test files that exist in both trees: **2 are byte-identical** (`test_elevators.py`, `test_parser_elevators.py`), **3 have drifted — and in all three the drift is the live copy having the elevator expectation removed**: `test_outputs.py` (14 → 13 meters, elevator meter dropped from the required subset), `test_results_aggregator.py` (`elevators_eui_kwh_m2` and `gwp_elevators_kgco2_m2` removed from the expected-row dicts — director-verified: 2 references archived, 0 live), and `test_step3_orchestrator.py` (a whole test, `test_medium_office_idf_contains_elevator_equipment`, **deleted**, not edited).
+
+🔴 **The reading, stated as an inference and not as a fact:** whoever last worked in `tests/` **removed the failing expectations in three files instead of implementing the feature**, and missed `test_parser_elevators.py`, which is why one file still fails live. No commit has been identified as the author of that choice, and none is asserted here.
+
+✅ **What this does NOT mean — stated first because it is the question a reader will ask.** **The adopted fleet figure of 157.1 kWh/m² is not affected and elevator energy is not missing from it.** `openubem/idf/elevators.py` is live and emits the DOE-verbatim lift motor as `ElectricEquipment` with `EndUse_Subcategory = "Elevators"`, so that energy **is** simulated and **is** counted inside `equipment_eui_kwh_m2` and therefore inside the total. What is missing is only the **separate reporting line and the de-folding of elevators out of equipment.**
+
+**What is therefore false as written:** the adopted-baseline phrase "**elevators, the 10th end-use**" describes the archived arc, not the live code. **Live, there are 9 reported end-uses and elevators are folded inside equipment.** Every place that phrase appears needs the qualification.
+
+**Open questions, not answered here:** whether the breakout should be implemented or the claim retracted; and whether `openubem/results/carbon.py`'s `gwp_elevators_kgco2_m2` has the same shape.
+
+---
+
 ## 5. Theme D — Data acquisition and imputation
 
 ### OPEN-12 — The rural building-height residual ⚠️ **the recorded numbers do not reproduce**
@@ -3321,6 +3500,72 @@ project can generate a ground-truth label. Recorded as the next question owed to
 
 ---
 
+### OPEN-47 — The office size-tier thresholds have no traceable external source, and our own research document contains a fabricated citation 🔴 **OPENED 2026-08-12**
+
+> ⚠️ **Amended 2026-08-12 (night, T06–T07 of `PLAN_three-new-items-2026-08-12.md`). The first half of
+> the title is now wrong: a source WAS found. The item stays open for other reasons.**
+>
+> ✅ **The thresholds trace to Chen, Hong & Piette (2017), *Applied Energy* 205, 323–335, Table 1**
+> (DOI `10.1016/j.apenergy.2017.07.128`). **Director-verified from the PDF itself, not from the
+> executor's report** — this task's predecessor fabricated exactly this kind of claim, so the check was
+> redone from scratch: pages 19–20 carry `Small office (<2322 m2 and <= 3 floors)`,
+> `Medium office* (2322 to 9290 m2, <= 5 floors)`, `Large office (>9290 m2 or >=6 Floors)` verbatim,
+> and the DOI Crossref-resolves to exactly that paper. **Hong et al. (2015), credited by both the code
+> comment and `RESULT_I02`, contains zero occurrences of either number** — director-verified, 13 pages
+> searched.
+>
+> ⚠️ **Caveat that must travel with the finding:** the Chen 2017 table is **CityBES's own case-study
+> classification, not a citation to an external standard.** It is a real, verified, definitional source
+> for CityBES — it is **not** evidence of a DOE / PNNL / ASHRAE / CBECS lineage. CBECS 2018 does carry
+> 25,000 / 100,000 ft² bin edges, but as general all-building bins: a numeric coincidence, not an
+> office-specific source. ASHRAE 90.1 **could not be retrieved** (paywalled) and is recorded as a
+> **retrieval failure, not** as "not found."
+>
+> 🔴 **Reason 1 it stays open — a substantive divergence from the source now that the source is known.
+> The source's rule is area AND floor count** (`<2322 m² and ≤3 floors`, `2322–9290 m² and ≤5 floors`,
+> `>9290 m² or ≥6 floors`). **`openubem/semantic/building_classifier.py:175-177` tests area only; the
+> floor-count condition was dropped.** Not adjudicated. Any change here is gated by CP-M3 (OPEN-31):
+> before/after accuracy on the labelled fixture, both numbers recorded.
+>
+> 🔴 **Reason 2 — the citation audit found more than the one known fabrication.** A **second fabricated
+> DOI**, previously unflagged: Sun et al. 2021 given as `10.1016/j.enbuild.2020.110586` —
+> **director-Crossref-checked: HTTP 404, it does not resolve at all**; the real DOI is
+> `10.1016/j.enbuild.2020.110603` (*Prototype energy models for data centers*, Energy and Buildings
+> 231), content otherwise correctly transcribed. A **systemic wrong-locator pattern**: every Table-1
+> row sourced to Deru et al. (2011) cites "Section 3.x.x, Table 3-1, p.9", **a table that does not
+> exist in that report** (real structure: flat sections 1.0–8.0, Tables 1–42; the data is Table 13,
+> p.19, and the numbers are correct). PNNL-23269's HighriseApartment content is **not in that document
+> at all**. Two further references have dead links.
+>
+> ✅ **Discharged legs.** The erratum is appended to
+> `docs_DONE/BUGS/input-framework/deepResearch/RESULT_I02_archetype_classification_cascade.md` —
+> director-verified **64 insertions, 0 deletions**, nothing rewritten. The code comment at
+> `building_classifier.py` (now `:159`; the plan's `:143` had drifted, and the executor anchored on the
+> constant names and said so) now names the real source and flags it as a case-study table —
+> director-verified **comment-only**, with `_OFFICE_SMALL_MAX_M2 = 2322.0` and
+> `_OFFICE_MEDIUM_MAX_M2 = 9290.0` unchanged. Reports:
+> `extra/RESEARCH_open-47_threshold-provenance.md`, `extra/FIX_open-47_citation-erratum.md`.
+
+
+**How it was found.** The user asked (2026-08-12) for deep literature research to validate the archetype mapping externally. T04 ran it. **The director audited the report and its headline claim failed.**
+
+**What T04 claimed and what the audit found.** T04 reported that the numbers **2 322 / 9 290 m²** appear in Figure 2 of Chen, Hong & Piette (2017), *City-Scale Building Retrofit Analysis: A Case Study using CityBES*, IBPSA BS2017, and transcribed a legend from it. **The director downloaded the same PDF (8 pages, 21,520 characters of extractable text) and searched it: the strings `2322`, `2,322`, `9290`, `9,290`, `25,000`, `100,000` and `Large Office` appear ZERO times in the paper.** Figure 2 is a raster screenshot captioned only "Screenshot of CityBES", on p. 261, not p. 260. **The transcription was not read from that figure.** Worse, the identical scheme — same numbers, same stories qualifiers — already sits in this project's own `RESULT_I02_archetype_classification_cascade.md:33`, so the "external verification" reproduced the internal document it was sent to check. **That is the exact circularity the task existed to break.**
+
+🔴 **Consequence: the two thresholds that decide a third of the labelled exam remain UNTRACED to any external primary source.** What is genuinely established is only that they are exact conversions of **25,000 / 100,000 ft²**, which are long-standing CBECS survey bin edges used for sampling across all building types — a plausible *numeric* donor, but CBECS does not split "Office" by floor area at all, so it is not a *definitional* one.
+
+**What DID survive the audit, independently re-verified by the director:**
+- The code comment at `openubem/semantic/building_classifier.py:143` reads `# E-R3-3: office size-tier bins (LBNL CBES 25,000 / 100,000 ft²; Hong et al. 2015)`. **It names the wrong tool** — `RESULT_I02` itself says CityBES.
+- Verbatim from the 2017 PDF: *"Currently, CBES supports analysis of small and medium-sized office and retail buildings"* and *"other building types (e.g., large offices, hotels, hospitals) that are currently not supported by CBES."* **CBES cannot be the origin of a Large-Office tier.** That argument stands on its own.
+- 25,000 × 0.09290304 = 2,322.576; 100,000 × 0.09290304 = 9,290.304.
+
+🔴 **A separate and arguably worse finding: `RESULT_I02_archetype_classification_cascade.md:113` carries a fabricated citation.** It cites *"Hong, T., et al. (2015)… Energy and Buildings, 100, 290-302"* with DOI `10.1016/j.enbuild.2015.04.035`. **Crossref-verified by the director: that DOI resolves to a completely unrelated paper** — Padilla et al., *"A combined passive-active sensor fault detection and isolation approach for air handling units,"* Energy and Buildings **99**, 214–219. The real Hong paper is **Applied Energy 159, 298–309** (Crossref-confirmed). A wrong volume is a transcription slip; **a DOI pointing at an unrelated article is not.** `RESULT_I02` is an AI-authored deep-research document from 2026-06-30 in our paper trail, and **it now has one demonstrated fabricated citation — which is a finding about that document as a whole, not only about this threshold.** Its other citations (Deru et al. 2011, PNNL-23269, Sun et al. 2021, CTBUH) are **unverified**, and the primary DOE sources could not be reached in that session.
+
+✅ **Externally corroborated, and useful:** the OSM wiki defines `building=roof` as a structure "open at least at two sides" — canopies and carports, **not enclosed conditioned space.** This confirms the director's suspicion about the 70 `roof` rows in the OPEN-22 pool.
+
+**What is NOT claimed:** that the thresholds are wrong. They place all three DOE office prototypes in the correct tiers, which is what E-R3-3 was adopted to restore. **The defect is provenance, not value.** Report, with the director's audit at its head: `extra/RESEARCH_open-22_archetype-mapping-literature.md`.
+
+---
+
 ## 7. Theme F — June-audit remnants
 
 ### 7.0 — ~~OPEN-23~~ `layoutGenerator` — **EXCLUDED from this register by the user, 2026-08-04**
@@ -3449,5 +3694,56 @@ Four patterns are visible only when the items sit in one list, and each is itsel
 **This document ends here by design.** Execution plans are written per the project's normal workflow
 — manager authors `PLAN_*.md`, fresh executors run it — **after** the user picks which item or bundle
 to open, and after the "first measurement" named in that item has been made.
+
+### OPEN-48 — The adopted baseline run cannot be reproduced from this repository 🔴 **OPENED 2026-08-12**
+
+**Found by** auditing OPEN-46's reversal (T04/T05 of `PLAN_three-new-items-2026-08-12.md`), not by
+running a task. Sixth consecutive pass in which this register grew that way.
+
+**The finding, in one line.** The adopted `phaseE_elevrb` run was produced by code that is not in this
+repository, and running the pipeline from the current tree would produce different numbers and a
+missing column.
+
+**Evidence, all director-derived.**
+
+| Fact | Live tree today | Adopted run's own outputs |
+|---|---|---|
+| `assign_elevators` called from `builder.py` | **no** — `git log --all -S assign_elevators -- openubem/idf/builder.py` is empty; `hasattr(builder, 'assign_elevators')` is `False`; zero occurrences of "elevator" in the file | n/a |
+| `elevators_eui_kwh_m2` in results | **absent** at HEAD | **present**, 3,561 of 8,160 rows non-zero, Σ = 12,508.8 kWh/m² |
+| `gwp_elevators_kgco2_m2` | **absent** at HEAD | **present** |
+| elevator meter in `outputs.py` | **absent** at HEAD (13 meters) | requested — the column could not exist otherwise |
+| elevator equipment emitted by a live build | **zero objects**, all 10 elevator archetypes | 87 of 87 eligible buildings in `nyc_urban` carry non-zero elevator EUI |
+
+Commit `ef19141` ("feat: add elevators, debias, fusion, and layout generator updates") added
+`openubem/idf/elevators.py`, `openubem/data/loads/elevators_by_archetype.json`, `tests/test_elevators.py`,
+`tests/test_parser_elevators.py` and two cluster scripts **live**, and added `builder.py`,
+`outputs.py`, `parser.py` and `carbon.py` **only as archived copies under
+`docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/`.** The live four were never modified. So the
+working tree that produced the adopted run carried edits to all four that were never committed.
+
+**Why this is the serious one.** ✅ **It is not a physics problem — the published `157.1 kWh/m²` is
+correct and complete, elevators included.** It is a provenance problem: **the number cannot currently
+be regenerated from version control.** Every downstream claim that rests on "re-run the pipeline and
+you get this" is, as of today, unverifiable. T05 restored the *reporting* half (parser, outputs,
+carbon, aggregator) and proved the restoration bit-identical on meter-absent inputs; **the load-wiring
+half is deliberately not restored, because doing so changes what the model computes.**
+
+**Magnitude if the load wiring is restored — a director estimate, explicitly labelled as an estimate.**
+Elevator-eligible archetypes cover **1,939,129 m² of the 3,671,199 m² fleet floor area (52.8%)**; the
+per-archetype intensities implied by `elevators_by_archetype.json` and a crude schedule weighting give
+roughly **2.0 kWh/m² on eligible area, ≈1.05 kWh/m² fleet-wide** — under **1%** of the headline. **This
+is an order-of-magnitude bound from the load table, not a simulated result. Do not quote it as one.**
+
+**First measurement, if this is opened.** Reconstruct the four uncommitted diffs from the archived
+copies, apply them to the live tree, rebuild the IDFs for one cell, and check whether the elevator EUI
+column reproduces the adopted values for that cell. That either confirms the archived copies *are* the
+lost code, or proves they are not — and the second answer is the more important one.
+
+**The ruling this needs from the user.** Restore the load wiring (which changes the published number by
+roughly 1 kWh/m² and requires a fleet re-run to be honest about it), or freeze the adopted run as a
+historical artifact and document that it is not reproducible from HEAD. **Do not decide this in an
+executor.**
+
+---
 
 Nothing in this register is scheduled. Nothing is assigned. No cluster time is committed.

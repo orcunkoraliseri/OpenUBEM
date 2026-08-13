@@ -310,7 +310,9 @@ drawn from full-cell results, not re-classified in a small batch. This constrain
 ignoring it invalidates the measurement.
 
 **How to test.** Report the distribution of the per-building EUI delta, not just a mean. State
-plainly whether the effect is large enough to matter to the adopted fleet figure of 158.0 kWh/m².
+plainly whether the effect is large enough to matter to the adopted fleet figure of ~~158.0~~
+**157.1 kWh/m²** (pooled: total simulated energy ÷ total simulated floor area; the struck figure was
+a count-weighted mean of the 12 cell means, superseded 2026-08-12, OPEN-43).
 
 ---
 

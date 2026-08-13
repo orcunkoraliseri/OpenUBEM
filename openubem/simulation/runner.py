@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 
 from openubem import config
+from openubem.results.err_parse import FATAL_RE
 
 # Resolve platform-appropriate binary path (P1: platform-aware, not DESIGN §3C naive sketch)
 _EXE_NAME = "energyplus.exe" if sys.platform == "win32" else "energyplus"
@@ -137,7 +138,7 @@ def classify_outcome(raw_result: dict, work_dir: Path) -> dict:
         err_file = work_dir / "eplusout.err"
         if err_file.exists():
             for line in err_file.read_text(errors="replace").splitlines():
-                if "**  Fatal  **" in line:
+                if FATAL_RE.match(line):
                     err_summary = line.strip()
                     break
         return {**base, "status": "failed_fatal",

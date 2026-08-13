@@ -67,9 +67,12 @@ default-and-never-overwritten path.
 
 ---
 
-## T02 — effect of the six on the adopted 158.0 kWh/m² fleet figure
+## T02 — effect of the six on the adopted ~~158.0~~ **157.1 kWh/m²** fleet figure (pooled: total
+simulated energy ÷ total simulated floor area; the struck figure was a count-weighted mean of the 12
+cell means, superseded 2026-08-12, OPEN-43)
 
-### Step 1: reproducing 158.0
+### Step 1: reproducing 158.0 (historical — this section reproduces the pre-OPEN-43 headline as it
+stood at the time; see OPEN-43 for the now-adopted 157.1 pooled figure)
 
 Adopted baseline artifacts: `docs/docs_VALIDATION/validations/overAll/results/phaseE_elevrb/<cell>/05_results.csv`,
 12 cells, 8,160 rows total.
@@ -88,7 +91,9 @@ in the elevator plan's published table, e.g. la_rural n=149 even though only 144
 fleet = Σ(cell_weighted_eui × cell_n_total) / Σ(cell_n_total) = 158.0298
 ```
 
-**158.0298 vs the adopted 158.03 / 158.0: reproduced to within 0.03.** Well inside the plan's
+**158.0298 vs the then-adopted 158.03 / ~~158.0~~ 157.1 kWh/m² (pooled: total simulated energy ÷
+total simulated floor area; the struck figure was a count-weighted mean of the 12 cell means,
+superseded 2026-08-12, OPEN-43): reproduced to within 0.03.** Well inside the plan's
 0.1 tolerance — no STOP.
 
 ### Step 2-4: the six buildings' actual effect
@@ -119,12 +124,14 @@ come from a **separate** diagnostic campaign — the 40,800-run E02 harvest
 that E02 harvest these buildings evidently ran far enough to write `.eio` zone geometry before
 failing later; in the adopted baseline they carry no energy result at all.
 
-**Measured impact on the published 158.0 kWh/m²: 0.000 (0.00%), at every decimal place.**
+**Measured impact on the published ~~158.0~~ 157.1 kWh/m² (pooled: total simulated energy ÷ total
+simulated floor area; the struck figure was a count-weighted mean of the 12 cell means, superseded
+2026-08-12, OPEN-43): 0.000 (0.00%), at every decimal place.**
 Correcting only the declared denominator (200.0 → the E02-harvest simulated area) cannot move
 a number these six buildings were never part of. This is a real, reproducible zero — not an
 empty scan defaulting to 0 — and it is worth stating in one plain sentence: **the six wrong
-200.0 m² denominators do not currently distort the adopted 158.0 kWh/m² fleet figure at all,
-because those six buildings never got included in it in the first place; the actual defect is
+200.0 m² denominators do not currently distort the adopted ~~158.0~~ 157.1 kWh/m² fleet figure
+at all, because those six buildings never got included in it in the first place; the actual defect is
 that they silently fell out of the fleet, carrying a placeholder value that would matter the
 moment anyone tried to simulate them successfully or otherwise counted them in.**
 

@@ -32,6 +32,7 @@ if not _EP_EXE.exists():
 
 from openubem.simulation.runner import _version_handshake, run_energyplus, classify_outcome
 from openubem.simulation.parallel import run_neighbourhood, SimTask, build_task_list
+from openubem.results.err_parse import iter_severe, FATAL_RE
 
 pytestmark = [pytest.mark.energyplus, pytest.mark.slow]
 
@@ -167,8 +168,10 @@ def test_synthetic_fleet_full_annual(
             wd = Path(wd_str)
             err_file = wd / "eplusout.err"
             if err_file.exists():
-                lines = err_file.read_text(errors="replace").splitlines()
-                severe = [l for l in lines if "**  Severe  **" in l or "**  Fatal  **" in l]
+                text = err_file.read_text(errors="replace")
+                severe = iter_severe(text) + [
+                    l.strip() for l in text.splitlines() if FATAL_RE.match(l)
+                ]
                 err_excerpt = " | ".join(severe[:3])
         failure_evidence.append({
             "osm_id": row["osm_id"],

@@ -37,10 +37,17 @@ def compute_gwp(
 
     Phase-E (T14, D10):
       Gas end-uses (heating, DHW gas, cooking gas) × 0.181 kg CO₂e/kWh.
-      Electric end-uses (cooling, lighting, equipment, fans, pumps, DHW elec, refrigeration)
-        × eGRID state factor.
+      Electric end-uses (cooling, lighting, equipment, fans, pumps, DHW elec,
+        refrigeration, elevators) × eGRID state factor.
     Core 4 EUI columns (heating/cooling/lighting/equipment) are required; all Phase-E columns
     default to 0.0 when absent (backward-compat with pre-Phase-E rows).
+
+    OPEN-46 T05 elevator guard: gwp_elevators_kgco2_m2 mirrors the parser's guard by
+    defaulting elevators_eui_kwh_m2 to 0.0 when the column is absent, so gwp_total_kgco2_m2
+    is bit-identical for any row that carries no elevator breakout. No de-folding happens
+    here: equipment_eui_kwh_m2 has already been de-folded upstream in _compute_eui when the
+    meter was present, so gwp_equipment is computed from the de-folded value and the elevator
+    carbon is counted exactly once.
     """
     if isinstance(row, dict):
         get = row.get
@@ -74,6 +81,7 @@ def compute_gwp(
             "gwp_dhw_kgco2_m2": nan,
             "gwp_cooking_kgco2_m2": nan,
             "gwp_refrigeration_kgco2_m2": nan,
+            "gwp_elevators_kgco2_m2": nan,
             "gwp_total_kgco2_m2": nan,
         }
 
@@ -87,6 +95,7 @@ def compute_gwp(
     dhw_elec_eui = _safe("dhw_elec_eui_kwh_m2", 0.0)  # elec DHW → f_elec
     cooking_eui = _safe("cooking_eui_kwh_m2", 0.0)    # gas cooking → f_gas
     refrig_eui = _safe("refrigeration_eui_kwh_m2", 0.0)
+    elevators_eui = _safe("elevators_eui_kwh_m2", 0.0)  # OPEN-46: electric, already de-folded
 
     gwp_h = heating_eui * f_gas
     gwp_c = cooling_eui * f_elec
@@ -97,6 +106,7 @@ def compute_gwp(
     gwp_dhw = dhw_gas_eui * f_gas + dhw_elec_eui * f_elec
     gwp_cooking = cooking_eui * f_gas                  # D10: cooking gas × f_gas
     gwp_refrig = refrig_eui * f_elec
+    gwp_elevators = elevators_eui * f_elec
 
     return {
         "gwp_heating_kgco2_m2": gwp_h,
@@ -108,8 +118,9 @@ def compute_gwp(
         "gwp_dhw_kgco2_m2": gwp_dhw,
         "gwp_cooking_kgco2_m2": gwp_cooking,
         "gwp_refrigeration_kgco2_m2": gwp_refrig,
+        "gwp_elevators_kgco2_m2": gwp_elevators,
         "gwp_total_kgco2_m2": gwp_h + gwp_c + gwp_l + gwp_e
-            + gwp_fans + gwp_pumps + gwp_dhw + gwp_cooking + gwp_refrig,
+            + gwp_fans + gwp_pumps + gwp_dhw + gwp_cooking + gwp_refrig + gwp_elevators,
     }
 
 

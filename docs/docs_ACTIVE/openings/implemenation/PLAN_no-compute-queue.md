@@ -534,7 +534,9 @@ is wrong; correct it in a new entry that cites the old.*
     (`_F17_ENVELOPE_COLS`/`_F17_LOADS_COLS`, `:46-63`); added 2026-06-10, the day after the audit.
     Integration-tested classifier→enrichment→IDF-gen in one test (`tests/test_step3_orchestrator.py:155-212`)
     and wired into the real fleet pipeline (`scripts/validation/v12_cell_pipeline.py:155-212`), which
-    produced the adopted 158.0 kWh/m² / 8,160-building baseline.
+    produced the adopted ~~158.0~~ **157.1 kWh/m²** (pooled: total simulated energy ÷ total
+    simulated floor area; the struck figure was a count-weighted mean of the 12 cell means,
+    superseded 2026-08-12, OPEN-43) / 8,160-building baseline.
   - **OPEN-26**: 1 of 4 fixed (relocated), 3 of 4 still open. Bbox-fallback now reaches the manifest via
     `generation_status="fallback_bbox"` (`openubem/idf/builder.py:611-627`), not via `data_quality_flag`
     as literally named in the audit. Still open: missing-EPW leaves `Site:Location` at the template

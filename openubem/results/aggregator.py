@@ -1,4 +1,13 @@
-"""Step-5 Module 14: spatial join, neighbourhood aggregation, and exports (DESIGN §3F-§3G)."""
+"""Step-5 Module 14: spatial join, neighbourhood aggregation, and exports (DESIGN §3F-§3G).
+
+Note (OPEN-43, 2026-08-12): this module aggregates per-cell (per-neighbourhood) only. There is no
+fleet-wide roll-up function here or anywhere else in the codebase. The published fleet EUI is
+computed outside this module, by pooling every simulated building's total_eui_kwh_m2 and floor area
+across all cells at once: Sigma(EUI x floor_area) / Sigma(floor_area) over all successfully simulated
+buildings. See scripts/analysis/open43_fleet_aggregations.py for the reference implementation and
+docs/docs_ACTIVE/openings/extra/FIX_open-43_fleet-aggregation.md for the derivation. Do not confuse
+this pooled fleet figure with any per-cell weighted_total_eui value produced by this module.
+"""
 from __future__ import annotations
 
 import json
@@ -21,7 +30,7 @@ _STEP5_COLS = [
     "cooling_eui_kwh_m2",
     "lighting_eui_kwh_m2",
     "equipment_eui_kwh_m2",
-    # Phase-E service-load EUI (7 new)
+    # Phase-E service-load EUI (7 new) + elevators (OPEN-46 T05, 10th end-use)
     "fans_eui_kwh_m2",
     "pumps_eui_kwh_m2",
     "dhw_gas_eui_kwh_m2",
@@ -29,8 +38,9 @@ _STEP5_COLS = [
     "dhw_eui_kwh_m2",
     "cooking_eui_kwh_m2",
     "refrigeration_eui_kwh_m2",
+    "elevators_eui_kwh_m2",
     "total_eui_kwh_m2",
-    # GWP columns (9)
+    # GWP columns (9 + elevators)
     "gwp_heating_kgco2_m2",
     "gwp_cooling_kgco2_m2",
     "gwp_lighting_kgco2_m2",
@@ -40,6 +50,7 @@ _STEP5_COLS = [
     "gwp_dhw_kgco2_m2",
     "gwp_cooking_kgco2_m2",
     "gwp_refrigeration_kgco2_m2",
+    "gwp_elevators_kgco2_m2",
     "gwp_total_kgco2_m2",
     # meta
     "iod",

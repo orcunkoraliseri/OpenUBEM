@@ -4,6 +4,12 @@ Phase-E (T13): extended METER_QUERY with pumps/DHW/cooking/refrigeration meters;
 _compute_eui adds pumps_eui, dhw_eui, cooking_eui, refrigeration_eui; D9 total includes all 9 end-uses.
 Authorized deviation: DESIGN_step-3...md:H3/§3I — cooling/heating now from RunPeriod meters
 (Cooling:Electricity, Heating:Electricity+NaturalGas) instead of ideal-loads thermal variables.
+
+OPEN-46 (T05, 2026-08-12): elevators restored as a 10th reported end-use, GUARDED.
+The reporting path is additive: when the Elevators:InteriorEquipment:Electricity meter is
+present the elevator kWh is de-folded out of equipment into its own column; when it is
+absent the column reads 0.0 and equipment is left untouched, so total_eui_kwh_m2 is
+bit-identical to the 9-way total for every SQL written before this change.
 """
 from __future__ import annotations
 
@@ -43,8 +49,12 @@ WHERE  d.ReportingFrequency = 'Run Period'
                   'Pumps:Electricity',
                   'WaterSystems:NaturalGas', 'WaterSystems:Electricity',
                   'InteriorEquipment:NaturalGas',
-                  'Refrigeration:Electricity')
+                  'Refrigeration:Electricity',
+                  'Elevators:InteriorEquipment:Electricity')
 """
+
+# OPEN-46 T05: the ElectricEquipment subcategory meter emitted by openubem/idf/elevators.py.
+_ELEVATOR_METER = "Elevators:InteriorEquipment:Electricity"
 
 J_TO_KWH = 1.0 / 3.6e6
 
@@ -96,6 +106,10 @@ def _parse_meters_sql(sql_path: Path) -> dict[str, float]:
     """Read RunPeriod HVAC end-use meters from SQL; return {meter_name: kWh}.
     Missing meters (e.g. all-electric → no Heating:NaturalGas) return 0.0, not NaN.
     T05: Phase-D metered EUI source.
+
+    OPEN-46: the elevator subcategory meter reads 0.0 for any SQL that does not carry it
+    (every run built before the meter was added to HVAC_METERS). _compute_eui treats that
+    0.0 as "meter absent" and performs no de-folding.
     """
     meters: dict[str, float] = {
         "Cooling:Electricity": 0.0,
@@ -107,6 +121,7 @@ def _parse_meters_sql(sql_path: Path) -> dict[str, float]:
         "WaterSystems:Electricity": 0.0,
         "InteriorEquipment:NaturalGas": 0.0,
         "Refrigeration:Electricity": 0.0,
+        _ELEVATOR_METER: 0.0,
     }
     try:
         with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
@@ -266,7 +281,17 @@ def _compute_eui(
     dhw_eui_kwh_m2           ← WaterSystems:NaturalGas + WaterSystems:Electricity (all-fuel DHW)
     cooking_eui_kwh_m2       ← InteriorEquipment:NaturalGas (gas cooking; elec cooking in equipment)
     refrigeration_eui_kwh_m2 ← Refrigeration:Electricity (CompressorRack; lumped in equipment)
-    total_eui_kwh_m2         ← sum of all 9 end-use EUIs (D9: Phase-E whole-building total)
+    elevators_eui_kwh_m2     ← Elevators:InteriorEquipment:Electricity (OPEN-46; see guard below)
+    total_eui_kwh_m2         ← sum of the end-use EUIs (D9: Phase-E whole-building total)
+
+    OPEN-46 elevator guard (PLAN_three-new-items-2026-08-12.md §3 decision 3):
+    elevators are emitted as ElectricEquipment with EndUse_Subcategory="Elevators", so when
+    the meter is present the elevator kWh is ALREADY inside the hourly equipment variable and
+    is de-folded out of equipment_eui_kwh_m2 into its own column — ten mutually exclusive
+    end-uses, total unchanged. When the meter is absent the column is 0.0 and NOTHING is
+    subtracted from equipment, so the total is bit-identical to the pre-OPEN-46 9-way total.
+    Ten end-uses are therefore reported for runs whose IDFs carry the elevator meter; runs
+    built before it was added to HVAC_METERS report nine and an elevators column of 0.0.
 
     P10 (C3-enforced): missing lighting or equipment variable → failed_parse.
     Missing meters → 0.0 (not failed_parse).
@@ -314,7 +339,18 @@ def _compute_eui(
     eui["cooking_eui_kwh_m2"] = cooking_kwh / floor_area    # gas only (InteriorEquipment:NaturalGas)
     eui["refrigeration_eui_kwh_m2"] = refrigeration_kwh / floor_area
 
-    # D9: total = all 9 end-use EUIs summed (Phase-E whole-building site energy)
+    # OPEN-46 T05 — GUARDED, ADDITIVE elevator breakout.
+    # De-folding is performed ONLY when the meter actually carried elevator energy.
+    # A SQL without the meter yields 0.0 here, the branch is skipped, and
+    # equipment_eui_kwh_m2 / total_eui_kwh_m2 come out bit-identical to the 9-way values.
+    elevators_kwh = _m(_ELEVATOR_METER)
+    eui["elevators_eui_kwh_m2"] = elevators_kwh / floor_area
+    if elevators_kwh:
+        eui["equipment_eui_kwh_m2"] -= eui["elevators_eui_kwh_m2"]
+
+    # D9: total = all end-use EUIs summed (Phase-E whole-building site energy).
+    # Invariant vs the pre-OPEN-46 9-way total: elevators_eui is subtracted from
+    # equipment_eui above and re-added here, and is 0.0 when the meter is absent.
     eui["total_eui_kwh_m2"] = (
         eui["cooling_eui_kwh_m2"]
         + eui["heating_eui_kwh_m2"]
@@ -325,6 +361,7 @@ def _compute_eui(
         + eui["dhw_eui_kwh_m2"]
         + eui["cooking_eui_kwh_m2"]
         + eui["refrigeration_eui_kwh_m2"]
+        + eui["elevators_eui_kwh_m2"]
     )
     return eui, data_quality_flag, None
 
@@ -602,6 +639,7 @@ def _failed_row(osm_id: str, status: str, error: str, dq_flag: str) -> dict[str,
         "lighting_eui_kwh_m2": float("nan"),
         "equipment_eui_kwh_m2": float("nan"),
         "fans_eui_kwh_m2": float("nan"),
+        "elevators_eui_kwh_m2": float("nan"),
         "total_eui_kwh_m2": float("nan"),
         "iod": float("nan"),
         "gwp_heating_kgco2_m2": None,

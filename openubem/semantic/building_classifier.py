@@ -2,6 +2,20 @@
 Implements DESIGN §3A–§3F (sub-stages) and §4 (output schema + row-level guarantees)
 with Pass-2 amendments (DESIGN §11, 2026-05-06).
 Public surface: BuildingClassifier class + classify_building per-row helper.
+
+CP-M3 GATE (obligatory, ruled 2026-08-09, written 2026-08-12, OPEN-31):
+No change to this file that can move classification is adopted until the labelled fixture
+(tests/fixtures/labelled_archetypes_50.csv, or its successor if OPEN-22 replaces it) has been run
+on both sides of the change and both accuracy numbers are recorded. A single "after" number does
+not satisfy this gate.
+
+What it would have caught: E-R3-3 cost 4 points of fine top-1 and reclassified 13.4% of the shared
+fleet, and neither number existed at the time E-R3-3 was adopted. Attributing that drift after the
+fact took a five-commit bisection, six weeks late.
+
+Boundaries this gate does not cross: it does not re-open any already-adopted change retroactively
+(re-running M01-M05 is forbidden); and it does not certify the fixture itself — OPEN-22 is rebuilding
+the labelled exam, and if the fixture changes, this gate follows it.
 """
 
 import json
@@ -142,9 +156,39 @@ def _impute_levels(
     return 1, "LEVELS_DEFAULT_LOW"
 
 
-# E-R3-3: office size-tier bins (LBNL CBES 25,000 / 100,000 ft²; Hong et al. 2015)
+# E-R3-3: office size-tier bins (25,000 / 100,000 ft² = 2,322 / 9,290 m²) match CityBES's
+# office classification in Chen, Hong & Piette (2017), Applied Energy 205, 323-335, Table 1
+# (DOI 10.1016/j.apenergy.2017.07.128) -- a case-study table, not a cited external standard.
+# NOT Hong et al. (2015) as originally written here: that paper does not contain these numbers.
+# See OPEN-47 erratum: docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I02_archetype_classification_cascade.md
 _OFFICE_SMALL_MAX_M2 = 2322.0
 _OFFICE_MEDIUM_MAX_M2 = 9290.0
+
+# OPEN-47 T02: floor-count condition, read off the same Table 1 (manuscript pp.17-18):
+# "Small office (<2322 m2 and <=3 floors)", "Medium office* (2322 to 9290 m2, <=5 floors)",
+# "Large office (>9290 m2 or >=6 Floors)". Flag-gated via use_floor_count, defaults OFF.
+#
+# OPEN-47 ruling (user, 2026-08-12, plan §1.2): keep area-only as the default; the
+# floor-count half above is deliberately NOT applied by default -- deferred, not rejected.
+# Reason: of the 598 buildings whose archetype changes under the floor-count bound, only
+# 14.2% rest on an OSM-observed floor count (85/598); the rest are imputed -- 57.9%
+# HEURISTIC_HEIGHT, 27.9% GROUPMEDIAN_LEVELS_MED (see _impute_levels above, and its
+# levels_source token). The office size metric already multiplies by that same imputed
+# levels (total_floor_area_m2 = area * max(levels_imputed, 1), see below) -- adding an
+# explicit floor-count bound would make the archetype depend on the same imputed quantity
+# twice: once through the area product, once through the new bound. use_floor_count stays
+# available, default OFF, as the evidence for this decision, not as a deprecated path --
+# reopen the day floor-count coverage improves.
+# Measured impact (use_floor_count=True vs False, adopted-run fleet phaseE_elevrb, 8,160
+# buildings): 598 archetype changes (7.3%), all promotions (SmallOffice->MediumOffice 380,
+# MediumOffice->LargeOffice 161, SmallOffice->LargeOffice 57); 437 of those 598 newly gain
+# elevator-load eligibility (elevators_by_archetype.json). See
+# openubem/outputs/comparisons/open47_floorcount_reclass.csv (one row per changed building:
+# osm_id, cell, area_m2, levels, levels_source, archetype_off, archetype_on) and the T02
+# progress-log entry in
+# docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-08-12.md.
+_OFFICE_SMALL_MAX_LEVELS = 3
+_OFFICE_LARGE_MIN_LEVELS = 6
 
 # E-R3-3: hotel tier boundary (Deru et al. 2011: SmallHotel 4-story / LargeHotel 6-story)
 _HOTEL_LARGE_MIN_LEVELS = 5
@@ -153,12 +197,36 @@ _HOTEL_LARGE_MIN_LEVELS = 5
 _SECONDARY_SCHOOL_MIN_LEVELS = 2
 
 
-def _office_size_tier(total_floor_area_m2: float) -> str:
-    if total_floor_area_m2 < _OFFICE_SMALL_MAX_M2:
+def _office_size_tier(
+    total_floor_area_m2: float,
+    levels: "int | None" = None,
+    *,
+    use_floor_count: bool = False,
+) -> str:
+    if not use_floor_count:
+        if total_floor_area_m2 < _OFFICE_SMALL_MAX_M2:
+            return "SmallOffice"
+        if total_floor_area_m2 < _OFFICE_MEDIUM_MAX_M2:
+            return "MediumOffice"
+        return "LargeOffice"
+
+    if levels is None:
+        raise ValueError("use_floor_count=True requires levels, got None")
+
+    # Chen, Hong & Piette (2017) Table 1: a building qualifies for the smaller tier only
+    # if it satisfies both the area bound and the floor-count bound; exceeding either
+    # promotes it. Large: area > 9290 m2 OR floors >= 6.
+    if total_floor_area_m2 > _OFFICE_MEDIUM_MAX_M2 or levels >= _OFFICE_LARGE_MIN_LEVELS:
+        return "LargeOffice"
+    # Small: area < 2322 m2 AND floors <= 3.
+    if total_floor_area_m2 < _OFFICE_SMALL_MAX_M2 and levels <= _OFFICE_SMALL_MAX_LEVELS:
         return "SmallOffice"
-    if total_floor_area_m2 < _OFFICE_MEDIUM_MAX_M2:
-        return "MediumOffice"
-    return "LargeOffice"
+    # Medium: everything else. By exclusion this also captures the source table's own
+    # footnote ("the medium office building definition also includes buildings that are
+    # <2300 m2 with four or five floors") -- such a building fails the Small floor bound
+    # (>3 floors) and fails both Large bounds, so it lands here regardless of the 2300 vs
+    # 2322 discrepancy between the footnote and the row it annotates.
+    return "MediumOffice"
 
 
 # ── Stage 3C: 17-rule classifier (DESIGN §3C + Pass-2 §11 line 465) ───────────
@@ -172,6 +240,7 @@ def _apply_rule_table(
     dominant_tag_threshold: float = 0.60,
     high_rise_levels_threshold: int = 20,
     super_tall_levels_threshold: int = 40,
+    use_floor_count: bool = False,
 ) -> tuple[str, str, "str | None"]:
     """Return (archetype_id, rule_source_token, inherited_rule_token).
 
@@ -293,7 +362,11 @@ def _apply_rule_table(
 
     # 12a/12b/12c — Office by use_class + size (E-R3-1: total floor area; E-R3-3: bins)
     if use_class == "commercial":
-        return _office_size_tier(total_floor_area_m2), "RULE_USE_CLASS_SIZE", None
+        return (
+            _office_size_tier(total_floor_area_m2, levels_imputed, use_floor_count=use_floor_count),
+            "RULE_USE_CLASS_SIZE",
+            None,
+        )
 
     # 13 — Warehouse (industrial use_class, no specific tag matched above)
     if use_class == "industrial":
@@ -317,6 +390,7 @@ def _apply_rule_table(
             dominant_tag_threshold=dominant_tag_threshold,
             high_rise_levels_threshold=high_rise_levels_threshold,
             super_tall_levels_threshold=super_tall_levels_threshold,
+            use_floor_count=use_floor_count,
         )
         return aid, "MIXED_USE_DOMINANT_TAG", inh_tok
 
@@ -326,7 +400,11 @@ def _apply_rule_table(
 
     # 17a — E-R3-2: untagged building=yes → size-bucketed office default (LOW confidence)
     if use_class == "unknown" and bt == "yes":
-        return _office_size_tier(total_floor_area_m2), "FALLBACK_SIZE_DEFAULT", None
+        return (
+            _office_size_tier(total_floor_area_m2, levels_imputed, use_floor_count=use_floor_count),
+            "FALLBACK_SIZE_DEFAULT",
+            None,
+        )
 
     # 17 — FALLBACK_UNKNOWN (Pass-2: OpenUBEMUnknown, not MediumOffice)
     return "OpenUBEMUnknown", "FALLBACK_UNKNOWN", None
@@ -520,6 +598,7 @@ def classify_building(
     floor_to_floor_m: float = 3.5,
     levels_group_median: "dict[str, int] | None" = None,
     levels_global_median: "int | None" = None,
+    use_floor_count: bool = False,
 ) -> tuple[str, str, str]:
     uc, score = _normalise_use_class(row, dominant_tag_threshold=dominant_tag_threshold)
     lev, lev_src = _impute_levels(
@@ -535,6 +614,7 @@ def classify_building(
         dominant_tag_threshold=dominant_tag_threshold,
         high_rise_levels_threshold=high_rise_levels_threshold,
         super_tall_levels_threshold=super_tall_levels_threshold,
+        use_floor_count=use_floor_count,
     )
 
     head = src_tok.split(",")[0]
@@ -580,6 +660,7 @@ class BuildingClassifier:
         high_rise_levels_threshold: int = 20,
         super_tall_levels_threshold: int = 40,
         floor_to_floor_m: float = 3.5,
+        use_floor_count: bool = False,
     ) -> None:
         self.detailed_office = detailed_office
         self.overrides_path = Path(overrides_path) if overrides_path is not None else None
@@ -587,6 +668,9 @@ class BuildingClassifier:
         self.high_rise_levels_threshold = high_rise_levels_threshold
         self.super_tall_levels_threshold = super_tall_levels_threshold
         self.floor_to_floor_m = floor_to_floor_m
+        # OPEN-47 T02: Chen, Hong & Piette (2017) floor-count condition on office tiering.
+        # Defaults OFF -- measurement only, not adopted.
+        self.use_floor_count = use_floor_count
 
     def classify(
         self,
@@ -621,6 +705,7 @@ class BuildingClassifier:
                 floor_to_floor_m=self.floor_to_floor_m,
                 levels_group_median=levels_group_median,
                 levels_global_median=levels_global_median,
+                use_floor_count=self.use_floor_count,
             ),
             axis=1,
             result_type="expand",

@@ -112,7 +112,9 @@ test, exactly the seam X1 asked to be integration-tested "when it lands."
 **Beyond the test, the bridge is wired into the real fleet pipeline, not just exercised in isolation.**
 `scripts/validation/v12_cell_pipeline.py:155-212` chains `BuildingClassifier` → `enrich_semantics` →
 `run_step3` as production code, and this is the script family behind the Phase-E fleet run that
-produced the adopted 158.0 kWh/m² baseline (8,160/8,160 buildings, `REPORT_phaseE_final.md:74`).
+produced the adopted ~~158.0~~ **157.1 kWh/m²** (pooled: total simulated energy ÷ total simulated
+floor area; the struck figure was a count-weighted mean of the 12 cell means, superseded 2026-08-12,
+OPEN-43) baseline (8,160/8,160 buildings, `REPORT_phaseE_final.md:74`).
 
 **Bottom line:** the gap X1/OPEN-25 described is closed — not "still a gap," and not merely "planned."
 It was built, tested in isolation (`tests/test_step22_orchestrator.py`, 30+ unit tests), integration-tested

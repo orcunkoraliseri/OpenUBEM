@@ -634,3 +634,117 @@ STOP and quote the conflict.
 *One entry per completed task, director-written. Executors do not write here (hard rule 3).*
 
 ---
+
+#### T01 — OPEN-43: adopt the pooled fleet EUI — completed 2026-08-12
+
+**Artifacts.** `scripts/analysis/open43_fleet_aggregations.py`; `openubem/outputs/comparisons/open43_fleet_aggregations.csv`; `extra/FIX_open-43_fleet-aggregation.md`; docstring note in `openubem/results/aggregator.py`; 13 live files restated.
+
+**Deviations.** None. Every location left unedited is listed with a reason in the report, per hard rule 6.
+
+**Test status.** Script ran in the foreground, exit 0. **Director re-derivation: all four aggregations reproduce to 4 dp against my own independent pass over the twelve `05_results.csv` — pooled 157.0552, count-weighted 158.0298, success-weighted 158.0557, unweighted 160.0993; n_total 8,160, n_success 8,154, area 23,545,868.4 m².** `git diff` on `aggregator.py` confirmed **docstring only, no executable line changed.**
+
+**Notes.** ~~158.0~~ **157.1 kWh/m²** is now the published fleet figure, with the definition written beside it everywhere it appears live. The director additionally corrected the two memory files that still carried 158.0 — outside the plan's scope, inside the director's own surface.
+
+---
+
+#### T02 — OPEN-33: point `CLAUDE.md` at the archiving rule — completed 2026-08-12 (by the director)
+
+**Artifacts.** `CLAUDE.md`, new `## Archiving an arc` section, 2 bullets, pointing at the full rule in `docs/PROJECT_CHECKLIST.md`.
+
+**Notes.** T07 of the previous sweep had deliberately left this leg to the user's call; the user said proceed as recommended. **OPEN-33 closed.**
+
+---
+
+#### T03 — OPEN-22: build the tag-rich fixture — completed 2026-08-12, one leg deliberately left undone
+
+**Artifacts.** `tests/fixtures/labelled_archetypes_tagrich_v2.csv` (100 rows, seed `20260812`, 2 `UNDETERMINED`); `scripts/analysis/open22_{sample,build,grade}_tagrich*.py`; `openubem/outputs/comparisons/open22_v2_fixture_breakdown.csv`; `extra/FIX_open-22_tagrich-fixture.md`.
+
+**Deviations.** **The plan's new pytest test was NOT added.** The executor flagged this explicitly rather than doing it silently: `tests/` was outside its authorised write scope and had a concurrent executor in it. **Correct call.** Carried forward.
+
+**Test status.** **Director re-graded both fixtures from scratch, with my own harness, not the executor's:** old fixture **44/50 = 88.0%** (precondition met); new fixture **87/98 = 88.8%**, excluding-fallback **91.6%**, `FALLBACK_SIZE_DEFAULT` **34.0% → 3.1%**, zero unmatched rows on either. **Every figure matches the report exactly.**
+
+**Notes.** The one way this task could have produced a worthless result was labelling from classifier output. **Verified it did not:** `open22_build_tagrich_fixture.py` never imports the classifier; only the separate grader does. `labelled_archetypes_50.csv` untouched (still 52 lines, no diff). **Two decisions remain owed to the user: whether to repoint `test_fine_top1`'s 0.70 gate at the new exam (the threshold is not transferable), and whether the new fixture supersedes or supplements the old.**
+
+---
+
+#### T04 — OPEN-22: external literature validation — completed 2026-08-12, HEADLINE CLAIM FAILED THE AUDIT
+
+**Artifacts.** `extra/RESEARCH_open-22_archetype-mapping-literature.md`, with the director's audit written as its new §0.
+
+**Test status / director re-derivation.** **The report's load-bearing claim does not hold.** It asserted that Figure 2 of Chen/Hong/Piette (2017) prints the legend `Small Office (< 2322 m²) · Medium Office (2322 to 9290 m²) · Large Office (> 9290 m²)`. I downloaded the same PDF and searched all 8 pages / 21,520 characters: **`2322`, `2,322`, `9290`, `9,290`, `25,000`, `100,000` and `Large Office` appear zero times.** Figure 2 is a raster screenshot captioned only "Screenshot of CityBES", on p. 261 not p. 260. The identical scheme already sits in our own `RESULT_I02:33` — **the "external check" reproduced the document it was sent to check.**
+
+**What survived, re-verified by me:** the wrong-tool name-swap in the code comment; both CBES-scope quotes, verbatim from the PDF; the unit arithmetic; and the DNS failure account. **Strengthened beyond what the executor claimed:** `RESULT_I02:113`'s DOI `10.1016/j.enbuild.2015.04.035` **resolves to an unrelated paper** (Padilla et al., Energy and Buildings 99, 214–219) — Crossref-verified, as was the real citation, Applied Energy 159, 298–309. The executor left hallucination-vs-slip open; **the audit closes it: fabricated.**
+
+**Notes.** **Opened as OPEN-47.** Fourth time in this arc an executor's headline has not survived re-derivation. The report was kept intact with the failed claim marked withdrawn, not deleted.
+
+---
+
+#### T05 — OPEN-44: triage all 106 failing tests — completed 2026-08-12
+
+**Artifacts.** `openubem/outputs/comparisons/open44_test_triage.csv` (106 rows); `extra/MEASUREMENT_open-44_test-triage.md`; raw run logs `open44_tests_run.txt`, `open44_docs_scripts_run.txt`.
+
+**Test status.** Foreground run, **18m14s: 25 failed · 1,788 passed · 10 skipped · 19 errors** in `tests/`, plus a second pass over the other two trees. **Director-verified: 106 rows, tree split 61 / 44 / 1 exactly as the plan required, and zero rows left `UNTRIAGED`.** Categories: 65 `artifact-missing`, 21 `tests-for-code-that-never-existed`, 17 `fixture-wiring`, 2 `stale-expectation`, **1 `REAL-DEFECT`.**
+
+**Notes.** The single real defect is a `NameError` on an undefined `zones_found` at `scripts/analysis/test_viewer_layout_assign.py:24` — **in a script, not in shipped code.** The `synthetic_10_gdf` question is answered: a **missing `conftest.py`** in the archived tree, not a missing fixture file; not fixed, as instructed. **This task's incidental finding is the largest of the sweep and became OPEN-46** — the elevator breakout was never merged into the live tree, and three of five archived test twins had the expectation removed instead. **I re-verified that independently at file level before accepting it.**
+
+---
+
+#### T06 — OPEN-13: narrow the module-level skip — completed 2026-08-12
+
+**Artifacts.** `tests/test_draw_methods.py` (skip narrowed to `TestNoEUILeakage` via a `_HAS_DRAW_TIER` guard); `extra/FIX_open-13_narrow-skip.md`.
+
+**Test status.** **Director re-ran both checks personally: `43 passed · 9 failed · 1 skipped`, and whole-repo `--collect-only` → `1990 tests collected`, exit 0** (1,937 before). Beats the plan's ~13-skip estimate.
+
+**Notes.** `_draw_tier` deliberately not implemented — that is OPEN-17, a DESIGN decision.
+
+---
+
+#### T07 — OPEN-42: why the six failed — completed 2026-08-12, answer is "not locally recoverable"
+
+**Artifacts.** `extra/MEASUREMENT_open-42_six-failures.md`; `openubem/outputs/comparisons/open42_six_failures.csv`; `scripts/analysis/open42_six_failures.py`.
+
+**Test status.** **Director re-derived from the twelve adopted manifests: 8,154 success / 6 failed, exactly; same six `osm_id`s; `n_severe` 26/7/4/12/4/24; five `la_rural`, one `la_urban`. All six `work_dir`s exist and contain 0 files — verified by direct listing.** So the adopted run's own `.err` really is gone.
+
+**Notes.** The executor did **not** substitute a hypothesis for the missing evidence, and labelled its corroborating traces as coming from other campaigns. **That is the behaviour this arc has been asking for.** **Its incidental leg-4 finding became OPEN-45**: `v12_cell_pipeline.py:625` matches `** Severe **` with one space where EnergyPlus writes two, so **`error_summary` is empty for all 8,160 rows, not just the six** — I confirmed the literal, the real two-space form in `.err` files, and the fleet-wide zero count myself.
+
+---
+
+#### T08 — OPEN-36: re-check the "1 gap in 596" bound — completed 2026-08-12, BOUND BROKEN, ITEM GROWS
+
+**Artifacts.** `scripts/analysis/open36_governance_resweep.py` (N13's own script did not survive); `extra/MEASUREMENT_open-36_governance-resweep.md`; `openubem/outputs/comparisons/open36_governance_resweep.csv`.
+
+**Test status.** **6 genuine governance gaps, not 1**, across 4 distinct incidents. Non-vacuity control passes — the sweep finds T07's known gap. **Director spot-verified the debias cluster independently: `openubem/config.py` has no `IMPUTE_DEBIAS` attribute of any kind; the only tree hits for the symbol are the executors' own output files.**
+
+**Notes.** Also found a **methodology bug in N13's own correction** — an unrestricted repo-wide `git log -S` that read a plan document's prose as committed code. **Failure rate 6 of 444 checkable entries = 1.4%.** Per §7, OPEN-36 does not close; it changes character, from "one bad record" to "completion records are unreliable as a class."
+
+---
+
+#### T09 — OPEN-31: write the classification gate — completed 2026-08-12
+
+**Artifacts.** Docstring block at the head of `openubem/semantic/building_classifier.py`; matching paragraph in the head section of `docs/PROJECT_CHECKLIST.md`; `extra/FIX_open-31_classification-gate.md`.
+
+**Test status.** **Director-verified: both diffs are comment/docstring only — no executable line changed anywhere.** `CLAUDE.md`, the register and the director prompt correctly untouched by the executor.
+
+**Notes.** **OPEN-31 closed.**
+
+---
+
+#### T10 — OPEN-04: the tag-coverage hypothesis — completed 2026-08-12, REFUTED
+
+**Artifacts.** `openubem/outputs/comparisons/open04_ruletoken_by_commit.csv`; `scripts/analysis/open04_ruletoken_{by_commit,worker}.py`; `extra/MEASUREMENT_open-04_tag-coverage-hypothesis.md`.
+
+**Test status.** Three of four known accuracy figures reproduced exactly (84.0 / 88.0 / 88.0). **`FALLBACK_SIZE_DEFAULT` = 17 at every one of the four checkpoints — not one row ever crosses. Hypothesis refuted.**
+
+**Deviations.** `7635ce2`'s 92.0% did not reproduce (66.0%). **The executor traced the reason rather than hiding the miss, and I verified it: `git show --stat 67ede73` changed 14 rows of `labelled_archetypes_50.csv` in the same commit that changed the classifier.** A score graded against a since-rewritten answer key cannot be re-graded. Not a harness fault — the same harness nails the other three.
+
+**Notes.** Read history via disposable sparse `git worktree` checkouts under the scratchpad; **`git worktree list` confirms all removed, main tree never checked out.** **OPEN-04 closed.**
+
+---
+
+#### Close-out — 2026-08-12
+
+Four rulings discharged, ten tasks complete, **five executors, every headline re-derived by the director from raw artifacts.** **Three items closed (OPEN-43, OPEN-31, OPEN-04) plus OPEN-33; three opened (OPEN-45, OPEN-46, OPEN-47), all three by auditing.** Register 32 → 32.
+
+**The audit earned its keep twice this pass**: T04's headline claim was fabricated and would have been published as external validation, and T05's incidental finding (OPEN-46) was larger than its assigned task. **Neither would have surfaced from reading the reports.**
+
+**Owed to the user, not decided here:** the `test_fine_top1` threshold question, the fate of the 30 stray `.py` files under `docs/`, and whether OPEN-46's elevator breakout gets implemented or the "10th end-use" claim gets retracted.

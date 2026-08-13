@@ -17,7 +17,9 @@ directions and that their net is unmeasured. Before any of that matters to the p
 claims, one prior question has to be settled:
 
 > **Do the numbers this project has adopted — NYC −31.3% / LA −3.6% / Austin −30.5%, fleet-weighted
-> 158.0 kWh/m² — pass through the `layout_assign` code path at all?**
+> ~~158.0~~ **157.1 kWh/m²** (pooled: total simulated energy ÷ total simulated floor area; the struck
+> figure was a count-weighted mean of the 12 cell means, superseded 2026-08-12, OPEN-43) — pass
+> through the `layout_assign` code path at all?**
 
 If they do not, then OPEN-01 and OPEN-03 are bounded to a method that is already flagged
 *not certified for fleet EUI*, and the adopted baseline is not in question. If they do, the adopted
@@ -32,7 +34,7 @@ The register was explicit that this must not be assumed. It is now measured.
 | | |
 |---|---|
 | **Definition** | Phase-E full realism + the E-R3-3 archetype correction + elevators |
-| **Adoption record** | `docs/docs_DONE/LOADS & SCHEDULES/elevators/PLAN_elevator_loads_implementation.md:257` — *"Decision: ADOPTED. E-R3-3+elevators is the new Phase-E adopted baseline; headline NYC −31.3% / LA −3.6% / Austin −30.5%, fleet-weighted 158.0 kWh/m²"* |
+| **Adoption record** | `docs/docs_DONE/LOADS & SCHEDULES/elevators/PLAN_elevator_loads_implementation.md:257` — *"Decision: ADOPTED. E-R3-3+elevators is the new Phase-E adopted baseline; headline NYC −31.3% / LA −3.6% / Austin −30.5%, fleet-weighted 158.0 kWh/m²"* (verbatim archived quote, not altered here — see restatement below: ~~158.0~~ **157.1 kWh/m²**, pooled: total simulated energy ÷ total simulated floor area; the struck figure was a count-weighted mean of the 12 cell means, superseded 2026-08-12, OPEN-43) |
 | **Restated at** | `docs/PROJECT_CHECKLIST.md:88-91` |
 | **Artifacts** | `docs/docs_VALIDATION/validations/overAll/results/phaseE_elevrb/<12 cells>/05_results.csv` (post-elevator, adopted) and `docs/validations/overAll/results/phaseE_er33/<12 cells>/05_results.csv` (the E-R3-3-only predecessor) |
 | **Rows** | **8,160 in each tree** — verified by count, and equal to the T08 ∪ T20 union established by M05 |
@@ -133,7 +135,9 @@ of the published cross-mode comparison — contains **4 modes × 4,530 buildings
 > **OPEN-32's first measurement is complete. No adopted result depends on `layout_assign`.**
 >
 > OPEN-01 and OPEN-03 are confined to the `layout_assign` method. The adopted fleet baseline
-> (158.0 kWh/m²), its three city anchors, its predecessor E-R3-3-only record, and the published
+> (~~158.0~~ **157.1 kWh/m²** — pooled: total simulated energy ÷ total simulated floor area; the
+> struck figure was a count-weighted mean of the 12 cell means, superseded 2026-08-12, OPEN-43),
+> its three city anchors, its predecessor E-R3-3-only record, and the published
 > four-mode cross-mode comparison are all outside their reach — structurally, because `auto` cannot
 > select the method, and factually, across all 16,320 adopted rows plus 18,120 cross-mode rows.
 

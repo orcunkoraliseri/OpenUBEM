@@ -114,3 +114,67 @@ OpenUBEM should **remain vintage-blind** for the core archetype selection. Prece
 4. **Sun, K., Luo, N., Luo, X., & Hong, T.** (2021). *Prototype energy models for data centers*. Energy and Buildings, Volume 231, 110586. DOI: [10.1016/j.enbuild.2020.110586](https://doi.org/10.1016/j.enbuild.2020.110586).
 5. **New, J., et al.** (2021). *Automatic Building Energy Modeling (AutoBEM) software suite*. Oak Ridge National Laboratory (ORNL). Project details at: [AutoBEM](https://www.ornl.gov/project/autobem).
 6. **NREL** (2020). *URBANopt Schema Documentation*. National Renewable Energy Laboratory. Available at: [URBANopt Schema](https://docs.urbanopt.net/geojson-gem/building_properties.json).
+
+---
+
+## ERRATUM — 2026-08-12 (OPEN-47, T06)
+
+This is an appended correction. Nothing above this line has been struck, rewritten, or deleted;
+this block records what a downstream audit (plan `PLAN_three-new-items-2026-08-12.md`, T06/T07)
+found when it re-verified this document's citations against the actual sources, one document
+download and one Crossref lookup at a time.
+
+**1. The DOI at line 113 is fabricated.** `10.1016/j.enbuild.2015.04.035` resolves (Crossref,
+verified 2026-08-12) to Padilla, M. & Choinière, D., "A combined passive-active sensor fault
+detection and isolation approach for air handling units," *Energy and Buildings* 99, 214–219 — an
+unrelated HVAC fault-detection paper with no connection to office archetype classification.
+Crossref record: `{"DOI":"10.1016/j.enbuild.2015.04.035","title":["A combined passive-active
+sensor fault detection and isolation approach for air handling units"],"author":[{"given":"Miguel",
+"family":"Padilla"},{"given":"Daniel","family":"Choinière"}],"container-title":["Energy and
+Buildings"],"volume":"99","page":"214-219"}`.
+
+**2. The real Hong et al. citation.** The paper this document actually meant to cite is Hong, T.,
+Piette, M.A., Chen, Y., Lee, S.H., Taylor-Lange, S.C., Zhang, R., Sun, K. & Price, P. (2015),
+"Commercial Building Energy Saver: An energy retrofit analysis toolkit," **Applied Energy 159,
+298–309**, DOI `10.1016/j.apenergy.2015.09.002` (Crossref-verified 2026-08-12). This paper does
+**not** contain the office size-tier thresholds attributed to it in Table 2 of this document — a
+script-based search of its full text for `2322`, `2,322`, `9290`, `9,290`, `25,000`, `100,000`
+returns zero hits (see `scripts/analysis/open47_threshold_search.py` output).
+
+**3. A second, previously unflagged fabricated DOI.** Reference 4 (Sun, Luo, Luo & Hong, 2021,
+"Prototype energy models for data centers") states DOI `10.1016/j.enbuild.2020.110586`. This DOI
+**does not resolve** — 404 on both Crossref and `doi.org` directly. The real DOI, found by title
+search, is `10.1016/j.enbuild.2020.110603` (same title, same four authors, same journal and
+volume; only the article number differs). The Table 1 numbers attributed to this paper (small data
+center 600 ft²/55.7 m², large 6,000 ft²/557.4 m²) were checked against the real paper's text and
+are correct.
+
+**4. Reference 1's citation locators do not exist in the cited document.** Every Table-1 row
+sourced to Deru et al. (2011) cites "Table 3-1, p. 9" (with varying section numbers). The real
+report (NREL/TP-5500-46861) uses flat sequential numbering — sections 1.0–8.0, Tables 1–42 — and
+contains no "Section 3.1.x" and no "Table 3-1" anywhere. The floor-area figures themselves are
+correct and are drawn from the report's real **Table 13, "Reference Building Form Assignments,"
+p. 19** — the data was read correctly; only the citation pointer is fabricated.
+
+**5. The Table 2 thresholds ARE traceable to a real, different, Crossref-verified source.**
+T07 of the same plan (`scripts/analysis/open47_threshold_search.py`, non-vacuity-controlled search
+across six candidate documents) found the exact `<2,322 m² / 2,322–9,290 m² / >9,290 m²` office
+tiering — not in the paper cited above, but in **Chen, Y., Hong, T. & Piette, M.A. (2017),
+"Automatic generation and simulation of urban building energy models based on city datasets for
+city-scale building retrofit analysis," Applied Energy 205, 323–335, DOI
+10.1016/j.apenergy.2017.07.128** (Crossref-verified), Table 1, manuscript p. 18: *"Small office
+(<2322 m2 and <= 3 floors)"*, *"Medium office* (2322 to 9290 m2, <= 5 floors)"*, *"Large office
+(>9290 m2 or >=6 Floors)"*. This table presents the numbers as CityBES's own classification used in
+one specific case study (940 San Francisco buildings), not as a citation to an external standard —
+it is a real, verifiable, definitional source for CityBES's own rule, but establishes CityBES
+practice, not a DOE/PNNL/ASHRAE/CBECS standard. Full candidate-by-candidate search, including the
+mandatory non-vacuity controls, is in
+`docs/docs_ACTIVE/openings/extra/RESEARCH_open-47_threshold-provenance.md`.
+
+**6. Full citation audit.** Every reference this document carries has been checked against a
+downloaded copy or a Crossref resolution; see
+`docs/docs_ACTIVE/openings/extra/FIX_open-47_citation-erratum.md` for the complete table. Summary:
+2 fabricated/wrong DOIs, 1 reference whose cited content is not found in the cited document at all
+(PNNL-23269, HighriseApartment row), 1 reference whose real data is correct but whose section/table
+locators are fabricated throughout (Deru et al. 2011), 2 references with dead links to otherwise
+real resources, 3 references verified.
