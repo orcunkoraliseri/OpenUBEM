@@ -260,6 +260,14 @@ class TestRunGrid:
         for col in ("max_abs_delta", "sumsq_delta", "n_within_15", "n_within_20"):
             assert col in grid_df.columns, f"Missing summary column: {col}"
 
+    @pytest.mark.skipif(
+        not _OUT_DIR.exists(),
+        reason=(
+            f"OPEN-44: artifact-missing -- {_OUT_DIR} does not exist on this machine "
+            "(basis_sweep_combos.csv is written there by v19_basis_diagnostic.py's "
+            "__main__ block, never checked in as a repo artifact)."
+        ),
+    )
     def test_csv_written_and_has_120_rows(self):
         csv_path = _OUT_DIR / "basis_sweep_combos.csv"
         assert csv_path.exists(), f"CSV not found: {csv_path}"
@@ -318,6 +326,15 @@ class TestCoherence:
 # T06 — Findings file: exists and has non-empty tables
 # ---------------------------------------------------------------------------
 
+@pytest.mark.skipif(
+    not _OUT_DIR.exists(),
+    reason=(
+        f"OPEN-44: artifact-missing -- {_OUT_DIR} does not exist on this machine "
+        "(RESULT_basis_diagnostic.md is written there by v19_basis_diagnostic.py's "
+        "__main__ block, never checked in as a repo artifact). Every test in this "
+        "class is in the OPEN-44 triage's 45 red nodes, so the whole class is guarded."
+    ),
+)
 class TestFindingsFile:
     """T06 assertions: RESULT file exists and all sections non-empty."""
 

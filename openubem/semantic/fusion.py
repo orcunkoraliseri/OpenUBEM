@@ -191,7 +191,11 @@ _OVERTURE_ATTR_COLUMN = {
 # raw-schema columns `_normalize()` looks for (`num_floors`, `class`) no
 # longer exist. `height` alone survives because its column name is stable
 # across both passes.
-_NORMALIZED_OVERTURE_COLUMNS = {"id", "height", "levels", "use_class", "year_built", "geometry"}
+#
+# OPEN-13: derived from the fetcher's own tuple (not hand-copied) so a future
+# schema change there fails a test instead of silently disabling this guard.
+from openubem.acquisition.overture_fetcher import _NORMALIZED_COLUMNS as _OVERTURE_FETCHER_COLUMNS
+_NORMALIZED_OVERTURE_COLUMNS = set(_OVERTURE_FETCHER_COLUMNS)
 
 
 def _load_overture_layer(cfg) -> gpd.GeoDataFrame:

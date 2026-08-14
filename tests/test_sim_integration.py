@@ -1,11 +1,18 @@
 """Integration tests for Step 4 — requires EnergyPlus 23.1 binary (PLAN T09, P3/P4/P7).
 
-Triage note (P5): Step-3 IDFs all fatal under EnergyPlus 23.1 due to geomeppy surface
-geometry defects (invalid sun_exposure='NoWind', missing vertex_z_coordinate). The
-Step-4 orchestration/classification code is still CORRECT — every building is classified
-as failed_fatal, the fleet survives, and the manifest is complete. Tests that require
-successful EnergyPlus runs (T09c cache/determinism, T09d) use validated example IDFs from
-the EnergyPlus installation to prove the mechanism works independently of Step-3 content.
+Triage note (P5, HISTORICAL — superseded): at the time this note was written, Step-3
+IDFs were all fatal under EnergyPlus 23.1 due to geomeppy surface geometry defects
+(invalid sun_exposure='NoWind', missing vertex_z_coordinate). That was true of an
+older code state only; at HEAD, docs/docs_REPORTS/REPORT_phaseE_final.md:74 records
+8,160 of 8,160 buildings succeeded (100%). The Step-4 orchestration/classification
+code was, and remains, correct regardless. Tests that require a successful EnergyPlus
+run (cache/determinism, T09c/T09d) use the repo-local fixture
+tests/fixtures/sim/1zone_with_sql.idf; the timeout test
+(test_adversarial_timeout_gives_failed_timeout) uses a genuine EnergyPlus-installation
+example IDF (ASHRAE901_HotelSmall_STD2019_Denver.idf) to prove the mechanism works
+independently of Step-3 content.
+
+2026-08-13: gate run and passed 7/7 locally against EnergyPlus 23.1.0-87ed9199d4.
 """
 from __future__ import annotations
 
