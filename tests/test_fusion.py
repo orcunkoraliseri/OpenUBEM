@@ -245,6 +245,71 @@ class TestOvertureSource:
         assert pd.isna(value.iloc[0])
 
 
+# ── OPEN-13 -- `_load_overture_layer` cached-read guard (no prior coverage) ──
+
+class TestOvertureCachedReadGuard:
+    def _normalized_gdf(self):
+        return gpd.GeoDataFrame(
+            {
+                "id": ["overture-C"],
+                "height": [12.0],
+                "levels": [3.0],
+                "use_class": ["residential"],
+                "year_built": [1990],
+            },
+            geometry=[box(0, 0, 10, 10)],
+            crs=_CRS,
+        )
+
+    def test_normalized_schema_cache_hit_skips_fetch_overture(self, monkeypatch, tmp_path):
+        import openubem.acquisition.overture_fetcher as overture_fetcher_mod
+
+        def _boom(*args, **kwargs):
+            raise AssertionError("fetch_overture must not be called on a normalized-schema cache hit")
+
+        monkeypatch.setattr(overture_fetcher_mod, "fetch_overture", _boom)
+
+        slice_path = tmp_path / "normalized_cache.parquet"
+        self._normalized_gdf().to_parquet(slice_path)
+
+        cfg = _cfg(FUSION_OVERTURE_SLICE_PATH=str(slice_path))
+        layer = fusion._load_overture_layer(cfg)
+        assert set(layer.columns) == fusion._NORMALIZED_OVERTURE_COLUMNS
+        assert layer["id"].iat[0] == "overture-C"
+
+    def test_raw_schema_slice_goes_through_fetch_overture(self, monkeypatch):
+        import openubem.acquisition.overture_fetcher as overture_fetcher_mod
+
+        sentinel = object()
+        calls = []
+
+        def _spy(*args, **kwargs):
+            calls.append((args, kwargs))
+            return sentinel
+
+        monkeypatch.setattr(overture_fetcher_mod, "fetch_overture", _spy)
+
+        # OVERTURE_SLICE carries the raw (pre-normalization) schema -- the
+        # guard's column-set comparison must not match it.
+        cfg = _cfg(FUSION_OVERTURE_SLICE_PATH=str(OVERTURE_SLICE))
+        layer = fusion._load_overture_layer(cfg)
+        assert layer is sentinel
+        assert len(calls) == 1
+
+    def test_guard_set_equals_fetchers_normalized_columns(self):
+        from openubem.acquisition.overture_fetcher import _NORMALIZED_COLUMNS
+        # OPEN-13 regression. The first assert is the load-bearing one: it pins
+        # the fetcher's schema to the six names `_load_overture_layer`'s cached-read
+        # guard was written against. A schema change in overture_fetcher fails HERE,
+        # forcing a human to re-examine the guard. The second assert is a
+        # tautology by construction (fusion derives its set from this tuple) and is
+        # kept only to document that derivation.
+        assert set(_NORMALIZED_COLUMNS) == {
+            "id", "height", "levels", "use_class", "year_built", "geometry",
+        }
+        assert fusion._NORMALIZED_OVERTURE_COLUMNS == set(_NORMALIZED_COLUMNS)
+
+
 # ── T12.3 -- LiDAR nDSM zonal adapter ────────────────────────────────────────
 
 class TestLidarSource:

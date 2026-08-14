@@ -1,151 +1,146 @@
-# MEASUREMENT — OPEN-44: triage of the 106 failing/erroring tests
+# MEASUREMENT — OPEN-44: triage of the real-suite (`tests/`) failing/erroring nodes
 
-**Task:** T05, `PLAN_rulings-and-five-items-2026-08-12.md`
-**Date:** 2026-08-12
-**Scope:** every failing/erroring node across `tests/`, `docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/tests/`,
-and `scripts/analysis/test_viewer_layout_assign.py` — 106 nodes total (§4.4's 70 failed + 36 errored).
+**Task:** T02, `PLAN_two-measurements-2026-08-13.md`
+**Date:** 2026-08-13
+**Supersedes:** the `tests/`-tree portion of the 2026-08-12 T05 report (`PLAN_rulings-and-five-items-2026-08-12.md`).
+That report's `tests/`-only run (25 failed / 1788 passed / 10 skipped / 19 errors) is now stale — commit
+`6aeebb0` (2026-08-13, same day, ahead of this run) touched 9 files under `tests/` and shipped the elevator
+EUI breakout. This report replaces it for the `tests/` tree; it does not touch or re-derive the `docs/` /
+`scripts/analysis/` portion of the old report, which T02 is not scoped to.
 
-## Runs (both foreground, both captured before any other executor touched a test file)
+## Run
 
-1. `python -m pytest -q -p no:cacheprovider tests/ --tb=short` → `openubem/outputs/comparisons/open44_tests_run.txt`.
-   **25 failed, 1788 passed, 10 skipped, 19 errors in 1093.97s (18m14s).** 44 failing/erroring nodes.
-2. `python -m pytest -q -p no:cacheprovider "docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/tests/" "scripts/analysis/test_viewer_layout_assign.py" --tb=short` → `openubem/outputs/comparisons/open44_docs_scripts_run.txt`.
-   **45 failed, 34 passed, 17 errors in 17.19s.** 62 failing/erroring nodes.
+```
+./.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider tests/ --ignore=docs --tb=short \
+    --junitxml=<scratchpad>/open44_junit.xml
+```
 
-Run (1) was scoped to `tests/` per the task's explicit command and is the ~25-minute run; run (2) covers the
-other two trees named in the CSV's `tree` column and in T05 step 5, and was fast (~17s). Combined: **106**,
-matching §4.4 exactly (44 in `tests/`, 61 in the elevators tree, 1 in `scripts/analysis/`).
+**26 failed, 1857 passed, 10 skipped, 19 errors, exit 1, 1171.43s (19m31s), 1912 collected.**
+Numbers recomputed from the run's own JUnit XML (`tests=1912 errors=19 failures=26 skipped=10`) and
+stdout, both captured this run — not carried over from memory or the prior report.
 
-## CSV
+**Reconciliation, both directions, stated explicitly per plan rule:**
 
-`openubem/outputs/comparisons/open44_test_triage.csv` — one row per node, columns
-`nodeid, tree, category, evidence, likely_source_line`. **106 data rows, verified by script (`len(rows)==106`
-asserted).** Breakdown by tree: `tests/` 44, `docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/tests/` 61,
-`scripts/analysis/` 1 — sums to 106.
+- **Against plan §4.9's baseline (70 failed / 1822 passed / 10 skipped / 36 errors, 2026-08-12,
+  whole-repo):** does **not** reconcile, and is not expected to — §4.9's run collected the whole repo
+  (including the 61 `docs/` nodes and 1 `scripts/analysis/` node that are outside the real suite); this
+  run is scoped to `tests/` only, exactly as T02 §5 step 1 requires. Both are shown; neither is silently
+  adopted as the other.
+- **Against the 2026-08-12 T05 same-scope run (25 failed / 1788 passed / 10 skipped / 19 errors, 44
+  nodes, `tests/`-only):** does not reconcile either, and the cause is fully accounted for, not a
+  measurement error. `git log -1 -- tests/` shows the most recent commit touching `tests/` is `6aeebb0`,
+  timestamped 2026-08-13 15:25 — **after** the T05 baseline was taken. Three effects, confirmed by reading
+  the commit diff and the shipped code it touched:
+  1. **Elevator EUI breakout shipped.** `openubem/results/parser.py:347` now computes
+     `eui["elevators_eui_kwh_m2"]` and `openubem/idf/outputs.py:43` lists the
+     `Elevators:InteriorEquipment:Electricity` meter — both were missing at T05 time (T05's report named
+     this the cause of 8 failures in `tests/test_parser_elevators.py`). Those 8 tests now pass.
+  2. **Two new test files, fully green.** `tests/test_err_parse.py` (OPEN-45, 15 tests) and
+     `tests/test_builder_elevators_wired.py` (OPEN-48, 2 tests) were added in the same commit; all 17 pass
+     in this run.
+  3. **`tests/test_draw_methods.py`'s blanket module-level skip was narrowed.** Before today, the entire
+     file carried `pytest.skip(..., allow_module_level=True)` (git `show 6aeebb0 -- tests/test_draw_methods.py`
+     confirms the removed lines) — so **none** of its tests were ever counted in any prior tally, including
+     T05's 44. Today's commit replaced that blanket skip with a single `@pytest.mark.skipif` on one class
+     (`TestNoEUILeakage`, gated on `_HAS_DRAW_TIER = hasattr(imp, "_draw_tier") and hasattr(imp,
+     "_draw_stratum_col_for")`), unmasking the other 52 tests in the file for the first time. Of those 52:
+     43 pass, 9 fail (see `stale-expectation` below), and the 1 remaining `TestNoEUILeakage` test is now a
+     narrow, confirmed `skipped` (it is one of this run's 10 skips — verified directly against the JUnit XML).
+  Net effect on the failed count: −8 (elevator fix) + 0 (new files, all green) + 9 (draw-tier unmask) = **+1**,
+  matching the observed 25→26. This is a coincidence of magnitude, not a coincidence of cause — three
+  independent, fully-explained shifts happen to net to +1.
 
-## Category counts
+## Classification
+
+Every failing/erroring node was classified by reading the test and the shipped code it exercises — no
+node was classified from the exception text alone.
 
 | category | count |
 |---|---|
-| `artifact-missing` | 65 |
-| `tests-for-code-that-never-existed` | 21 |
-| `fixture-wiring` | 17 |
-| `stale-expectation` | 2 |
-| `REAL-DEFECT` | 1 |
-| `UNTRIAGED` | 0 |
+| `artifact-missing` | 31 |
+| `stale-expectation` | 14 |
+| `fixture-missing` | 0 |
+| `real-defect` | 0 |
+| `undetermined` | 0 |
+| **total** | **45** |
 
-## The one REAL-DEFECT, named individually
+CSV: `openubem/outputs/comparisons/open44_test_triage.csv` — one row per node, columns `nodeid, outcome,
+exception_type, message_first_line, category, evidence, shipped_code_citation`. **45 data rows**, verified
+equal to this run's own failed+error count (26+19=45) by the generating script's own assertion (it raises
+if any classified nodeid is absent from the run, or if any failing/erroring node lacks a classification).
 
-`scripts/analysis/test_viewer_layout_assign.py::test_layout_assign_idf_ingestion` — `NameError: name
-'zones_found' is not defined` at line 24. The file prints `zones_found` at
-`print(f"Zones found in geometry ({len(zones_found)}):", ...)` but that name is never assigned anywhere in
-the file — read in full, confirmed. It also hardcodes an absolute path into another task's scratchpad
-(`scratchpad/t19_t01_t05_work/...`), so even fixing the `NameError` would not make this test portable. This
-is a leftover debug script, not a regression in shipped `openubem/` code — the defect is in the test file
-itself, not in `openubem/viz/geometry_extract.py`, `cityjson_emitter.py`, or `viewer_export.py`, which the
-test actually calls without incident (the ingestion succeeds — see the captured stdout — the crash is only
-in the debug print after that).
+**Zero `real-defect`.** Checked, not assumed: every failure/error in this run traces to either (a) a disk
+artifact absent on this machine (`artifact-missing`, 31: the `docs/docs_DONE/phaseC_combinedResim/
+v19_validation/` directory does not exist at all, 26 nodes across `test_v19_basis_diagnostic.py` +
+`test_v19_national_cbecs_rescore.py`; and the imputation phase-figure PNGs referenced by
+`test_impute_montage.py`, 5 nodes, are not on disk), or (b) a config attribute the test asserts against
+that was never shipped (`stale-expectation`, 14: `config.IMPUTE_DEBIAS_NEWERSKEW`, 5 nodes;
+`config.IMPUTE_DRAW_METHOD_BY_TARGET` / the "draw" entry in `_CANONICAL_TIER_ORDER`, 9 nodes). No node
+exercises shipped code that runs and produces a wrong result.
 
-## `tests-for-code-that-never-existed` (21) — two distinct features, not one
+**Zero `fixture-missing`.** The one pattern this category names (a fixture function that pytest cannot
+find, e.g. `synthetic_10_gdf` in the 2026-08-12 sweep) exists only in the archived `docs/` tree, which is
+out of T02's scope. Every setup-time `ERROR` this run (19, all in the two `v19_*` files) is a fixture that
+pytest **found and ran**, which then raised `FileNotFoundError`/`OSError` while writing into the missing
+`v19_validation/` directory — that is `artifact-missing`, not a missing-fixture wiring problem.
 
-**A. `IMPUTE_DEBIAS_NEWERSKEW` (5, all in `tests/test_debias.py`).** `AttributeError: module
-'openubem.config' has no attribute 'IMPUTE_DEBIAS_NEWERSKEW'`. This is the exact symptom named in §4.5 of
-the plan as the reason T08 exists — T08 will do the git-history proof; this task only establishes the
-category and evidence.
+**Zero `undetermined`.** All 45 nodes were traced to a named, confirmed cause without changing any code.
 
-**B. The elevator EUI breakout (16: 8 in `tests/test_parser_elevators.py`, 8 in the byte-identical
-`docs/.../test_parser_elevators.py`).** `KeyError: 'elevators_eui_kwh_m2'` / `KeyError:
-'Elevators:InteriorEquipment:Electricity'`. Confirmed by grep: neither string appears anywhere in
-`openubem/results/parser.py` (`_compute_eui`, `_parse_meters_sql`, `_failed_row` — none of the three emit an
-elevator breakout). This is a second, independent instance of the T07/T08 pattern (tests committed for a
-feature that was never shipped), and it is **live**, not archived — it fails in `tests/`, not just in
-`docs/`.
+## `IMPUTE_DEBIAS_NEWERSKEW` coverage cost (plan §5 step 4, T02 rule 4)
 
-## `fixture-wiring` (17) — the `synthetic_10_gdf` question, resolved
+`tests/test_debias.py` has **14 tests total** (`pytest --collect-only`, confirmed). **5 fail**
+(`TestMlTierDebiasHook`, all `AttributeError: module 'openubem.config' has no attribute
+'IMPUTE_DEBIAS_NEWERSKEW'` — confirmed absent by a full read of `openubem/config.py`, 164 lines, today).
+**9 currently pass**: `TestDebiasNewerSkewMarginalAndRank` (2), `TestDebiasPullsNewerSkewTowardDonorMean`
+(1), `TestThinStratumSkip` (2), `TestDeterminism` (2), `TestNoEUILeakage` (1),
+`TestImputeMissingDefaultOff` (1) — these exercise `openubem/semantic/debias.py`'s actual functions
+directly and do not reference the missing config attribute.
 
-All 17 are `ERROR at setup` in `docs/.../test_step3_orchestrator.py`: `fixture 'synthetic_10_gdf' not
-found`. Root cause, confirmed directly:
+- **Minimal fix (skip/delete only the 5 red tests) costs exactly 5 tests of coverage** — all specifically
+  of the intended `_ml_tier` hook-wiring behaviour (quantile-map correction of a non-thin stratum,
+  thin-stratum skip, the no-stratifier-column global fallback and its own min-donor floor, and the
+  `knn`-only method gate). Grepped: no other test file in `tests/` or `docs/` references
+  `IMPUTE_DEBIAS_NEWERSKEW` or exercises this specific hook path, so none of that behaviour would be
+  covered anywhere else afterward.
+- **A blunter suppression — skip or delete at the module/file level — would additionally and silently
+  kill the other 9 currently-passing tests**, for a **total cost of 14, the entire file**. This is the
+  exact shape named in plan §4.10 (E-UTCI-12: a fix that restored green by removing 43 passing tests).
 
-- `tests/fixtures/synthetic_10_buildings.py` defines `synthetic_10_gdf` and `synthetic_schedule_library`
-  as `@pytest.fixture(scope="session")` functions (lines 125, 167).
-- `tests/conftest.py` imports both and re-exports via `__all__` — this is a normal, working pattern
-  (confirmed live: `pytest tests/test_step3_orchestrator.py --fixtures` lists both fixtures correctly).
-- `docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/tests/` **has no `conftest.py` of its own** (confirmed:
-  `find` for `conftest.py` under that `scripts/` tree returns nothing). Pytest fixture visibility is scoped
-  to the directory tree containing the defining/importing `conftest.py` and its subdirectories — a test file
-  living outside that tree cannot see the fixture no matter how the fixture itself is defined.
+## A second instance of the same shape, found but not costed (out of this task's named scope)
 
-**This is a wiring problem, not a missing file, exactly as §4.4 flagged.** The one-line fix (not applied,
-per T05's scope) would be adding a `conftest.py` under the elevators `scripts/tests/` directory that imports
-the same fixtures, or deleting the archived duplicate. Neither is this task's decision.
+`tests/test_draw_methods.py`'s 9 failures are the **identical pattern** one file over: a config surface
+(`config.IMPUTE_DRAW_METHOD_BY_TARGET`) and a tier-order entry (`"draw"` in `imputation.py`'s
+`_CANONICAL_TIER_ORDER`, confirmed absent — `openubem/semantic/imputation.py:543` reads
+`("fusion", "spatial", "ml", "statistical")`) that the draw tier's own module explicitly documents as
+"opt-in / OFF by construction ... until a future task (T07) wires `_draw_tier` into
+`imputation.py`'s `_CANONICAL_TIER_ORDER`" (`openubem/semantic/draw_methods.py:5-9`). Plan §5 step 4 named
+`IMPUTE_DEBIAS_NEWERSKEW` specifically, so this group is not costed here — flagged per hard rule 5 ("report
+what you did not find") so it is not silently missed a second time.
 
-Two further `docs/.../test_step3_orchestrator.py` nodes are NOT this cause — `test_load_conservation_
-across_modes` and `test_load_conservation_across_modes_multifloor` build their row dict directly (no
-fixture) and fail with `ValueError: epw_path '...scripts/tests/fixtures/synthetic.epw' is missing or does
-not exist`. Confirmed: `docs/.../elevators/scripts/tests/fixtures/` does not exist at all (the archived
-mirror never carried a `fixtures/` subfolder). Categorized `artifact-missing`, not `fixture-wiring`.
+## What I could not determine
 
-## `artifact-missing` (65)
+- Whether `tests/test_draw_methods.py`'s draw-tier gap and the "draw tier" arc referenced in project memory
+  (`project_variance_preserving_draw_arc.md`, noted there as closed/parked) are the same item under a
+  different name, or two separate decisions — I did not open that file; doing so would have widened this
+  task past the two config-attribute groups actually asked for.
+- Whether any of the 10 currently-`skipped` tests (not in scope — the plan's closed set covers only
+  failing/erroring nodes) would themselves fail if unblocked. One in particular,
+  `test_draw_methods.py::TestNoEUILeakage::test_no_function_code_references_eui_by_name`, is the one test
+  in that file still gated (via `skipif` on `_HAS_DRAW_TIER`) specifically because it would need
+  `imp._draw_tier` / `imp._draw_stratum_col_for` to exist — it is the guard that would catch an EUI-leak
+  regression if the draw tier is ever wired in, and it is not currently exercising anything.
+- Whether this run is free of order-dependent flakiness — it was executed once (~19.5 min); all 45
+  failures/errors are deterministic (missing attribute or missing path), not timing-shaped, so this is a
+  low-suspicion gap, not a known one.
 
-Three clusters:
+## Files written
 
-- **26** in `tests/test_v19_basis_diagnostic.py` + `tests/test_v19_national_cbecs_rescore.py`: every one is
-  a `FileNotFoundError`/`OSError`/`AssertionError` rooted in `docs/docs_DONE/phaseC_combinedResim/
-  v19_validation/` **not existing locally at all** (confirmed: `ls` on that path fails). These tests both
-  read and write into that directory; none of it survives on this machine.
-- **5** in `tests/test_impute_montage.py`: `phase_A folder has zero PNGs`, `PLAN_input_imputation_
-  implementation.md` not found beside `OUT_DIR` — source figures were never generated locally.
-- **34** in the elevators tree: the archived `docs/.../scripts/openubem/` mirror is missing files its own
-  tests need — `openubem/data/openstudio_archetypes.json` (1 node) and `openubem/idf/templates/
-  commercial_base.idf` (all of `test_elevators.py`'s remaining 23 nodes and 8 of `test_outputs.py`'s 10
-  nodes), plus the 2 `test_step3_orchestrator.py` epw-path nodes above. Confirmed by `find`: neither file
-  exists anywhere under that archived `scripts/openubem/` tree.
+- `scripts/analysis/open44_test_triage.py` — parses the run's JUnit XML, applies a by-hand classification
+  keyed by exact node id (raises if any failing/erroring node is unclassified, or if any classified node
+  id did not actually fail/error in the run — both-directions reconciliation is enforced in code, not just
+  asserted in prose), writes the CSV.
+- `openubem/outputs/comparisons/open44_test_triage.csv` — 45 data rows.
+- `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-44_test-triage.md` — this file.
 
-None of these indicate broken shipped code — they indicate output directories or archived sibling files
-that don't exist on this machine. Per hard rule 8, that is the cause, not a count.
-
-## `stale-expectation` (2)
-
-Both in `docs/.../test_outputs.py`: `test_hvac_meters_count` (`assert len(HVAC_METERS) == 14`, actual 13)
-and `test_hvac_meters_phase_e_required` (an `issubset` check requiring `'Elevators:InteriorEquipment:
-Electricity'`). Proof this is drift, not a live defect: the **live** twin `tests/test_outputs.py:81` asserts
-`len(HVAC_METERS) == 13` against the same live `openubem/idf/outputs.py:28-42` (13 entries, no elevator
-meter) — **and passes**. The archived copy was never updated after the live meter count changed.
-
-## The 61 `docs/` failures — duplicates, drift, and what the drift is (files not touched)
-
-Per §4.4, `docs/` holds 5 test files with `tests/` counterparts. Byte-for-byte `cmp`: **2 identical, 3
-drifted** (this matches §4.4's count exactly).
-
-**Identical:** `test_elevators.py`, `test_parser_elevators.py`.
-
-**Drifted, and the drift is the same story in all three cases — the live `tests/` versions had elevator-
-breakout expectations removed, while the archived `docs/` versions still have them** (confirmed with
-`diff -b`, which ignores the CRLF-vs-LF line-ending difference that otherwise makes every line look
-changed):
-
-1. **`test_outputs.py`** — archived expects `len(HVAC_METERS) == 14` and an elevator meter in the required
-   subset; live expects `== 13` and drops the elevator meter from the requirement (see `stale-expectation`
-   above).
-2. **`test_results_aggregator.py`** — archived's expected-row dicts include `elevators_eui_kwh_m2` and
-   `gwp_elevators_kgco2_m2`; live's dicts (both the all-NaN template near line 63-70 and the populated rows
-   near line 87-97) have both keys removed. This file did not fail in either run (both versions currently
-   pass) — it is drift without breakage, because neither version's assertions currently touch the removed
-   keys' absence.
-3. **`test_step3_orchestrator.py`** — archived has one extra test, `test_medium_office_idf_contains_
-   elevator_equipment` (asserts a `MediumOffice` IDF carries one `ELECTRICEQUIPMENT` object with
-   `EndUse_Subcategory == "Elevators"`); live does not have this test at all — it was deleted, not just
-   edited.
-
-**Reading across all five files:** whoever last touched `tests/` tried to quiet the elevator-breakout
-failures by removing or downgrading the assertions in three of five files, but missed
-`test_parser_elevators.py` (still asserts `elevators_eui_kwh_m2` / the elevator meter, still fails live) and
-never touched `openubem/results/parser.py` or `openubem/idf/outputs.py` to add the feature. No files under
-`docs/` were modified, moved, or deleted to establish this — only read and `diff`'d.
-
-## What T05 did not do
-
-Did not fix `synthetic_10_gdf` wiring, did not implement the elevator breakout, did not implement
-`IMPUTE_DEBIAS_NEWERSKEW`, did not regenerate any missing artifact, did not touch any file under
-`docs/`, did not run the whole repo (only the three trees named in §4.4's breakdown). OPEN-44 does not
-close on this pass, per §7 of the plan.
+No test was fixed, skipped, deleted, or edited. No file under `docs/` was modified. No `pytest.ini` /
+`pyproject.toml` collection setting was changed. Fully local; no cluster.

@@ -793,7 +793,7 @@ class TestSerialize:
 # ── synthetic_30_gdf session fixture (plan T13) ───────────────────────────────
 
 @pytest.fixture(scope="session")
-def synthetic_30_gdf():
+def synthetic_30_gdf(tmp_path_factory):
     """23-col GDF with one row per default-reachable archetype (25 rows).
 
     5 archetypes excluded from default-mode coverage:
@@ -803,8 +803,15 @@ def synthetic_30_gdf():
       (detailed_office=True only — covered in test_detailed_reachable_via_flag)
     Plan T13 stated "27 rows"; correct arithmetic is 30 − 2 − 3 = 25.
     Deviation logged in T13 progress entry.
+
+    OPEN-50 (2026-08-13): the GDF is built in memory and only needs a path to
+    write through for GDAL's GPKG driver; it no longer writes to the checked-in
+    tests/fixtures/synthetic_30_archetype_coverage.gpkg, which every run used to
+    dirty (timestamp-only GDAL metadata churn). Written to pytest's own
+    session-scoped tmp_path_factory dir instead. Data (rows, CRS, dtypes, layer
+    name) is unchanged.
     """
-    fixture_path = Path("tests/fixtures/synthetic_30_archetype_coverage.gpkg")
+    fixture_path = tmp_path_factory.mktemp("synthetic_30") / "synthetic_30_archetype_coverage.gpkg"
 
     def _r(i, ft, bt, levels, area, **kw):
         d = dict(_ROW_DEFAULTS)
@@ -1001,9 +1008,37 @@ _COARSE_CLASS_MAP: dict[str, str] = {
 }
 
 
-def _run_labelled_fixture():
+# ── OPEN-27: bind the coarse-class metric's archetype names to the data ─────
+# The DESIGN text pins residential <=> MidriseApartment + MultifamilyHome, but
+# this project's archetype JSON has no MultifamilyHome archetype (only
+# MidriseApartment + HighriseApartment). The spec half is read-only here; this
+# class makes the divergence impossible to widen silently in code.
+
+class TestOpen27ArchetypeNameBinding:
+    def _archetype_ids(self) -> list[str]:
+        from importlib.resources import files
+        data = json.loads(files("openubem.data").joinpath("openstudio_archetypes.json").read_text())
+        return [a["archetype_id"] for a in data["archetypes"]]
+
+    def test_coarse_class_map_keys_exist_in_archetype_json(self):
+        ids = set(self._archetype_ids())
+        for key in _COARSE_CLASS_MAP:
+            assert key in ids, (
+                f"OPEN-27: _COARSE_CLASS_MAP key {key!r} is not an archetype_id in "
+                f"openstudio_archetypes.json"
+            )
+
+    def test_residential_archetypes_are_exactly_midrise_and_highrise(self):
+        residential = {k for k, v in _COARSE_CLASS_MAP.items() if v == "residential"}
+        assert residential == {"MidriseApartment", "HighriseApartment"}
+
+    def test_multifamilyhome_not_in_archetype_json(self):
+        ids = self._archetype_ids()
+        assert "MultifamilyHome" not in ids
+
+
+def _run_labelled_fixture(csv_path: Path = Path("tests/fixtures/labelled_archetypes_50.csv")):
     """Classify both gpkg fixtures and merge with labelled CSV. Returns merged DataFrame."""
-    csv_path = Path("tests/fixtures/labelled_archetypes_50.csv")
     if not csv_path.exists():
         return None
     lab = pd.read_csv(csv_path, comment="#")
@@ -1055,6 +1090,34 @@ class TestLabelledTop1Accuracy:
             pytest.skip("labelled fixture not found")
         n_distinct = merged["expected_archetype"].nunique()
         assert n_distinct >= 10, f"only {n_distinct} distinct archetypes in fixture (need ≥10)"
+
+
+class TestTagRichTop1Accuracy:
+    """Ruling 2a (2026-08-13): live accuracy gate against the tag-rich fixture
+    (tests/fixtures/labelled_archetypes_tagrich_v2.csv), fine top-1 >= 0.80."""
+
+    _CSV_PATH = Path("tests/fixtures/labelled_archetypes_tagrich_v2.csv")
+
+    def test_fine_top1_tagrich(self):
+        merged = _run_labelled_fixture(self._CSV_PATH)
+        if merged is None:
+            pytest.skip("tag-rich labelled fixture not found")
+        graded = merged[merged["expected_archetype"] != "UNDETERMINED"]
+        acc = (graded["archetype_id"] == graded["expected_archetype"]).mean()
+        assert acc >= 0.80, (
+            f"tag-rich fine top-1 {acc:.1%} < 80% gate (n={len(graded)} graded rows)"
+        )
+
+    def test_tagrich_graded_denominator_98(self):
+        merged = _run_labelled_fixture(self._CSV_PATH)
+        if merged is None:
+            pytest.skip("tag-rich labelled fixture not found")
+        graded = merged[merged["expected_archetype"] != "UNDETERMINED"]
+        n_graded = len(graded)
+        assert n_graded == 98, (
+            f"tag-rich fixture graded denominator is {n_graded}, expected 98 — "
+            "fixture shape has changed"
+        )
 
 
 # ── TestDoePrototypeSelfClassification (T07) ──────────────────────────────────

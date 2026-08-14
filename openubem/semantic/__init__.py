@@ -1,6 +1,7 @@
 """Step 2.2 orchestrator — enrich_semantics() (DESIGN §3A–§3G)."""
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 from pathlib import Path
@@ -208,6 +209,19 @@ def _build_unknown_envelope(
     return env_df
 
 
+def _per_building_rng(osm_id: object) -> np.random.Generator:
+    """OPEN-49 fix: a stable per-building seed, independent of cell membership.
+
+    hashlib.blake2b (not builtin hash(), which is PYTHONHASHSEED-salted and
+    would make runs irreproducible) over osm_id, combined with
+    config.RANDOM_SEED via numpy's SeedSequence entropy mixing (default_rng
+    accepts a sequence of ints for exactly this purpose).
+    """
+    digest = hashlib.blake2b(str(osm_id).encode("utf-8"), digest_size=8).digest()
+    osm_hash = int.from_bytes(digest, byteorder="little", signed=False)
+    return np.random.default_rng((config.RANDOM_SEED, osm_hash))
+
+
 def _build_unknown_loads(
     gdf: gpd.GeoDataFrame,
     unk_mask: pd.Series,
@@ -217,6 +231,12 @@ def _build_unknown_loads(
     """
     F13: Unknown rows — densities+wwr via PDE over cross-archetype [min,max];
     setpoints via cross-archetype MEDIAN (HEURISTIC), post-guard heating < cooling.
+
+    OPEN-49 fix: `real_loads` is always the fixed, full cross-archetype table
+    (see call site) so bounds/medians no longer depend on which archetypes
+    happen to be present in the cell (route 2), and each Unknown row's PDE
+    draw is keyed to its own osm_id (see `_per_building_rng`) rather than one
+    shared vectorised block sized by the Unknown count (route 1).
     """
     if not unk_mask.any():
         return pd.DataFrame()
@@ -225,11 +245,14 @@ def _build_unknown_loads(
     pde_cols = ["lighting_w_m2", "equipment_w_m2", "occupant_m2_per_person", "wwr"]
     scalar_cols = ["heating_setpoint_c", "cooling_setpoint_c", "heating_setback_c", "cooling_setup_c"]
 
-    n = unk_mask.sum()
+    bounds = {col: (real_loads[col].min(), real_loads[col].max()) for col in pde_cols}
     for col in pde_cols:
-        lo, hi = real_loads[col].min(), real_loads[col].max()
-        vals = rng.uniform(lo, hi, size=n)
-        result[col] = vals
+        result[col] = np.nan
+    for idx, osm_id in gdf.loc[unk_mask, "osm_id"].items():
+        row_rng = _per_building_rng(osm_id)
+        for col in pde_cols:
+            lo, hi = bounds[col]
+            result.at[idx, col] = row_rng.uniform(lo, hi)
 
     for col in scalar_cols:
         result[col] = float(real_loads[col].median())
@@ -337,7 +360,10 @@ def enrich_semantics(
         # Temporarily sub gdf for loads merge (needs archetype_id)
         loads_real = get_loads(out.loc[real_mask], custom_table=loads_table)
 
-    loads_unk = _build_unknown_loads(out, unk_mask, loads_real if real_mask.any() else _get_cross_archetype_loads(), rng)
+    # OPEN-49 fix: bounds/medians always come from the fixed, full cross-archetype
+    # table — never from `loads_real` (archetypes present in this cell) — so the
+    # Unknown draw no longer depends on cell composition (ruling 3).
+    loads_unk = _build_unknown_loads(out, unk_mask, _get_cross_archetype_loads(), rng)
 
     if real_mask.any() and unk_mask.any():
         loads_df = pd.concat([loads_real, loads_unk]).reindex(out.index)
