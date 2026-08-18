@@ -71,6 +71,7 @@ def _make_metrics_df(n: int = 3, include_failed: bool = True) -> pd.DataFrame:
                 "gwp_refrigeration_kgco2_m2": nan, "gwp_elevators_kgco2_m2": nan,
                 "gwp_total_kgco2_m2": nan,
                 "iod": nan, "data_quality_flag": "",
+                "floor_area_m2": nan, "floor_area_provenance": "",
             })
         else:
             rows.append({
@@ -103,6 +104,9 @@ def _make_metrics_df(n: int = 3, include_failed: bool = True) -> pd.DataFrame:
                 "gwp_total_kgco2_m2": 59.8,
                 "iod": 0.3 + i * 0.1,
                 "data_quality_flag": "",
+                # 196.0 (footprint) * 2.0 (levels) — matches _make_enriched_gdf so the
+                # OPEN-01 floor_area_m2 column reproduces the pre-OPEN-01 fallback exactly.
+                "floor_area_m2": 392.0, "floor_area_provenance": "footprint_fallback",
             })
     return pd.DataFrame(rows)
 

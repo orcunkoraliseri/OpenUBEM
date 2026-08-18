@@ -159,6 +159,15 @@
     .row{grid-template-columns:1fr; gap:6px}
     .wrap{padding:28px 16px 60px}
   }
+  /* Narrative history — moved below the board 17 August, so the counts and the task
+     list are what the page opens with. Nothing here was rewritten; it is the same
+     dated record, in the same order, read after the numbers rather than before. */
+  .notes{margin-top:14px; padding-top:24px; border-top:2px solid var(--ink);
+    display:flex; flex-direction:column; gap:16px}
+  .notes > .notes-h{margin:0; font-family:ui-monospace,"Cascadia Mono","SF Mono",Consolas,monospace;
+    font-size:12px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-2); font-weight:600}
+  .notes > .notes-lede{margin:-8px 0 0; font-size:13px; color:var(--ink-3); max-width:74ch}
+  .notes .stamp{padding-top:2px}
   @media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
 </style>
 
@@ -167,11 +176,65 @@
 <header>
   <div class="eyebrow">OpenUBEM &middot; openings arc &middot; the numbers we already published</div>
   <h1>Published-numbers board</h1>
+</header>
+
+<section class="counts" id="counts"></section>
+<div class="bar" id="bar"></div>
+
+<div class="controls" id="controls"></div>
+
+<div id="board" style="display:flex;flex-direction:column;gap:20px"></div>
+<div class="empty" id="empty" hidden></div>
+
+<section class="notes">
+  <h2 class="notes-h">Notes &amp; history</h2>
+  <p class="notes-lede">Everything below is the running record, oldest context first, then one
+     dated entry per working day. It is unchanged &mdash; only moved, so the board opens with the
+     counts and the task list.</p>
   <p class="sub">Live view of <span class="mono">PLAN_published-numbers.md</span> and, since 6 August,
      <span class="mono">PLAN_no-compute-queue.md</span> and <span class="mono">PLAN_no-compute-queue-2.md</span>
      — covering OPEN-01 through OPEN-04 with OPEN-28
      bundled in, plus the work that needs no computation. <b>Nothing here fixes anything yet.</b>
      Every task measures how big a problem is; only then is a fix designed.</p>
+<section class="decisions">
+  <h2>Where this stands, in plain language</h2>
+  <ol>
+    <li><strong>You picked the numbers that could already be wrong. That is four problems, and they do not share a fix.</strong>
+      <span class="why">Two of them are about <b>energy per square metre</b>: we divide a building's energy by a
+      floor area we <em>assumed</em>, and for most buildings the simulation was not actually run on that floor
+      area. One is about the <b>energy itself</b>: every building's lights and equipment are modelled as if
+      built to 2022 code, whatever year it was really built. The fourth is about a <b>measuring instrument</b>:
+      the score that says how often the building-type guesser is right slid four points and nobody knows why.
+      Grouping them was your call and it was the right one — they are the only items on the register that can
+      make a published result <em>wrong</em> rather than merely incomplete.</span></li>
+    <li><strong>All the measuring is done, and the news on 6 August is good.</strong>
+      <span class="why">The two big unfixed problems both live in <b>one method</b> of dividing a building into
+      rooms — and that method cannot be picked by accident, only by name. I checked all <b>16,320 buildings</b>
+      behind our adopted results: not one used it. <b>So the numbers this project stands on are not affected.</b>
+      The two problems are not smaller than they were; we now know where they stop, and it is short of anything
+      we have published as a headline.</span></li>
+    <li><strong>Most of the decisions are now taken; two remain.</strong>
+      <span class="why"><b>Decided 9 August (CP-M3, with two others folded into it):</b> a piece of work is not
+      finished until it shows its accuracy score before and after, records the construction era it used, and
+      repairs the links into anything it archives. All three obligatory. <b>Also decided the same day:</b> the
+      halted fleet run restarts on the cluster, measured first rather than committed blind; the never-working
+      failure check gets fixed everywhere rather than only where it was noticed; and you authorised the full
+      pass, telling me to carry it through without coming back for permission. <b>Still waiting on you:</b>
+      whether the cross-method comparisons are worth salvaging (<b>CP-M2</b>), and the classifier question below.
+      Neither blocks the cluster work.</span></li>
+    <li><strong>One question from last week is still unanswered, and it is not in this plan.</strong>
+      <span class="why">The classifier question (<b>OPEN-22</b>): when the map data says only <em>"this is a
+      building"</em>, the code guesses <em>office</em>. If the human answer key guessed office too, our accuracy
+      score is measuring two guesses agreeing. It is carried at the bottom of this board as <b>S03</b> so it
+      cannot be lost again — but it is a separate, cheap job, and it does not block anything here.</span></li>
+    <li><strong>The rule that shapes this whole board: measure first, fix second.</strong>
+      <span class="why">Several of these items rest on numbers written down weeks ago. One of them —
+      OPEN-22's — was checked this week and <b>its entire premise had silently become false</b>: the code had
+      changed underneath the note describing it. So no fix gets designed for anything here until its size has
+      been measured against today's code. The measurement tasks are explicitly forbidden from fixing what
+      they find.</span></li>
+  </ol>
+</section>
   <div class="pausebox">
     <div class="pausebox-h">&#9654;&#65039; Resumed 9 August &mdash; the cluster is free and work has restarted</div>
     <p>You came back on <b>9 August 2026</b> and released computation again. <b>The pause cost nothing:</b>
@@ -378,55 +441,7 @@
      🔴 <b>the published fleet figure stays 157.1 kWh/m&sup2; until that re-run lands and you rule on
      the new one</b> &mdash; it will be slightly higher, because elevators are now added by code rather
      than by a lost working copy</div>
-</header>
-
-<section class="counts" id="counts"></section>
-<div class="bar" id="bar"></div>
-
-<section class="decisions">
-  <h2>Where this stands, in plain language</h2>
-  <ol>
-    <li><strong>You picked the numbers that could already be wrong. That is four problems, and they do not share a fix.</strong>
-      <span class="why">Two of them are about <b>energy per square metre</b>: we divide a building's energy by a
-      floor area we <em>assumed</em>, and for most buildings the simulation was not actually run on that floor
-      area. One is about the <b>energy itself</b>: every building's lights and equipment are modelled as if
-      built to 2022 code, whatever year it was really built. The fourth is about a <b>measuring instrument</b>:
-      the score that says how often the building-type guesser is right slid four points and nobody knows why.
-      Grouping them was your call and it was the right one — they are the only items on the register that can
-      make a published result <em>wrong</em> rather than merely incomplete.</span></li>
-    <li><strong>All the measuring is done, and the news on 6 August is good.</strong>
-      <span class="why">The two big unfixed problems both live in <b>one method</b> of dividing a building into
-      rooms — and that method cannot be picked by accident, only by name. I checked all <b>16,320 buildings</b>
-      behind our adopted results: not one used it. <b>So the numbers this project stands on are not affected.</b>
-      The two problems are not smaller than they were; we now know where they stop, and it is short of anything
-      we have published as a headline.</span></li>
-    <li><strong>Most of the decisions are now taken; two remain.</strong>
-      <span class="why"><b>Decided 9 August (CP-M3, with two others folded into it):</b> a piece of work is not
-      finished until it shows its accuracy score before and after, records the construction era it used, and
-      repairs the links into anything it archives. All three obligatory. <b>Also decided the same day:</b> the
-      halted fleet run restarts on the cluster, measured first rather than committed blind; the never-working
-      failure check gets fixed everywhere rather than only where it was noticed; and you authorised the full
-      pass, telling me to carry it through without coming back for permission. <b>Still waiting on you:</b>
-      whether the cross-method comparisons are worth salvaging (<b>CP-M2</b>), and the classifier question below.
-      Neither blocks the cluster work.</span></li>
-    <li><strong>One question from last week is still unanswered, and it is not in this plan.</strong>
-      <span class="why">The classifier question (<b>OPEN-22</b>): when the map data says only <em>"this is a
-      building"</em>, the code guesses <em>office</em>. If the human answer key guessed office too, our accuracy
-      score is measuring two guesses agreeing. It is carried at the bottom of this board as <b>S03</b> so it
-      cannot be lost again — but it is a separate, cheap job, and it does not block anything here.</span></li>
-    <li><strong>The rule that shapes this whole board: measure first, fix second.</strong>
-      <span class="why">Several of these items rest on numbers written down weeks ago. One of them —
-      OPEN-22's — was checked this week and <b>its entire premise had silently become false</b>: the code had
-      changed underneath the note describing it. So no fix gets designed for anything here until its size has
-      been measured against today's code. The measurement tasks are explicitly forbidden from fixing what
-      they find.</span></li>
-  </ol>
 </section>
-
-<div class="controls" id="controls"></div>
-
-<div id="board" style="display:flex;flex-direction:column;gap:20px"></div>
-<div class="empty" id="empty" hidden></div>
 
 <footer>
   <div>Generated from the plan's task table. The plan doc is the binding record; this board is the same

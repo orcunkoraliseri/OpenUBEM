@@ -99,7 +99,7 @@ def fetch_mode(mode: str, fleet_lst: list[str], work_base: Path) -> Path:
 
     print(f"  [{mode}] Fetching {len(fleet_lst)} buildings from {remote_dir}/out ...")
     paths_str = " ".join(
-        f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end"
+        f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end {oid}/eplusout.eio"
         for oid in fleet_lst
     )
     remote_cmd = f"cd {remote_dir}/out && tar czf - --ignore-failed-read {paths_str}"

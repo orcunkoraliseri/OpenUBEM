@@ -13,6 +13,7 @@ bit-identical to the 9-way total for every SQL written before this change.
 """
 from __future__ import annotations
 
+import csv
 import re
 import sqlite3
 import warnings
@@ -260,6 +261,136 @@ def _check_zone_integrity(
     return None, None
 
 
+# ── OPEN-01 (T05): multiplier-aware simulated floor area from .eio ──────────
+# Ruling 6: the EUI denominator becomes area_multiplier_aware_m2 from eplusout.eio,
+# Sigma(Floor Area x Zone Multiplier x Zone List Multiplier) over zones with
+# Part of Total Building Area = Yes. parse_eio_zone_area() is lifted verbatim from
+# scripts/analysis/e02_t04_floor_area_audit.py:56 (the parser that produced the
+# 40,800-row audit at openubem/outputs/comparisons/open01_denominator_audit.csv) so this
+# module never disagrees with that audit.
+_EIO_HEADER_MARKER = "! <Zone Information>"
+_EIO_DATA_PREFIX = " Zone Information,"
+
+_EIO_FIELD_FLOOR_AREA = "Floor Area {m2}"
+_EIO_FIELD_ZONE_MULT = "Zone Multiplier"
+_EIO_FIELD_ZONE_LIST_MULT = "Zone List Multiplier"
+_EIO_FIELD_PART_OF_TOTAL = "Part of Total Building Area"
+
+
+def parse_eio_zone_area(path: Path) -> dict:
+    """Stream one .eio file, header-name-mapped, early-exit after the block.
+
+    Verbatim port of scripts/analysis/e02_t04_floor_area_audit.py:56 — do not
+    edit the two independently; if the audit script's version changes, port the
+    change here too rather than letting the two drift apart.
+    """
+    header_idx = None
+    n_zones = 0
+    area_plain = 0.0
+    area_mult = 0.0
+    max_zm = 0.0
+    max_zlm = 0.0
+    n_excluded = 0
+    n_row_errors = 0
+    saw_header = False
+    in_block = False
+
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace", newline="") as f:
+            for line in f:
+                if not saw_header:
+                    if line.startswith(_EIO_HEADER_MARKER):
+                        raw = next(csv.reader([line]))
+                        names = [c.strip() for c in raw]
+                        header_idx = {name: i for i, name in enumerate(names)}
+                        saw_header = True
+                    continue
+                if line.startswith(_EIO_DATA_PREFIX):
+                    in_block = True
+                    n_zones += 1
+                    try:
+                        row = next(csv.reader([line]))
+                        floor_area = float(row[header_idx[_EIO_FIELD_FLOOR_AREA]])
+                        zm = float(row[header_idx[_EIO_FIELD_ZONE_MULT]])
+                        zlm = float(row[header_idx[_EIO_FIELD_ZONE_LIST_MULT]])
+                        part = row[header_idx[_EIO_FIELD_PART_OF_TOTAL]].strip()
+                    except (KeyError, ValueError, IndexError):
+                        n_row_errors += 1
+                        continue
+                    if zm > max_zm:
+                        max_zm = zm
+                    if zlm > max_zlm:
+                        max_zlm = zlm
+                    if part == "Yes":
+                        area_plain += floor_area
+                        area_mult += floor_area * zm * zlm
+                    else:
+                        n_excluded += 1
+                elif in_block:
+                    break
+    except OSError as e:
+        return dict(
+            n_zones=0, area_plain_m2=0.0, area_multiplier_aware_m2=0.0,
+            max_zone_multiplier=0, max_zone_list_multiplier=0,
+            n_zones_excluded_not_in_total_area=0,
+            parse_status=f"file_error:{e}",
+        )
+
+    if not saw_header:
+        status = "no_zone_information_header"
+    elif n_zones == 0:
+        status = "header_found_zero_rows"
+    elif n_row_errors > 0:
+        status = f"ok_with_{n_row_errors}_row_errors"
+    else:
+        status = "ok"
+
+    return dict(
+        n_zones=n_zones,
+        area_plain_m2=area_plain,
+        area_multiplier_aware_m2=area_mult,
+        max_zone_multiplier=int(round(max_zm)),
+        max_zone_list_multiplier=int(round(max_zlm)),
+        n_zones_excluded_not_in_total_area=n_excluded,
+        parse_status=status,
+    )
+
+
+_EIO_OK_STATUSES_PREFIX = ("ok", "ok_with_")
+
+
+def resolve_simulated_floor_area(
+    sql_path: "Path | None",
+    footprint_area: float,
+    num_floors: int,
+) -> tuple[float, str]:
+    """Return (floor_area_m2, provenance) per ruling 6.
+
+    provenance is "eio_simulated" when eplusout.eio (sibling of sql_path) parses
+    with a non-empty, well-formed Zone Information block and a positive
+    multiplier-aware area; otherwise falls back to footprint_area x num_floors
+    with provenance "footprint_fallback". Never raises.
+    """
+    fallback_area = footprint_area * num_floors
+    if sql_path is None:
+        return fallback_area, "footprint_fallback"
+
+    eio_path = sql_path.parent / "eplusout.eio"
+    if not eio_path.exists():
+        return fallback_area, "footprint_fallback"
+
+    try:
+        parsed = parse_eio_zone_area(eio_path)
+    except Exception:
+        return fallback_area, "footprint_fallback"
+
+    status = parsed.get("parse_status", "")
+    area_mult = parsed.get("area_multiplier_aware_m2", 0.0)
+    if status.startswith(_EIO_OK_STATUSES_PREFIX) and area_mult and area_mult > 0:
+        return float(area_mult), "eio_simulated"
+    return fallback_area, "footprint_fallback"
+
+
 # ── §3C: EUI computation (Phase-D: metered HVAC + zone lighting/equipment) ───
 # Authorized deviation per §0.1: cooling/heating from RunPeriod meters, not ideal-loads vars.
 # fans_eui_kwh_m2 is separate and NOT in total_eui_kwh_m2 (manager decision at CP-4).
@@ -269,6 +400,7 @@ def _compute_eui(
     row: "pd.Series",
     data_quality_flag: str,
     meters: dict[str, float] | None = None,
+    floor_area: float | None = None,
 ) -> tuple[dict[str, float] | None, str, str | None]:
     """Compute EUI columns using metered HVAC + hourly zone lighting/equipment.
 
@@ -295,10 +427,22 @@ def _compute_eui(
 
     P10 (C3-enforced): missing lighting or equipment variable → failed_parse.
     Missing meters → 0.0 (not failed_parse).
+
+    floor_area (OPEN-01, ruling 6, optional): the multiplier-aware simulated area
+    resolved by resolve_simulated_floor_area() — normally Sigma(zone Floor Area x
+    Zone Multiplier x Zone List Multiplier) from eplusout.eio, footprint x num_floors
+    on fallback. When omitted (all pre-OPEN-01 call sites, incl. every existing direct
+    test of this function), falls back to the pre-OPEN-01 footprint x num_floors
+    computed from `row` — unchanged behaviour. parse_building() always supplies it.
+    Ruling 6's own scope limit (fact 8): this makes every EUI internally consistent
+    with what was actually simulated, not physically representative of the real
+    building — most visibly for building mode, which simulates one storey, so its
+    EUI reads as energy per simulated m2, not the multi-storey building's real area.
     """
-    num_floors = derive_num_floors(row)
-    footprint_area = float(row["footprint_area_m2"])
-    floor_area = footprint_area * num_floors
+    if floor_area is None:
+        num_floors = derive_num_floors(row)
+        footprint_area = float(row["footprint_area_m2"])
+        floor_area = footprint_area * num_floors
 
     # Zone-level lighting + equipment (must be present)
     present_vars = set(df["variable_name"].unique())
@@ -554,7 +698,8 @@ def parse_building(
     """Parse one building's SQL (or CSV fallback); return a metrics dict.
 
     Keys: 5 EUI, 5 GWP placeholders (filled by carbon.py), iod, parse_status,
-          error_summary, data_quality_flag (updated).
+          error_summary, data_quality_flag (updated), floor_area_m2 and
+          floor_area_provenance (OPEN-01 T05 — see resolve_simulated_floor_area()).
     """
     import math as _math
     sql_path = Path(sql_path) if (sql_path and not (isinstance(sql_path, float) and _math.isnan(sql_path))) else None
@@ -564,6 +709,14 @@ def parse_building(
     num_zones: int = int(manifest_row.get("num_zones", 1))
     dq_flag: str = str(manifest_row.get("data_quality_flag", "") or "")
     resolution_mode: str | None = manifest_row.get("resolution_mode")
+
+    # OPEN-01 (T05, ruling 6): resolve the EUI denominator once, up front, so both the
+    # success path and every failure path report the same floor_area_m2/provenance pair.
+    num_floors = derive_num_floors(manifest_row)
+    footprint_area = float(manifest_row["footprint_area_m2"])
+    floor_area, floor_area_provenance = resolve_simulated_floor_area(
+        sql_path, footprint_area, num_floors
+    )
 
     parse_status = "success"
     error_summary = ""
@@ -588,7 +741,10 @@ def parse_building(
             df = None
 
     if df is None:
-        return _failed_row(osm_id, "failed_parse", error_summary or "no SQL or CSV", dq_flag)
+        return _failed_row(
+            osm_id, "failed_parse", error_summary or "no SQL or CSV", dq_flag,
+            floor_area, floor_area_provenance,
+        )
 
     # §3B: zone integrity
     try:
@@ -598,16 +754,19 @@ def parse_building(
         raise
 
     if status is not None:
-        return _failed_row(osm_id, status, msg or "", dq_flag)
+        return _failed_row(osm_id, status, msg or "", dq_flag, floor_area, floor_area_provenance)
 
     # §3C: EUI — read RunPeriod HVAC meters from SQL, then compute (T05 Phase-D)
     meters: dict[str, float] = {}
     if sql_path and sql_path.exists():
         meters = _parse_meters_sql(sql_path)
 
-    eui, dq_flag, missing_var = _compute_eui(df, manifest_row, dq_flag, meters=meters)
+    eui, dq_flag, missing_var = _compute_eui(df, manifest_row, dq_flag, meters=meters, floor_area=floor_area)
     if eui is None:
-        return _failed_row(osm_id, "failed_parse", f"missing required EUI variable: {missing_var}", dq_flag)
+        return _failed_row(
+            osm_id, "failed_parse", f"missing required EUI variable: {missing_var}", dq_flag,
+            floor_area, floor_area_provenance,
+        )
 
     # §3D: IOD
     iod, dq_flag = _compute_iod(df, dq_flag)
@@ -617,6 +776,8 @@ def parse_building(
         "parse_status": parse_status,
         "error_summary": error_summary,
         "data_quality_flag": dq_flag,
+        "floor_area_m2": floor_area,
+        "floor_area_provenance": floor_area_provenance,
         **eui,
         "iod": iod,
         # GWP columns filled by carbon.py
@@ -628,12 +789,21 @@ def parse_building(
     }  # fans_eui_kwh_m2 is in **eui (not in total; flagged for CP-4)
 
 
-def _failed_row(osm_id: str, status: str, error: str, dq_flag: str) -> dict[str, Any]:
+def _failed_row(
+    osm_id: str,
+    status: str,
+    error: str,
+    dq_flag: str,
+    floor_area_m2: float = float("nan"),
+    floor_area_provenance: str = "footprint_fallback",
+) -> dict[str, Any]:
     return {
         "osm_id": osm_id,
         "parse_status": status,
         "error_summary": error,
         "data_quality_flag": dq_flag,
+        "floor_area_m2": floor_area_m2,
+        "floor_area_provenance": floor_area_provenance,
         "heating_eui_kwh_m2": float("nan"),
         "cooling_eui_kwh_m2": float("nan"),
         "lighting_eui_kwh_m2": float("nan"),
