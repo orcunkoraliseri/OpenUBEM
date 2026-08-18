@@ -1645,3 +1645,52 @@ duplicated. Twenty-five IDs retired in all** (22 going in + OPEN-06/OPEN-37/OPEN
 against the 1875/55/0 baseline.
 
 Full detail: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`.
+
+---
+
+**Amendment 2026-08-18 (evening) — `PLAN_four-items-2026-08-18.md`, T01–T05 complete.** One item closed
+and retired, two sharpened (stay open, reframed/narrowed), one confirmed via director ruling.
+
+| Item | Outcome |
+|---|---|
+| **OPEN-46** | 🟢 **CLOSED + ID RETIRED.** The item's stated blocker was stale — `builder.py` has wired `assign_elevators` since 2026-08-13. All four elevator-reporting links (load → meter → parse/de-fold → carbon/aggregator) verified at HEAD by file:line citation and by passing tests: 65/65 targeted tests, full suite `1875 passed, 55 skipped, 11 warnings in 1572.28s (0:26:12)` matching the 1875/55/0/0 baseline. One documentary defect found and corrected: the plan-named proof test (`test_medium_office_idf_contains_elevator_equipment`) does not exist in the live tree and never has — `tests/test_builder_elevators_wired.py` (already committed) proves the same fact and passes. |
+| **OPEN-38** | 🔴 **STAYS OPEN. Director ruling: T04's recommendation accepted — stays a separate item from OPEN-42.** Every measured axis disagreed (Severe message class, temperature range, zone position, geometry origin, mode). |
+| **OPEN-42** | 🔴 **STAYS OPEN, REFRAMED (director ruling).** The question is no longer "which zone is inverted" but "what is wrong with the topmost-storey geometry of these six buildings such that any zone built from it runs away." Zoning mode only decides whether the topmost storey gets a zone at all — `building` and `layout_assign`, the two modes that never fatal, are exactly the two that never zone that storey. Both `.eio` and `.err` are now exhausted for this question; the E02 IDF corpus that could answer it no longer exists on disk. No local next step named. |
+| **OPEN-53** | 🔴 **STAYS OPEN, NARROWED (director ruling).** The original question — why the `.sql`/`.end` are missing — is answered: the files were produced, harvested and inventoried on 2026-08-11, then deleted by a process outside this repository at 2026-08-17 16:21, which also emptied the entire E02 IDF corpus. No published number is affected. What keeps it open is the custody risk, not the original question — nothing prevents recurrence, and `e02_corpus_inventory.csv` (2026-08-11) is now annotated as a snapshot, not current state, falsified by disk for two rows. |
+
+**Register: 26 tracked items → 25** (one closed and retired). Table re-counted programmatically:
+**25 live / 28 struck / 53 total, exactly OPEN-01…OPEN-53, no row missing, none duplicated. Twenty-six
+IDs retired in all** (25 going in + OPEN-46 this pass). Struck-vs-retired difference unchanged at
+**exactly 2** (OPEN-02, OPEN-28). **Next free item ID: OPEN-54** (unchanged — no new item opened this
+pass).
+
+**Full suite, run alone (T01/A1, foreground):** `1875 passed, 55 skipped, 11 warnings in 1572.28s (0:26:12)`.
+
+Full detail: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`;
+`docs/docs_ACTIVE/openings/implemenation/PLAN_four-items-2026-08-18.md` §8.
+
+---
+
+**Amendment 2026-08-18 (night) — `PLAN_open-52-and-four-items-2026-08-18.md`, T01–T06 complete.** One
+item closed and retired, four measured and narrowed. The user delegated ruling `3a` to the director;
+it was given, implemented and verified.
+
+| Item | Outcome |
+|---|---|
+| **OPEN-52** | 🟢 **CLOSED + ID RETIRED.** Ruling `3a` answered: `addopts = "--basetemp=.pytest_tmp"` deleted, a repo-root `conftest.py` now sets `PYTEST_DEBUG_TEMPROOT` to `<repo>/.pytest_tmp`, so pytest numbers each session instead of clearing one shared root. Derived from pytest 9.0.3's source — the `--basetemp` branch calls `rm_rf(basetemp)` unconditionally at session start, which *is* the collision. Four verifications passed with real output, including a negative control that reproduced the original failure on the old config and a two-session test that landed in distinct `pytest-0`/`pytest-1` directories. 🔴 **Hand-off: the fix is an ~~uncommitted working-tree change (`conftest.py` untracked, `pyproject.toml` modified) — until both are committed, a fresh clone reproduces the item.~~** 🟢 **DISCHARGED 2026-08-18 (night): committed as `da6eed7` and pushed to `origin/main` (github.com/orcunkoraliseri/OpenUBEM), at the user's explicit instruction (*"tu fais aussi a toi-meme … pour open-52"*), which suspended the arc's standing git prohibition for this one commit. A fresh clone no longer reproduces the item.** |
+| **OPEN-07** | 🔴 **STAYS OPEN, narrowed.** The "no IDF survives to diff" blocker is false — four survive under `scratchpad/`, covering 2 of 3 buildings in both classifications. The A side is the raw `SmallHotel` DOE prototype dropped in wholesale (67 zones / 485 surfaces / 106 subsurfaces, identical to the prototype's own counts) rather than an OSM extrusion; B is 6 / 43 / 23. Multipliers uniformly 1.0 on both sides — the multiplier-scaling hypothesis is refuted. |
+| **OPEN-38** *(sub-question)* | 🔴 **Subsurface sub-question REFUTED, not merely unmeasured.** The three `CHKSBS` warnings sit on `RearStairs`, `Corridor` and `FrontStairs` — never on `LaundryRoomFlr1`, the zone that carries the Severe and kills the run. Every flagged door is 0.0000 m from its wall's plane and strictly inside it, with zero duplicate surface names. Unfitted subsurfaces are not this item's mechanism. |
+| **OPEN-08** | 🔴 **STAYS OPEN, narrowed to 1 of 5 cells.** The "no harvest persists `vintage_standard`" blocker went stale when OPEN-30 closed. Vintage is measurable on 738 of 4,530 shared buildings (16.3%) — the other four cells' prior-generation file carries a stripped 21-column schema, a schema gap not a data gap. 🔴 **Director's correction to the executor's headline:** 3.79% vintage was compared against 13.40% archetype, which is a different population *and* generation pair. On the same 738 rows and same pair, archetype disagrees **50.54%** — so vintage is ~13x *more* stable than archetype, the opposite of the reported reading. OPEN-08's weight sits almost entirely in its archetype half; the vintage half is non-zero and data-poor-skewed (3.93% vs 0.00%). |
+| **OPEN-29** | 🔴 **STAYS OPEN. 8 of 12 still open, was 9.** E-LA-21 moves to CLOSED-ELSEWHERE — its one-space `has_fatal` literal is gone from every code path, confirmed live at **eight** harvest sites (director-corrected from the executor's seven). 🔴 **A director lead was refuted:** the plan asserted E-LA-16 had closed via OPEN-51; OPEN-51 only adjudicated *which defect the ID names*, and the defect itself is unpatched. E-LA-16 stays open. |
+| **OPEN-53** | 🔴 **STAYS OPEN by ruling, as a standing custody risk.** Both consequences discharged — `e02_corpus_inventory.csv` annotated by sidecar (its bytes untouched; no code reads it) and the two falsified `austin_suburban` rows re-verified live (inventory `n_end=437`, disk 0, directories intact at 437; the `auto` sibling returns 437/437 on the same disk, so the zero is real). A binding planning rule and an explicit closure condition are now recorded in the item. |
+
+**Register: 25 tracked items → 24** (one closed and retired). Re-counted programmatically: **24 live /
+29 struck / 53 total, exactly OPEN-01…OPEN-53, no row missing, none duplicated. Twenty-seven IDs
+retired in all.** Struck-vs-retired difference unchanged at **exactly 2** (OPEN-02, OPEN-28).
+**Next free item ID: OPEN-54** (unchanged — no new item opened this pass).
+
+**Full suite, run alone (T06, foreground):** `1875 passed, 55 skipped, 11 warnings in 1035.59s (0:17:15)`
+
+Full detail: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`;
+`docs/docs_ACTIVE/openings/implemenation/PLAN_open-52-and-four-items-2026-08-18.md` §8;
+director's log `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` §5.20.

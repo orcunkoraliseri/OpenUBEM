@@ -31,6 +31,21 @@
 > earlier ones. **The CP-3 box's "unresolved contradiction" about the full suite is RESOLVED and is
 > struck in place** - there was no regression; the plan's baseline command was wrong. Task-by-task
 > account: **5.18**. Two rulings are owed and are in section 3 as `3a` and `3b`.
+> **🟧 UPDATED ONCE MORE 2026-08-18 (evening), at the user's instruction, during the second pass
+> of the day.** `PLAN_four-items-2026-08-18.md` was written and run: T02, T03 and T04 landed and were
+> audited, T01's bookkeeping was closed in a follow-up dispatch, T05 ran, and **CP-3 was signed — the
+> plan is closed.** Ruling `3b` was answered by the user — `testpaths = ["tests"]` is now in
+> `pyproject.toml`. A **fifth RESUME box** heads the green box below and supersedes the 🟥 one.
+> Task-by-task account: **§5.19**. ~~One ruling is still owed: §3 `3a`.~~
+> 🟩 **UPDATED AGAIN 2026-08-18 (night): ruling `3a` is ANSWERED — the user delegated it to the
+> director (*"tu peux choisir OPEN-52"*) and the director ruled. **NO RULING IS OWED.** ~~A new plan is
+> in force:~~ `implemenation/PLAN_open-52-and-four-items-2026-08-18.md` — five items, T01–T06 — **has
+> since run to completion and ✅ CP-3 IS SIGNED. The plan is CLOSED and no plan is in force.** OPEN-52
+> is closed with its ID retired (~~🔴 but its remedy is still an uncommitted working-tree change~~ —
+> 🟢 **committed and pushed as `da6eed7`**);
+> OPEN-07, OPEN-08, OPEN-29 and OPEN-53 stay open, each narrowed. Register **24 live / 29 struck / 53
+> total**, next free **OPEN-54**. Suite `1875 passed, 55 skipped`. A **sixth RESUME box** (🟩) heads the
+> green box below and supersedes every earlier one. See §5.20.
 > **Supersedes:** `previous/DIRECTOR_PROMPT_openings_2026-08-10.md` — **spent, do not paste it.** That
 > file was written *before* the harvest landed and then amended in place; every load-bearing sentence
 > has been carried here as plain statement rather than as a struck-through correction. It is kept only
@@ -66,7 +81,159 @@
 > question at both stages (IDFs byte-identical, results max Δ 0.00836 kWh/m²). Nothing is running and
 > nothing is queued. The arc is idle and blocked on TWO rulings only — see the RESUME box below.**
 >
-> ## 🟥🟥 RESUME HERE — written 2026-08-18 after CP-3 was signed. **THIS BOX SUPERSEDES EVERY RESUME BOX BELOW IT, INCLUDING THE 🟪 ONE.**
+> ## 🟩🟩 RESUME HERE — written 2026-08-18 (night), at CP-3. **THIS BOX SUPERSEDES EVERY RESUME BOX BELOW IT.**
+>
+> **Nothing is running. Nothing is queued. No cluster job is in flight. No plan is in force. No ruling
+> is owed.** Full account: **§5.20**.
+>
+> **`implemenation/PLAN_open-52-and-four-items-2026-08-18.md` ran T01–T06 and ✅ CP-3 IS SIGNED. CLOSED.**
+> The user delegated ruling `3a` to the director; it was given, implemented, verified and the item
+> closed in the same pass.
+>
+> | task | item | outcome |
+> |---|---|---|
+> | T01 | **OPEN-52** | 🟢 **CLOSED + ID RETIRED** |
+> | T02 | **OPEN-07** (+ OPEN-38 sub-question) | stays open, narrowed; sub-question **refuted** |
+> | T03 | **OPEN-08** | stays open, narrowed to 1 of 5 cells; executor's headline **corrected** |
+> | T04 | **OPEN-29** | stays open, 8 of 12; one row moved; a director lead **refuted** |
+> | T05 | **OPEN-53** | stays open **by ruling**, as a standing custody risk |
+> | T06 | reconciliation | recount + checklist + this file + final suite |
+>
+> ~~🔴 **THE ONE THING THE NEXT SESSION MUST CHECK FIRST: OPEN-52's remedy is an uncommitted
+> working-tree change.** `conftest.py` is **untracked** and `pyproject.toml` is **modified**. Until the
+> user commits both, a fresh clone still reproduces the item. The closure is recorded with that
+> hand-off condition attached — do not treat it as landed until `git status` says so.~~
+>
+> 🟢 **RESOLVED the same night — struck above, not deleted.** The user instructed the director to
+> push the fix themselves (*"tu fais aussi a toi-meme … pour open-52"*), suspending the arc's standing
+> git prohibition for this one commit. `conftest.py`, `pyproject.toml` and
+> `extra/FIX_open-52_temproot-remedy.md` are committed as **`da6eed7`** and pushed to `origin/main`.
+> **OPEN-52 is now closed with nothing outstanding.**
+>
+> 🔴 **What IS still outstanding, and the next session should say so plainly: the other four items'
+> bookkeeping is uncommitted.** At the time of that push the register, `docs/PROJECT_CHECKLIST.md`,
+> this file and ~25 new measurement docs / CSVs / analysis scripts were all still working-tree changes.
+> The user believed they had already pushed everything; `git status` said otherwise. **Verify against
+> `git status`, not against the belief that it was sent.**
+>
+> **🟢 The arc's standing hard rule "one pytest session at a time, repo-wide" is LIFTED.** That rule
+> existed only because `addopts = "--basetemp=.pytest_tmp"` made every session clear one shared temp
+> root. The pin is gone; a repo-root `conftest.py` now points `PYTEST_DEBUG_TEMPROOT` at
+> `<repo>/.pytest_tmp`, and pytest numbers each session. Verified with a real positive control: two
+> concurrent sessions landed in distinct `pytest-0` / `pytest-1` directories, evidence durable on disk.
+> The ruling was derived from pytest 9.0.3's source — the `--basetemp` branch calls `rm_rf(basetemp)`
+> unconditionally at session start, *that line is* the collision — so the remedy **bypasses** the
+> OS-level lockout on `%LOCALAPPDATA%\Temp\pytest-of-o_iseri` instead of trying to repair it.
+>
+> **Register state after the pass, re-counted programmatically:** **24 live / 29 struck / 53 total**,
+> exactly OPEN-01…OPEN-53, **no row missing, none duplicated, 27 IDs retired**. Struck-minus-retired
+> is **exactly 2** (OPEN-02, OPEN-28, folded under OPEN-01) — the invariant holds. **Next free ID:
+> OPEN-54** (unchanged; no new item was opened).
+>
+> **Full suite, run alone in the foreground to completion:**
+> `1875 passed, 55 skipped, 11 warnings in 1035.59s (0:17:15)` — matches the arc baseline exactly.
+>
+> 🔴 **The most reusable result of this pass, and it is a method result.** **Two leads the director
+> wrote into the plan's §5 were refuted by the very tasks built to test them** (OPEN-38's
+> unfitted-subsurface hypothesis; E-LA-16's supposed closure via OPEN-51 — adjudicating what an ID
+> *names* is not fixing what it names). **And two executor numbers were corrected on audit** (OPEN-08's
+> comparator mixed two populations *and* two generation pairs; OPEN-29's site count was 8, not 7).
+> Corrections ran in both directions and every one is recorded at the point of the claim. Two further
+> transferable rules: **ask what a detector's *positive* control was** — T02's "0 unfitted subsurfaces"
+> is a null of unvalidated power, since it had only a known-negative control and disagreed with
+> EnergyPlus on all three flagged cases; and **when several executors are live, only one may hold the
+> register pen** — the others write a `## Register amendment to apply` section into their own
+> measurement doc and the director places it. Three ran concurrently this pass with zero corruption.
+>
+> **How the five were chosen — third consecutive pass where this heuristic supplied the whole slate:**
+> hunt for a **stale blocker**, a register sentence saying "cannot be measured because X" where X has
+> since become false. Four of five came from that; OPEN-52's only blocker was the owed ruling itself.
+>
+> **The queue behind this pass is unchanged:** §3 `2c` (the stray `.py` files under `docs/`, still live
+> on the *file* question alone), `7` (CP-M2), `8` (OPEN-11). And the standing corpus warning still
+> holds: **the E02 artifact corpus is eroding under a process outside this repository** — re-verify any
+> `%LOCALAPPDATA%` artifact's presence at planning time, never cite a census.
+>
+> ## ~~🟧🟧 RESUME HERE — written 2026-08-18 (evening), mid-pass~~ **(superseded by the 🟩 box above — that pass has since closed at CP-3 and ruling `3a` has been answered, implemented and closed)**
+>
+> **Nothing is running. Nothing is queued. No cluster job is in flight.** Both background executors of
+> the second pass of the day have exited. Full account: **§5.19**.
+>
+> **The plan in force was `implemenation/PLAN_four-items-2026-08-18.md`. It is FULLY EXECUTED and
+> ✅ CP-3 IS SIGNED (2026-08-18, director). THE PLAN IS CLOSED. No plan is in force. The next items
+> are the director's to pick.** CP-3's sign-off, with every claim re-derived from disk by the director
+> rather than read off the executor's report, is the last section of that plan's §8.
+>
+> | task | item | state |
+> |---|---|---|
+> | T01 | OPEN-46 | **DONE.** Full suite run in foreground: `1875 passed, 55 skipped, 11 warnings in 1572.28s (0:26:12)` — matches baseline exactly. Register amendment + progress-log entry written. **OPEN-46 CLOSED + ID RETIRED.** |
+> | T02 | OPEN-53 | landed, **CP-1 signed** |
+> | T03 | OPEN-42 + OPEN-11 | landed, **CP-2 signed** |
+> | T04 | OPEN-38 | landed and audited in substance; **ruling ACCEPTED 2026-08-18 — OPEN-38 and OPEN-42 stay separate items** |
+> | T05 | — | **DONE.** Register recounted programmatically (25 live / 28 struck / 53 total, 26 IDs retired, next free `OPEN-54`), checklist updated, this RESUME box updated. **✅ CP-3 SIGNED.** |
+>
+> 🟩 **SUPERSEDED 2026-08-18 (night) — ruling `3a` IS ANSWERED and a new plan is in force.**
+> The user delegated `3a` to the director. The remedy is ruled and pinned in
+> `implemenation/PLAN_open-52-and-four-items-2026-08-18.md` §4.1: **delete
+> `addopts = "--basetemp=.pytest_tmp"` and set `PYTEST_DEBUG_TEMPROOT` to `<repo>/.pytest_tmp` from a
+> new repository-root `conftest.py`**, so pytest allocates `<repo>/.pytest_tmp/pytest-of-<user>/pytest-<n>`
+> — per-session numbered, collision-free, and never touching the access-denied
+> `%LOCALAPPDATA%\Temp\pytest-of-o_iseri`. Verified in pytest 9.0.3's own `_pytest/tmpdir.py`:
+> the `--basetemp` branch calls `rm_rf(basetemp)` unconditionally at session start — **that line is
+> OPEN-52** — while the env-var branch uses `make_numbered_dir`. Rejected: bare deletion of `addopts`
+> (proven blocked, `1 passed, 6 errors`) and an ACL repair (needs admin, lives outside the repo, and
+> `icacls` is itself denied on that directory). **The five items of the new plan: OPEN-52, OPEN-07
+> (+ OPEN-38), OPEN-08, OPEN-29, OPEN-53.** §5.20 has the account.
+>
+> ~~🔴 **The first thing the next session does is answer nothing and pick nothing until ruling `3a`
+> is put to the user** (§3 — OPEN-52's remedy shape). Everything else this pass owed is written and
+> checkable on disk. What CP-3 verified by re-derivation, recorded so it is not re-done: the full suite
+> ran alone and returned `1875 passed, 55 skipped, 11 warnings in 1572.28s`, matching baseline; the
+> register counts **25 live / 28 struck / 53 total**, exactly `OPEN-01`…`OPEN-53` with no gap and no
+> duplicate; struck-minus-retired is **exactly 2** (OPEN-02, OPEN-28), so the STOP condition did not
+> trigger; and no `[[A1_SUITE_LINE]]` placeholder survived anywhere under `docs/` or `scripts/`.
+>
+> **What the four landed tasks established.**
+> - **OPEN-53 — cause found, and it is not a simulation failure at all.** The 874 directories all report
+>   `EnergyPlus Completed Successfully`; the files were produced, harvested, inventoried on 2026-08-11,
+>   and then **deleted by something outside this repository at 2026-08-17 16:21** — every one of the 874
+>   directory mtimes is that same instant, no code in the repo deletes those names, and the same sweep
+>   **emptied the entire E02 IDF corpus** (all sixteen `idfs/` directories checked, `n=0`, same
+>   timestamp). **The published numbers are untouched** — results were parsed before the sweep.
+> - **OPEN-42 — the director's own lead was wrong, and the task was built to disprove it, which it did.**
+>   The `.err` upside-down-surface warning fires on **100% of `auto` runs** and **0% of `fast_zone` /
+>   `floor`**, and on the reference fatal it fires on **54 healthy zones (144 lines) and zero times on
+>   the zone that actually dies.** Retired. **What replaced it is stronger: all 16 fatal zones sit on the
+>   topmost storey**, and the two modes that never fatal (`building`, `layout_assign`) are exactly the
+>   two that never build a zone from that storey. The zone *name* changes with the mode, which is why no
+>   earlier pass saw the invariant. OPEN-42 is **reframed, not closed**.
+> - **OPEN-38 — a different defect from OPEN-42 on every measured axis** (message class, temperature
+>   range, zone position — bottommost vs topmost, geometry origin — substituted `SmallHotel` prototype vs
+>   the building's own extrusion, and mode). Keep the two items separate.
+> - **OPEN-46 — the elevator path is whole at HEAD** in code and in live tests. One documentary defect
+>   found: the test the plan named as proof (`test_medium_office_idf_contains_elevator_equipment`) **does
+>   not exist in the live tree and never has**; `tests/test_builder_elevators_wired.py` (already
+>   committed) proves the same fact and passes.
+>
+> **Ruling `3b` is ANSWERED and applied.** `testpaths = ["tests"]` is in `pyproject.toml` (uncommitted
+> working-tree change, as this arc's git prohibition requires) — both `pytest -q` and `pytest -q tests/`
+> now collect **1930**. The stray `.py` files under `docs/` were not moved or deleted.
+>
+> **One ruling is still owed — §3, `3a`: OPEN-52's remedy shape.** `%LOCALAPPDATA%\Temp\pytest-of-o_iseri`
+> is OS-level access-denied and the undocumented `addopts = "--basetemp=.pytest_tmp"` pin has been
+> incidentally shielding every `tmp_path` test from it. **Do not remove that pin without a remedy in
+> hand.** Behind it the queue is unchanged: `2c` (same file population as `3b`), `7` (CP-M2), `8`
+> (OPEN-11). **Hard rule while it stands: one pytest session at a time, repo-wide.**
+>
+> **The single most reusable result of this pass.** 🔴 **The E02 artifact corpus is eroding under a
+> process outside this repository.** A plan that depends on any `%LOCALAPPDATA%` E02 artifact must
+> **re-verify presence at planning time, not cite a census** — `e02_corpus_inventory.csv` (2026-08-11)
+> is already falsified by disk for two rows, and the IDF corpus OPEN-38's remaining question needs is
+> simply gone. Second, method: **a lead the director writes into a plan's §5 is a hypothesis, not a
+> finding.** This pass's headline lead was the director's own and its own control refuted it. Build the
+> task to disprove it, run the control before believing the result, and say so plainly when it dies.
+>
+> ## ~~🟥🟥 RESUME HERE — written 2026-08-18 after CP-3 was signed~~ **(superseded by the 🟧 box above — ruling `3b` has since been answered and applied, and its OPEN-01 bullet is struck below)**
 >
 > **Nothing is running. Nothing is queued. No cluster job is in flight.** `PLAN_five-items-2026-08-18.md`
 > is fully executed and closed — T01–T06, CP-1/CP-2/CP-3 all director-signed. Full account: **§5.18**.
@@ -105,8 +272,12 @@
 >   NOT applied.** This is the same population as the older ruling `2c`, which is still live.
 >
 > **What is ready to run the moment a ruling lands, in rough order of value:**
-> - **OPEN-01's denominator swap** — ruled 2026-08-13 (divide by the simulated area), measurement
->   already on disk, **plan doc still not written**. Largest piece of unstarted work this arc owns.
+> - ~~**OPEN-01's denominator swap** — ruled 2026-08-13 (divide by the simulated area), measurement
+>   already on disk, **plan doc still not written**. Largest piece of unstarted work this arc owns.~~
+>   🔴 **FALSE — struck 2026-08-18, corrected in place, not deleted.** The plan doc *was* written
+>   (`PLAN_open-49-and-open-01-2026-08-13.md`, T05–T07), the swap was implemented, and **OPEN-01 closed
+>   2026-08-17 with its ID retired** (register §OPEN-01 and the §1 header lineage). Nothing about the
+>   denominator is outstanding.
 > - **OPEN-42** — needs a *different artifact*: per-surface geometry, not `eplusout.eio` zone
 >   aggregates. `.eio` is exhausted for this question; do not send an executor back to it.
 > - **OPEN-53** — the `.sql`/`.end` shortfall's cause is untraced (39,926/40,800 `.sql`,
@@ -652,9 +823,18 @@ and whether `testpaths = ["tests"]` goes into `pyproject.toml`). **Ask `3b` firs
 one line of config, and until it is settled every full-suite claim in this arc has to carry a paragraph
 of explanation about which command produced it. Then **`3a`**, which is the one with a real decision
 behind it. `3b` overlaps the older row `2c`, which is still live and unasked; **put them together, not
-twice.** Behind those, the queue is unchanged: **`7` (CP-M2) → `8` (OPEN-11)**. 🔴 **The largest
+twice.** Behind those, the queue is unchanged: **`7` (CP-M2) → `8` (OPEN-11)**. ~~🔴 **The largest
 piece of unstarted work in this arc is not a ruling at all** — OPEN-01's denominator swap was ruled on
-2026-08-13, its measurement is on disk, and **its plan doc has still never been written.**
+2026-08-13, its measurement is on disk, and **its plan doc has still never been written.**~~
+
+🟧 **UPDATED 2026-08-18 (evening) — this supersedes the paragraph above, which is struck where it
+is wrong rather than deleted.** Two corrections. **(1) `3b` HAS BEEN ASKED AND ANSWERED.** The user
+ruled for the config fix; `testpaths = ["tests"]` is now in `pyproject.toml` and both `pytest -q` and
+`pytest -q tests/` collect **1930**. The stray `.py` files under `docs/` were left in place, so row `2c`
+stays live on the *file* question alone and no longer on the suite-ambiguity question. **(2) The
+OPEN-01 sentence above is false and is struck:** the plan doc was written
+(`PLAN_open-49-and-open-01-2026-08-13.md`, T05–T07), the swap was implemented, and OPEN-01 closed
+2026-08-17 with its ID retired. **So exactly one ruling is owed: `3a`, OPEN-52's remedy shape.**
 
 
 🔴 **The queue changed on 2026-08-12: one ruling was answered and three new ones were opened by the
@@ -748,7 +928,7 @@ this table is either spent or lower priority than those two.
 | ~~**2h**~~ | ✅ **RULED AND FULLY EXECUTED 2026-08-13 — retire the three formally. Do not re-ask, do not re-write.** `OPEN-04`, `OPEN-31` and `OPEN-43` now carry closure blocks in their own §-sections, their table rows are struck with the same text, the three IDs are in the §1 header's retired list (ten → **thirteen**), and the table's live rows were re-counted: **35, matching the header.** 🔴 **Three constraints were deliberately carried forward out of the closures:** `92.0%` is unreproducible and the old 50-row fixture is never edited (from OPEN-04); CP-M3 is obligatory and now spans **two exams with two thresholds** (from OPEN-31); the headline is pooled **`157.1 kWh/m²`** and **`159.2157` is never a fleet figure** (from OPEN-43). **A closed item's constraints do not close with it.** ~~The original ruling, kept for the record:~~ 🔵 ~~NEW 2026-08-13 — the register's item count rests on three closures nobody recorded. Cheap, and it decides what number this arc reports as "open".** Repairing the §1 summary table (the five missing rows for `OPEN-45`…`OPEN-49`, written 2026-08-13) exposed a second gap: the table now carries **38 live rows** against a header that says **35 tracked items**, and **the gap is exactly `OPEN-04`, `OPEN-31` and `OPEN-43`**. The §0 arithmetic of 2026-08-12 subtracts all three as closed, and every count since (33 → 34 → 35) is built on that subtraction — **but none of the three is marked closed in its own §-section, none is struck in the table, and none appears in the header's retired list.** Each has a plausible basis (OPEN-04's cause falsified and re-explained; OPEN-31's CP-M3 ruled obligatory 2026-08-09; OPEN-43 ruled 2026-08-12, pooled `157.1 kWh/m²`) — **but this register's own rule is that the sections are the authority, and a plausible basis is not a recorded closure.** ⚠️ **Deliberately not patched: retiring three IDs is not a director-side edit.** The ruling: **retire the three formally (count stays 35), or reopen them in the count (count becomes 38).** State when asking that no content is lost either way and no published number moves. | register §1 head + the repair note under it |
 | ~~5~~ | ✅ **RULED 2026-08-13 — THE CIRCUMSTANTIAL EVIDENCE IS SUFFICIENT FOR (c). Do not re-ask.** The corpus is treated as **one code state**, on the single unbroken 111-minute window plus one manifest schema across all 60 pairs. 🔴 **Carry this constraint with it: one-code-state is now a RULED ASSUMPTION, not a measurement, and every document citing it must say so in the same sentence.** The ruling buys the project out of a question this corpus cannot answer — it does **not** create the missing stamp. **If a cross-mode result ever turns on the assumption being exactly true, that result needs a re-run with a recorded commit hash, and this ruling does not cover it.** ⚠️ **OPEN-01 stays open on the remedy alone — that is ruling 6, which is now the next thing owed to the user.** ~~The question as put, kept for the record:~~ ~~**OPEN-01(c), and it is the one that unblocks the biggest item.**~~ OPEN-01's third audit question is *"did all five modes come from one code state?"* **It cannot be proved, and the reason is structural: no commit hash or code-version stamp was recorded anywhere at generation time**, and 25 of the 60 `(cell, mode)` pairs have no generation-summary JSON. The circumstantial evidence is real — one manifest schema across all 60, all 60 written inside one continuous **111-minute** window (2026-08-09 21:03:01–22:54:38), no gaps. **The ruling: is that sufficient for (c)?** If yes, OPEN-01 reduces to the remedy ruling below. **If no, OPEN-01 can never close on this corpus** and only a re-run with a recorded commit stamp would settle it. **Frame both costs before asking.** | §5.1, register OPEN-01 |
 | ~~6~~ | ✅ **RULED 2026-08-13 — THE REMEDY IS: DIVIDE BY THE SIMULATED AREA. Do not re-ask.** Per-building EUI is published against the multiplier-aware floor area EnergyPlus actually simulated (read per run from `eplusout.eio`), **not** against `footprint_area_m2 × levels`. **Cheap because the measurement already exists** — `e02_simulated_floor_area.csv`, 40,800 rows, 0 parse failures, 0-unmatched join in all five modes — so it is a **reporting-layer denominator swap**, no re-simulation and no cluster work. 🔴 **Carry these two constraints with it:** (i) it does **not** make `building` mode simulate the right building — after the swap that mode's EUI means *energy per simulated m²*, which is **not** the real building's area, so it is internally consistent but not physically representative and every document must say which it means; (ii) **the published fleet EUI of 157.1 kWh/m² pooled does not move** — `auto` already measured 1.0000 median / 99.63% within ±1%. Fixing the simulation was offered and not taken; that door is not foreclosed. ⚠️ **OPEN-01 still does not close** — it now needs a plan doc for the swap plus a before/after per-building comparison in all five modes. **It is open on implementation, no longer on a ruling.** ~~The question as put, kept for the record:~~ ~~**OPEN-01's remedy** — now that (a) and (b) are measured on 40,800 runs: fix the denominator, fix the simulation, or stop publishing per-building EUI for the affected modes.~~ | §5.1 |
-| **3a** | 🔴 **NEW 2026-08-18 — OPEN-52's remedy shape, and it is owed before any plan touches pytest configuration.** `pyproject.toml` carries an **undocumented** `addopts = "--basetemp=.pytest_tmp"`, and the director verified by hand why it matters: the default base temp `%LOCALAPPDATA%\Temp\pytest-of-o_iseri` (dated Apr 1, predating every session in this arc) is **access-denied at the OS level** — both `ls` and `touch` fail with Permission denied. **So the pin has been incidentally shielding every `tmp_path` test in the suite from a lockout nobody recorded.** ✅ **State the reassurance first: nothing is broken today and no published number is involved** — the suite is green inside `tests/` and the pin works. The risk is that the pin looks like clutter to a future reader who removes it, and the suite then fails for a reason that has nothing to do with the code. **The ruling: repair the ACL on `pytest-of-o_iseri` (and then decide separately whether the pin stays), or keep the pin and document why, or a different remedy shape.** ⚠️ **Do not remove the pin in the meantime, and do not let an executor "tidy" it.** | §5.18, register OPEN-52 |
+| ~~**3a**~~ ✅ **ANSWERED 2026-08-18 (night) — DELEGATED TO THE DIRECTOR BY THE USER AND RULED. Remedy: move pytest's temp root into the repo and let pytest number it per session — delete `addopts = "--basetemp=.pytest_tmp"`, set `PYTEST_DEBUG_TEMPROOT` to `<repo>/.pytest_tmp` from a new root `conftest.py`. Full ruling with its source-level justification and the two rejected alternatives: `implemenation/PLAN_open-52-and-four-items-2026-08-18.md` §4.1. Implemented by T01 of that plan.** | ~~🔴 **NEW 2026-08-18 — OPEN-52's remedy shape, and it is owed before any plan touches pytest configuration.** `pyproject.toml` carries an **undocumented** `addopts = "--basetemp=.pytest_tmp"`, and the director verified by hand why it matters: the default base temp `%LOCALAPPDATA%\Temp\pytest-of-o_iseri` (dated Apr 1, predating every session in this arc) is **access-denied at the OS level** — both `ls` and `touch` fail with Permission denied. **So the pin has been incidentally shielding every `tmp_path` test in the suite from a lockout nobody recorded.** ✅ **State the reassurance first: nothing is broken today and no published number is involved** — the suite is green inside `tests/` and the pin works. The risk is that the pin looks like clutter to a future reader who removes it, and the suite then fails for a reason that has nothing to do with the code. **The ruling: repair the ACL on `pytest-of-o_iseri` (and then decide separately whether the pin stays), or keep the pin and document why, or a different remedy shape.** ⚠️ **Do not remove the pin in the meantime, and do not let an executor "tidy" it.**~~ ✅ **Answered — see the ID cell.** | §5.18, §5.20, register OPEN-52 |
 | **3b** | 🔴 **NEW 2026-08-18 — the stray `.py` files under `docs/`, and the one-line config fix behind them. Cheap; ask this one first.** `CLAUDE.md` forbids `.py` under `docs/` outright, yet five test files sit in the read-only `docs_DONE/` archive (since `ef19141`, 2026-07-21), plus `scripts/analysis/test_viewer_layout_assign.py` (`69373f9`, 2026-07-27). One of them, **`test_results_aggregator.py`, collides by basename with `tests/test_results_aggregator.py`**; with no `__init__.py` and pytest's default import mode, **that collision is exactly the 17 collection errors** a bare root-level `pytest -q` reports. ✅ **Reassurance first: this is not a regression and never was** — those files predate the 1875/55/0 baseline, so a bare root run could never have been green, and the baseline was always `pytest -q tests/`. **The ruling: add `testpaths = ["tests"]` to `pyproject.toml` (proposed 2026-08-18, deliberately NOT applied), or move/delete the strays, or leave both and accept that every suite figure must name its command.** ⚠️ **`docs_DONE/` is read-only by this arc's own rules, so deleting from it is a user decision, not a director one.** This is the same population as row `2c` — **ask them together.** | §5.18, register OPEN-44/OPEN-53 |
 | 7 | **CP-M2** — what to do about the published cross-mode numbers, still confounded. **Not discharged by OPEN-28** — E02 fixes future comparisons, not published ones. | §5.4 |
 | 8 | **OPEN-11** — the six inverted-geometry buildings; precondition met, remediation is the user's call. | register |
@@ -2064,6 +2244,236 @@ decision reserved to the user — and **OPEN-13**, which is downstream of OPEN-1
     collection errors. Both want a register item; neither is in scope today. The cheap remedy for the
     whole class is a `testpaths = ["tests"]` line in `pyproject.toml` — propose it, do not apply it
     unasked.
+
+### 5.19 🟧 The four-item pass of 2026-08-18 (evening) — task-by-task log, **plan CLOSED at CP-3**
+
+**Why this section exists.** After `PLAN_five-items-2026-08-18.md` closed at CP-3 the user said
+*"oui vas-y, continuer jusqu'à la fin."* The director chose four more items — local, no cluster, no
+owed ruling — and wrote `implemenation/PLAN_four-items-2026-08-18.md`. Its own progress log is that
+file's §8. This section is the director's log. **The plan is CLOSED — T05 ran and CP-3 was signed on
+2026-08-18. Read the 🟧 RESUME box at the head of this file before doing anything.**
+
+**The four, and why each was answerable now.**
+
+| Task | Item | Why now |
+|---|---|---|
+| T01 | **OPEN-46** | Its stated blocker ("the live tree emits no elevator equipment") went stale on 2026-08-13 when ruling `2d` wired `assign_elevators` into `builder.py`. Nobody went back. |
+| T02 | **OPEN-53** | 875 short directories, and their `.err` files had never been read. |
+| T03 | **OPEN-42 + OPEN-11** | The director found per-surface orientation warnings in `.err` — the artifact class the previous pass said `.eio` could not supply. |
+| T04 | **OPEN-38** | With T03's axis in hand, the 7 `LAUNDRYROOMFLR1` fatals could be tested against OPEN-42's 16 rather than assumed to be the same defect. |
+
+**Entries.**
+
+- **2026-08-18 — plan written, T01–T02 dispatched.** Fresh Sonnet executor, background, stopping at
+  CP-1. Ruling `3b` had just been answered by the user, so `testpaths = ["tests"]` is in
+  `pyproject.toml` and the suite command is unambiguous for the first time in this arc.
+
+- **2026-08-18 — CP-1 signed. T02 landed; T03 released; T01 held.** T01 was held for a mechanical
+  reason, recorded because it will recur: a full `pytest` run started 11:48 was still live (PID 19328,
+  964 s CPU at audit time) and OPEN-52 makes two concurrent pytest sessions unsafe on the shared
+  `--basetemp` pin. **T01 was released only when that run exited.**
+  **T02 / OPEN-53 — the executor's verdict was right as far as its artifacts went, and the director's
+  audit went one step further and closed the question.** The executor established from `.err` that the
+  874 directories are **not** failed runs (874 `completed`, 1 `truncated`, 0 fatal, against a
+  200-directory healthy control at 100% `completed`) and honestly reported that `.err`/`.eio` cannot
+  distinguish an IDF-config cause from a harvest cause. Re-deriving by hand, the director found the
+  third answer: **the files existed and were then deleted.** (a) `e02_corpus_inventory.csv`
+  (mtime 2026-08-11 20:58) records `n_end=437` for both dead batches, so `Output:SQLite` *was*
+  requested — the IDF-config branch is retired; (b) all 874 run directories carry an identical
+  directory mtime of **2026-08-17 16:21**, against 2026-08-10 21:38/21:58 for healthy siblings — a
+  directory mtime moves only when an entry is added or removed, so this was one sweep at one instant;
+  (c) no code under `scripts/` or `openubem/` deletes `eplusout.sql` or `eplusout.end`, so the sweep
+  was external. **And the same sweep emptied the entire IDF corpus** — every `idfs/` directory under
+  `%LOCALAPPDATA%\Temp\ubem_e02_fleet\<cell>\step3_<mode>\`, `n=0`, all stamped 2026-08-17 16:21:16,
+  checked across four cells × four modes. Reads as an external disk-space reclamation that took the
+  largest files and stopped when space was freed. **The published numbers are untouched:**
+  `open01_denominator_swap.csv` still carries `new_eui_kwh_m2` for 437/437 buildings in both affected
+  cells, because results were parsed before the sweep. **OPEN-53 is an artifact-custody finding, not a
+  results defect.** Two consequences carried forward: `e02_corpus_inventory.csv` must be annotated as
+  a 2026-08-11 snapshot rather than current state, and **IDF-based per-surface geometry no longer
+  exists for anyone to plan around.**
+
+- **2026-08-18 — CP-2 (partial) signed. T03 landed and is upheld; T04 released.**
+  **The orientation lead — mine — is dead, and the task was built to kill it if it was wrong.**
+  Director re-derivation over `la_rural`, `nyc_rural`, `austin_rural` (592 runs per mode): the
+  upside-down-surface warning fires in `auto` **592/592 (100%)**, `building` **0/592**, `floor`
+  **0/592**, `layout_assign` **0/592**, `fast_zone` **16/592**. On the reference fatal
+  `la_rural_auto/way_472960972`, the fatal zone `WAY/472960972_F2_CORE` carries **zero** such warnings
+  while **54 perimeter zones carry 144 lines between them**. The signature fires everywhere except the
+  zone that dies — a refutation, not merely a non-result. `.err` joins `.eio` as an artifact that has
+  been read out for this question.
+  🔴 **What the census surfaced instead, and no prior pass had it: all 16 fatal zones sit on the
+  topmost storey** — `F2` for the five three-storey `la_rural` buildings, `F3` for
+  `la_urban/way_402215469`, without exception. The *zone name* varies by mode (`F2_CORE` under `auto`,
+  `F2_PERIM<n>` under `fast_zone`, `F2_WHOLE` under `floor`), which is exactly why the invariant stayed
+  hidden. Temperatures run **-444.53 °C to +530.25 °C** — unbounded runaway, not a marginal imbalance.
+  Zone structure per mode for `way_472960972`, from each run's own `.eio`: `auto` 57 zones / topmost
+  storey zoned / **fatal**; `fast_zone` 57 / yes / **fatal**; `floor` 3 / yes / **fatal**; `building` 1
+  (whole building) / no / survives; `layout_assign` 3 (substituted DOE prototype, OSM storeys never
+  extruded) / no / survives. **The two modes that survive are exactly the two that never build a zone
+  from the building's own topmost storey.**
+  **This reframes OPEN-42.** The question is no longer *"which zone is inverted"* but **"what is wrong
+  with the topmost-storey geometry of these six buildings such that any zone built from it runs
+  away."** Mode is not the variable; it only decides whether that storey gets a zone at all. Recorded
+  as a reframing, not a closure.
+
+- **2026-08-18 — T04 landed. Verdict: OPEN-38 and OPEN-42 are two mechanisms, not one.** The executor
+  re-derived the population from a fresh scan of all 8,160 `layout_assign` directories (7, matching the
+  register but not carried from it) and compared them to OPEN-42 on the axis CP-2 had just established.
+  **Every dimension disagrees:** Severe class (`CalcHeatBalanceInsideSurf`, always n=1, vs
+  `Temperature out of bounds`, up to 24); temperature range (−59,865 to +182,399 °C vs −445 to +530);
+  **zone position by `.eio` z-geometry — bottommost storey 7/7, against OPEN-42's topmost 15/16**;
+  geometry origin (substituted `SmallHotel` DOE prototype, identified by scanning `ARCHETYPE_IDF_MAP`'s
+  baseline IDFs for a zone literally named `LaundryRoomFlr1`, vs the building's own OSM extrusion); and
+  mode (`layout_assign` only, 0/8,160 elsewhere, vs never `layout_assign`). The non-vacuity control was
+  re-run rather than inherited (parser 0 vs `grep -c` 0 on a clean run; 144 vs 144 on a warning-heavy
+  one). **The unfitted-subsurface sub-question is not determinable from `.err`** — answering it needs
+  IDF geometry, which the 2026-08-17 sweep destroyed. **Director's position: accept the recommendation
+  and keep the items separate; the ruling is not yet written into the register.**
+
+- **2026-08-18 — T01 landed on disk, incompletely.** `extra/MEASUREMENT_open-46_path-verification.md`
+  is written and is good work: all four links cited by file and line
+  (`builder.py:40,609` → `outputs.py` meter → `parser.py` parse/de-fold → `carbon.py` +
+  `aggregator.py:41,53`), and a live targeted run of **65 tests across four files, 65 passed / 0
+  failed**. It also found a documentary defect worth keeping: **the test this plan named as the
+  IDF-level proof, `test_medium_office_idf_contains_elevator_equipment`, does not exist in the live
+  tree and never has** — it survives only in the archived `docs_DONE/` mirror, and two prior audit CSVs
+  had already recorded that. `tests/test_builder_elevators_wired.py` (committed at `6aeebb0`) proves
+  the same fact and passes, so the chain holds. **What is missing: the register amendment, the
+  progress-log entry, and the full-suite line the doc's own recommendation is conditional on.**
+  Verified by the director: the register's OPEN-46 section carries no 2026-08-18 amendment, and
+  `PLAN_four-items-2026-08-18.md` §8 has no T01 entry. **OPEN-46 is therefore NOT closed and must not
+  be closed until that suite line exists and is quoted.**
+
+- **2026-08-18 (later) — T01's bookkeeping and T05 ran in one follow-up dispatch; CP-3 signed; plan
+  closed.** Folding the two into one dispatch was right: T05's recount could not be written until
+  OPEN-46's row was struck, and OPEN-46 could not be struck until the suite line existed. The suite ran
+  alone (OPEN-52's pin) and returned **`1875 passed, 55 skipped, 11 warnings in 1572.28s`**, matching
+  baseline — so OPEN-46's conditional closure fired and **OPEN-46 is closed and its ID retired.** The
+  register moved **26 live / 27 struck → 25 live / 28 struck**, 53 total, exactly `OPEN-01`…`OPEN-53`,
+  **26 IDs retired**, next free `OPEN-54`; struck-minus-retired is **still exactly 2** (OPEN-02,
+  OPEN-28), so no STOP. Director rulings written into the register: OPEN-38 and OPEN-42 stay separate,
+  OPEN-42 reframed to the topmost-storey question, OPEN-53 narrowed to artifact custody, OPEN-11
+  untouched. **One method deviation worth keeping:** the executor wrote the register and checklist text
+  *before* the suite finished, holding a literal `[[A1_SUITE_LINE]]` token, and substituted the real
+  line on exit. That is only safe because the token is greppable and was verified absent afterwards —
+  had the run failed, the register would have briefly carried an unfalsifiable claim. **Prefer running
+  the gate first.** Full sign-off, re-derived from disk rather than from the executor's report:
+  `PLAN_four-items-2026-08-18.md` §8, last section.
+
+### 5.20 ✅ The five-item pass of 2026-08-18 (night) — `PLAN_open-52-and-four-items-2026-08-18.md`, CLOSED
+
+**Why this section exists.** The user delegated ruling `3a` to the director, asked for five open items
+to be turned into an implementation plan, and then said to drive the execution to the end. All three
+were done. This is the director's log; the task-by-task record is that plan's §8.
+
+**How the five were chosen — the method that keeps working.** Every item was picked by hunting for a
+**stale blocker**: a register sentence saying "cannot be measured because X" where X had since become
+false. Four of the five were unblocked that way (OPEN-08's `vintage_standard`; OPEN-07's "no IDF
+survives"; OPEN-29's twelve-day-old trace; OPEN-53's answered cause). OPEN-52's only blocker was the
+owed ruling itself. **Nothing was picked because it looked interesting; each was picked because a
+premise had rotted.** Third consecutive pass where that heuristic supplied the slate.
+
+| Task | Item | Outcome |
+|---|---|---|
+| T01 | **OPEN-52** | 🟢 **CLOSED + ID RETIRED** |
+| T02 | **OPEN-07** (+ OPEN-38's subsurface sub-question) | 🔴 stays open, narrowed; sub-question **refuted** |
+| T03 | **OPEN-08** | 🔴 stays open, narrowed to 1 of 5 cells |
+| T04 | **OPEN-29** | 🔴 stays open; one row moved; a director lead refuted |
+| T05 | **OPEN-53** | 🔴 stays open by ruling, as a standing custody risk |
+| T06 | reconciliation | recount + checklist + this file + final suite |
+
+**Ruling `3a`, given by the director under the user's delegation.** The remedy is **(c): move pytest's
+temp root inside the repository and let pytest number it per session.** Two changes only — delete
+`addopts = "--basetemp=.pytest_tmp"` from `pyproject.toml`, and add a repo-root `conftest.py` setting
+`PYTEST_DEBUG_TEMPROOT` to `<repo>/.pytest_tmp`. **The ruling was derived from pytest 9.0.3's own
+source, not from the incident:** the `--basetemp` branch runs `if basetemp.exists(): rm_rf(basetemp)`
+unconditionally at session start — *that line is* OPEN-52's collision — while the `PYTEST_DEBUG_TEMPROOT`
+branch goes through `make_numbered_dir`. The remedy therefore **bypasses** the OS-level lockout on the
+`pytest-of-o_iseri` directory instead of trying to repair it, and it is verifiable from a clean
+checkout, which the rejected ACL alternative is not.
+
+🔴 **Two director leads were written into the plan's §5 and BOTH were refuted by the tasks built to
+test them. This is now a pattern, and it is the most valuable thing this pass produced.**
+
+- **OPEN-38's subsurface sub-question.** The director expected the surviving IDFs to reveal unfitted
+  subsurfaces below `.err`'s threshold. They do not — and the refutation is stronger than "none found."
+  The three `CHKSBS` warnings EnergyPlus does emit are on **`RearStairs`, `Corridor` and
+  `FrontStairs`; none is `LaundryRoomFlr1`**, the zone that carries the Severe and kills the run. The
+  signature does not touch the dying zone. Re-derived independently: every flagged door is **0.0000 m**
+  from its wall's plane, strictly inside it, and the file has **591 surface objects with zero duplicate
+  names** — clean by every available test, and EnergyPlus still says `No-Overlap`. **Second-order
+  finding worth carrying: the executor's detector had only a known-*negative* control, never a
+  demonstrated true positive, and it disagreed with EnergyPlus on all three flagged cases — so its
+  "0 unfitted" is a null of unvalidated power.** *Always ask what a detector's positive control was.*
+- **OPEN-29's E-LA-16.** The plan asserted E-LA-16 "has provably closed since (OPEN-51 … retired
+  2026-08-18)." The executor checked instead of accepting it, and was right: **OPEN-51 adjudicated
+  which of two readings the ID *names*; it did not touch the defect.** `git log -p --since=2026-08-13`
+  shows only a comment-text change. **Adjudicating an ID's meaning is not fixing what it names.**
+  Recorded as a director error.
+
+**What each item now says.**
+
+- **OPEN-52 — closed, ID retired.** Four verifications, all with real output: the session lands in
+  `<repo>/.pytest_tmp/pytest-of-<user>/pytest-<n>/`; the locked directory's `LastWriteTime` is
+  untouched; the negative control reproduced the original collision on the old config
+  (`FileExistsError` / `WinError 145`) and the positive control put two concurrent sessions in distinct
+  `pytest-0` / `pytest-1` directories. The two-session evidence is **durable on disk** as two log files
+  naming those two paths — the director checked the files, not the report — and the quoted suite line
+  was corroborated against the process lifetime the director watched (1,087 s wall vs 1,079.75 s test
+  time). ~~🔴 **Closure carries one hand-off condition: the remedy is an uncommitted working-tree change
+  (`conftest.py` untracked, `pyproject.toml` modified). Until both are committed, a fresh clone
+  reproduces the item.**~~ 🟢 **DISCHARGED 2026-08-18 (night): committed as `da6eed7` and pushed to `origin/main` (github.com/orcunkoraliseri/OpenUBEM), at the user's explicit instruction (*"tu fais aussi a toi-meme … pour open-52"*), which suspended the arc's standing git prohibition for this one commit. A fresh clone no longer reproduces the item.**
+- **OPEN-08 — the blocker was stale, and the executor's headline comparison was wrong.** Both controls
+  reproduced exactly (OPEN-30's 40,800 rows / 0 nulls / 93.4436%; OPEN-28's 4,530 rows / 13.3996%).
+  Vintage is measurable on **738 of 4,530 shared buildings (16.3%), 1 of 5 T08 cells** — the other four
+  carry a stripped 21-column `05_results.gpkg`, **a schema gap, not a data gap**. 🔴 **Director's
+  correction: the doc set vintage's 3.79% beside archetype's 13.40% and called it a same-rows
+  comparison. It is not — different population *and* different generation pair. On the genuinely same
+  rows and same pair, archetype disagrees 50.54%.** Corrected, the result is stronger and points the
+  other way: **vintage is ~13x more stable than archetype across the same gap on the same buildings**,
+  so OPEN-08's weight sits almost entirely in its archetype half — though the vintage half is non-zero
+  (data-poor 3.93% vs data-rich 0.00%) and so does not vanish. The 50.54% also shows `nyc_centre` is
+  not fleet-representative, a further reason not to extrapolate the 3.79%.
+- **OPEN-07 — the "no IDF survives" blocker is false.** Four IDFs survive under
+  `scratchpad/e-la-20-investigation/i03/work_part1/`, covering 2 of the 3 E-LA-40 buildings in both
+  classifications. The A side is the **raw `SmallHotel` DOE prototype dropped in wholesale** — 67 zones
+  / 485 surfaces / 106 subsurfaces, identical to the prototype's own counts, director-verified — not an
+  OSM extrusion; B is 6 / 43 / 23. Multipliers are uniformly 1.0 on both sides, so the
+  multiplier-scaling hypothesis is refuted. A provenance doubt the executor raised (11-day mtime gap)
+  **resolves in favour of same-geometry**: matched case-insensitively, the scratchpad IDF holds the
+  exact fatal surface `P_LaundryRoomFlr1_10010_0_10008` and all three flagged pairs, name for name.
+  *(The director's own first check of this was a case-sensitive grep that got 0 and briefly read it the
+  opposite way — recorded, not silently absorbed. EnergyPlus uppercases names in `.err`.)*
+- **OPEN-29 — 8 of 12 still open, was 9.** Method control re-run, not inherited (E-LA-20 returns
+  `FIXED, verified 150/150`). One bucket change: **E-LA-21 to CLOSED-ELSEWHERE**, its one-space
+  `has_fatal` literal confirmed gone from live code. 🔴 **Director's count correction: eight harvest
+  sites carry the whitespace-tolerant regex, not seven** — `t19_harvest_layout_assign.py:260` was
+  omitted from the executor's list — plus a shared `openubem/results/err_parse.py` helper. No one-space
+  literal survives in any code path. No new register items opened for the 8 remaining IDs.
+- **OPEN-53 — stays open by ruling, as a standing custody risk.** Both consequences discharged: a
+  **sidecar** `e02_corpus_inventory.SNAPSHOT_NOTICE.md` (the gate found the only in-repo reference is
+  the *writer*, so the CSV's bytes are untouched — mtime still 2026-08-11, verified), and the two
+  falsified rows re-verified live (`austin_suburban` `fast_zone`/`floor`: inventory says `n_end=437`,
+  disk says 0, directories intact at 437). *Director's own control: `austin_suburban,auto` returns
+  437/437/437 on the same disk at the same moment — the zero is specific to the swept batches, not an
+  artifact of the count.* **A binding planning rule now sits in the item**, and its closure condition is
+  recorded so it cannot stay open by default.
+
+**Process notes for the next director.**
+
+1. **Three executors ran concurrently and none corrupted the register — because only one was allowed to
+   write to it.** T02 held the pen; T03, T04 and T05 wrote a `## Register amendment to apply` section
+   into their own measurement docs and the director placed them afterwards. **Use this whenever more
+   than one executor is live.** It costs one extra director step and removes the whole class of
+   concurrent-write corruption.
+2. **T02 and T03 were released before CP-1 was signed, deliberately**, because neither runs pytest and
+   the only outstanding CP-1 item was the suite line. Recorded as a director decision, not an oversight.
+3. **Two scripted register edits introduced escape-sequence corruption** — a backslash-t inside a
+   Windows path in a non-raw Python string became a literal tab. Both were caught by re-reading the
+   file and repaired; the register now contains **zero** control characters, checked. **Use raw strings
+   or forward slashes for Windows paths in edit scripts.**
+4. The user's standing prohibition held throughout: **no git write command was run by anyone.**
 
 ## 6. The rule that governs this arc
 
