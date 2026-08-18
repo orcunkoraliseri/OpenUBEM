@@ -499,6 +499,16 @@ docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md
 any conversation. Each item carries: what is known, what is only believed, where the evidence lives,
 and **the one measurement that must be made before an execution plan can responsibly be written.**
 
+🟥 **UPDATED 2026-08-18 — THIS IS THE LIVE COUNT AND IT SUPERSEDES EVERY COUNT BELOW.**
+**26 live rows / 27 struck / 53 total, contiguous `OPEN-01…OPEN-53`, no row missing and none
+duplicated.** Recounted **programmatically over the §1 table body**, not by eye — the script and its
+output are quoted in `PLAN_five-items-2026-08-18.md` §8, T06. **Next free item ID: `OPEN-54`.**
+The live IDs are **3, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 27, 29, 35, 38, 42, 46, 47,
+48, 49, 52, 53.** ⚠️ **The reconciliation that keeps tripping people, restated:** 27 struck − 25
+retired IDs = **2**, and the two are **OPEN-02 and OPEN-28**, which were folded under OPEN-01 rather
+than retired. That is not a miscount. The 2026-08-18 pass closed **OPEN-06, OPEN-37, OPEN-51** and
+opened **OPEN-53**.
+
 🟩 **UPDATED AGAIN 2026-08-13 (CP-1 of `PLAN_two-measurements-2026-08-13.md`) — 35 tracked items
 (OPEN-01 … `OPEN-50`).** The CP-1 audit opened **OPEN-50** — the test suite rewrites a checked-in
 `.gpkg` fixture on every run. Arithmetic: **34 − 0 closed + 1 opened = 35.** 🔴 **Eighth consecutive
@@ -2332,9 +2342,26 @@ There is no single checkpoint — this arc is a **queue**, not a march. It is he
 
 ---
 
-**Your first action:** read the register in full, then confirm the harvested corpus is **still on disk**
+🟥 **UPDATED 2026-08-18 — YOUR FIRST ACTIONS, IN THIS ORDER. Supersedes the struck text below.**
+1. **Read the register in full.** It is the state of this arc; this prompt is not.
+2. **Confirm the E02 harvested corpus is still on disk** — it lives in `%LOCALAPPDATA%\Temp\ubem_e02_harvest`,
+   a temp directory nobody is protecting. **Count it, never assume it.** Expect 40,800 run directories
+   across 60 `(cell, mode)` pairs.
+3. **Put ruling `3b` to the user** (the stray `.py` under `docs/` and the `testpaths = ["tests"]` line)
+   — it is the cheap one, and it is bundled with the long-unasked row `2c`, which is the same
+   population. **Ask them as one question, not two.**
+4. **Then ruling `3a`** (OPEN-52's remedy shape).
+5. **One ruling at a time, never as a menu.** Lead with the reassurance where there is one — neither
+   `3a` nor `3b` touches a published number, and saying so first is what keeps these questions short.
+
+⚠️ **If the user wants work moving before ruling on either, the answer is OPEN-01's denominator swap:**
+already ruled, measurement already on disk (`e02_simulated_floor_area.csv`, 40,800 rows, 0 parse
+failures), **plan doc never written.** It is the largest piece of unstarted work this arc owns, and it
+needs no new ruling to begin.
+
+~~**Your first action:** read the register in full, then confirm the harvested corpus is **still on disk**
 (it lives in a temp directory nobody is protecting — count it, do not assume it). Then put **one** ruling
-to the user: ~~OPEN-22~~ ~~**OPEN-43 — which aggregation the published fleet headline should use.**~~
+to the user:~~ ~~OPEN-22~~ ~~**OPEN-43 — which aggregation the published fleet headline should use.**~~
 **✅ OPEN-43 was ruled on 2026-08-12 — pooled, `157.1 kWh/m²`. Do not re-ask it.**
 ~~🟩 **UPDATED 2026-08-13 — the first ruling to put is now `2f`: register the `wwr` re-randomisation
 defect as OPEN-49.**~~ ✅ **PUT AND ANSWERED 2026-08-13 — the user ruled "register it" and OPEN-49 is
