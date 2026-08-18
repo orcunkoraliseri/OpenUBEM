@@ -508,7 +508,7 @@ hit it now chunks under 7,500 chars and no other script builds commands that lon
 
 ---
 
-## 1. Summary — ~~**34 tracked items**~~ ~~**29 tracked items** *(2026-08-13, after `PLAN_five-items-2026-08-13.md`: −5 — **OPEN-26, OPEN-36, OPEN-44, OPEN-45, OPEN-50** all closed and retired; **nineteen IDs retired in all**. Table re-counted programmatically: **29 live rows, 20 struck.**)*~~ ~~**29 tracked items** *(2026-08-13, later, after `PLAN_five-more-items-2026-08-13.md`: **−2 closed** — **OPEN-24** and **OPEN-32**, both retired, **twenty-one IDs retired in all** — and **+2 opened**, **OPEN-51** and **OPEN-52**, both found by the director rather than by a task's stated question. **The count is flat, and that is the honest reading: this pass closed two items and discovered two more.** Table re-counted programmatically: **29 live rows, 23 struck — 52 total, exactly OPEN-01…OPEN-52 with no row missing and none duplicated.** ⚠️ The previous header's "20 struck" was a miscount in the prose; the table itself was complete at 21.)*~~ ~~**28 tracked items** *(2026-08-17, after T08 of `PLAN_open-49-and-open-01-2026-08-13.md`: **−1 closed** — **OPEN-01**, retired, its remedy implemented and its before/after reproduced on all five modes (see this item's own §1 row and §-section). **Twenty-two IDs retired in all.** Table re-counted programmatically: **28 live rows, 24 struck — 52 total, exactly OPEN-01…OPEN-52 with no row missing and none duplicated.** OPEN-49 is not counted in this closure — it stays live, marked mechanism-fixed/closure-blocked, in its own §-section.)*~~ **26 tracked items** *(2026-08-18, after T06 of `PLAN_five-items-2026-08-18.md`: **−2 net** — three closed and retired (**OPEN-06, OPEN-37, OPEN-51**) and one opened (**OPEN-53**, the E02 harvest `.sql`/`.end` shortfall found by T03's `.eio` census). **Twenty-five IDs retired in all.** Table re-counted **programmatically**, by a script over the §1 table body (`scripts` output quoted in this pass's plan doc §8, T06 progress-log entry): **26 live rows, 27 struck — 53 total, exactly OPEN-01…OPEN-53, no row missing, none duplicated.** The reconciliation carries forward unchanged in kind, updated in number: **27 struck rows but 25 retired IDs; the difference of exactly 2 is still OPEN-02 and OPEN-28, folded under OPEN-01's umbrella and never independently tracked.**)* (OPEN-01 … **OPEN-52**; OPEN-23 excluded, OPEN-21 deferred, OPEN-05, OPEN-25, **OPEN-30, OPEN-33, OPEN-34, OPEN-39, OPEN-40 and OPEN-41** closed — all ten IDs retired; **OPEN-04, OPEN-31 and OPEN-43 closed 2026-08-12 and formally retired 2026-08-13 on ruling `2h`**; **OPEN-22 closed and retired 2026-08-13** — fourteen IDs retired in all; ~~**OPEN-01 closed and retired 2026-08-17** — fifteen IDs retired in all; **OPEN-02 and OPEN-28 folded into OPEN-01** on 2026-08-09 and **both discharged 2026-08-11**)~~ *(Corrected 2026-08-17, director audit: the trailing parenthetical above was stale — it stopped at fourteen after OPEN-22 and never picked up the five retirements from `PLAN_five-items-2026-08-13.md` (OPEN-26, OPEN-36, OPEN-44, OPEN-45, OPEN-50) or the two from `PLAN_five-more-items-2026-08-13.md` (OPEN-24, OPEN-32), so the executor's first pass at this line copied its stale "fourteen + 1" into "fifteen" instead of following the correct running total in the struck-header lineage on this same line, which already read twenty-one before today. The full retired-ID list, twenty-two in all: **OPEN-23** (excluded), **OPEN-21** (deferred), **OPEN-05, OPEN-25, OPEN-30, OPEN-33, OPEN-34, OPEN-39, OPEN-40, OPEN-41** (closed, ten so far), **OPEN-04, OPEN-31, OPEN-43** (2026-08-12/13, thirteen), **OPEN-22** (2026-08-13, fourteen), **OPEN-26, OPEN-36, OPEN-44, OPEN-45, OPEN-50** (2026-08-13, nineteen), **OPEN-24, OPEN-32** (2026-08-13, twenty-one), **OPEN-01** (2026-08-17, twenty-two). **OPEN-02 and OPEN-28 are folded into OPEN-01, not retired** — they were struck rows in the table (discharged 2026-08-11) but never independently-opened tracked IDs, which is exactly why the table carries **24 struck rows against only 22 retired IDs: the difference of 2 is OPEN-02 and OPEN-28**, and that is the reconciliation, not a miscount.)* *(Extended 2026-08-18, T06 of `PLAN_five-items-2026-08-18.md`: three more IDs retired — **OPEN-06** (classifier archaeology closed the item), **OPEN-37** (`.eio` fetch gap closed on all ten sites), **OPEN-51** (`E-LA-16` adjudicated) — **twenty-five IDs retired in all.** One new ID opened, **OPEN-53** (E02 harvest `.sql`/`.end` shortfall), not yet retired. The struck-vs-retired difference of 2 (OPEN-02, OPEN-28) is unchanged by this pass — all three closures this pass retired an ID that was also a struck row, one-for-one, so the gap neither widens nor narrows.)*
+## 1. Summary — ~~**25 tracked items**~~ **24 tracked items** *(2026-08-18, T06 of `implemenation/PLAN_open-52-and-four-items-2026-08-18.md`: **−1 closed and retired — OPEN-52** (the fixed-`--basetemp` collision; ruling `3a` was delegated to the director by the user, given, implemented and verified on four controls including a real two-session concurrency test and a full-suite baseline match). **No item opened this pass.** **Twenty-seven IDs retired in all.** Table re-counted **programmatically** (`scripts/analysis/open_register_recount_2026-08-18.py`, output quoted in this pass's plan doc §8, T06 entry): **24 live rows, 29 struck — 53 total, exactly OPEN-01…OPEN-53, no row missing, none duplicated.** Reconciliation unchanged in kind: **29 struck rows against 27 retired IDs; the difference of exactly 2 is still OPEN-02 and OPEN-28**, folded under OPEN-01 and never independently tracked — OPEN-52 moved from live to struck and retired in one edit, so the gap neither widens nor narrows. **Next free item ID unchanged: `OPEN-54`.** Four items were measured without closing: **OPEN-07**, **OPEN-08**, **OPEN-29**, **OPEN-53**, each narrowed and each with its blocker re-tested rather than inherited.)* — ~~**34 tracked items**~~ ~~**29 tracked items** *(2026-08-13, after `PLAN_five-items-2026-08-13.md`: −5 — **OPEN-26, OPEN-36, OPEN-44, OPEN-45, OPEN-50** all closed and retired; **nineteen IDs retired in all**. Table re-counted programmatically: **29 live rows, 20 struck.**)*~~ ~~**29 tracked items** *(2026-08-13, later, after `PLAN_five-more-items-2026-08-13.md`: **−2 closed** — **OPEN-24** and **OPEN-32**, both retired, **twenty-one IDs retired in all** — and **+2 opened**, **OPEN-51** and **OPEN-52**, both found by the director rather than by a task's stated question. **The count is flat, and that is the honest reading: this pass closed two items and discovered two more.** Table re-counted programmatically: **29 live rows, 23 struck — 52 total, exactly OPEN-01…OPEN-52 with no row missing and none duplicated.** ⚠️ The previous header's "20 struck" was a miscount in the prose; the table itself was complete at 21.)*~~ ~~**28 tracked items** *(2026-08-17, after T08 of `PLAN_open-49-and-open-01-2026-08-13.md`: **−1 closed** — **OPEN-01**, retired, its remedy implemented and its before/after reproduced on all five modes (see this item's own §1 row and §-section). **Twenty-two IDs retired in all.** Table re-counted programmatically: **28 live rows, 24 struck — 52 total, exactly OPEN-01…OPEN-52 with no row missing and none duplicated.** OPEN-49 is not counted in this closure — it stays live, marked mechanism-fixed/closure-blocked, in its own §-section.)*~~ ~~**26 tracked items**~~ **25 tracked items** *(2026-08-18, after T06 of `PLAN_five-items-2026-08-18.md`: **−2 net** — three closed and retired (**OPEN-06, OPEN-37, OPEN-51**) and one opened (**OPEN-53**, the E02 harvest `.sql`/`.end` shortfall found by T03's `.eio` census). **Twenty-five IDs retired in all.** Table re-counted **programmatically**, by a script over the §1 table body (`scripts` output quoted in this pass's plan doc §8, T06 progress-log entry): **26 live rows, 27 struck — 53 total, exactly OPEN-01…OPEN-53, no row missing, none duplicated.** The reconciliation carries forward unchanged in kind, updated in number: **27 struck rows but 25 retired IDs; the difference of exactly 2 is still OPEN-02 and OPEN-28, folded under OPEN-01's umbrella and never independently tracked.**)* (OPEN-01 … **OPEN-52**; OPEN-23 excluded, OPEN-21 deferred, OPEN-05, OPEN-25, **OPEN-30, OPEN-33, OPEN-34, OPEN-39, OPEN-40 and OPEN-41** closed — all ten IDs retired; **OPEN-04, OPEN-31 and OPEN-43 closed 2026-08-12 and formally retired 2026-08-13 on ruling `2h`**; **OPEN-22 closed and retired 2026-08-13** — fourteen IDs retired in all; ~~**OPEN-01 closed and retired 2026-08-17** — fifteen IDs retired in all; **OPEN-02 and OPEN-28 folded into OPEN-01** on 2026-08-09 and **both discharged 2026-08-11**)~~ *(Corrected 2026-08-17, director audit: the trailing parenthetical above was stale — it stopped at fourteen after OPEN-22 and never picked up the five retirements from `PLAN_five-items-2026-08-13.md` (OPEN-26, OPEN-36, OPEN-44, OPEN-45, OPEN-50) or the two from `PLAN_five-more-items-2026-08-13.md` (OPEN-24, OPEN-32), so the executor's first pass at this line copied its stale "fourteen + 1" into "fifteen" instead of following the correct running total in the struck-header lineage on this same line, which already read twenty-one before today. The full retired-ID list, twenty-two in all: **OPEN-23** (excluded), **OPEN-21** (deferred), **OPEN-05, OPEN-25, OPEN-30, OPEN-33, OPEN-34, OPEN-39, OPEN-40, OPEN-41** (closed, ten so far), **OPEN-04, OPEN-31, OPEN-43** (2026-08-12/13, thirteen), **OPEN-22** (2026-08-13, fourteen), **OPEN-26, OPEN-36, OPEN-44, OPEN-45, OPEN-50** (2026-08-13, nineteen), **OPEN-24, OPEN-32** (2026-08-13, twenty-one), **OPEN-01** (2026-08-17, twenty-two). **OPEN-02 and OPEN-28 are folded into OPEN-01, not retired** — they were struck rows in the table (discharged 2026-08-11) but never independently-opened tracked IDs, which is exactly why the table carries **24 struck rows against only 22 retired IDs: the difference of 2 is OPEN-02 and OPEN-28**, and that is the reconciliation, not a miscount.)* *(Extended 2026-08-18, T06 of `PLAN_five-items-2026-08-18.md`: three more IDs retired — **OPEN-06** (classifier archaeology closed the item), **OPEN-37** (`.eio` fetch gap closed on all ten sites), **OPEN-51** (`E-LA-16` adjudicated) — **twenty-five IDs retired in all.** One new ID opened, **OPEN-53** (E02 harvest `.sql`/`.end` shortfall), not yet retired. The struck-vs-retired difference of 2 (OPEN-02, OPEN-28) is unchanged by this pass — all three closures this pass retired an ID that was also a struck row, one-for-one, so the gap neither widens nor narrows.)* *(Extended 2026-08-18 (evening), T01/T05 of `implemenation/PLAN_four-items-2026-08-18.md`: **−1 closed and retired — OPEN-46** (elevator reporting path verified whole at HEAD in code and in live tests; the item's stated blocker was stale). **No item opened this pass.** **Twenty-six IDs retired in all.** Table re-counted **programmatically**, by a script over the §1 table body (`scripts/analysis/open_register_recount_2026-08-18.py`, output quoted in this pass's plan doc §8, T05 progress-log entry): **25 live rows, 28 struck — 53 total, exactly OPEN-01…OPEN-53, no row missing, none duplicated.** The reconciliation is unchanged in kind: **28 struck rows but 26 retired IDs; the difference of exactly 2 is still OPEN-02 and OPEN-28**, folded under OPEN-01's umbrella and never independently tracked — OPEN-46 was a live row moved to struck and retired in the same edit, so the gap neither widens nor narrows. **Next free item ID unchanged: `OPEN-54`.**)*
 
 > ✅ **Census reconciled 2026-08-13 (ruling `2h`).** The table below now carries **34 live (non-struck)
 > rows**, matching the header. Before today it carried 38 against a header of 35 — the five rows for
@@ -642,7 +642,7 @@ hit it now chunks under 7,500 chars and no other script builds commands that lon
 | OPEN-08 | Archetype/vintage not reproducible locally for data-poor buildings (E-LA-22) | Reproducibility | all cross-generation comparison | 📄 **partially quantified** |
 | OPEN-09 | `thermal_mass=True` drives warmup non-convergence; "cosmetic" never tested (E-LA-23) | Simulation correctness | 64% vs 5.3% control | ✅ **C06: "cosmetic" tested and holds — 96.3% distribution overlap, small correctly-signed residual** (audited) |
 | OPEN-10 | `ZoneGroup` list-multiplier edit would restore exact expressibility (E-LA-37) — **capability confirmed real from the schema; remedy narrower than claimed** | Capability | ~~90 buildings (**carried, not re-derivable without a fleet pass**)~~ **C03: 90 reproduces exactly — but that is 4.6% of the 1,976 inexpressible fleet-wide** + future | ✅ **measured + verified** |
-| OPEN-11 | 6 inverted-geometry buildings need post-hoc remediation, not re-applied | Simulation correctness | 6 / 8,160 | ⚠️ |
+| OPEN-11 | 6 inverted-geometry buildings need post-hoc remediation, not re-applied. **2026-08-18: the "inverted geometry" label tested against a mechanism (`eplusout.err`'s upside-down-surface warning) and not corroborated — the warning is universal to all 8,160 `auto`-mode runs, not distinctive to these six. Item unchanged; remediation decision still open.** | Simulation correctness | 6 / 8,160 | ⚠️ |
 | OPEN-12 | ~~Rural `height_m` residual — `nyc_rural` 36.4%, `austin_rural` 19.2%~~ **both re-derive at 100%; a third cell is at 100% and was never named**. **N15: genuinely a source-coverage gap — NOT a spillover from OPEN-14** | Data acquisition | **3 cells, 2,032 buildings; 2,806 / 8,160 fleet-wide** | ⚠️ **numbers do not reproduce** |
 | OPEN-13 | E-UTCI-12 and E-UTCI-13, forwarded out of the UTCI arc — ~~both live at HEAD~~ **E-UTCI-13 fixed 2026-08-12; E-UTCI-12 contained only** | Data / Stage 6 | ~~the whole test suite cannot be collected~~ **collectable again (1937 tests, exit 0) — but 43 passing tests traded away**; cached re-read no longer nulls `levels`/`use_class` | 🟡 **1 of 2 fixed** |
 | OPEN-14 | UTCI height backfill is not reproducible from a clean checkout — **confirmed; no Overture slice is tracked for any affected cell** | Reproducibility | Stage 6 inputs; ~~converges with OPEN-12 on the same 4 cells~~ **N15: coincidence — separate item** | ✅ **measured** |
@@ -660,7 +660,7 @@ hit it now chunks under 7,500 chars and no other script builds commands that lon
 | ~~OPEN-26~~ ✅ **CLOSED + ID RETIRED 2026-08-13** | Manifest/provenance polish items — ~~**1 of 4 fixed, 3 survive**~~ **2026-08-12: 2 of 4 fixed.** The missing-EPW `Site:Location` case is fixed (`builder.py:213-218` now raises instead of silently simulating at latitude 0°/longitude 0°, the templates' `PLACEHOLDER` default; 187 tests pass). **The two survivors are both re-grepped-still-true and both deliberately will-not-fix**: `compute_form_factor` is dead code, and the neighbour-bbox recomputation is efficiency-only — **neither can move a published number.** ✅ **CLOSED 2026-08-13 (T05 of `PLAN_five-items-2026-08-13.md`, CP-2 signed): both survivors re-verified at HEAD by the director and both will-not-fix verdicts stand.** `compute_form_factor` is defined once (`footprint.py:66`) and **every** other reference in the tree is inside `tests/test_footprint.py` — zero call sites under `openubem/` or `scripts/`, dead in production. The neighbour-bbox recomputation (`context.py:24`) **is** production-reachable (`idf/builder.py:432` plus four `v12_*` runners), but `minimum_rotated_rectangle` is pure and deterministic, so repeating it **cannot** change the shading geometry — **it costs CPU, not correctness.** | Housekeeping | reporting only | ✅ **CLOSED — 2 fixed, 2 re-verified will-not-fix** |
 | OPEN-27 | A DESIGN doc names an archetype that does not exist — **inside the coarse-metric definition**; fixable only at the external source | Housekeeping → **spec integrity** | the accuracy metric's own definition | ✅ **re-checked** |
 | ~~OPEN-28~~ | ~~**Cross-mode comparisons mix two harvest generations**~~ | **DISCHARGED 2026-08-11** — the remedy it asked for is delivered: **E02 is all five modes on one generation**, so a cross-mode delta now means the method. The confound against the adopted 3rd-generation fixture is also **bounded rather than waved at**: `auto`'s `zoning_strategy` agrees with the adopted run at **100% in every cell** and its `archetype_id` at **96.5–100%**; the other four modes' zoning agreement is 7.6–52.5% **by design**, since those modes force a different zoning approach. 🔴 **Its rule survives the discharge and binds harder: every comparison must state which harvest generation each side came from — E02 is the fourth.** The separate question of what to do about the **already-published** confounded numbers is **CP-M2, an owed ruling**, not this item. |
-| OPEN-29 | **Defects last recorded OPEN that this register never adopted** — **measured: 9 of 12 are genuinely still open**, now tracked inside this item. **2026-08-12: the malformed-fatal-test class R06 left behind is finished** — the three `scripts/diagnostics/` sites now use R06's regex, and the class is measured over all 40,800 corpus files: the malformed variants match **0** against ground truth **44**, so that test could never have fired. **No past diagnostic conclusion changes.** A **seventh site never before recorded**, `scripts/validation/phaseE_cpb_fixtures.py:176`, is reported (it can only over-count, and does not on real data). **The item stays open — the other eight defect IDs are untouched.** | Register hygiene | 9 defects; ~~E-LA-21 replicated across **4** harvest scripts~~ **7 known fatal-test sites in total** | ✅ **measured; fatal-test class now closed on live code** |
+| OPEN-29 | **Defects last recorded OPEN that this register never adopted** — ~~**measured: 9 of 12 are genuinely still open**~~ **re-derived 2026-08-18 (T04): 8 of 12 genuinely still open — E-LA-21 moves to CLOSED-ELSEWHERE, its one-space `has_fatal` defect confirmed fixed at HEAD across all **eight** harvest sites (director-corrected from the executor's seven). E-LA-16 stays STILL-OPEN: OPEN-51 adjudicated its *name*, not its defect — refuting the lead this pass's plan asserted.**, now tracked inside this item. **2026-08-12: the malformed-fatal-test class R06 left behind is finished** — the three `scripts/diagnostics/` sites now use R06's regex, and the class is measured over all 40,800 corpus files: the malformed variants match **0** against ground truth **44**, so that test could never have fired. **No past diagnostic conclusion changes.** A **seventh site never before recorded**, `scripts/validation/phaseE_cpb_fixtures.py:176`, is reported (it can only over-count, and does not on real data). **The item stays open — the other eight defect IDs are untouched.** | Register hygiene | 9 defects; ~~E-LA-21 replicated across **4** harvest scripts~~ **7 known fatal-test sites in total** | ✅ **measured; fatal-test class now closed on live code** |
 | ~~OPEN-30~~ | ~~Assigned vintage is never persisted by any harvest~~ | **CLOSED 2026-08-11** — demonstrated on 60/60 E02 manifests, 40,800 rows, 0 nulls, 5 distinct values, `DOERefPre1980` 93.44% vs the ≈92.9% expectation; `la_rural` cross-check vs raw `year_built` reproduces R07 with zero crossover in all five modes. Evidence: `openubem/outputs/comparisons/open30_vintage_distribution.csv`, `extra/MEASUREMENT_open-30-01c_vintage-and-code-state.md`. Director re-derived the full distribution independently. **ID retired.** |
 | ~~OPEN-31~~ | ~~Ratified classification changes adopted without a before/after on the labelled fixture~~ | **CLOSED 2026-08-12, formally retired 2026-08-13 on ruling `2h`** — this was a *decision owed*, and the decision was taken: **CP-M3 was ruled obligatory on 2026-08-09**, so a ratified classification change must carry a before/after on the labelled fixture with both numbers recorded. No line of code was ever wrong here. 🔴 **The gate it created is live and is already binding on open work: OPEN-47's office-bin divergence cannot be changed without it**, and as of ruling `2a` (2026-08-13) the fixture side of that gate is **two exams, each with its own threshold** — the old 50-row fixture at ≥0.70 and the tag-rich `labelled_archetypes_tagrich_v2.csv` at its own mark. **Every accuracy figure must name its fixture.** **ID retired.** |
 | ~~OPEN-32~~ | ~~the net is unmeasured~~ **CLOSED 2026-08-13 — ID RETIRED.** Net ≈1.12 at the median, but only 12.6% of buildings within ±10% of cancellation and `error_factor` quantized at powers of two — **quote the deciles, never the median** | Reported numbers | `layout_assign` EUI only — **adopted baseline confirmed clear 2026-08-06 (M06)** | 🟢 **closed** |
@@ -669,22 +669,22 @@ hit it now chunks under 7,500 chars and no other script builds commands that lon
 | OPEN-35 | **Two fallbacks invent the missing storey count and disagree** — archetype chosen at group-median storeys, geometry built at 1. **2026-08-11: the mechanism is now proved by direct `.eio` evidence, not inferred.** The 2,611-building subpopulation matches its own broken `levels = 1.0` denominator almost exactly in `auto`/`building`/`floor` (**100% within ±1%, by construction** — those modes build zones from `levels`) and **breaks sharply under `layout_assign` (mean 2.3728, only 17.92% within ±1%)**, which assigns storeys from the archetype instead. **The two paths disagree, measured, on 40,800 runs.** **Still open** — the intended-fallback question is a DESIGN decision, not a measurement. | Simulation correctness | **2,611 / 8,160 = 32.00% of the fleet**; 1,031 of them given a mid/high-rise archetype and built at one storey | ✅ **mechanism verified + size measured + simulation-boundary proof 2026-08-11** |
 | ~~OPEN-36~~ ✅ **CLOSED + ID RETIRED 2026-08-13** | ✅ **Corrected AT SOURCE — a dated ⚠️ CORRECTION banner now sits in the frozen record itself** (`IMPLEMENTATION_phaseC_ml_imputer.md:849`), on the user's ruling; the false half of the Artifacts line is struck, not rewritten. All five claims re-derived from git by the director. 🔴 **Sharper finding: the record is not wholly false — the 53 tests DID ship; the implementation never did.** ⚠️ **T09b and T11.8/T11.8b were NOT re-verified.** ~~🔴 **A signed completion record describes code that has never existed in any commit** — T07's tests were committed, its implementation never was~~ | Register hygiene → **record integrity** | ~~unmeasured~~ **measured (N13): 596 entries swept, 1 governance gap — T07, the known one**; directly causes E-UTCI-12 | ✅ **verified from git**; **scope now bounded** |
 | ~~OPEN-37~~ | ~~**The harvest never fetches `.eio`, so simulated floor area cannot come home**~~ — the cluster keeps the file, the tar that retrieves results does not ask for it. ✅ FIXED 2026-08-10 (R09), five files, 149=149=149 verified. ✅ **CLOSED + ID RETIRED 2026-08-18** — remaining five sites fixed 2026-08-18 (T03), all ten fetch sites now request `.eio`; local E02 census: 40,800/40,800 `.eio` and `.err`, zero empty. `.sql`/`.end` shortfall (874/875) is out of scope, opened separately as **OPEN-53**. | Reported numbers | every fetched fleet, all modes; blocked the simulated-vs-declared floor-area check on **E02's 40,800 runs** — **unblocked before E02's first harvest** | ✅ **verified at the source line + on the cluster; fix manager-verified**; ✅ **2026-08-18: all ten sites fixed, census complete, zero `.eio` gaps** |
-| OPEN-38 | ~~**`layout_assign` subsurface geometry defect** — 7 tasks die on EnergyPlus **severe** *"Base surface does not surround subsurface"*, escalating to a two-space fatal~~ 🔴 **PREMISE FALSIFIED 2026-08-11 — item rewritten, still open.** That message is a **`** Warning **`**, not a Severe, at all **8** sites, and **kills nothing**. The item is now two measured defects: **(i)** all 7 `layout_assign` fatals die on **thermal runaway in zone `LAUNDRYROOMFLR1`** (−12,459 / −23,743 / −11,950 / −15,491 / −12,901 / −59,865 / +182,399 °C) — the substituted prototype's laundry room, same zone token as OPEN-06, and **no other cause appears in that mode**; **(ii)** **8** buildings carry malformed door geometry, of which `nyc_rural/way_965718401` **completes successfully and publishes results** from it. All 8 are `layout_assign`; **zero in the other four modes**, verified across all 40,800 `.err` files. | Simulation correctness | (i) 7 fatals, one prototype zone; (ii) 8 buildings, 1 of them publishing | ✅ **both mechanisms measured; the register's stated cause was wrong** |
+| OPEN-38 | ~~**`layout_assign` subsurface geometry defect** — 7 tasks die on EnergyPlus **severe** *"Base surface does not surround subsurface"*, escalating to a two-space fatal~~ 🔴 **PREMISE FALSIFIED 2026-08-11 — item rewritten, still open.** That message is a **`** Warning **`**, not a Severe, at all **8** sites, and **kills nothing**. The item is now two measured defects: **(i)** all 7 `layout_assign` fatals die on **thermal runaway in zone `LAUNDRYROOMFLR1`** (−12,459 / −23,743 / −11,950 / −15,491 / −12,901 / −59,865 / +182,399 °C) — the substituted prototype's laundry room, same zone token as OPEN-06, and **no other cause appears in that mode**; **(ii)** **8** buildings carry malformed door geometry, of which `nyc_rural/way_965718401` **completes successfully and publishes results** from it. All 8 are `layout_assign`; **zero in the other four modes**, verified across all 40,800 `.err` files. 🔴 **2026-08-18 (T04): population re-derived at 7, confirmed; tested against OPEN-42 and found to be a different mechanism on every measured axis (message class, zone position by `.eio` geometry — bottommost storey vs. OPEN-42's topmost, geometry origin — substituted `SmallHotel` prototype, mode — `layout_assign`-only). Recommend keeping the two items separate; director to rule.** ✅ **Ruling 2026-08-18: recommendation ACCEPTED — the two items stay separate.** | Simulation correctness | (i) 7 fatals, one prototype zone; (ii) 8 buildings, 1 of them publishing | ✅ **both mechanisms measured; the register's stated cause was wrong**; ✅ **2026-08-18: tested against OPEN-42, confirmed distinct; director ruled — stay separate** |
 | ~~OPEN-39~~ | ~~**`set -e` in `submit_fleet_t08.sbatch` skips the trim step and the `task.rc` write on every failed task**~~ | **CLOSED 2026-08-11** — measured on the cluster, read-only: 45 failed E02 tasks orphan **≈2.14 GB** (mean **48.6 MB**/dir vs **449 KB** for successful, ~111×); failed dir has no `task.rc`, its successful array sibling does; replicates outside E02 (`t17_austin_centre_layout_assign`). **Zero of 15 `task.rc` references across 9 scripts uses it as a completion test** — all key on `eplusout.end`. Evidence: `extra/MEASUREMENT_open-39-40_cluster-records.md`. 🔴 **The standing rule survives the closure: never use `task.rc` presence as a completion test.** **ID retired.** |
 | ~~OPEN-40~~ | ~~**Eight job arrays were submitted a third time by an unrecorded process**~~ | **CLOSED 2026-08-11 as untraceable — which this item's own text names as the answer.** Independent from-scratch `sacct` reconstruction of all **68** `e02_*` submissions in the window (19 + 8 + 41 = 68, exact) re-confirms the 8 IDs outside both waves; submitted 2026-08-09T23:08:58 → 2026-08-10T00:04:49; `JobName`/`WorkDir`/`User` carry no discriminating signal; remote `.bash_history` predates the whole window (mtime 2026-04-27) and is silent for all three waves alike. **No story was reconstructed from timestamps.** Disposition = the remedy the item already names: **a submission log nobody can bypass.** **ID retired.** |
 
 | ~~OPEN-41~~ | ~~**43 of the 45 fleet failures have no recorded cause**~~ | **CLOSED 2026-08-11** — all **44** fatals now carry a recorded cause, captured from the `** Severe **` line preceding each fatal: 25 *Temperature (low) out of bounds*, 17 `CalcHeatBalanceInsideSurf`, 1 *Temperature (high)*, 1 `CheckForRunawayPlantTemps`. **Every one is a numerical thermal blow-up — none is a syntax, missing-object or licensing failure.** The 45th (`nyc_centre/fast_zone/way_1240348353`) is confirmed to contain no `Fatal` string at all, consistent with `std::bad_alloc`. 🔴 **The `la_rural` concentration is explained and it is not the cell — it is the archetype:** `Warehouse` is 38 of 8,160 buildings (0.47%) yet carries **26 of the 44** fatals, **13.68% vs 0.0443% ≈ 309× relative risk**; all 11 `la_rural` failing buildings are `Warehouse` with `no_floors`. Evidence: `openubem/outputs/comparisons/open41_failure_causes.csv`, `extra/MEASUREMENT_open-41-38_failure-causes.md`; director re-derived the archetype join and the two `la_rural` fatal counts independently. **The remedy question this exposed is OPEN-42, not this item.** **ID retired.** |
-| **OPEN-42** | 🔴 **The `Warehouse` population is broken in two measured ways, and one of them reaches the adopted baseline.** **(i) It fails EnergyPlus at ≈309× the fleet rate** — 38 buildings (0.47% of the fleet) carry **26 of the 44** fatals; 13.68% of Warehouse tasks fail against 0.0443% of everything else; 13 distinct Warehouses fail in ≥1 mode; 36 of 44 failures carry `no_floors` and **37 of the 38 Warehouses do**. Failures split auto 8 / floor 8 / fast_zone 10, **zero in `layout_assign`**. **(ii) Six carry a placeholder `footprint_area_m2` of exactly 200.0 m²** (`la_rural` way_472960972/472961034/472961088/472961091/472961171, `la_urban` way_402215469), all flagged `no_floors`, against simulated areas of 4,064–67,330 m² — so **the adopted `auto` mode divides by a denominator wrong by 20.3× to 336.7× on real published buildings.** A widened scan found 16 Warehouses at ≤210 m² fleet-wide; 6 sit at the literal placeholder. **First measurement: made** (this is it). ~~**What is not known:** whether (i) and (ii) are one defect or two — they overlap on 5 buildings but neither contains the other — and whether the 200.0 m² value is a constant in the source data or injected by an imputation path.~~ 🔵 **MEASURED 2026-08-12 (five-item sweep T01–T02) — two of the four unknowns are answered and one published claim above is retracted.** The 200.0 is **not** source data and **not** imputed: it is a declared fallback written by one cited line, `scripts/validation/v12_cell_pipeline.py:659`, which line 664 overwrites **only** on `status == "success"`. Stage 1 is clean — the real footprints (1,173–22,444 m²) are in `01_buildings.gpkg` and match their own `geometry.area`. **Face (ii) is a strict subset of face (i)**: the six placeholder rows and the six failed rows are the same six rows, so this is one defect, and the placeholder is simply what a failure looks like after the reporting stage. 🔴 **Retraction: the claim that six sit "inside the adopted `auto` fleet EUI" is wrong.** All six are `not_simulated` with `total_eui_kwh_m2 = NaN` and are excluded from both sides of the aggregation; **measured impact on 158.0 kWh/m² is exactly 0.000 (0.00 %)** against a baseline reproduced to 158.0298. **OPEN-42 is a reporting defect, not a baseline defect.** **What is still not known, and now blocks closure:** why the six simulations failed — `error_summary` is the **empty string** for all six. | Reported numbers + simulation correctness | 38 buildings; ~~**6 of them inside the adopted `auto` fleet EUI**~~ **0 inside the fleet EUI; 6 published rows carry a false area** | ✅ **both faces measured on all 40,800 runs**; ✅ **placeholder traced; fleet impact measured at zero**; ~~❓ **why the six failed is unrecorded**~~ ✅ **2026-08-13: cause found — all six die of runaway zone temperatures, and all six run clean under whole-building zoning, so this is a zoning-method defect. Open only on *why one mode survives*.** ✅ **2026-08-18 (T05): `.eio` read — positional pattern confirmed (15/16 fail on topmost floor, geometry byte-identical to non-fatal siblings below); two candidate statistics killed by a required 20-building background control; "not determinable from `eplusout.eio`" for the deeper question. Sharpens, does not close.** |
+| **OPEN-42** | 🔴 **The `Warehouse` population is broken in two measured ways, and one of them reaches the adopted baseline.** **(i) It fails EnergyPlus at ≈309× the fleet rate** — 38 buildings (0.47% of the fleet) carry **26 of the 44** fatals; 13.68% of Warehouse tasks fail against 0.0443% of everything else; 13 distinct Warehouses fail in ≥1 mode; 36 of 44 failures carry `no_floors` and **37 of the 38 Warehouses do**. Failures split auto 8 / floor 8 / fast_zone 10, **zero in `layout_assign`**. **(ii) Six carry a placeholder `footprint_area_m2` of exactly 200.0 m²** (`la_rural` way_472960972/472961034/472961088/472961091/472961171, `la_urban` way_402215469), all flagged `no_floors`, against simulated areas of 4,064–67,330 m² — so **the adopted `auto` mode divides by a denominator wrong by 20.3× to 336.7× on real published buildings.** A widened scan found 16 Warehouses at ≤210 m² fleet-wide; 6 sit at the literal placeholder. **First measurement: made** (this is it). ~~**What is not known:** whether (i) and (ii) are one defect or two — they overlap on 5 buildings but neither contains the other — and whether the 200.0 m² value is a constant in the source data or injected by an imputation path.~~ 🔵 **MEASURED 2026-08-12 (five-item sweep T01–T02) — two of the four unknowns are answered and one published claim above is retracted.** The 200.0 is **not** source data and **not** imputed: it is a declared fallback written by one cited line, `scripts/validation/v12_cell_pipeline.py:659`, which line 664 overwrites **only** on `status == "success"`. Stage 1 is clean — the real footprints (1,173–22,444 m²) are in `01_buildings.gpkg` and match their own `geometry.area`. **Face (ii) is a strict subset of face (i)**: the six placeholder rows and the six failed rows are the same six rows, so this is one defect, and the placeholder is simply what a failure looks like after the reporting stage. 🔴 **Retraction: the claim that six sit "inside the adopted `auto` fleet EUI" is wrong.** All six are `not_simulated` with `total_eui_kwh_m2 = NaN` and are excluded from both sides of the aggregation; **measured impact on 158.0 kWh/m² is exactly 0.000 (0.00 %)** against a baseline reproduced to 158.0298. **OPEN-42 is a reporting defect, not a baseline defect.** **What is still not known, and now blocks closure:** why the six simulations failed — `error_summary` is the **empty string** for all six. | Reported numbers + simulation correctness | 38 buildings; ~~**6 of them inside the adopted `auto` fleet EUI**~~ **0 inside the fleet EUI; 6 published rows carry a false area** | ✅ **both faces measured on all 40,800 runs**; ✅ **placeholder traced; fleet impact measured at zero**; ~~❓ **why the six failed is unrecorded**~~ ✅ **2026-08-13: cause found — all six die of runaway zone temperatures, and all six run clean under whole-building zoning, so this is a zoning-method defect. Open only on *why one mode survives*.** ✅ **2026-08-18 (T05): `.eio` read — positional pattern confirmed (15/16 fail on topmost floor, geometry byte-identical to non-fatal siblings below); two candidate statistics killed by a required 20-building background control; "not determinable from `eplusout.eio`" for the deeper question. Sharpens, does not close.** ✅ **2026-08-18 (T03): `.err`'s surface-orientation warning read — the lead named in fact 5 is retired. Fleet-wide rate 8,287/40,800 (20.3%) fully explained by the warning firing on 100.00% of all 8,160 `auto`-mode runs regardless of outcome (only 8 of which fail); all three control tests (fatal-vs-sibling zone, topmost-storey, mode comparison) came back negative or inverted. Candidate mechanism cited in code (`openubem/idf/surfaces.py:223-234,671-681`) but not fixed. Still OPEN — no further local artifact named.** ✅ **Ruling 2026-08-18: item REFRAMED, not closed — the question is no longer which zone is inverted but what is wrong with the topmost-storey geometry of these six buildings such that any zone built from it runs away; zoning mode only decides whether that storey gets a zone at all (`building`/`layout_assign` never zone it and never fatal). `.eio` and `.err` both exhausted; the E02 IDF corpus no longer exists on disk; no local next step named. OPEN-38 confirmed a separate mechanism — ruling accepted, both items stay separate.** |
 | ~~**OPEN-43**~~ | **CLOSED 2026-08-12 on the user's ruling, formally retired 2026-08-13 on ruling `2h`. The headline is the POOLED figure — `157.1 kWh/m²` = total simulated energy ÷ total simulated floor area over all 8,154 successful buildings — and it must be restated with that definition every time. Do not re-ask which aggregation the headline uses.** Restated in 13 live files; archived trees left as record. ⚠️ **What the closure does NOT discharge, because it belongs to other items:** the published figure is still one HEAD cannot reproduce end to end (**OPEN-48**), and the re-run's **159.2157 is not a competing headline** — it is the same model run through **OPEN-49**'s `wwr` defect and survives only as evidence inside that item. ~~The original finding, kept for the record:~~ 🔵 ~~**The published fleet EUI is a mean of cell means, not a fleet mean.**~~ Found 2026-08-12 by the director while re-deriving the adopted headline two ways instead of one. Over the same 8,154 success rows: per-cell area-weighted means averaged across the 12 cells **weighted by building count** = **158.0298** — *this is the published 158.0*; weighted by success count = 158.0557; unweighted = 160.0993; **pooled `Σ(EUI × area) / Σ(area)` over all 8,154 at once = 157.0552.** The headline therefore sits **≈1.0 kWh/m² above** the pooled figure purely from the choice of aggregation, and the count-weights include the six buildings that produced no energy. Neither number is wrong — **but the published figure has never been described as a mean of cell means anywhere in this project**, and a reader will assume the pooled definition. `openubem/results/aggregator.py` is per-cell only, so the fleet roll-up lives outside it and its author and intent are untraced. **First measurement: made. Decision owed by the user: which definition the headline should use. Do not restate 158.0 before that ruling.** | Reported numbers | **every published fleet-level EUI figure**, including the headline and every board that quotes it | ✅ **all four aggregations computed on the full adopted run**; ❓ **intent untraced** |
 | ~~OPEN-44~~ ✅ **CLOSED + ID RETIRED 2026-08-13** | ✅ **0 failed · 1,859 passed · 55 skipped · 0 errors** (CP-1 signed). All 45 red nodes now skip with a reason naming their item; **passed did not move**, so nothing was deleted or downgraded. 🔴 **A skip is a debt, not a fix — the suite is honest, not more capable, and 14 of the 45 wait on OPEN-17.** ~~🔴 **The test suite has 70 failures and 36 errors, and this is the first time anyone could count them.**~~ Opened 2026-08-12 from the side effects of OPEN-13's fix. Full run: **70 failed / 1,822 passed / 10 skipped / 36 errors / exit 1 / 26m47s** — E-UTCI-12's collection abort had made this number unobtainable, so **every past claim that "tests pass" covered an unknown subset**. **61 of the 106 live in `docs/docs_DONE/…/elevators/scripts/tests/`** — `docs/` holds **30 `.py` files, 5 of them tests**, against the hard rule *no `.py` under `docs/`, ever*; two are byte-identical duplicates of `tests/` files and **three have drifted from their twins**. 🔴 **Roughly half the red is artifact-dependence, not broken logic**: **51 `FileNotFoundError`** from tests asserting an output file exists on disk, ~36 setup errors from a missing `synthetic_10_gdf` fixture, 5 `AttributeError` on a never-existent `config.IMPUTE_DEBIAS…`, 8 elevator-column `KeyError`s. **Do not report this as "70 broken tests."** ⚠️ The `IMPUTE_DEBIAS…` group is E-UTCI-12's shape a second time — **re-check OPEN-36's "one governance gap" bound before closing it.** **First measurement: made. Next step: triage the 44 `tests/` failures into real defects vs artifact-dependence — not yet done, and must not be guessed.** | Test integrity → **record integrity** | the whole suite; **every past "tests pass" claim**; ~~unknown overlap with shipped code~~ **measured overlap with shipped code: zero** | ✅ **counted and located**; ~~❓ **not triaged**~~ ✅ **2026-08-13: `tests/` fully triaged at HEAD and independently reproduced node-for-node — 26 failed / 1,857 passed / 10 skipped / 19 errors; 31 artifact-missing, 14 unfinished-wiring (→ OPEN-17, OPEN-36), 0 real defects** |
 | ~~OPEN-45~~ ✅ **CLOSED + ID RETIRED 2026-08-13** | ✅ **Sweep re-run, zero live defects, no code changed — the correct outcome, named in advance.** The only single-space literal left under `openubem/` is inside `err_parse.py`'s own docstring describing the bug. ⚠️ The CSV on disk was **stale** until regenerated. ~~🔴 **The pipeline matched `** Severe **` with one space, so `error_summary` was empty for all 8,160 buildings** — not only the failures. Opened 2026-08-12. ✅ **Fixed where authorised 2026-08-12 (night):** a shared whitespace-tolerant helper `openubem/results/err_parse.py` (`SEVERE_RE`/`FATAL_RE`/`WARNING_RE`, `first_severe`, `count_severe`, `has_fatal`, 16 tests) now backs `scripts/validation/v12_cell_pipeline.py:625` and `scripts/cluster/make_manifest_from_cluster.py:47`; **load-bearing one-space sites 2 → 0**, director-verified from both diffs. 25 sites classified in `openubem/outputs/comparisons/open45_severe_literal_sweep.csv` (15 spent one-off scripts, 8 already correct). 🔴 **This item also corrected a project-wide belief: the "two spaces" rule is half wrong.** Census of every marker in all **64** real `.err` files: `** Warning **` one space both sides (**4,881**), `** Severe  **` one before / two after (**37**), `**  Fatal  **` two both sides (**1**) — **a two-spaces-both-sides literal misses `Severe` exactly as badly as the one-space literal did.** 🔴 **Why it stays open — two live sites, both flagged rather than edited because they were outside the executor's write-set:** `tests/test_sim_integration.py:171` matches `"**  Severe  **"` and therefore **0 of the 37** real Severe lines; `openubem/simulation/runner.py:140` is a bare `"**  Fatal  **"` literal rather than the tolerant helper. ⚠️ **A further gap in `SEVERE_RE` itself was self-disclosed by the OPEN-42 executor on 2026-08-13, confirmed real on a live file by the director, and routed here rather than to a new ID.~~ ✅ **Both "two live sites unfixed" are fixed at HEAD — verified 2026-08-13: `runner.py` and `test_sim_integration.py` both import from `err_parse` now.** | Reported numbers → **failure diagnosis** | **all 8,160 buildings' `error_summary`**; every future `.err` scan | ✅ **CLOSED 2026-08-13 — zero live defects, director re-derived by direct grep of the live tree** |
-| **OPEN-46** | ⚠️ **The elevator end-use breakout existed only in the archived arc's copy of the code, never in the live tree.** Opened 2026-08-12. 🔴 **The premise's alarming half was REVERSED on audit the same night — read this before quoting the item:** elevator energy **is** in the adopted run and **is** inside the published `157.1 kWh/m²`. All 12 `phaseE_elevrb/*/05_results.csv` already carry `elevators_eui_kwh_m2` and `gwp_elevators_kgco2_m2`; **3,561 of 8,160 rows non-zero, Σ = 12,508.8 kWh/m²**; in `nyc_urban` exactly **87** non-zero — precisely the 87 elevator-eligible buildings; against the pre-elevator `phaseE` run the **median of `|Δtotal_eui − elevators_eui|` is exactly 0**. ⚠️ **Why both the executor and the director first got this wrong, recorded because the lesson transfers:** both read a flat `equipment_eui_kwh_m2` as absence — **flat is what de-folding produces.** **Check the invariant a transform preserves (the total), not the column it moves energy between.** ✅ **The reporting path is now restored and gated in the live tree** (parser, outputs, carbon, aggregator; director re-derived the invariant on a different SQL than the executor used — 12 keys bit-identical, total unchanged). 🔴 **The genuinely broken part was larger than the item as opened and was split out as OPEN-48.** ⚠️ Three of five archived test twins had the expectation **removed** rather than the feature added. | Reported end-uses (**not physics**) | reporting only — **the published fleet figure is unaffected and was never missing elevator energy** | ✅ **premise measured and reversed; breakout implemented and gated; total proven invariant** |
+| ~~OPEN-46~~ | ⚠️ **The elevator end-use breakout existed only in the archived arc's copy of the code, never in the live tree.** Opened 2026-08-12. 🔴 **The premise's alarming half was REVERSED on audit the same night — read this before quoting the item:** elevator energy **is** in the adopted run and **is** inside the published `157.1 kWh/m²`. All 12 `phaseE_elevrb/*/05_results.csv` already carry `elevators_eui_kwh_m2` and `gwp_elevators_kgco2_m2`; **3,561 of 8,160 rows non-zero, Σ = 12,508.8 kWh/m²**; in `nyc_urban` exactly **87** non-zero — precisely the 87 elevator-eligible buildings; against the pre-elevator `phaseE` run the **median of `|Δtotal_eui − elevators_eui|` is exactly 0**. ⚠️ **Why both the executor and the director first got this wrong, recorded because the lesson transfers:** both read a flat `equipment_eui_kwh_m2` as absence — **flat is what de-folding produces.** **Check the invariant a transform preserves (the total), not the column it moves energy between.** ✅ **The reporting path is now restored and gated in the live tree** (parser, outputs, carbon, aggregator; director re-derived the invariant on a different SQL than the executor used — 12 keys bit-identical, total unchanged). 🔴 **The genuinely broken part was larger than the item as opened and was split out as OPEN-48.** ⚠️ Three of five archived test twins had the expectation **removed** rather than the feature added. ✅ **CLOSED + ID RETIRED 2026-08-18 (T01 of `implemenation/PLAN_four-items-2026-08-18.md`).** The item's stated blocker ("the live tree still emits no elevator equipment") was stale — `builder.py` has wired `assign_elevators` since 2026-08-13. All four reporting-chain links (load → meter → parse/de-fold → carbon/aggregator) verified at HEAD by file:line citation and by passing tests: 65/65 targeted, full suite `1875 passed, 55 skipped, 11 warnings in 1572.28s (0:26:12)` matching the 1875/55/0/0 baseline. One documentary defect found and corrected: the plan-named proof test does not exist in the live tree and never has; `tests/test_builder_elevators_wired.py` (committed `6aeebb0`) proves the same load-wiring fact and passes. Full record: this item's own §-section. | Reported end-uses (**not physics**) | reporting only — **the published fleet figure is unaffected and was never missing elevator energy** | ✅ **premise measured and reversed; breakout implemented and gated; total proven invariant**; ✅ **2026-08-18: all four links verified at HEAD, 65/65 + full suite green, ID retired** |
 | **OPEN-47** | ⚠️ **The office size-tier thresholds had no traceable external source, and this project's own deep-research document contains a fabricated citation.** Opened 2026-08-12. ✅ **The first half of the title is now wrong — a source WAS found:** the thresholds trace to **Chen, Hong & Piette (2017), *Applied Energy* 205, 323–335, Table 1** (DOI `10.1016/j.apenergy.2017.07.128`), **director-verified from the PDF itself** (pages 19–20 carry the three bins verbatim) and Crossref-checked, precisely because this task's predecessor fabricated exactly this kind of claim. **Hong et al. (2015) — credited by both the code comment and `RESULT_I02` — contains zero occurrences of either number**, 13 pages searched. ⚠️ **Caveat that must travel with the finding: Chen 2017's table is CityBES's own case-study classification, not a citation to an external standard** — it is not evidence of a DOE / PNNL / ASHRAE / CBECS lineage, and ASHRAE 90.1 is recorded as a **retrieval failure (paywalled), not** as "not found." 🔴 **Reason it stays open — a substantive divergence from the now-known source: the source's rule is area AND floor count** (`<2322 m² and ≤3 floors`, `2322–9290 m² and ≤5 floors`, `>9290 m² or ≥6 floors`) **while `openubem/semantic/building_classifier.py:175-177` tests area only.** Any change here is a classifier change and is therefore gated by CP-M3 (OPEN-31) — **and that gate depends on the unanswered fixture-threshold ruling 2a, so 2a probably has to be settled first.** ⚠️ The same citation audit found **a second fabricated DOI** (Sun et al. 2021 given as `10.1016/j.enbuild.2020.110586` — director-checked **HTTP 404**; the real one is `…110603`) and **a systemic wrong-locator pattern** across every Deru et al. (2011) row. | Classification correctness → **citation integrity** | the office bins for every classified building; **every citation in `RESULT_I02`** | ✅ **source found and director-verified from the PDF; divergence located at the line**; ❓ **divergence not adjudicated — needs a ruling, gated behind 2a** |
 | **OPEN-48** | 🔴 **The adopted baseline run cannot be reproduced from this repository.** Opened 2026-08-12 by **auditing OPEN-46's reversal**, not by running a task — the sixth consecutive pass in which this register grew that way. The adopted `phaseE_elevrb` run was produced by code that is not in this repository: live `builder.py` never called `assign_elevators` (`git log --all -S` empty; the only commit ever to touch the string, `ef19141`, added the **archived** copies plus three orphan live files), and `parser.py` / `outputs.py` / `carbon.py` had no elevator column, meter or GWP term — **yet the adopted outputs carry all of it.** The wiring existed in the working tree at run time and **was never committed.** ✅ **State the reassurance first: this is a provenance defect, not a physics defect — `157.1 kWh/m²` is correct and complete, elevators included.** ✅ **Half of it is discharged 2026-08-13:** ruling 2d ("restore the wiring, re-run the fleet") was executed, and the twelve-cell re-run **regenerates the elevator column exactly — 3,561 non-zero rows on both sides, same 8,160 buildings, same 6 known failures.** 🔴 **Why it stays open:** the re-run lands at **159.2157 vs the adopted 157.0552**, and the gap is **not** elevators but **OPEN-49**'s `wwr` re-randomisation. The user ruled 2026-08-13 to **keep 157.1**, so **the published figure remains one HEAD cannot reproduce end to end, and this provenance caveat stays live until OPEN-49 is fixed and the fleet is re-run a third time.** | Reproducibility of **every published number** | the whole adopted baseline; **every figure this project publishes** | ✅ **measured on both sides of the tree; elevator half discharged by re-run**; ❓ **end-to-end reproduction blocked on OPEN-49** |
 | **OPEN-49** | 🔴 **One reclassified building re-randomises the windows of every unidentified building in its cell.** Opened 2026-08-13 on the user's ruling (2f), found by the cause analysis of OPEN-48's re-run — **the seventh consecutive pass in which this register grew by checking a result rather than by running a task.** For buildings the classifier cannot identify, `wwr` is drawn **as one vectorised block sized by the count of unidentified buildings, with bounds taken from whichever archetypes happen to be present** (`openubem/semantic/__init__.py:229`, seeded by one RNG per run at `:297`). **`wwr` sets window head and sill height, which sets solar gain**, so buildings nobody touched — not reclassified, not re-fetched, not edited — move by up to **±300 kWh/m² individually**. 🔴 **The pipeline is reproducible only while its inputs never move** — a stronger and more damaging statement than OPEN-48's uncommitted wiring. **Measured on the twelve-cell re-run, not inferred:** all **4 of 12** cells whose `archetype_id` set changed **also moved in EUI** (`nyc_centre` +3.53, `austin_centre` +1.76, `la_centre` +1.60, `la_urban` +1.21); all **8** whose archetypes matched reproduced to **±0.07** or better; **0 cells on the wrong side of the split**. IDF diff: **6 cosmetic lines** for reproducing buildings vs **hundreds of window-vertex Z-coordinate lines** for moving ones. ✅ **Confirmed not to be nondeterminism** — a repeat run on unchanged inputs is byte-identical at the IDF stage and agrees to 0.00836 kWh/m² at the results stage. **Fleet effect: pooled 157.0552 → 159.2157 (+2.16, +1.4%)** — ⚠️ **retained as evidence inside this item only; 159.2157 is NOT the fleet figure and must never be restated as one.** | Simulation correctness → **reproducibility** | **every `OpenUBEMUnknown` building in any cell where any classification moves**; blocks OPEN-48 from closing | ✅ **mechanism located at the line; effect measured on all 12 cells; nondeterminism excluded**; ❓ **no remedy chosen** |
 | ~~OPEN-51~~ | ~~🔴 **One defect ID, `E-LA-16`, is used for two different failure signatures.**~~ ✅ **ADJUDICATED + CLOSED + ID RETIRED 2026-08-18 (T02).** Verdict: `E-LA-16` names the cooling-coil-design-UA/cooling-tower-UA-autosize family (`PLAN_structural-fixes_implementation.md:279`), corroborated by raw `.err` evidence on the three named buildings in the current E02 harvest (23/21/16 true Severes, corrected from an initial miscounted 26/24/19). The code comment's `CheckWarmupConvergence` grouping was a documentation error, now corrected. Knock-on: OPEN-09's C06 "five inherited log entries" narrows to four (E-LA-14/18/19/23); OPEN-29 unaffected. | Register integrity → **evidence provenance** | 1 defect ID; **OPEN-29's closure**; the reach of OPEN-09's C06 finding | ✅ **collision located, all four sources cited**; ✅ **2026-08-18: adjudicated, code comment corrected, knock-ons recorded** |
-| **OPEN-52** | 🔴 **A fixed `--basetemp` makes two concurrent pytest sessions delete each other's temp directories.** Opened 2026-08-13 by the director during T03, diagnosing a failure that would not reproduce. `pyproject.toml:54` pins `addopts = "--basetemp=.pytest_tmp"` — **fixed and repo-relative, not per-session** — and pytest clears that root at session start. **Observed, not theorised:** executor reported `1 failed, 6 passed in 12.67s` on `tests/test_sim_integration.py`; four sequential director runs gave **`7 passed` at 66.38 / 65.99 / 66.57 / 66.68s.** The failure was a vanished `step3` directory under `to_parquet` (`openubem/idf/builder.py:696-707`); three agents had been dispatched in parallel, all running pytest. The 12.67s-vs-66s gap corroborates it — the wall-time-dominant test never reached IDF generation. 🔴 **Recorded as a MANAGER error, not an executor error:** the report was accurate; the director parallelised over a configuration that cannot support it. **Mitigation in force is a discipline, not a fix** — every dispatch prompt now forbids concurrent pytest, which depends on the director remembering. ⚠️ **Anyone reading a non-reproducing test failure in this repo should check this item first.** **Bearing on any published number: NONE** — it corrupts test runs, never simulation output. | Test integrity → **trust in executor reports** | **every concurrent pytest session repo-wide**; every audit that reads a test result | ✅ **root cause at the line; non-reproduction measured 4× sequentially**; ❓ **no remedy chosen — why the path was pinned is unestablished**; 🔴 **2026-08-18 (T01): STAYS OPEN, sharpened to two sub-questions — (a) collision reproduced (real, remedy not yet applied), (b) a second, newly-found OS-level lockout on `pytest-of-o_iseri` blocks (a)'s specified remedy. Choosing a remedy shape is an owed user ruling, not a next measurement.** |
-| **OPEN-53** | 🔴 **874/875 E02 harvest directories are missing `.sql`/`.end`, concentrated in two Austin sub-cells.** Opened 2026-08-18, found as a byproduct of T03's `.eio` census run for OPEN-37. Against **40,800** `n_building_dirs` and **40,800** `.eio`/`.err` (both exact, zero empty), `.sql` = **39,926** and `.end` = **39,925** — short by 874/875. Every short directory still carries its `.eio` and `.err`, so this is **not** OPEN-37's problem — it is an incomplete-simulation signature. **874 of 875 concentrate in `austin_suburban_fast_zone`/`austin_suburban_floor`; the remaining one is `nyc_centre_fast_zone`.** No `.err` content from these specific directories has been read yet. | Reported numbers → **run completeness** | up to 875 E02 harvest directories, two Austin sub-cells + one NYC directory | ✅ **census counted, location established**; ❓ **cause untraced — genuine failure vs harvest-timing artifact not distinguished** |
+| ~~OPEN-52~~ | ~~🔴 **A fixed `--basetemp` makes two concurrent pytest sessions delete each other's temp directories.**~~ ✅ **CLOSED 2026-08-18 — ID RETIRED.** Opened 2026-08-13 by the director during T03, diagnosing a failure that would not reproduce. `pyproject.toml:54` pins `addopts = "--basetemp=.pytest_tmp"` — **fixed and repo-relative, not per-session** — and pytest clears that root at session start. **Observed, not theorised:** executor reported `1 failed, 6 passed in 12.67s` on `tests/test_sim_integration.py`; four sequential director runs gave **`7 passed` at 66.38 / 65.99 / 66.57 / 66.68s.** The failure was a vanished `step3` directory under `to_parquet` (`openubem/idf/builder.py:696-707`); three agents had been dispatched in parallel, all running pytest. The 12.67s-vs-66s gap corroborates it — the wall-time-dominant test never reached IDF generation. 🔴 **Recorded as a MANAGER error, not an executor error:** the report was accurate; the director parallelised over a configuration that cannot support it. **Mitigation in force is a discipline, not a fix** — every dispatch prompt now forbids concurrent pytest, which depends on the director remembering. ⚠️ **Anyone reading a non-reproducing test failure in this repo should check this item first.** **Bearing on any published number: NONE** — it corrupts test runs, never simulation output. | Test integrity → **trust in executor reports** | **every concurrent pytest session repo-wide**; every audit that reads a test result | ✅ **root cause at the line; non-reproduction measured 4× sequentially**; ~~❓ **no remedy chosen — why the path was pinned is unestablished**; 🔴 **2026-08-18 (T01): STAYS OPEN, sharpened to two sub-questions — (a) collision reproduced (real, remedy not yet applied), (b) a second, newly-found OS-level lockout on `pytest-of-o_iseri` blocks (a)'s specified remedy. Choosing a remedy shape is an owed user ruling, not a next measurement.**~~ ✅ **2026-08-18 (T01 of `implemenation/PLAN_open-52-and-four-items-2026-08-18.md`): ruling `3a` given and implemented — `addopts` deleted, root `conftest.py` sets `PYTEST_DEBUG_TEMPROOT` to `<repo>/.pytest_tmp`, bypassing the locked `pytest-of-o_iseri` lockout entirely rather than repairing it. All four verifications passed with real output: (A) session lands at `<repo>/.pytest_tmp/pytest-of-<user>/pytest-<n>/`; (B) the locked directory's `LastWriteTime` is unchanged by the run; (C) negative control reproduced the collision on the old config (`FileExistsError`/`WinError 145`, run twice, same signature both times) and the positive control put two concurrent sessions in distinct `pytest-0`/`pytest-1` dirs with zero errors; (D) full suite alone, foreground: `1875 passed, 55 skipped, 11 warnings in 1079.75s` — exact baseline match. ~~**RECOMMENDED: CLOSE + RETIRE ID — not marked here; disposition left to the director.**~~ ✅ **RULED 2026-08-18 — recommendation ACCEPTED. CLOSED, ID RETIRED.** Director re-verified on disk, not from the report: no `addopts`/`basetemp` in any config file; root `conftest.py` present and setting `PYTEST_DEBUG_TEMPROOT`; and the two-session evidence survives as two durable log files naming `.pytest_tmp/pytest-of-o_iseri/pytest-1/test_busy_writer0` and `.pytest_tmp/pytest-of-o_iseri/pytest-0/test_busy_writer0`. The suite line is independently corroborated — the director watched PID 27104 run 14:43:44→15:01:51 (1,087 s wall against the quoted 1,079.75 s test time). 🔴 **Closure carries one condition: the remedy is an ~~uncommitted working-tree change (`conftest.py` untracked, `pyproject.toml` modified). Until both are committed, a fresh clone reproduces this item.~~** 🟢 **DISCHARGED 2026-08-18 (night): committed as `da6eed7` and pushed to `origin/main` (github.com/orcunkoraliseri/OpenUBEM), at the user's explicit instruction (*"tu fais aussi a toi-meme … pour open-52"*), which suspended the arc's standing git prohibition for this one commit. A fresh clone no longer reproduces the item.** Committed with `pyproject.toml` and `extra/FIX_open-52_temproot-remedy.md` in one commit. Evidence: `extra/FIX_open-52_temproot-remedy.md`.** |
+| **OPEN-53** | 🔴 **874/875 E02 harvest directories are missing `.sql`/`.end`, concentrated in two Austin sub-cells.** Opened 2026-08-18, found as a byproduct of T03's `.eio` census run for OPEN-37. Against **40,800** `n_building_dirs` and **40,800** `.eio`/`.err` (both exact, zero empty), `.sql` = **39,926** and `.end` = **39,925** — short by 874/875. Every short directory still carries its `.eio` and `.err`, so this is **not** OPEN-37's problem — ~~it is an incomplete-simulation signature~~ **it is a batch-scoped harvest gap, not an incomplete-simulation signature (T02, 2026-08-18): 874/875 report `EnergyPlus Completed Successfully`, 0 fatal, indistinguishable from a 200-directory healthy control (100% completed).** **874 of 875 concentrate in `austin_suburban_fast_zone`/`austin_suburban_floor` (100% of both, all other modes for the same buildings fully populated); the remaining one is `nyc_centre_fast_zone`, truncated mid-input-processing.** ~~No `.err` content from these specific directories has been read yet.~~ | Reported numbers → **run completeness** | up to 875 E02 harvest directories, two Austin sub-cells + one NYC directory | ✅ **census counted, location established**; ✅ **T02 2026-08-18: `.err` read for all 875 + 200-directory control — genuine EnergyPlus failure retired (0 fatal); harvest-artifact vs IDF-output-config not distinguishable from this artifact; 1 exception (`nyc_centre_fast_zone`) not determinable from `.err`**; ✅ **Ruling 2026-08-18 (CP-1): original question ANSWERED — files were produced, harvested and inventoried 2026-08-11, then deleted by a process outside this repo at 2026-08-17 16:21, which also emptied the whole E02 IDF corpus; no published number affected. STAYS OPEN, narrowed to the custody risk — nothing prevents recurrence, and `e02_corpus_inventory.csv` (2026-08-11) is now falsified by disk for two rows and must be read as a snapshot, not current state.** |
 | ~~OPEN-50~~ ✅ **FIXED + ID RETIRED 2026-08-13** | ✅ **The fixture now writes to `tmp_path_factory`, not to `tests/fixtures/`.** Proved by hash + mtime taken either side of a **24-minute** full suite run — **neither moved.** 🔴 **One user action outstanding: `git restore` the still-dirty working copy of that fixture.** ~~🔵 **Running the test suite silently rewrites a checked-in fixture.**~~ Found 2026-08-13 by the director during the CP-1 `git status` audit — a sixth item found by auditing an output, not by a task that went looking. `tests/test_building_classifier.py` opens `tests/fixtures/synthetic_30_archetype_coverage.gpkg` read-write, so GDAL/SQLite stamps `last_change` on every run. **Reproduced in isolation from a clean tree** (restore → 131 tests pass → fixture dirty). ✅ **Scope proved by hashing every table's full row set on both copies: all tables identical except the 1-row `gpkg_contents`, and within it exactly one field — `last_change`.** The 11,400 differing bytes are SQLite page churn, not content. 🔴 **The real cost: one such rewrite is already committed — `6aeebb0` carries `Bin 106496 -> 106496` on this fixture, so a test artifact entered the history looking like a deliberate change.** ⚠️ **Standing consequence: a dirty copy of this fixture after a test run is expected and must never be read as an executor writing outside its authorised set — verify by row hash, not byte diff — and must not be committed.** | Repo + audit-trail hygiene | 1 fixture; **every future `git status` audit of an executor** | ✅ **reproduced in isolation; scope measured to one metadata field; prior accidental commit identified** |
 
 **Next free defect ID: E-LA-42** (verified by full sweep 2026-08-05, OPEN-05). **Next free UTCI defect
@@ -1801,12 +1801,49 @@ procedure and correctly returned `FIXED, verified 150/150`
 
 | Bucket | n | IDs |
 |---|---|---|
-| **CLOSED-ELSEWHERE** | 3 | E-LA-11, E-LA-12, E-LA-13 — all closed at the structural-fixes CP-B/CP-C (2026-07-23), reconfirmed 2026-07-25 |
-| **STILL-OPEN** | 9 | E-LA-06 *(flow-balance half)*, E-LA-15, E-LA-16, E-LA-17, E-LA-18, E-LA-19, E-LA-21, E-LA-30, E-LA-33 |
+| **CLOSED-ELSEWHERE** | ~~3~~ **4 (2026-08-18)** | E-LA-11, E-LA-12, E-LA-13 — all closed at the structural-fixes CP-B/CP-C (2026-07-23), reconfirmed 2026-07-25; **+ E-LA-21 — R06 fixed it repo-wide 2026-08-09, re-confirmed live at HEAD 2026-08-18 across every harvest site, see `extra/MEASUREMENT_open-29_status-retrace.md` §2** |
+| **STILL-OPEN** | ~~9~~ **8 (2026-08-18)** | E-LA-06 *(flow-balance half)*, E-LA-15, **E-LA-16** *(bucket unchanged — OPEN-51 adjudicated only which of two readings the ID names; the defect itself is still unpatched)*, E-LA-17, E-LA-18, E-LA-19, ~~E-LA-21~~ *(moved to CLOSED-ELSEWHERE)*, E-LA-30, E-LA-33 |
 | **SUPERSEDED** | 1 | E-LA-06 *(warmup half)* → folded into the E-LA-14/16/18/19/23 lineage |
 | **NO-STATUS-EVER** | 0 | — |
 
 *(13 rows / 12 IDs — E-LA-06 splits across two buckets, which is why it appears twice.)*
+
+**Amended 2026-08-18 (T04 of `implemenation/PLAN_open-52-and-four-items-2026-08-18.md`, director-audited).**
+Full 13-row re-trace at HEAD; the population is unchanged (13 rows / 12 IDs) and only the
+CLOSED-ELSEWHERE/STILL-OPEN split moved. The method control was re-run rather than inherited: E-LA-20
+blind through the procedure returns `FIXED, verified 150/150` at
+`docs/docs_DONE/SETUP/layoutAssigner/DONE/e-la-20/DONE-PLAN_e-la-20_multilayer-fix.md:68`.
+
+**One bucket change: E-LA-21 → CLOSED-ELSEWHERE**, confirmed live off the filesystem rather than cited
+from a document. 🔴 **Director's correction to the executor's count: the one-space `has_fatal` literal
+is fixed at *eight* harvest sites, not seven** — `scripts/cluster/t07_harvest_results.py:199`,
+`t07b_run_auto_refit_local.py:330`, `t08_harvest_results.py:246`, `t08_local_remainder.py:431`,
+`t17_harvest_layout_assign.py:255`, `t18_harvest_layout_assign.py:252`,
+`t19_harvest_layout_assign.py:260`, `t20_harvest_layout_assign.py:260` — all carrying the
+whitespace-tolerant `re.search(r"\*\*\s+Fatal\s+\*\*", err)`. `t19` was the site the executor's
+seven-site list omitted. Additionally `openubem/results/err_parse.py` now provides a shared tolerant
+`has_fatal()` helper whose own docstring records this as the third instance of the one-space bug
+(OPEN-45). No one-space literal survives in any code path under `scripts/` or `openubem/` — the only
+remaining occurrences are inside document text and the 2026-08-06 CSV. The count correction does not
+change the verdict; it strengthens it.
+
+🔴 **E-LA-16 stays STILL-OPEN, and this refutes the lead the director wrote into this task's plan.**
+The plan asserted E-LA-16 had "provably closed since (OPEN-51, adjudicated and retired 2026-08-18)."
+The executor checked instead of accepting it and was right to: **OPEN-51 closed the question of which
+of two readings the ID names — the cooling-coil-design-UA / cooling-tower-UA-autosize family — and did
+not touch the defect.** `git log -p --since=2026-08-13` on `layout_assigner.py` shows only a
+comment-text correction (`b2d0220`), no code path for the mechanism. Adjudicating an ID's *meaning* is
+not fixing the thing it names. **Recorded as a director error, not an executor error**, and as the
+second time in two passes that a lead written into a plan's §5 was refuted by the task built to test
+it — which is the intended behaviour of that rule, not a failure of it.
+
+**Recommendation accepted: no new register items opened.** The 8 STILL-OPEN entries (E-LA-06
+flow-balance, E-LA-15, E-LA-16, E-LA-17, E-LA-18, E-LA-19, E-LA-30, E-LA-33) stay tracked inside
+OPEN-29 rather than being promoted to items of their own; promoting them would multiply register rows
+without adding a measurement. **OPEN-29 stays open.** Evidence:
+`extra/MEASUREMENT_open-29_status-retrace.md`,
+`openubem/outputs/comparisons/open29_defect_status_trace_2026-08-18.csv` (new file; the 2026-08-05
+original is untouched, mtime verified), `scripts/analysis/open29_status_retrace_2026-08-18.py`.
 
 **🔴 These nine are now tracked here.** This item becomes their register home rather than minting nine
 top-level `OPEN-nn` items — they are defect-level, not item-level, and nine new rows would make §1
@@ -2393,9 +2430,44 @@ rather than assume.
 locally for all three** (T20 harvest cache) — *director-verified on `way/401910463`: 1 `** Severe **`,
 1 two-space `**  Fatal  **`, zone `LAUNDRYROOMFLR1`, surface `P_LAUNDRYROOMFLR1_10010_0_10008`.*
 
-**The hypothesis is SILENT, not confirmed and not refuted.** No T20 IDF survives locally to diff a
+~~**The hypothesis is SILENT, not confirmed and not refuted.** No T20 IDF survives locally to diff a
 multiplier against, and the T19 cache directory for `way/401910463` is empty — fetching more would
-require the cluster, which is forbidden. **Silence is the honest result and is recorded as such.**
+require the cluster, which is forbidden. **Silence is the honest result and is recorded as such.**~~
+
+**Amended 2026-08-18 (T02 of `PLAN_open-52-and-four-items-2026-08-18.md`).** The "no IDF survives"
+premise was **false for 2 of the 3 buildings**: `scratchpad/e-la-20-investigation/i03/work_part1/`
+holds a paired A/B build (A = `SmallHotel`, as classified today; B = `SmallOffice`, as recorded in T19)
+for `nyc_rural/way/965718402` and `nyc_rural/way/965718403`. **`la_urban/way/401910463` still has no
+surviving IDF anywhere under `scratchpad/` — confirmed absent by directory search, not assumed.**
+Findings below cover 2 of 3 and are not extended to the third.
+
+With geometry in hand, the multiplier-scaling hypothesis does **not** hold: both A and B sides carry a
+uniform subsurface multiplier of `1.0`, on both buildings — no scaling disagreement exists to diff.
+**A's zone/surface/subsurface counts (67/485/106) are identical to the repo's own healthy
+`SmallHotel_90.1-2013.idf` control**, for both buildings — the "classified today" geometry is the raw
+DOE prototype dropped in wholesale, not an OSM-extruded building reclassified as `SmallHotel`. B's
+counts (6/43/23) match a `SmallOffice` prototype instead. This corroborates OPEN-38's existing
+wholesale-substitution finding rather than confirming the multiplier hypothesis, which is refuted on
+the 2 buildings measured.
+
+A subsurface-fit test (independent re-implementation, control-verified against the healthy prototype:
+0/106 unfitted) found **0 unfitted subsurfaces on either side, for both buildings** (106/106 fitted on
+A, 23/23 fitted on B) — a null result, not a confirmation of hidden defects below `.err`'s threshold.
+Cross-checked against `.err`: both buildings' `layout_assign` harvest reproduces the register's fatal
+zone (`LAUNDRYROOMFLR1`) and names 3 `CHKSBS` "Base surface does not surround subsurface" pairs by
+surface name — but those exact named pairs, hand-checked in the scratchpad IDF, are geometrically
+well-contained (margins of 0.1–1.2 m, not borderline). **This disagreement between the `.err` and the
+surviving IDF geometry is recorded, not resolved** — the scratchpad IDF is dated 2026-07-25, eleven
+days before the 2026-08-10 harvest that produced the `.err`, and same-name-same-geometry is not
+established across that gap.
+
+**Evidence:** `scripts/analysis/open07_smallhotel_idf_diff.py`,
+`openubem/outputs/comparisons/open07_smallhotel_idf_diff.csv`,
+`extra/MEASUREMENT_open-07_smallhotel-idf-diff.md`.
+
+**Recommendation, not a ruling:** keep OPEN-07 open, narrowed to `way/401910463` (still unmeasured) and
+to the unresolved `.err`-vs-scratchpad-geometry provenance question. Do not close it as "explained by
+OPEN-38" on a 2-of-3 measurement. The director rules.
 
 **One correction to the hypothesis's own wording.** Each file attributes its Severe to the **Sizing**
 phase (`0` Severe in Warmup, `1` in Sizing), not to warmup divergence as the forwarded hypothesis
@@ -2424,9 +2496,50 @@ this project as carrying an unquantified confound.
 
 **Amended 2026-08-05 (M05).** The confound is no longer unquantified. Cross-generation archetype
 disagreement between T08 and T20 is **13.40%** on 4,530 shared buildings
-(`docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-28_harvest-generation-join.md`). Vintage
+(`docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-28_harvest-generation-join.md`). ~~Vintage
 disagreement remains unquantifiable — no harvest persists a `vintage_standard` column, see new item
-**OPEN-30**.
+**OPEN-30**.~~
+
+**Amended 2026-08-18 (T03 of `implemenation/PLAN_open-52-and-four-items-2026-08-18.md`), struck above
+rather than deleted.** The blocker was seven days stale: **OPEN-30 closed 2026-08-11** and
+`vintage_standard` *is* persisted — but only in the E02 manifests, a generation that post-dates both
+T08 and T20. Both controls reproduced exactly before anything was concluded: OPEN-30's own gate
+(40,800 rows, 0 nulls, 5 distinct values, `DOERefPre1980` **93.4436%**) and OPEN-28's T08-vs-T20 join
+(**4,530** shared rows, **13.3996% ≈ 13.40%** archetype disagreement — reused, not re-invented).
+
+🔴 **The vintage half is only partially measurable, and the reason is a schema gap, not a data gap.**
+A cross-generation vintage comparison needs a *prior*-generation source carrying `vintage_standard`.
+The only candidate on disk, `.../results/cases/<cell>/05_results.gpkg`, carries that column in
+**1 of the 5 T08 cells** (`nyc_centre`, 70-column schema); the other four (`la_centre`, `nyc_rural`,
+`nyc_suburban`, `nyc_urban`) carry a stripped **21-column** schema with no `vintage_standard`, no
+`year_built` and no provenance columns — identical in both the `step1` and `validations` copies. So
+vintage is quantifiable on **738 of the 4,530 shared buildings (16.3%)** and remains unquantifiable on
+the rest for a reason different from the one struck above.
+
+**On that 738-building subset (prior = pre-T08 commit `e063865`, current = E02 2026-08-09): vintage
+disagreement 3.79% (28/738)**, skewed as OPEN-08 predicted — **3.93% among the 713 data-poor buildings
+vs 0.00% among the 25 data-rich ones**, though n=25 is too thin to be conclusive on its own.
+
+🔴 **Director's correction, 2026-08-18, to the framing of that number — recorded because the
+measurement is right and only its comparator was wrong.** The measurement doc sets 3.79% beside the
+**13.40%** archetype figure and calls that a same-rows comparison. It is not: 13.40% is T08→T20 over
+4,530 rows, while 3.79% is pre-T08→E02 over 738 rows — different population *and* different generation
+pair. **The genuinely like-for-like number is the one the doc reports as mere context: on those same
+738 rows and that same generation pair, archetype disagreement is 50.54% (373/738)**, computed from
+the same two files as the vintage figure. Read that way the result is stronger and points the other
+direction from the doc's headline: **vintage is roughly thirteen times more stable than archetype
+across the same generation gap on the same buildings.** The 50.54% also shows `nyc_centre` is not
+representative of the fleet on the archetype axis (50.54% locally vs 13.40% fleet-wide over a
+different generation pair), which is a further reason not to extrapolate the 3.79% beyond the cell it
+was measured on.
+
+**Disposition — OPEN-08 stays open, narrowed.** It does **not** reduce to its archetype half: vintage
+disagreement is non-zero and data-poor-skewed. But the two halves are now unequal in weight, and the
+vintage clause should read *"quantified on 1 of 5 T08 cells (738/4,530, 3.79%); unquantifiable on the
+remaining 4 for a schema reason, not a data-absence reason."* Evidence:
+`extra/MEASUREMENT_open-08_vintage-reproducibility.md`,
+`openubem/outputs/comparisons/open08_vintage_reproducibility.csv`,
+`scripts/analysis/open08_vintage_reproducibility.py`.
 
 ### ~~OPEN-34~~ — A 3-building local run is not archetype-faithful to the fleet — 🟢 **CLOSED 2026-08-11**
 
@@ -2905,6 +3018,125 @@ disposition, not a blocker.
 > co-occurring message rather than the one that fired (OPEN-22's premise was the first). **A severity
 > marker is evidence; a message's presence near a fatal is not.**
 
+**Amended 2026-08-18 (T04 of `PLAN_four-items-2026-08-18.md`) — is `LAUNDRYROOMFLR1` the same mechanism
+as OPEN-42? Population re-derived from raw `.err`, independent of this section's own "seven."**
+
+🔴 **Population re-derived: 7, confirmed** — scanned all 8,160 `layout_assign` run directories directly
+(not carried from this section), filtering fatals whose nearest preceding `** Severe **` names
+`zone="LAUNDRYROOMFLR1"`. Exactly 7, the same 7 named above. No STOP triggered.
+
+**Verdict: two mechanisms, not one.** Every axis measured disagrees between OPEN-38 and OPEN-42:
+- **Severe message class differs entirely** — `CalcHeatBalanceInsideSurf: The temperature of <N> C…`
+  (OPEN-38, all 7, `n_severe=1` every time — immediate fatal on the first severe) vs. `Temperature
+  (low|high) out of bounds [<N>]…` (OPEN-42, all 16, accumulating up to 24 severes before terminating).
+- **Zone position is the opposite, measured from `.eio` z-geometry, not from the name.** All 7
+  `LAUNDRYROOMFLR1` zones sit at the building's **bottommost** z-extent (floor 1 of 4, 0.00–3.35 m of an
+  0.00–11.58 m building, multiplier 1, byte-identical across all 7 buildings). OPEN-42's fatal zones sit
+  on the building's **topmost** storey, 15/16 (T03/CP-2 finding, 2026-08-18). **The two items' central
+  structural facts are geometric opposites of each other.**
+- **Geometry origin differs.** Scanning every `ARCHETYPE_IDF_MAP`-mapped baseline IDF under
+  `config.BASELINE_IDF_DIR` for a `Zone` literally named `LaundryRoomFlr1` identifies exactly one
+  archetype: **`SmallHotel`** (`ASHRAE901_HotelSmall_STD2022_Buffalo.idf`) — all 7 OPEN-38 fatals are
+  the substituted DOE prototype, same zone token as OPEN-06's `SmallHotel` provenance defect. OPEN-42's
+  six buildings keep their own OSM-extruded geometry in all three modes that fatal.
+- **Modes are disjoint.** OPEN-38 fires only in `layout_assign` (0/8,160 in any other mode). OPEN-42
+  fires only in `auto`/`fast_zone`/`floor`, never in `layout_assign` or `building`.
+- **T03's orientation warning is silent on this population too**, consistent with T03's own finding that
+  `layout_assign` carries it in only 3/8,160 runs fleet-wide: `LAUNDRYROOMFLR1` itself and every sibling
+  zone in all 7 runs carry **0** upside-down warnings.
+
+**Second open question answered: not determinable from `eplusout.err`.** All 7 re-derived fatals also
+carry the `Base surface does not surround subsurface` warning (fresh re-grep agrees with
+`open38_subsurface_census.csv` exactly, 7/7, plus the known non-fatal control
+`nyc_rural/way_965718401`). But `.err` can only report a malformed subsurface once EnergyPlus's own
+`CHKSBS` routine crosses its own internal fit-tolerance threshold — a subsurface unfitted but inside
+that threshold prints nothing, anywhere, for any parser to find. Answering the question needs the IDF
+geometry itself, and **that artifact does not exist on disk**: the entire E02 IDF corpus
+(`ubem_e02_fleet\<cell>\step3_<mode>\idfs\`) was emptied by the external disk sweep of 2026-08-17 (OPEN-53's
+T02 finding). OPEN-38's first open question (prototype-library defect vs. interaction with substituted
+geometry) is therefore **still unresolved** — this task only establishes that it is a different question
+from OPEN-42's, not that it is answered.
+
+**Recommendation, not a ruling:** OPEN-38 and OPEN-42 should stay two separate items. The director rules.
+
+**Evidence:** `scripts/analysis/open38_laundryroom_signature.py`,
+`openubem/outputs/comparisons/open38_laundryroom_signature.csv`,
+`extra/MEASUREMENT_open-38_laundryroom.md`.
+
+**Amended 2026-08-18 (T02 of `PLAN_open-52-and-four-items-2026-08-18.md`) — the unfitted-subsurface
+sub-question, now answerable on 2 of 7 `LAUNDRYROOMFLR1` fatals** (the 2 that survive as
+`scratchpad/e-la-20-investigation/i03/work_part1/` IDFs, both also OPEN-07 buildings). A subsurface-fit
+test (control-verified 0/106 false positives on the healthy `SmallHotel_90.1-2013.idf` prototype) found
+**0 of 106 (A-side) / 0 of 23 (B-side) subsurfaces unfitted, on both buildings** — geometrically clean,
+below and above the `.err` threshold alike. **The prototype-library-defect-vs-interaction question is
+still not answered**, but the answer is not "yes, hidden unfitted subsurfaces exist below the warning
+threshold" — on the 2 buildings measured, there are none to find.
+
+🔴 **A new, unresolved disagreement, not the one this sub-question was chasing.** The `.err` names 3
+`CHKSBS` surface/subsurface pairs by name per building (e.g. `W_RearStairsFlr1_3_0_0` /
+`..._Door`). Those exact pairs exist by name in the scratchpad IDF and were hand-verified: the door
+sits fully inside its wall by 0.1–1.2 m margins, not a borderline case. **The scratchpad geometry does
+not reproduce the defect its own harvest's `.err` reports for the same named surfaces.** Recorded, not
+resolved: the scratchpad IDF is dated 2026-07-25, the harvested `.err` 2026-08-10 — same classification
+and naming convention, not established to be the same generated geometry. This is exactly the kind of
+disagreement §5.2's plan text warned about noting rather than resolving.
+
+**Recommendation, not a ruling:** record the sub-question as **measured-null on 2/7 fatals, with a new
+open provenance question** (scratchpad-vs-harvest geometry identity) rather than "answered" or "still
+open" outright.
+
+✅ **RULED 2026-08-18 (director's audit of T02, re-derived independently from the same files). The
+recommendation is accepted in outline and strengthened on two points; one of its premises is
+corrected.**
+
+**Correction — the provenance question is largely resolved, and resolves in favour of same-geometry.**
+Matched case-insensitively (EnergyPlus uppercases names in `.err`), the scratchpad IDF contains the
+**exact fatal surface `P_LaundryRoomFlr1_10010_0_10008`** and all three `CHKSBS` base/door pairs, name
+for name. The 11-day mtime gap dates the scratchpad *copy*, not a different generation. T02 was right
+to raise the doubt and right not to resolve it; on the evidence it does not survive. *(The director's
+own first pass at this check used a case-sensitive grep, got 0, and briefly read it the opposite way —
+recorded so the correction is not silently absorbed.)*
+
+**Strengthening 1 — the disagreement with `.err` is sharper than "the door fits."** Re-derived on the
+A-side IDF for all three flagged pairs: every subsurface vertex lies **0.0000 m** from its base
+surface's plane, each door is strictly inside its wall in-plane
+(`W_RearStairsFlr1_3_0_0` x[12.247,12.456] ⊂ [12.002,12.560]; `W_CorridorFlr1_10_0_0`
+x[5.741,5.950] ⊂ [5.449,6.146]; `W_FrontStairsFlr1_3_0_0` x[0.224,0.433] ⊂ [0.011,0.569]; all
+z[0,2.134] ⊂ [0,3.353]), and the file carries **591 surface+subsurface objects with zero duplicate
+names**, so EnergyPlus is not resolving `BaseSurfaceName` to another instance. The geometry is clean by
+every test available here and EnergyPlus still reports `Overlap Status=No-Overlap`. Each door's bottom
+edge lies exactly on its wall's bottom edge (z=0 on both) — recorded as an observation, **not** as an
+explanation.
+
+🔴 **Strengthening 2 — the sub-question is settled by refutation, and the null result carries less
+weight than it appears to.** Two findings, in order of force. **(a) The three `CHKSBS` warnings are on
+`RearStairs`, `Corridor` and `FrontStairs` — not one of them is `LaundryRoomFlr1`**, the zone that
+carries the Severe and kills the run (`CalcHeatBalanceInsideSurf: The temperature of -11949.70 C for
+zone="LAUNDRYROOMFLR1", for surface="P_LAUNDRYROOMFLR1_10010_0_10008"`). Taking every warning at face
+value, **the unfitted-subsurface signature does not touch the dying zone.** This is the same shape as
+the refutation that killed the surface-orientation lead for OPEN-42 on 2026-08-18: a signature present
+on healthy zones and absent from the fatal one. **(b)** The subsurface test's only control was a
+known-*negative* (healthy prototype, 0/106); it was never shown to return a positive on a case the
+authority flags, and on the three such cases here it **disagrees with EnergyPlus**. A detector with no
+demonstrated true positive cannot carry "no unfitted subsurfaces exist" — the 106/106 and 23/23 results
+are a **null of unvalidated power**. The A/B diff is unaffected: it rests on counts, not on that
+detector.
+
+**Net disposition: unfitted subsurfaces are NOT OPEN-38's mechanism** — refuted on the dying zone
+rather than merely unobserved. OPEN-38 stays open on its thermal-runaway face, and stays separate from
+OPEN-42 (ruled above). `way/401910463` and 4 of the 7 fatals remain unmeasured; no IDF survives for
+them. `way/401910463` and the other 4 of the 7 `LAUNDRYROOMFLR1` fatals remain unmeasured — no
+IDF survives for any of them. **Evidence:** `extra/MEASUREMENT_open-07_smallhotel-idf-diff.md`,
+`openubem/outputs/comparisons/open07_smallhotel_idf_diff.csv`.
+
+> **Ruling 2026-08-18 (director, T05 of `implemenation/PLAN_four-items-2026-08-18.md`, per the user's
+> standing instruction of 2026-08-12 that no-compute item dispositions of this kind are the director's
+> call).** **T04's recommendation is ACCEPTED. OPEN-38 and OPEN-42 STAY SEPARATE ITEMS.** Every axis T04
+> measured disagreed between the two — Severe message class, temperature range, zone position
+> (bottommost vs. topmost storey), geometry origin (substituted `SmallHotel` prototype vs. the
+> building's own OSM extrusion), and mode (`layout_assign`-only vs. never `layout_assign`) — and none of
+> the controls run against OPEN-42's own signature found a shared mechanism. No merge.
+
 ~~### OPEN-38 — `layout_assign` subsurface geometry defect ❓~~
 *Added 2026-08-10, found by the manager's read-only E02 completion census. Not what the census was looking for.*
 
@@ -3352,6 +3584,86 @@ unknown.**~~ ✅ **ANSWERED 2026-08-13 — see the amendment immediately below.*
 
 ---
 
+> **Amended 2026-08-18 (T03 of `implemenation/PLAN_four-items-2026-08-18.md`). The next artifact named
+> by the previous amendment — `eplusout.err`'s `GetVertices: … is upside down!` warnings — was read.
+> 🔴 The lead named in the plan's fact 5 is retired. Reported as a finding, not a shortfall.**
+>
+> **Fleet-wide rate, reported before interpretation: 8,287 / 40,800 run directories (20.31%) carry
+> the warning — and that number is fully explained by one fact: it fires on 100.00% of all 8,160
+> `auto`-mode runs fleet-wide, every building, every cell, whether the run fails or not.** It is
+> absent from `building` and `floor` (0/8,160 each) and only sporadic in `fast_zone` (124/8,160,
+> 1.52%) and `layout_assign` (3/8,160, 0.04%). Only 8 of the 8,160 `auto` runs actually fail — a
+> 0.10% fatal rate inside a population where the warning rate is 100%. A signature universal to a
+> mode cannot explain a 0.10% failure rate inside that mode.
+>
+> **All three of the plan's questions, run against their controls, came back negative:**
+> - **4a (sharpest test — same run, fatal zone vs. its non-fatal siblings): the fatal zone carries the
+>   warning LESS often than its siblings**, 1/16 failing runs (6.2%) vs. 167/359 sibling zones in the
+>   same 16 runs (46.5%) — the inverse of what a causal signal would show.
+> - **4b (topmost-storey roof vs. lower storeys): no separation** in the target population (41.7% top
+>   vs. 40.5% non-top); the background sample shows a *larger* top/non-top gap (26.8% vs. 14.1%) than
+>   the target does — the opposite of a mechanism specific to the six.
+> - **4c (decisive — modes that fail vs. modes that succeed): the warning fires in exactly one of the
+>   three failing modes.** All 6 buildings carry it in `auto` (6/6) and **none** in `fast_zone` (0/6)
+>   or `floor` (0/6) — the same two failing modes, same thermal-runaway mechanism, zero warnings. A
+>   defect present in one mode regardless of outcome and silent in two other modes that fail by the
+>   identical mechanism cannot be that mechanism.
+>
+> **Non-vacuity control, obligatory, confirmed by hand:** `la_rural_building/way_472960972/eplusout.err`
+> — parser 0, `grep -c 'upside down'` 0; `la_rural_auto/way_472960972/eplusout.err` — parser 144,
+> `grep -c` 144. Both agree.
+>
+> **Candidate mechanism located in code, not fixed, per the plan's rule.**
+> `openubem/idf/surfaces.py:223-234` (`_coreperim_has_inverted_winding`) already computes this exact
+> signal, and its caller's docstring at `:671-681` (`_rebuild_degenerate_coreperim`) states it is
+> **deliberately excluded** as a defect check: *"EnergyPlus convention always uses negative signed-area
+> (CW winding) for floor surfaces; checking sign would produce false positives on healthy buildings."*
+> This is in-code corroboration, independent of this measurement, for exactly what the fleet-wide rate
+> shows: inverted winding is the expected shape of core/perim (`auto`-mode) geometry, and EnergyPlus's
+> own parser auto-corrects it (`Automatic fix is attempted.` follows every warning line in the raw
+> `.err`).
+>
+> **Where this leaves the item: the per-surface winding/orientation artifact is retired as an
+> explanation for OPEN-42's thermal runaway.** `eplusout.eio` and now `eplusout.err` have both been
+> read and both come back "not determinable from this artifact" or "does not separate." **OPEN-42
+> stays OPEN.** No further local artifact has been named; the next step would require either
+> instrumenting a fresh EnergyPlus run (compute, not authorised here) or accepting the question as
+> closed-without-a-mechanism, which is a director/user ruling, not an executor's call.
+>
+> **Evidence:** `openubem/outputs/comparisons/open42_surface_orientation.csv` (696 rows: per-warning
+> detail across 30 target + 100 background runs, plus per-run summaries); report
+> `extra/MEASUREMENT_open-42_surface-orientation.md`; scanner
+> `scripts/analysis/open42_surface_orientation_census.py`.
+
+> **Ruling 2026-08-18 (director, T05 of `implemenation/PLAN_four-items-2026-08-18.md`). The item is
+> REFRAMED, not closed — recorded as a ruling because it changes what the next task must look for.**
+>
+> **OPEN-42 and OPEN-38 stay two separate items** — see OPEN-38's own section for the identical ruling;
+> T04's recommendation is accepted.
+>
+> **The live question is no longer "which zone is inverted." It is now: what is wrong with the
+> topmost-storey geometry of these six buildings such that any zone built from it runs away.** T03's
+> census established, without exception, that all 16 fatal (building × mode) runs sit on the building's
+> own topmost storey, and that the zone's *name* changes with the zoning mode while its *position* does
+> not — which is why no earlier pass saw the invariant.
+>
+> **Zoning mode is not the variable that explains the failure — it only decides whether the topmost
+> storey gets a zone of its own at all.** `building` mode collapses the whole building into a single
+> zone; `layout_assign` substitutes a DOE prototype and discards the OSM-extruded storeys entirely.
+> Those are exactly the two modes that never fatal, and they are exactly the two modes that never build
+> a zone from the building's own topmost storey. `auto`, `fast_zone` and `floor` all give the topmost
+> storey its own zone, and all three fatal.
+>
+> **Both `eplusout.eio` and `eplusout.err` are now exhausted for this question.** `.eio` (T05,
+> 2026-08-18 amendment above) found the position but no explanatory field; `.err` (T03, same date)
+> tested and retired the per-surface orientation lead. **No further local artifact is named as the next
+> step** — the E02 IDF corpus that could show the actual per-surface geometry no longer exists on disk
+> (emptied by the external sweep of 2026-08-17 16:21, OPEN-53's finding). Any next step needs either a
+> fresh EnergyPlus run (compute, not authorised under this arc's no-cluster/no-simulation rules without
+> a separate ruling) or a user decision to close the question without a mechanism.
+
+---
+
 ### OPEN-43 — The published fleet EUI is a mean of cell means, not a fleet mean ✅ **CLOSED 2026-08-12 — ID RETIRED 2026-08-13**
 
 > ✅ **CLOSED by the user's ruling of 2026-08-12. Retired formally on 2026-08-13 under ruling `2h`** —
@@ -3512,6 +3824,18 @@ are still the same 6 before planning anything.
 **The precondition this item set on itself is met**, so it is now plannable — what remains is the
 remediation decision, not a measurement.
 
+**Amended 2026-08-18 (T03 of `implemenation/PLAN_four-items-2026-08-18.md`). The "inverted-geometry"
+label was tested against a mechanism for the first time — the `GetVertices: … is upside down!` warning
+family in `eplusout.err` — and the label is not corroborated by it.** Every one of the fleet's 8,160
+`auto`-mode runs carries the identical warning, these six buildings included — it is not a distinguishing
+property of the six, it is a universal property of the zoning mode (full measurement under OPEN-42's
+2026-08-18 T03 amendment, same date). **This does not close OPEN-11** — the item's own subject is the
+Phase-E re-run's 6/8,160 drop and the un-reapplied `10_fails_solution.md` remediation, which this task
+did not touch — but it does mean *"inverted geometry"* should not be read as meaning *"these six carry
+an EnergyPlus surface-winding warning that other buildings don't"*: they don't carry anything distinctive
+by that measure. Evidence: `openubem/outputs/comparisons/open42_surface_orientation.csv`;
+`extra/MEASUREMENT_open-42_surface-orientation.md`.
+
 ---
 
 ### OPEN-46 — The elevator end-use breakout exists only in the archived arc's own copy of the code, never in the live tree 🔴 **OPENED 2026-08-12**
@@ -3564,9 +3888,18 @@ remediation decision, not a measurement.
 > **Tests, director-re-run: 147 passed** across the six affected files; `pytest --collect-only -q` =
 > **2006** (the plan's 1,990 was stale — parallel executors landed new tests), **no drop**.
 > 🔴 **`tests/test_parser_elevators.py` passes 8/8 with every original assertion intact — nothing was
-> weakened.** `tests/test_step3_orchestrator.py` was correctly left untouched: its
+> weakened.** `tests/test_step3_orchestrator.py` ~~was correctly left untouched: its
 > `test_medium_office_idf_contains_elevator_equipment` asserts a *built IDF* contains the Elevators
-> object, which is the load wiring and out of scope.
+> object, which is the load wiring and out of scope.~~ **Corrected 2026-08-18 (T01 of
+> `implemenation/PLAN_four-items-2026-08-18.md`): this sentence is loosely worded and reads as claiming
+> a live test that never existed.** `test_medium_office_idf_contains_elevator_equipment` does not exist
+> in `tests/test_step3_orchestrator.py` at HEAD and never has — it exists only in the archived mirror
+> (`docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/tests/test_step3_orchestrator.py:90`) and in two
+> prior audit CSVs that already recorded the absence
+> (`openubem/outputs/comparisons/open46_elevator_divergence.csv:13`,
+> `open36_governance_resweep.csv:109`). **The load-wiring claim itself is correct** and is independently
+> proved live by a different, purpose-built test, `tests/test_builder_elevators_wired.py` (committed at
+> `6aeebb0`), which passes — see the closure note at the end of this section.
 >
 > **Why it stays open:** the reporting path is restored but **the live tree still emits no elevator
 > equipment**, so anything simulated today reports `0.0`. Re-wiring the physical load is a user
@@ -3594,6 +3927,61 @@ remediation decision, not a measurement.
 **What is therefore false as written:** the adopted-baseline phrase "**elevators, the 10th end-use**" describes the archived arc, not the live code. **Live, there are 9 reported end-uses and elevators are folded inside equipment.** Every place that phrase appears needs the qualification.
 
 **Open questions, not answered here:** whether the breakout should be implemented or the claim retracted; and whether `openubem/results/carbon.py`'s `gwp_elevators_kgco2_m2` has the same shape.
+
+#### ✅ CLOSED 2026-08-18 — T01 of `implemenation/PLAN_four-items-2026-08-18.md`. All four links verified whole at HEAD; the stated blocker (fact 7 of that plan) was stale.
+
+**All four links in the elevator reporting chain verified live, by code citation and by running tests,
+not by reading a document:**
+- **Link 1 — load emitted into the IDF.** `openubem/idf/builder.py:40` imports `assign_elevators`;
+  `:609` calls it. Proved by building an IDF, not by reading the call site: the plan's named test,
+  `tests/test_step3_orchestrator.py::test_medium_office_idf_contains_elevator_equipment`, **does not
+  exist in the live tree and never has** — corrected above, not fixed here. Link 1 is nonetheless
+  proved live by `tests/test_builder_elevators_wired.py` (committed at `6aeebb0`), 2/2 passing: an
+  elevator-eligible archetype (`LargeOffice`) built through `BuildingIDF.build` emits exactly one
+  `ELECTRICEQUIPMENT` object tagged `EndUse_Subcategory == "Elevators"`; a non-eligible archetype
+  (`SmallOffice`) emits none.
+- **Link 2 — meter requested.** `openubem/idf/outputs.py:43`,
+  `"Elevators:InteriorEquipment:Electricity"`, the 14th `HVAC_METERS` entry.
+- **Link 3 — parsed and de-folded into its own column.** `openubem/results/parser.py:58`
+  (`_ELEVATOR_METER`), `:489-493` (the guarded de-fold — the citation of `:346-349` earlier in this
+  section is stale; the file has grown since it was written). `tests/test_parser_elevators.py`, 8/8
+  passed, proves the guard both directions: `test_missing_elevator_meter_is_zero` (meter absent, no
+  de-fold fires) and `test_elevators_defolded_from_equipment` (meter present, de-fold fires).
+- **Link 4 — carried into carbon and the aggregator.** `openubem/results/carbon.py:98,121`
+  (`elevators_eui`, `gwp_elevators_kgco2_m2`, folded into `gwp_total_kgco2_m2`);
+  `openubem/results/aggregator.py:41,53` (`_STEP5_COLS`).
+
+**Targeted tests, run 2026-08-18: 65/65 passed, 0 failed** — `test_step3_orchestrator.py` 18,
+`test_parser_elevators.py` 8, `test_elevators.py` 28, `test_outputs.py` 11.
+
+**Full-suite baseline, run 2026-08-18 (T01/A1, foreground):**
+
+```
+1875 passed, 55 skipped, 11 warnings in 1572.28s (0:26:12)
+```
+
+Matches the pinned baseline (1875 passed, 55 skipped, 0 failed, 0 errors) — the closure condition
+`extra/MEASUREMENT_open-46_path-verification.md` set for itself is met.
+
+**One documentary defect found, not a code defect: the register's own T05 passage (struck and
+corrected in place, above) misdescribed a test that never existed.**
+`test_medium_office_idf_contains_elevator_equipment` is not, and never was, a live test — it exists
+only in the archived mirror
+(`docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/tests/test_step3_orchestrator.py:90`) and in two
+prior audit CSVs that already recorded the absence
+(`openubem/outputs/comparisons/open46_elevator_divergence.csv:13`,
+`open36_governance_resweep.csv:109`). `tests/test_builder_elevators_wired.py`, committed at `6aeebb0`,
+proves the same load-wiring fact live and passes — the chain was never actually broken by this gap,
+only mis-cited.
+
+**Closure: all four links verified at HEAD, in code and in live tests. OPEN-46 CLOSES. ID RETIRED.**
+What this task cannot and does not prove: whether a fleet run today reports non-zero elevator energy —
+that needs a fresh EnergyPlus simulation, not authorised here, and is a distinct question from the
+already-adopted `phaseE_elevrb` baseline's own non-zero elevator EUI (this section, above), which
+concerns a historical run's output, not HEAD's current code. That reproducibility gap belongs to
+OPEN-48, not this item.
+
+**Evidence:** `extra/MEASUREMENT_open-46_path-verification.md`.
 
 ---
 
@@ -4923,7 +5311,7 @@ corrected.
 
 ---
 
-### OPEN-52 — A fixed `--basetemp` makes two concurrent pytest sessions delete each other's temp directories 🔴 **OPENED 2026-08-13**
+### ~~OPEN-52~~ — A fixed `--basetemp` makes two concurrent pytest sessions delete each other's temp directories — 🟢 **CLOSED 2026-08-18 — ID RETIRED** ~~🔴 **OPENED 2026-08-13**~~
 *Found by the director during T03, diagnosing a test failure that would not reproduce.*
 
 **The defect.** `pyproject.toml:51-58` sets:
@@ -5007,6 +5395,56 @@ sequential 60–70s runs.
 
 ---
 
+#### 2026-08-18 (later) — T01 of `implemenation/PLAN_open-52-and-four-items-2026-08-18.md`. Ruling `3a` given and implemented; both A/B and C's before/after measured directly.
+
+**The owed ruling from sub-question (b) above is now given by the director:** move pytest's temp
+root inside the repository via `PYTEST_DEBUG_TEMPROOT`, rather than either a fixed repo-relative
+`--basetemp` (the original, collision-prone config) or an ACL repair on the locked
+`pytest-of-o_iseri` (rejected — needs admin rights this session lacks, is machine state outside the
+repo, and `icacls` against that directory is itself access-denied). Read directly from pytest 9.0.3
+source (`_pytest/tmpdir.py:140-218`): the `--basetemp` branch unconditionally `rm_rf`s a fixed path
+at session start (the collision); the `PYTEST_DEBUG_TEMPROOT` branch allocates a per-session
+numbered directory under the chosen root and never wipes a live sibling. Choosing `<repo>/.pytest_tmp`
+as that root means the locked `pytest-of-o_iseri` directory is **bypassed entirely, never touched**
+— the lockout is not repaired, it is routed around.
+
+**Two file changes, nothing else:** `addopts = "--basetemp=.pytest_tmp"` deleted from
+`pyproject.toml` (`testpaths`, `tmp_path_retention_policy`, `tmp_path_retention_count` untouched);
+a new repository-root `conftest.py` sets `PYTEST_DEBUG_TEMPROOT` to the absolute path of
+`<repo>/.pytest_tmp` at import time (verified early enough empirically, not assumed).
+
+**Four verifications, all passed, real output:**
+- **(A) root moved:** `tests/test_results_denominator.py` alone → `7 passed in 0.68s`; session
+  landed at `C:\Users\o_iseri\Desktop\OpenUBEM\.pytest_tmp\pytest-of-o_iseri\pytest-0\` — matches
+  the specified layout exactly.
+- **(B) locked directory untouched:** `%LOCALAPPDATA%\Temp\pytest-of-o_iseri` exists (it predates
+  this task) but its `LastWriteTime` (April 1, 2026) is unchanged after the run — confirmed by
+  direct `Get-Item` inspection, not inferred.
+- **(C) collision gone, before AND after measured:** the predecessor's Design-3 busy-loop test
+  (`scratchpad/open52/test_collision.py`, gitignored) was run twice — once against the *old* config
+  (`addopts` temporarily restored) and once against the *fixed* config, session B started 3s after
+  session A each time. **Before:** session B failed with `FileExistsError` cascading from `rm_rf`'s
+  `OSError [WinError 145]` — same signature as the original diagnosis, reproduced twice
+  independently (once before the full-suite run, once redone after it, since the first run's
+  numbered-directory evidence was itself cleaned up by `tmp_path_retention_policy = "failed"`
+  following the full-suite run). **After:** both sessions passed (`17.67s`/`17.71s`) and landed in
+  distinct numbered directories, `pytest-0` and `pytest-1`, confirmed by each session writing its
+  own resolved `tmp_path` to a pid-tagged log file read immediately off disk.
+- **(D) nothing regressed:** full suite, alone, foreground, to completion —
+  **`1875 passed, 55 skipped, 11 warnings in 1079.75s (0:17:59)`** — exact match to the pinned
+  baseline, 0 failed, 0 errors.
+
+✅ **RULED 2026-08-18 — CLOSED, ID RETIRED. The recommendation below is accepted.** Director's independent re-verification and the one carried-forward condition are recorded in this item's §1 table row; the short form is: the fix is real and verified on disk, and it is **uncommitted**, so it must be committed or a fresh clone reproduces the item.
+
+⚠️ ~~**RECOMMENDED DISPOSITION: CLOSE + RETIRE THE ID.**~~ **(accepted — see above)** All four verifications passed with real,
+reproduced-twice-where-it-mattered evidence; both previously-rejected alternatives remain rejected
+for the reasons given above; no open sub-question remains. **Not marked CLOSED here — the director
+disposes.**
+
+**Evidence:** `extra/FIX_open-52_temproot-remedy.md`.
+
+---
+
 ### OPEN-53 — 874/875 E02 harvest directories are missing `.sql`/`.end`, concentrated in two Austin sub-cells 🔴 **OPENED 2026-08-18**
 *Found by T03's `.eio` census (`implemenation/PLAN_five-items-2026-08-18.md`) while establishing
 OPEN-37's closure — a byproduct of a census run for a different question, not a task that went
@@ -5026,16 +5464,113 @@ completion marker).
 **Where it concentrates.** 874 of the 875-count gap sit in **`austin_suburban_fast_zone`** and
 **`austin_suburban_floor`**; the remaining one directory is in **`nyc_centre_fast_zone`**.
 
-**First measurement, not yet made:** whether these are genuine incomplete/failed EnergyPlus runs (read
+~~**First measurement, not yet made:** whether these are genuine incomplete/failed EnergyPlus runs (read
 their `.err` tails for a Fatal or a truncation), a harvest-timing artifact (fetched mid-run, before
 `.sql`/`.end` were written), or something else. No `.err` content from these specific directories has
-been read yet — this item is opened on the census count alone, per this task's scope.
+been read yet — this item is opened on the census count alone, per this task's scope.~~
+
+**Amended 2026-08-18 (T02 of `PLAN_four-items-2026-08-18.md`): the `.err` measurement has now been
+made.** Census re-derived from scratch and matched fact 1 exactly (40,800 dirs, 40,800 `.eio`/`.err`,
+39,926 `.sql`, 39,925 `.end`). The 875 short directories (union of missing `.sql` or `.end`) classify
+as **874 `completed`, 1 `truncated`, 0 `fatal`, 0 `empty`** — against a 200-directory healthy control
+that classifies **200 `completed`, 0 `truncated`, 0 `fatal`, 0 `empty`**. **Zero of the 875 are genuine
+EnergyPlus failures**; the `completed` rate (99.9%) is statistically indistinguishable from the control
+(100.0%) — this retires hypothesis 1 (genuine incomplete/failed runs). ~~The run started (produced
+`.err`) and, for `.eio`-bearing directories, got far enough to write geometry, but did not reach a state
+that writes `.sql`... or `.end`~~ was the wrong model: **874 of the 875 runs reached EnergyPlus's own
+completion state** (`EnergyPlus Completed Successfully-- N Warning; 0 Severe Errors`) — only the output
+files are missing, not the simulation. This is a **batch-scoped harvest gap**, not an incomplete-run
+signature: `austin_suburban_fast_zone` and `austin_suburban_floor` are each missing `.sql`/`.end` in
+**100.0%** of their 437-directory populations, with the same buildings' other three modes
+(`auto`/`building`/`layout_assign`) fully populated — ruling out both a building-level and a
+mode-wide cause. Neither `.eio` nor `.err` records `Output:SQLite` request status in any directory
+checked (short or healthy), so **this artifact set cannot say whether the shortfall is IDF-level
+(output never requested for these two batches) or harvest/copy-level** — that distinction needs the IDF
+text or the harvest script's own logs, neither available under `HARVEST_ROOT`. The single
+`nyc_centre_fast_zone/way_1240348353` exception is a different, unresolved case: its `.err` stops
+mid-input-processing (zone-infiltration warnings, before "Beginning Simulation"), with no Fatal, no
+Severe, no completion marker — **not determinable from `eplusout.err`**, consistent with a killed or
+interrupted process but not diagnosable from this artifact. Full detail:
+`extra/MEASUREMENT_open-53_missing-sql.md`; data: `openubem/outputs/comparisons/open53_missing_sql_census.csv`
+(script: `scripts/analysis/open53_missing_sql_census.py`).
+
+> **Ruling 2026-08-18 (director, CP-1 of `implemenation/PLAN_four-items-2026-08-18.md`, re-derived
+> from raw artifacts, not from the executor's report). The original question — why are the `.sql`/
+> `.end` missing — is ANSWERED. The item STAYS OPEN, narrowed to a different question: custody, not
+> cause.**
+>
+> **What happened:** the files were produced, harvested and inventoried on 2026-08-11, then deleted by
+> a process outside this repository at 2026-08-17 16:21, which also emptied the entire E02 IDF corpus.
+> Three pieces of evidence, all independently checked:
+> 1. `openubem/outputs/comparisons/e02_corpus_inventory.csv` (mtime 2026-08-11 20:58) records
+>    `n_end=437` for both `austin_suburban,fast_zone` and `austin_suburban,floor` — so
+>    `Output:SQLite` *was* requested and `.end` files *did* exist on 2026-08-11. The
+>    IDF-config-never-requested branch is retired.
+> 2. Every one of the 874 short run directories carries an identical directory mtime of
+>    **2026-08-17 16:21**, against 2026-08-10 21:38/21:58 for the healthy sibling batches. A
+>    directory's mtime changes only when an entry is added or removed inside it, so the removal was one
+>    sweep at one instant.
+> 3. No code in `scripts/` or `openubem/` deletes `eplusout.sql` or `eplusout.end` (grep for
+>    `unlink`/`rmtree`/`os.remove` against those names returns nothing) — the sweep was external to
+>    this repository. The same sweep emptied every `idfs/` directory under
+>    `%LOCALAPPDATA%\Temp\ubem_e02_fleet\<cell>\step3_<mode>\` (checked across four cells and four
+>    modes, `n=0` in all sixteen), consistent with a single disk-space reclamation pass that targeted
+>    the largest files fleet-wide.
+>
+> **No published number is affected.** `open01_denominator_swap.csv` carries `new_eui_kwh_m2` for all
+> 437/437 buildings in both affected batches — results were parsed before the sweep, so the adopted
+> 157.1 kWh/m² pooled baseline does not depend on the deleted files. OPEN-53 is an artifact-custody
+> finding, not a results defect.
+>
+> **What keeps the item open is the custody risk, not the original question.** Nothing in this
+> repository or on this machine prevents the same sweep from recurring against any other artifact this
+> arc still depends on. **Annotation, entered here per this ruling:**
+> `e02_corpus_inventory.csv` (2026-08-11) is now falsified by disk for the two `austin_suburban` rows
+> above (it records `n_end=437`; disk holds 0) and must be read as a **2026-08-11 snapshot, not the
+> current state of the harvest**. Any future task citing it must re-verify presence on disk first. **No
+> local artifact is currently named as the next step** — the register does not invent a remedy where
+> none has been measured.
 
 ⚠️ **Registered, not scheduled. No remedy authorised.**
 
 **Evidence:** `openubem/outputs/comparisons/open37_eio_census.csv`;
 `extra/MEASUREMENT_open-37_eio-fetch-closure.md` (where the gap was first reported, out of that
-item's own scope).
+item's own scope); `openubem/outputs/comparisons/open53_missing_sql_census.csv`;
+`extra/MEASUREMENT_open-53_missing-sql.md` (2026-08-18, T02 — the `.err` classification and control).
+
+**Amended 2026-08-18 (T05 of `implemenation/PLAN_open-52-and-four-items-2026-08-18.md`) — custody
+consequences discharged.** Both carried-forward consequences are applied. **(1)**
+`openubem/outputs/comparisons/e02_corpus_inventory.csv` is annotated by a **sidecar**,
+`e02_corpus_inventory.SNAPSHOT_NOTICE.md`, rather than by editing the CSV: the gate
+`grep -rn e02_corpus_inventory scripts/ openubem/ tests/ docs/` returned a single hit outside `docs/`,
+`scripts/analysis/e02_corpus_inventory.py:15`, which is the **writer**, not a reader — no code parses
+the CSV back in, and its bytes are untouched (mtime still 2026-08-11 20:58, director-verified).
+**(2)** The two falsified rows re-verified live on 2026-08-18: `austin_suburban,fast_zone` and
+`austin_suburban,floor` both record `n_end=437` in the CSV and both show **`n_end=0, n_sql=0` on disk
+today**, building directories intact at 437/437. Corpus emptiness independently re-confirmed across
+3 cells × 5 modes — all 15 sampled `idfs/` directories empty, mtimes clustered at 2026-08-17 16:21
+across unrelated cells. *(Director's own control, run separately: `austin_suburban,auto` returns
+437 dirs / 437 `.end` / 437 `.sql` on the same disk at the same moment — so the zero is specific to the
+two swept batches, not an artifact of how the count is taken.)*
+
+🔴 **Planning rule, binding on this arc from 2026-08-18.** Any plan depending on a `%LOCALAPPDATA%`
+E02 artifact (`ubem_e02_harvest` or `ubem_e02_fleet`) **must re-verify presence on disk at planning
+time and must not cite `e02_corpus_inventory.csv`, or any other dated census, as current state.** The
+one known exception is `scratchpad/e-la-20-investigation/i03/work_part1/` — 4 surviving IDFs covering
+2 of the 3 `E-LA-40` buildings in both classifications, mtime 2026-07-25, outside the swept tree —
+**and that exception is itself fragile**: `scratchpad/` has no retention guarantee and must not be
+planned around beyond the investigation currently using it.
+
+✅ **RULED 2026-08-18 (director) — OPEN-53 STAYS OPEN as a standing custody risk; T05's recommendation
+is accepted, and the argument for it is the right one.** There is no measurement question left: the
+cause is answered, the falsified rows are documented, the corpus emptiness is re-confirmed. But
+"discharged" would mean the *risk* is retired, and nothing in this pass changed why a process outside
+this repository can empty these paths without the project's knowledge, or stops it recurring — to the
+same paths, to `scratchpad/`, or to any future artifact held outside the repo. The hazard was
+demonstrated still live during this very pass. Closing the item would convert a standing risk into a
+one-time incident and delete the only place it is tracked. **Its closure condition, recorded so this
+does not stay open forever by default: OPEN-53 closes when E02 artifacts required by open work are
+either regenerated inside a durable location or formally declared expendable.**
 
 ---
 
