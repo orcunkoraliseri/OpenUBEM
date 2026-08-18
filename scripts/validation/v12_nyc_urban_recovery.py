@@ -91,7 +91,7 @@ def fetch_results(osm_ids: list[str]) -> None:
         chunk = osm_ids[i:i + chunk_size]
         fetch_cmd = (
             f"cd {REMOTE_FLEET_DIR}/out && tar czf - --ignore-failed-read "
-            + " ".join(f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end"
+            + " ".join(f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end {oid}/eplusout.eio"
                        for oid in chunk)
         )
         proc = subprocess.Popen(
@@ -196,7 +196,7 @@ def repair_and_resubmit(failed_ids: list[str], epw_path: Path) -> None:
 
     fetch_cmd = (
         f"cd {repair_fleet_dir}/out && tar czf - --ignore-failed-read "
-        + " ".join(f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end" for oid in repaired)
+        + " ".join(f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end {oid}/eplusout.eio" for oid in repaired)
     )
     proc2 = subprocess.Popen(["ssh", REMOTE_HOST, f"bash -lc '{fetch_cmd}'"],
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)

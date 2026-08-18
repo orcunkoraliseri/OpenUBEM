@@ -1441,6 +1441,24 @@ priced (it would supersede every result those modes ever produced) and deferred.
 needs **a plan doc for the swap and a before/after per-building comparison across all five modes**, and
 **that plan is not yet written.** It is the largest single piece of unstarted work this arc owns.
 
+✅ **OPEN-01 CLOSED 2026-08-17 — `PLAN_open-49-and-open-01-2026-08-13.md` T05–T08 landed all three
+things ruling 6 asked for.** The swap: `openubem/results/parser.py`/`aggregator.py` now divide by the
+multiplier-aware simulated area from `eplusout.eio` (fallback to `footprint_area_m2 × levels` when
+that file is missing or malformed, never a crash, always recorded which was used). Tested: 7 new
+tests, non-vacuous. Measured on all five modes, 40,800 rows — every one of the audit's own targets
+reproduced exactly: `auto` 1.0000/99.63%, `floor` 1.0000/98.43%, `fast_zone` 1.0000/94.80%,
+`layout_assign` 0.9999/15.37%, `building` 0.5000/39.94%. **`157.1 kWh/m²` pooled is unchanged** —
+`auto`'s error factor was already ≈1.0000. `building` mode is now internally consistent with what it
+simulated, not physically representative of the real multi-storey building — a code comment says so at
+the site that matters. Full record: `extra/MEASUREMENT_open-01_denominator-swap.md`, register
+§OPEN-01.
+> **OPEN-49 does not close alongside it.** Its remedy (per-building seed, fixed bounds) landed the same
+> plan (T02–T03) and widened to **eight fields, not one** (four PDE columns + four setpoints, all
+> carrying the identical present-archetype-bounds defect) — but closure still needs the third fleet
+> re-run to reproduce `157.1` end to end, and ruling 4 explicitly declined that run. OPEN-49 is
+> **mechanism fixed, closure blocked**, not open on an unknown cause and not closed on an unverified
+> headline.
+
 🟩 **Five more items now in execution — `openings/implemenation/PLAN_five-items-2026-08-13.md`.** Chosen
 on your instruction: **OPEN-50, OPEN-44 (which carries OPEN-13's residual), OPEN-45, OPEN-36, OPEN-26.**
 One theme: **the test suite and this project's own completion records currently assert things that are
@@ -1602,3 +1620,28 @@ other; net effect on `layout_assign` EUI unmeasured). Full detail:
 `INVESTIGATION_open-items-register.md` §2.
 
 **Nothing in this arc is scheduled, assigned, or costed.** The next step is a user selection.
+
+---
+
+**Amendment 2026-08-18 — `PLAN_five-items-2026-08-18.md`, T01–T06 complete.** Three items closed and
+retired, two sharpened (stay open), one new item opened.
+
+| Item | Outcome |
+|---|---|
+| **OPEN-06** | 🟢 **CLOSED.** Commit `67ede73` (2026-07-01) reproduces the committed `05_results.gpkg` archetype exactly for all 41 mislabelled buildings — the Hotel rule read `function_tag` only until a later commit added a `building_tag` check; the T11 fan-out that produced the committed file ran between the two commits. Resolves N07's open provenance gap. |
+| **OPEN-37** | 🟢 **CLOSED.** All five remaining `.eio` fetch sites fixed (one line each); all ten fetch sites now request `.eio`. Local E02 census: 40,800/40,800 building dirs, `.eio` and `.err`, zero empty. The `.sql`/`.end` shortfall found by the same census is a different defect, out of scope — opened separately as **OPEN-53**. |
+| **OPEN-51** | 🟢 **CLOSED.** `E-LA-16` adjudicated: it names the cooling-coil-design-UA/cooling-tower-UA-autosize family, not `CheckWarmupConvergence`. The live code comment was wrong and is corrected. Knock-on: OPEN-09's C06 "five inherited log entries" narrows to four. |
+| **OPEN-52** | 🔴 **STAYS OPEN, sharpened to two sub-questions.** (a) The concurrent-pytest `--basetemp` collision is reproduced and real. (b) A second, newly-found OS-level lockout on `%LOCALAPPDATA%\Temp\pytest-of-o_iseri` blocks (a)'s specified remedy (deleting `addopts` gives `1 passed, 6 errors` on this machine). Choosing a remedy shape (ACL repair vs. a different remedy) is an **owed user ruling**, not a next measurement. |
+| **OPEN-42** | 🔴 **STAYS OPEN, sharpened.** `eplusout.eio` was read for the first time: 15/16 fatal zones are on the topmost floor, geometry byte-identical to non-fatal siblings below. A required 20-building background control disproved two candidate distinguishing statistics. Verdict: not determinable from `eplusout.eio` — the next step needs a different artifact. |
+| **OPEN-53** *(new)* | 🔴 **OPENED.** 874/875 E02 harvest directories are missing `.sql`/`.end` despite carrying `.eio`/`.err` — an incomplete-simulation signature, concentrated in `austin_suburban_fast_zone`/`austin_suburban_floor` (874) plus one `nyc_centre_fast_zone` directory. Cause untraced. |
+
+**Register: 28 tracked items → 26** (three closed and retired, one opened). **Table re-counted
+programmatically: 26 live / 27 struck / 53 total, exactly OPEN-01…OPEN-53, no row missing, none
+duplicated. Twenty-five IDs retired in all** (22 going in + OPEN-06/OPEN-37/OPEN-51 this pass).
+**Next free item ID: OPEN-54.**
+
+**Full suite, run alone:** see the plan doc's T06 progress-log entry
+(`docs/docs_ACTIVE/openings/implemenation/PLAN_five-items-2026-08-18.md` §8) for the raw counts
+against the 1875/55/0 baseline.
+
+Full detail: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`.

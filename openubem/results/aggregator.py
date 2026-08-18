@@ -56,6 +56,10 @@ _STEP5_COLS = [
     "iod",
     "simulation_status",
     "error_summary",
+    # OPEN-01 (T05, ruling 6): per-building EUI denominator, resolved once in
+    # parser.py::parse_building and carried through so the aggregator never re-derives it.
+    "floor_area_m2",
+    "floor_area_provenance",
 ]
 
 _SUCCESS_STATUSES = {"success", "success_cached", "success_csv_fallback"}
@@ -132,13 +136,24 @@ def compute_neighbourhood_summary(
     """
     import math
 
-    # Floor area denominator: footprint * floors
+    # OPEN-01 (T05, ruling 6): floor area denominator. Read the per-building value
+    # parser.py already resolved (floor_area_m2 — simulated area from eplusout.eio,
+    # footprint x floors on fallback; see resolve_simulated_floor_area()) rather than
+    # re-deriving it here, per plan step 3. Rows without that column (e.g. synthetic
+    # GeoDataFrames built directly for tests, never routed through parse_building) fall
+    # back to the pre-OPEN-01 footprint x floors computation so older call sites are unaffected.
     from openubem.geometry.footprint import derive_num_floors
 
     gdf = results_gdf.copy()
-    gdf["_floor_area"] = gdf.apply(
-        lambda r: float(r["footprint_area_m2"]) * derive_num_floors(r), axis=1
-    )
+    if "floor_area_m2" in gdf.columns:
+        fallback = gdf.apply(
+            lambda r: float(r["footprint_area_m2"]) * derive_num_floors(r), axis=1
+        )
+        gdf["_floor_area"] = pd.to_numeric(gdf["floor_area_m2"], errors="coerce").fillna(fallback)
+    else:
+        gdf["_floor_area"] = gdf.apply(
+            lambda r: float(r["footprint_area_m2"]) * derive_num_floors(r), axis=1
+        )
 
     success_mask = gdf["simulation_status"].isin(_SUCCESS_STATUSES)
     success = gdf[success_mask].copy()

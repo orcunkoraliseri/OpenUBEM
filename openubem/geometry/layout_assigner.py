@@ -862,7 +862,11 @@ _NAMED_ABSOLUTE_SPECS = (
 # debug/storey-Matching/results/b06_s1ref/*/eplusout.err); the handful of
 # pre-existing Severes present in some runs (CheckWarmupConvergence,
 # CheckAirLoopFlowBalance) are the same already-tracked classes as
-# E-LA-14/16/18/19/E-LA-06 and do not touch these 4 field classes' own sizing.
+# E-LA-14/18/19/E-LA-06 and do not touch these 4 field classes' own sizing.
+# (E-LA-16 removed from this list 2026-08-18 -- it names a different,
+# unrelated mechanism, cooling-coil/cooling-tower-UA-autosize failure, not
+# CheckWarmupConvergence/CheckAirLoopFlowBalance. See
+# docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-51_e-la-16-identity.md.)
 #
 # Keyed by archetype_id (ARCHETYPE_IDF_MAP's canonical vocab token), NOT by
 # (class, Name) alone: "HeatSys1 Boiler" recurs verbatim, with a DIFFERENT

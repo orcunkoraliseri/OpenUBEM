@@ -20,6 +20,17 @@
 > the user asked for this file to be updated rather than superseded. **Where a 2026-08-11 sentence was
 > falsified, it is struck through and corrected in place, not deleted** — the same rule the register
 > runs on.
+> **🟩🟩🟩 UPDATED ONCE MORE 2026-08-17, overnight autonomous run.** The user went to sleep and told
+> the director to carry the arc to the end and **update this file at every step, not only at
+> checkpoints**. A **third RESUME box** now heads the green box below and supersedes both earlier
+> ones; the 2026-08-14 box's opening instruction is stale (the edit it calls loose was committed in
+> `82bbd25`; the tree is clean). Task-by-task progress is appended to **§5.17**.
+> **UPDATED ONCE MORE 2026-08-18, at the close of the five-item pass and at the user's request
+> to prepare this file for the next session.** `PLAN_five-items-2026-08-18.md` ran T01-T06 to CP-3 and
+> CP-3 was signed. A **fourth RESUME box** now heads the green box below and supersedes all three
+> earlier ones. **The CP-3 box's "unresolved contradiction" about the full suite is RESOLVED and is
+> struck in place** - there was no regression; the plan's baseline command was wrong. Task-by-task
+> account: **5.18**. Two rulings are owed and are in section 3 as `3a` and `3b`.
 > **Supersedes:** `previous/DIRECTOR_PROMPT_openings_2026-08-10.md` — **spent, do not paste it.** That
 > file was written *before* the harvest landed and then amended in place; every load-bearing sentence
 > has been carried here as plain statement rather than as a struck-through correction. It is kept only
@@ -55,7 +66,170 @@
 > question at both stages (IDFs byte-identical, results max Δ 0.00836 kWh/m²). Nothing is running and
 > nothing is queued. The arc is idle and blocked on TWO rulings only — see the RESUME box below.**
 >
-> ## 🟩🟩 RESUME HERE — written 2026-08-14 when the user stepped away again. **THIS BOX SUPERSEDES THE ONE BELOW IT.**
+> ## 🟥🟥 RESUME HERE — written 2026-08-18 after CP-3 was signed. **THIS BOX SUPERSEDES EVERY RESUME BOX BELOW IT, INCLUDING THE 🟪 ONE.**
+>
+> **Nothing is running. Nothing is queued. No cluster job is in flight.** `PLAN_five-items-2026-08-18.md`
+> is fully executed and closed — T01–T06, CP-1/CP-2/CP-3 all director-signed. Full account: **§5.18**.
+>
+> **What the pass did.** **OPEN-06, OPEN-37 and OPEN-51 are CLOSED and retired.** **OPEN-52 and OPEN-42
+> stay open**, each with a named next step instead of a re-read of the same evidence. **OPEN-53 was
+> opened** for the E02 `.sql`/`.end` shortfall. **Register: 26 live / 27 struck / 53 total, 25 IDs
+> retired, contiguous `OPEN-01…OPEN-53`, recounted programmatically over the §1 table body. Next free
+> item ID: `OPEN-54`.**
+>
+> **The single most reusable result of the pass — read this before writing any plan doc.**
+> 🔴 **The full-suite baseline is `.venv/Scripts/python.exe -m pytest -q tests/`, NEVER a bare
+> `pytest -q` at the repo root.** `pyproject.toml` sets no `testpaths` and no `norecursedirs`, so the
+> bare command collects the whole tree and adds ~96 tests that live outside `tests/` — five test files
+> under `docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/tests/` (there since `ef19141`,
+> 2026-07-21) and `scripts/analysis/test_viewer_layout_assign.py` (`69373f9`, 2026-07-27). Proof, by
+> collection rather than by re-running: **`tests/` collects 1930 = 1875 passed + 55 skipped**, root-wide
+> collects **2026**, and the 96-test gap is exactly **43 passed + 36 failed + 17 errors, all outside
+> `tests/`**. **T06's run was therefore 1875 / 55 / 0 inside `tests/` — the baseline reproduced to the
+> unit, no regression.** A plan doc that writes the bare command will make its executor report a false
+> regression; `PLAN_five-items-2026-08-18.md` T06 step 5 did exactly that, and that is the one defect
+> to carry out of the plan.
+>
+> **Two rulings are owed, and nothing further is authorised until one of them is answered — §3, `3a`
+> and `3b`.**
+> - **`3a` — OPEN-52's remedy shape.** `%LOCALAPPDATA%\Temp\pytest-of-o_iseri` (dated Apr 1) is
+>   **OS-level access-denied** — director verified `ls` and `touch` both fail with Permission denied —
+>   and the undocumented `addopts = "--basetemp=.pytest_tmp"` pin in `pyproject.toml` has been
+>   incidentally shielding every `tmp_path` test from it. **Do not remove that pin** without a remedy in
+>   hand. Ruling: repair the ACL, or a different remedy shape.
+> - **`3b` — the stray `.py` files under `docs/`.** New and independent of `3a`: `CLAUDE.md` forbids
+>   `.py` under `docs/` outright, and one of the strays, `test_results_aggregator.py`, collides by
+>   basename with `tests/test_results_aggregator.py` — with no `__init__.py` and pytest's default
+>   import mode, that collision **is** the 17 collection errors. Cheap remedy for the whole class:
+>   a `testpaths = ["tests"]` line in `pyproject.toml`. **Proposed to the user 2026-08-18, deliberately
+>   NOT applied.** This is the same population as the older ruling `2c`, which is still live.
+>
+> **What is ready to run the moment a ruling lands, in rough order of value:**
+> - **OPEN-01's denominator swap** — ruled 2026-08-13 (divide by the simulated area), measurement
+>   already on disk, **plan doc still not written**. Largest piece of unstarted work this arc owns.
+> - **OPEN-42** — needs a *different artifact*: per-surface geometry, not `eplusout.eio` zone
+>   aggregates. `.eio` is exhausted for this question; do not send an executor back to it.
+> - **OPEN-53** — the `.sql`/`.end` shortfall's cause is untraced (39,926/40,800 `.sql`,
+>   39,925/40,800 `.end`, concentrated in `austin_suburban_fast_zone`/`austin_suburban_floor` plus one
+>   `nyc_centre_fast_zone`).
+> - **Rulings `7` (CP-M2) and `8` (OPEN-11)** are still unasked and unchanged.
+>
+> **Standing method notes that earned their place this pass:** audit against raw artifacts on disk,
+> never against the executor's report — CP-2 re-derived OPEN-06 from the committed `05_results.gpkg`
+> and got 41/41, and CP-1 re-derived the `pytest-of-o_iseri` lockout by hand. Two executor numbers were
+> wrong and were caught this way (Severe counts 26/24/19 → **23/21/16**; a control that failed 31/10
+> against N04's 33/8 because the harness classified a subset). **Controls before results**, every time.
+>
+> ## ~~🟪🟪 RESUME HERE — written 2026-08-18, CP-3~~ **(superseded by the 🟥 box above; its "unresolved contradiction" was resolved the same day — see the strike below)**
+>
+> **`PLAN_five-items-2026-08-18.md` is FULLY EXECUTED, T01 through T06. CP-3 reached. Nothing is
+> running, nothing is queued.** Full task-by-task account: **§5.18**.
+>
+> **Outcome of the five, plus one found along the way:** **OPEN-06, OPEN-37, OPEN-51 CLOSED and
+> retired.** **OPEN-52, OPEN-42 STAY OPEN**, each sharpened to a specific next step rather than a
+> re-read of the same evidence — OPEN-52 needs a user ruling (ACL repair vs. a different remedy
+> shape for the `pytest-of-o_iseri` OS lockout); OPEN-42 needs a different artifact than `eplusout.eio`
+> (per-surface geometry, not zone-level aggregates). **OPEN-53 opened** (E02 harvest `.sql`/`.end`
+> shortfall, 874/875 directories, cause untraced). **Register: 28 live → 26 live / 24 struck → 27
+> struck / 52 total → 53 total. 25 IDs retired in all. Next free item ID: `OPEN-54`.**
+>
+> 🟩 **RESOLVED 2026-08-18, the same day, without re-running the suite — the paragraph below is kept
+> for the record and is FALSIFIED in its conclusion. There is no regression; the baseline definition
+> was wrong, not the run. The baseline is `pytest -q tests/`, and inside `tests/` this run was
+> 1875 / 55 / 0. See the 🟥 box above and §5.18's CP-3 sign-off.**
+> ~~🔴 One unresolved contradiction, surfaced by T06's full-suite run and left open rather than
+> guessed at.~~ `pytest -q` (bare, repo-root, no path argument) gives
+> **`36 failed, 1918 passed, 55 skipped, 11 warnings, 17 errors in 1544.83s`** — not the
+> `1875 passed / 55 skipped / 0 failed` this plan's hard rules named as the baseline. All 36 failed +
+> 17 errors trace to pre-existing, long-committed files (`docs/docs_DONE/…/elevators/scripts/tests/*`
+> since `ef19141`, plus `scripts/analysis/test_viewer_layout_assign.py` since `69373f9`) that this plan
+> never touched and is not authorised to touch — the same population `docs/PROJECT_CHECKLIST.md`
+> already put on record once (`1910 passed, 35 failed, 55 skipped, 17 errors`, filed under OPEN-44's
+> rider that only `tests/`-scoped runs are green, not the bare command). **The 2026-08-17 CP-2
+> sign-off (§5.16) reads `0 failed` from the same bare command on a tree where those same files were
+> already old, committed history** — `pyproject.toml` is unmodified (confirmed by `git diff`), so no
+> collection-scope change there explains it. **Not reconciled — the suite was not re-run a second time
+> to test hypotheses.** `skipped` matches exactly (55=55); the 7 `Windows fatal exception: access
+> violation` lines match the known joblib/loky noise exactly. **This needs a director read of both raw
+> logs side by side before the next full-suite claim in this arc is trusted at face value.**
+>
+> ~~**Two owed rulings now stand, not one:** OPEN-52's remedy shape, plus whatever the full-suite
+> contradiction above turns out to need.~~ **Corrected: the two owed rulings are `3a` and `3b` in §3 —
+> the second is the stray-`.py`/`testpaths` question, not the contradiction, which is resolved.** **Nothing further is
+> authorised without one of them.**
+>
+> ## ~~🟦🟦 RESUME HERE — written 2026-08-18~~ **(superseded by the box above — CP-3 reached, plan fully executed)**
+>
+> **Standing instruction, given 2026-08-18:** the user asked for **five more open items to be chosen,
+> planned, and executed to the end**. The director picked five that are local, unblocked and
+> answerable today, wrote `implemenation/PLAN_five-items-2026-08-18.md`, and is running it to CP-3
+> without waking the user. **Task-by-task progress is in §5.18** — read that first.
+>
+> **The five:** **OPEN-52** (pytest `--basetemp` collision), **OPEN-51** (`E-LA-16` used for two
+> failure signatures), **OPEN-37** (five harvest sites still never fetch `.eio`), **OPEN-06** (no code
+> state in this repo accounts for the archetype column), **OPEN-42** (why the zoning *mode* decides
+> whether a Warehouse blows up).
+>
+> **The 2026-08-17 box below is still true about the arc it closed** — `PLAN_open-49-and-open-01-2026-08-13.md`
+> is fully executed, OPEN-01 is closed, `157.1 kWh/m²` pooled is unmoved — but its
+> *"nothing is in flight, nothing further is authorised"* is superseded by this pass.
+>
+> ## 🟩🟩🟩 RESUME HERE — written 2026-08-17, overnight autonomous run. **THIS BOX SUPERSEDES EVERY RESUME BOX BELOW IT.**
+>
+> **Standing instruction, given 2026-08-17 when the user went to sleep:** *"tu continues jusqu'à la
+> fin, et pour chaque étape mets à jour ce prompt pour des sessions prochaines."* The director runs
+> the arc to the end without waking the user, and **updates this file after every task**, not only at
+> checkpoints. The audit standard is unchanged: a checkpoint that cannot be re-derived from raw
+> artifacts on disk is still a STOP.
+>
+> **🔴 CORRECTION to the 2026-08-14 box below — its first instruction is now WRONG.** That box says to
+> run `git diff openubem/semantic/__init__.py` because the tree carries a loose unaudited edit. **The
+> tree is CLEAN.** The user's external git process committed that edit on 2026-08-14 in **`82bbd25`**
+> ("docs/tests: complete test suite triage, tagrich gate fixes, and openings measurement updates",
+> 38 files, +14615/−352), together with `tests/test_semantic_unknown_draw.py` and the five 2026-08-13
+> plan docs. **Being committed changes nothing about its standing: it is still unverified, still
+> unsigned, and the plan's §8 progress log is still empty.** To see the pre-fix code, use
+> `git show 82bbd25^:openubem/semantic/__init__.py` — **read-only git only**, plan rule 1 forbids
+> every git write command (`add`, `commit`, `restore`, `checkout --`, `stash`).
+>
+> **🟩🟩🟩 NOTHING IS IN FLIGHT — FINAL STATE 2026-08-17.** **CP-1 and CP-2 are both
+> signed and `implemenation/PLAN_open-49-and-open-01-2026-08-13.md` is fully executed, T01–T08.**
+> No executor, no monitor, no SLURM job; Speed is free. OPEN-01 is closed and its ID retired;
+> OPEN-49 is mechanism-fixed with closure blocked on the re-run ruling 4 declined. The full record,
+> the audit tables and the three unasked-for findings are in **§5.17** — read that before anything
+> else. The working tree is dirty by design and **no session may ever commit**. The two paragraphs
+> below are the superseded dispatch notes, kept only for the record.
+>
+> ~~**What was in flight earlier.**~~ **UPDATED LATER ON 2026-08-17.** **CP-1 is signed** (T01–T04 audited
+> against raw artifacts; the audit table and the one substantive finding are in **§5.17**). A **second**
+> fresh Sonnet executor now holds **T05 → T08, stopping at CP-2** — the OPEN-01 denominator swap. The
+> working tree is intentionally dirty: the T01–T04 artifacts plus the director's edits to this file and
+> to both `board_published-numbers.html` copies. That is expected; **git is handled externally and no
+> executor may ever run a git write command.** The paragraph below is the *earlier* CP-1 dispatch,
+> kept because it records the corrections that were carried:
+>
+> ~~**What was in flight before that.**~~ A fresh Sonnet executor was dispatched **2026-08-17** on
+> `implemenation/PLAN_open-49-and-open-01-2026-08-13.md`, **T01 → T04, stopping at CP-1**. It was told
+> the three things the plan text predates: (1) the T02 edit is already applied *and committed*, and is
+> to be treated as unverified; (2) T01's FAIL proof was never produced, so its first job is to swap in
+> the pre-fix source with a **plain file copy** (backup to scratchpad, restore afterwards, confirm
+> `git status --porcelain` is empty again) and show both tests FAIL, with per-column drift magnitudes —
+> **if a test PASSES on pre-fix code the test is wrong, fix the test, not the code**; (3) T02's
+> non-vacuity proof (constant seed → must FAIL → restore) and the `_build_unknown_envelope` check are
+> still owed, then T03 and T04 as written.
+>
+> **Nothing is on Speed and nothing needs to be. No cluster work is required for any of T01–T08.**
+>
+> **Also done 2026-08-17, at the user's request, outside the plan:** the published-numbers board
+> artifact (`https://claude.ai/code/artifact/0615b50a-75d6-49c6-a354-d4f2f74d3639`, source
+> `implemenation/board_published-numbers.html`, mirrored to `reporting/`) was **reordered only** — the
+> counters, filters and work-package task list now open the page, and the whole dated narrative moved
+> to a **Notes & history** section at the foot. **No board text was rewritten and no number changed.**
+> The user's question that prompted it, and the answer given: the board's `all 102 / done 78` counter
+> is cumulative over every work package A…S and never resets, so it is a log, not a progress bar; the
+> converging count is the register's tracked-items number.
+>
+> ## ~~🟩🟩 RESUME HERE — written 2026-08-14 when the user stepped away again~~ **(superseded by the box above; its `git diff` instruction is stale — the edit is committed in `82bbd25` and the tree is clean)**
 >
 > **🔴 FIRST, BEFORE ANYTHING ELSE: the working tree carries an UNAUDITED edit to SHIPPED CODE.**
 > `openubem/semantic/__init__.py` has been modified — the OPEN-49 coupled-draw fix — by an executor
@@ -461,6 +635,18 @@ it.**
 
 ## 3. What is owed to the user — rulings, asked one at a time, in this order
 
+🟥 **UPDATED 2026-08-18 — THIS PARAGRAPH IS THE LIVE HEAD OF THE QUEUE AND SUPERSEDES EVERY
+PARAGRAPH BELOW IT.** Two rulings are owed, both new rows at the foot of the table: **`3a`** (OPEN-52's
+remedy shape for the `pytest-of-o_iseri` OS lockout) and **`3b`** (the stray `.py` files under `docs/`
+and whether `testpaths = ["tests"]` goes into `pyproject.toml`). **Ask `3b` first** — it is cheap, it is
+one line of config, and until it is settled every full-suite claim in this arc has to carry a paragraph
+of explanation about which command produced it. Then **`3a`**, which is the one with a real decision
+behind it. `3b` overlaps the older row `2c`, which is still live and unasked; **put them together, not
+twice.** Behind those, the queue is unchanged: **`7` (CP-M2) → `8` (OPEN-11)**. 🔴 **The largest
+piece of unstarted work in this arc is not a ruling at all** — OPEN-01's denominator swap was ruled on
+2026-08-13, its measurement is on disk, and **its plan doc has still never been written.**
+
+
 🔴 **The queue changed on 2026-08-12: one ruling was answered and three new ones were opened by the
 sweep. Ruling 1 below is now OPEN-43, and it is the one that touches every published number.**
 
@@ -552,6 +738,8 @@ this table is either spent or lower priority than those two.
 | ~~**2h**~~ | ✅ **RULED AND FULLY EXECUTED 2026-08-13 — retire the three formally. Do not re-ask, do not re-write.** `OPEN-04`, `OPEN-31` and `OPEN-43` now carry closure blocks in their own §-sections, their table rows are struck with the same text, the three IDs are in the §1 header's retired list (ten → **thirteen**), and the table's live rows were re-counted: **35, matching the header.** 🔴 **Three constraints were deliberately carried forward out of the closures:** `92.0%` is unreproducible and the old 50-row fixture is never edited (from OPEN-04); CP-M3 is obligatory and now spans **two exams with two thresholds** (from OPEN-31); the headline is pooled **`157.1 kWh/m²`** and **`159.2157` is never a fleet figure** (from OPEN-43). **A closed item's constraints do not close with it.** ~~The original ruling, kept for the record:~~ 🔵 ~~NEW 2026-08-13 — the register's item count rests on three closures nobody recorded. Cheap, and it decides what number this arc reports as "open".** Repairing the §1 summary table (the five missing rows for `OPEN-45`…`OPEN-49`, written 2026-08-13) exposed a second gap: the table now carries **38 live rows** against a header that says **35 tracked items**, and **the gap is exactly `OPEN-04`, `OPEN-31` and `OPEN-43`**. The §0 arithmetic of 2026-08-12 subtracts all three as closed, and every count since (33 → 34 → 35) is built on that subtraction — **but none of the three is marked closed in its own §-section, none is struck in the table, and none appears in the header's retired list.** Each has a plausible basis (OPEN-04's cause falsified and re-explained; OPEN-31's CP-M3 ruled obligatory 2026-08-09; OPEN-43 ruled 2026-08-12, pooled `157.1 kWh/m²`) — **but this register's own rule is that the sections are the authority, and a plausible basis is not a recorded closure.** ⚠️ **Deliberately not patched: retiring three IDs is not a director-side edit.** The ruling: **retire the three formally (count stays 35), or reopen them in the count (count becomes 38).** State when asking that no content is lost either way and no published number moves. | register §1 head + the repair note under it |
 | ~~5~~ | ✅ **RULED 2026-08-13 — THE CIRCUMSTANTIAL EVIDENCE IS SUFFICIENT FOR (c). Do not re-ask.** The corpus is treated as **one code state**, on the single unbroken 111-minute window plus one manifest schema across all 60 pairs. 🔴 **Carry this constraint with it: one-code-state is now a RULED ASSUMPTION, not a measurement, and every document citing it must say so in the same sentence.** The ruling buys the project out of a question this corpus cannot answer — it does **not** create the missing stamp. **If a cross-mode result ever turns on the assumption being exactly true, that result needs a re-run with a recorded commit hash, and this ruling does not cover it.** ⚠️ **OPEN-01 stays open on the remedy alone — that is ruling 6, which is now the next thing owed to the user.** ~~The question as put, kept for the record:~~ ~~**OPEN-01(c), and it is the one that unblocks the biggest item.**~~ OPEN-01's third audit question is *"did all five modes come from one code state?"* **It cannot be proved, and the reason is structural: no commit hash or code-version stamp was recorded anywhere at generation time**, and 25 of the 60 `(cell, mode)` pairs have no generation-summary JSON. The circumstantial evidence is real — one manifest schema across all 60, all 60 written inside one continuous **111-minute** window (2026-08-09 21:03:01–22:54:38), no gaps. **The ruling: is that sufficient for (c)?** If yes, OPEN-01 reduces to the remedy ruling below. **If no, OPEN-01 can never close on this corpus** and only a re-run with a recorded commit stamp would settle it. **Frame both costs before asking.** | §5.1, register OPEN-01 |
 | ~~6~~ | ✅ **RULED 2026-08-13 — THE REMEDY IS: DIVIDE BY THE SIMULATED AREA. Do not re-ask.** Per-building EUI is published against the multiplier-aware floor area EnergyPlus actually simulated (read per run from `eplusout.eio`), **not** against `footprint_area_m2 × levels`. **Cheap because the measurement already exists** — `e02_simulated_floor_area.csv`, 40,800 rows, 0 parse failures, 0-unmatched join in all five modes — so it is a **reporting-layer denominator swap**, no re-simulation and no cluster work. 🔴 **Carry these two constraints with it:** (i) it does **not** make `building` mode simulate the right building — after the swap that mode's EUI means *energy per simulated m²*, which is **not** the real building's area, so it is internally consistent but not physically representative and every document must say which it means; (ii) **the published fleet EUI of 157.1 kWh/m² pooled does not move** — `auto` already measured 1.0000 median / 99.63% within ±1%. Fixing the simulation was offered and not taken; that door is not foreclosed. ⚠️ **OPEN-01 still does not close** — it now needs a plan doc for the swap plus a before/after per-building comparison in all five modes. **It is open on implementation, no longer on a ruling.** ~~The question as put, kept for the record:~~ ~~**OPEN-01's remedy** — now that (a) and (b) are measured on 40,800 runs: fix the denominator, fix the simulation, or stop publishing per-building EUI for the affected modes.~~ | §5.1 |
+| **3a** | 🔴 **NEW 2026-08-18 — OPEN-52's remedy shape, and it is owed before any plan touches pytest configuration.** `pyproject.toml` carries an **undocumented** `addopts = "--basetemp=.pytest_tmp"`, and the director verified by hand why it matters: the default base temp `%LOCALAPPDATA%\Temp\pytest-of-o_iseri` (dated Apr 1, predating every session in this arc) is **access-denied at the OS level** — both `ls` and `touch` fail with Permission denied. **So the pin has been incidentally shielding every `tmp_path` test in the suite from a lockout nobody recorded.** ✅ **State the reassurance first: nothing is broken today and no published number is involved** — the suite is green inside `tests/` and the pin works. The risk is that the pin looks like clutter to a future reader who removes it, and the suite then fails for a reason that has nothing to do with the code. **The ruling: repair the ACL on `pytest-of-o_iseri` (and then decide separately whether the pin stays), or keep the pin and document why, or a different remedy shape.** ⚠️ **Do not remove the pin in the meantime, and do not let an executor "tidy" it.** | §5.18, register OPEN-52 |
+| **3b** | 🔴 **NEW 2026-08-18 — the stray `.py` files under `docs/`, and the one-line config fix behind them. Cheap; ask this one first.** `CLAUDE.md` forbids `.py` under `docs/` outright, yet five test files sit in the read-only `docs_DONE/` archive (since `ef19141`, 2026-07-21), plus `scripts/analysis/test_viewer_layout_assign.py` (`69373f9`, 2026-07-27). One of them, **`test_results_aggregator.py`, collides by basename with `tests/test_results_aggregator.py`**; with no `__init__.py` and pytest's default import mode, **that collision is exactly the 17 collection errors** a bare root-level `pytest -q` reports. ✅ **Reassurance first: this is not a regression and never was** — those files predate the 1875/55/0 baseline, so a bare root run could never have been green, and the baseline was always `pytest -q tests/`. **The ruling: add `testpaths = ["tests"]` to `pyproject.toml` (proposed 2026-08-18, deliberately NOT applied), or move/delete the strays, or leave both and accept that every suite figure must name its command.** ⚠️ **`docs_DONE/` is read-only by this arc's own rules, so deleting from it is a user decision, not a director one.** This is the same population as row `2c` — **ask them together.** | §5.18, register OPEN-44/OPEN-53 |
 | 7 | **CP-M2** — what to do about the published cross-mode numbers, still confounded. **Not discharged by OPEN-28** — E02 fixes future comparisons, not published ones. | §5.4 |
 | 8 | **OPEN-11** — the six inverted-geometry buildings; precondition met, remediation is the user's call. | register |
 
@@ -1516,6 +1704,357 @@ physically representative.**
 same coupling to *identified* buildings, but `LOAD_MODE = "deterministic"` (`openubem/config.py:61`)
 means it is **off**. **Do not claim identified buildings moved.**
 
+**🟩 JOURNAL, T05–T08, completed 2026-08-17.** The OPEN-01 half is done. `resolve_simulated_floor_area()`
+(new, `openubem/results/parser.py`) reads `eplusout.eio` via a verbatim lift of
+`e02_t04_floor_area_audit.py`'s parser; `parse_building()` resolves `floor_area_m2`/
+`floor_area_provenance` once per building and threads it through `_compute_eui()` (backward-compatible
+optional param — the ~20 existing direct tests of that function were unaffected) and every failure
+path; `aggregator.py::compute_neighbourhood_summary()` reads the same column from the joined results
+frame instead of re-deriving it, falling back per-row only where the column is absent (synthetic test
+GeoDataFrames). T05's `la_urban/way_401904735` reproduction matched the director's CP-2 figures exactly
+(1.333309 layout_assign, 0.333333 building) — no STOP. T06 added 7 non-vacuous tests
+(`tests/test_results_denominator.py`) for the three named `.eio` cases. T07 reproduced all five
+targets exactly on 40,800 rows (`auto` 1.0000/99.63%, `floor` 1.0000/98.43%, `fast_zone` 1.0000/94.80%,
+`layout_assign` 0.9999/15.37%, `building` 0.5000/39.94%) and reported deciles, not the median alone
+(`openubem/outputs/comparisons/open01_denominator_swap.csv` + `_summary.csv`,
+`extra/MEASUREMENT_open-01_denominator-swap.md`). **OPEN-01 is now CLOSED and ID-retired** in the
+register (its own §1 row struck, §-section amended) — all three ruling-6 deliverables landed. OPEN-49
+is amended with the Fact-3 widening (eight fields) and T04's before/after but **stays open**, marked
+mechanism-fixed/closure-blocked on the OPEN-48 re-run ruling 4 declined, exactly as this section
+predicted. Full suite run alone, both after T06 and at CP-2, showed zero new failures against the
+1868-passed/55-skipped/0-failed baseline. Full account: this plan's own §8 progress log.
+
+### 5.17 🟩🟩🟩 The overnight autonomous run of 2026-08-17 — task-by-task log
+
+**Why this section exists.** The user went to sleep on 2026-08-17 with the instruction to carry the
+arc to the end and **update this prompt at every step, not only at checkpoints**. Everything below is
+appended as it happens, newest entry last. It is a log, not a plan: the plan is
+`implemenation/PLAN_open-49-and-open-01-2026-08-13.md` and its own progress log is that file's §8.
+
+**State at the start of the run.**
+
+| Fact | Evidence |
+|---|---|
+| Working tree clean | `git status --porcelain` → empty |
+| The OPEN-49 fix is committed, not loose | `82bbd25`, 2026-08-14 — `git show --stat 82bbd25` |
+| Pre-fix source recoverable read-only | `git show 82bbd25^:openubem/semantic/__init__.py` |
+| T01's test file exists, two tests, one per route | `tests/test_semantic_unknown_draw.py`, 95 lines |
+| T01's FAIL proof missing, T03/T04 not started, §8 empty | plan doc §8 holds only its italic instruction line |
+| Nothing on Speed, nothing needed | no cluster work in T01–T08 by the plan's own rule 3 |
+
+**Entries.**
+
+- **2026-08-17 — T01–T04 dispatched.** Fresh Sonnet executor (never the stopped one), background,
+  on T01 → T04 stopping at CP-1, carrying the three state corrections the plan text predates (see the
+  RESUME box at the head of this file). In flight at the time of writing.
+- **2026-08-17 — board artifact reordered (outside the plan, at the user's request).** Counters,
+  filters and the work-package task list now open the page; the whole dated narrative moved to a
+  **Notes & history** section at the foot. Reorder only — verified by a sorted-token diff of old
+  against new: **additions only** (the new CSS block and the section wrapper), **no text removed and
+  no number changed**. Source `implemenation/board_published-numbers.html`, mirrored identically to
+  `reporting/`, republished to the same artifact URL.
+- **2026-08-17 — the counter question, answered here so it is not re-asked.** The board's
+  `all 102 / done 78` is a **cumulative count of board tasks across work packages A…S**; finished
+  packages are never removed, so the total only rises and **it is a log, not a progress bar**. The
+  number that actually converges is the register's tracked-items count. Nothing is wrong with the
+  board.
+
+- **2026-08-17 — CP-1 REPORTED, AUDITED, AND SIGNED (director).** The executor returned T01–T04
+  and stopped at CP-1 as instructed. Audited against raw artifacts on disk, not against the report:
+
+  | What CP-1 owed | Verified how | Verdict |
+  |---|---|---|
+  | T01 pre-fix FAIL, both routes, real drift | §8 entry quotes per-column max\|Δ\| (route 2: `equipment_w_m2` 5240.36, `wwr` 0.2318); pre-fix source obtained with `git show 82bbd25^:…` + plain copy, restored, `git status` empty | ✅ |
+  | T02 non-vacuity | first probe (re-seed per row, ignore `osm_id`) did **not** fail and was **correctly rejected as non-probative** — it is order/count-invariant by construction; the accepted probe restores the **shared** stream (the real pre-T02 mechanic): route 1 FAILS, route 2 still passes, exactly the expected split | ✅ |
+  | T03 eight columns, both routes | table in §8: pre-T02 route 1 moves `equipment_w_m2` only; route 2 moves **all eight**; post-T02 **none** move on either route → no third route, no STOP | ✅ |
+  | T04 twelve cells, no EUI claim | CSV present, header carries min/mean/max before+after for all eight columns, **12 rows, exactly the twelve cells**; `.md` opens with the no-EUI-claim block and does not re-derive ±300 kWh/m² | ✅ |
+  | Full suite run alone | **1868 passed, 55 skipped, 0 failed**, 1663.13s, after the T03 edit landed — matches the 2026-08-13 baseline of 0 failed / 0 errors | ✅ |
+  | `openubem/semantic/__init__.py` untouched | absent from `git status --porcelain` → still identical to `82bbd25` | ✅ |
+
+  **The one substantive finding, recorded so T08 cannot lose it.** T04's expected pattern **does not
+  reproduce**: the four cells OPEN-49 flagged as moving (`nyc_centre`, `austin_centre`, `la_centre`,
+  `la_urban`) show **no distinctly larger** before/after delta than the eight that reproduced.
+  Nearly every cell has almost all of its Unknown buildings' `wwr` move by >0.01, and the count
+  tracks **cell size**, not moving/reproducing status (`nyc_suburban` 272 of 290; `la_rural` 0 of 0).
+  The executor's reading is accepted: the two experiments sit on **orthogonal axes** — T04 holds
+  classification fixed and swaps code, OPEN-49's original held code fixed and swapped classification
+  snapshots — so non-reproduction here does not refute OPEN-49's mechanism. The plan anticipated
+  this exact outcome and instructed that it be reported rather than patched, so it is **not** a STOP.
+  What it does mean is that the fix moves inputs for **essentially every Unknown building in every
+  cell**, which is a far broader impact statement than "four moving cells" — that is the sentence
+  T08 must carry into the register, and it is the honest discharge of CP-M3 (OPEN-31).
+  The executor also flagged this file and the two board copies as unexpectedly modified; that was
+  **the director**, not a stray process. Noted here so the next reader does not re-investigate it.
+- **2026-08-17 — T05–T08 dispatched.** New Sonnet session (never the CP-1 one — the rule is a fresh
+  session per dispatch), background, T05 → T08 stopping at **CP-2**, carrying five corrections the
+  plan text predates: CP-1 is signed so T01–T04 must not be re-run or re-verified; the dirty tree is
+  intentional and partly the director's, so rule 1's git prohibition still binds absolutely; the
+  suite baseline to measure against is **1868/55/0**, not an older number; `.venv/Scripts/python.exe`,
+  no cluster, no `159.2157`; and T08's §5.15 journal block must be a single surgical insertion
+  re-read immediately before writing, because the director is editing §5.17 of the same file.
+  CP-1's sign-off lives here rather than in the plan's §8 for that same reason — **§8 is the
+  executor's surface and the director does not write into it while an executor holds the file.**
+
+- **2026-08-17 — T05–T08 returned; CP-2 partially audited, one defect sent back.** The executor
+  delivered all four tasks and then stopped while its full-suite run was still going, so CP-2 is not
+  yet signable. What the director verified from raw artifacts in the meantime:
+
+  | What CP-2 owed | Verified how | Verdict |
+  |---|---|---|
+  | T05's `1.33331` reproduction | `resolve_simulated_floor_area()` on the real harvested `la_urban/way_401904735` `layout_assign` run → 7,401.68 m², `error_factor = 7401.68 / 5551.362294 = 1.3333087642` — matches the director's independent re-derivation **and** `open01_denominator_audit.csv`'s own `1.333309`; `building` mode 1,850.45 → `0.3333326` matches `0.333333`. **No STOP: the lifted parser and the audit's parser agree.** | ✅ |
+  | T06's three fallback cases | `tests/test_results_denominator.py`, 7 tests; non-vacuity proved by `sed`-mutating all 8 provenance assertions → **all 7 fail genuinely**, then restored and re-passed | ✅ |
+  | T07's five-mode deciles | `open01_denominator_swap.csv` **40,800 rows**; summary CSV re-read by the director: `auto` 0.99999999/99.632%, `floor` 1.00000015/98.431%, `fast_zone` 0.99999951/94.804%, `layout_assign` 0.99986627/**15.368%**, `building` 0.50000269/**39.939%** — **every one of the five plan targets reproduced exactly**, join 8,160 matched / 0 unmatched in every mode. Deciles present per mode, not median alone. `.md` opens with the reassurance block as instructed | ✅ |
+  | Fleet figure untouched | `.md`'s first section states `auto` is adopted and `157.1 kWh/m²` pooled does not move; no re-run, no restated headline | ✅ |
+  | Full suite alone | **still running at the time of writing** — the executor stopped to wait for it, which is the known executor-blocks-on-disk failure mode, not a crash | ⏳ |
+
+  **Two deviations, both disclosed by the executor rather than hidden, both accepted.** (1) T05 kept
+  `_compute_eui()`'s old signature and added an **optional** `floor_area` keyword, so the ~20
+  pre-existing direct callers in three test files keep the exact pre-OPEN-01 arithmetic; the plan's
+  "exactly three files" rule is what forced this, and the alternative was editing three test files
+  outside the layout. It did have to add two keys to `tests/test_results_aggregator.py`'s fixture —
+  a fourth file — because `test_step5_cols_appended` asserts the joined columns exactly; the values
+  chosen reproduce the pre-existing hand-computed expectation bit-for-bit. (2) T08's journal block
+  went to **§5.16**, not the §5.15 the plan names, because §5.15 is an unrelated finished sweep and
+  §5.16 is the section titled for this very plan. Both readings are right.
+  **One method limit worth carrying forward:** T07's EUI shift for the four non-adopted modes is an
+  algebraic transform (`new = old / error_factor`) of the single real `auto`-mode EUI, because no
+  per-mode Step-5 results were ever harvested. The `.md` says so twice. It is sound — energy is
+  invariant, only the divisor changes — but it is **not** four independent re-parses, and nobody
+  should later cite it as such.
+
+- **2026-08-17 — CP-2 DEFECT: the register's retired-ID count was wrong, and it was sent back.**
+  T08's new §1 header claims "**Fifteen IDs retired in all**". The director re-counted the table
+  programmatically and independently — **54 table lines = 52 data rows + header + separator, 24
+  struck, 28 live** — which confirms the executor's *table* count exactly. The prose is what broke:
+  the executor took its running total from the **trailing parenthetical**, which is stale at
+  "fourteen" (2026-08-13, OPEN-22) and was never updated by the two passes after it. The live
+  lineage is 10 → +3 = 13 → +1 = 14 → **+5 = 19** (OPEN-26/36/44/45/50) → **+2 = 21**
+  (OPEN-24/32) → **+1 = 22** with OPEN-01. The correct figure is **twenty-two**.
+  Sent back with the arithmetic, plus the reconciliation sentence that stops this recurring:
+  **24 struck rows but 22 retired IDs, and the difference of exactly 2 is OPEN-02 and OPEN-28** —
+  struck because they sit under OPEN-01's umbrella, never separate tracked IDs, so never retired.
+  This is the **third** consecutive pass in which the register's table was right and its prose header
+  was wrong; the plan's own T08 "How to test" predicted it. **The standing lesson for every future
+  register edit: recount the table programmatically AND re-derive the retired-ID total from the
+  struck-header lineage, never from the trailing parenthetical.**
+
+- **2026-08-17 — the register correction landed and was re-verified by the director, not taken on
+  report.** `twenty-two IDs retired in all` now appears in both places; the stale `fifteen` is
+  struck rather than deleted, keeping the register's append-only convention; the reconciliation
+  sentence is in (`24 struck rows, 22 retired IDs, the difference is OPEN-02 and OPEN-28, folded
+  under OPEN-01's umbrella and never independently tracked — that is the reconciliation, not a
+  miscount`). Re-counted the table again after the edit: **54 lines, 24 struck, 28 live** — the
+  table itself never moved, which is the point. The executor is still holding for its full-suite run
+  (26% at 22:31, log live, ~29 min expected), so **CP-2 remains unsigned** and T05–T08's code is
+  audited-but-not-cleared until those counts land.
+
+- **2026-08-17 — 🟩🟩🟩 CP-2 SIGNED. `PLAN_open-49-and-open-01-2026-08-13.md` IS FULLY EXECUTED,
+  T01 THROUGH T08.** The full suite finished and the director read the log directly rather than
+  taking the count on report: **1875 passed, 55 skipped, 0 failed, 11 warnings, 1650.61s**.
+  🟦 **Scope clarified 2026-08-18: that run was `tests/`-scoped, not a bare root-level `pytest -q`.**
+  A bare run on this tree collects ~96 extra tests and cannot be `0 failed` — the files responsible
+  predate this run by weeks. Read every suite figure in this document as `pytest -q tests/`. The
+  arithmetic closes exactly — the pre-plan baseline was **1868 passed / 55 skipped / 0 failed**, and
+  `pytest --collect-only` on `tests/test_results_denominator.py` returns **7 tests**, so
+  1868 + 7 = 1875 with **skips unchanged and no pre-existing test moved in either direction**. That
+  is the strongest form of this evidence available without a re-run: every new pass is accounted for
+  by name. Plan §8 carries all eight progress entries. The executor was released with an explicit
+  instruction to write nothing further.
+
+- **2026-08-17 — the one loose thread in the CP-2 report, checked rather than accepted.** The
+  executor noted `Windows fatal exception: access violation` lines mid-run and called them
+  pre-existing joblib/loky noise from `test_sim_integration.py::test_synthetic_fleet_full_annual`.
+  Verified: **exactly 7 such lines in all three full-suite logs**, including both pre-plan runs that
+  ended `1868 passed, 55 skipped` — same count, same source, unchanged by this plan. The claim
+  holds, and the number is recorded here so the next reader does not re-open it.
+
+**What this plan actually delivered, for the next session that has to cite it.**
+
+| Item | State after this run |
+|---|---|
+| **OPEN-01** | ✅ **CLOSED 2026-08-17, ID retired.** Ruling 6's remedy landed in `openubem/results/parser.py` + `aggregator.py`; regression-tested by 7 non-vacuous tests; measured before/after on 40,800 rows across all five modes, every plan target reproduced exactly. |
+| **OPEN-49** | ⚠️ **MECHANISM FIXED, CLOSURE BLOCKED.** The coupled draw is dead on both routes and across all eight fields. It cannot close until OPEN-48's third fleet run reproduces `157.1` end to end, and **ruling 4 declined that run** — the block is a user decision, not an oversight. |
+| **OPEN-02, OPEN-28** | Discharged under OPEN-01's umbrella, as the register always promised. Never separately retired. |
+| Register | **28 live / 24 struck / 52 total; 22 IDs retired.** Re-counted by the director after the fix. |
+| Published fleet figure | **`157.1 kWh/m²` pooled — unmoved, and unmovable by this plan.** `auto` is the adopted mode and it measures 1.0000 / 99.63%. No simulation was run anywhere in T01–T08. |
+
+**Three findings this arc produced that were not in anyone's question, and that must not be lost.**
+1. **The OPEN-49 defect was eight fields wide, not one.** Route 2 moved all four PDE columns *and*
+   all four setpoints; only `wwr` was ever named. The register now records the widening.
+2. **T04's expected pattern does not reproduce, and the honest reading is broader, not weaker** —
+   the fix moves inputs for essentially every Unknown building in every cell, not just the four
+   cells OPEN-49 flagged. See the CP-1 entry above for why the two experiments are orthogonal.
+3. **T07's non-adopted-mode EUI shifts are an algebraic transform, not four independent re-parses.**
+   Sound, disclosed twice in its `.md`, and must never be cited as re-measured.
+
+**🔴 Nothing further is authorised in this arc.** No plan is open, nothing is in flight, Speed is
+free, and the working tree is dirty by design — git is handled externally and no session may commit.
+The next session's job is **not** to find more work: it is to put the remaining live register items
+to the user for a ruling, exactly as this arc has always run. **OPEN-22's fixture rebuild is still
+blocked on ruling 2a**, and **OPEN-48's fleet re-run is declined**, so neither is a candidate for
+autonomous pickup.
+
+### 5.18 🟦 The five-item pass of 2026-08-18 — task-by-task log
+
+**Why this section exists.** On 2026-08-18 the user asked for **five more open items to be chosen,
+planned, and executed to the end**. The plan is
+`implemenation/PLAN_five-items-2026-08-18.md`; its own progress log is that file's §8. This section
+is the director's log and is appended to as each task lands.
+
+**Why these five, and what was rejected.** Every live register item was screened for three
+properties: local (no cluster), unblocked (no user ruling owed), and answerable today. That
+eliminates **OPEN-17, OPEN-27, OPEN-35, OPEN-46, OPEN-48 and OPEN-49** — all of which wait on a
+decision reserved to the user — and **OPEN-13**, which is downstream of OPEN-17. What survives:
+
+| Task | Item | Why it is answerable now |
+|---|---|---|
+| T01 | **OPEN-52** | The pin has exactly one author commit (`fe05509`); the collision is reproducible locally in seconds. |
+| T02 | **OPEN-51** | Both readings of `E-LA-16` are documentary and both sources are on disk. |
+| T03 | **OPEN-37** | The five remaining fetch sites are one string each; the E02 harvest is local and can be censused. |
+| T04 | **OPEN-06** | `building_classifier.py` has only **six** commits in its whole history — the archaeology is bounded. |
+| T05 | **OPEN-42** | 🔴 The harvested `eplusout.eio` carries the built zone geometry for all 30 (building, mode) runs. **Nobody has read it.** That is what makes the last open question answerable without touching the zoning code. |
+
+**Entries.**
+
+- **2026-08-18 — plan written and T01–T02 dispatched.** Fresh Sonnet executor, background, stopping
+  at CP-1. Carried three corrections the plan text predates: the dirty tree is intentional and the
+  git prohibition still binds absolutely; this executor is the only agent running, so T01's
+  deliberate two-session pytest experiment is safe; and the full suite is **not** run in this
+  dispatch (baseline to beat later: 1875 / 55 / 0).
+
+- **2026-08-18 — CP-1 signed by the director. T01 and T02 landed; T03–T05 dispatched.**
+  **T01 / OPEN-52 does not close, and that is the correct outcome.** The executor found no documented
+  reason for the pin anywhere (commit `fe05509` and its same-day plan entry both list the `addopts`
+  line with no rationale; nothing in the repo reads the literal `.pytest_tmp` path), reproduced the
+  collision for real — session B died with `FileExistsError [WinError 183]` cascading from
+  `OSError [WinError 145] directory not empty` inside pytest's own `rm_rf` — then hit a blocker while
+  proving the remedy: this machine's default pytest temp root
+  (`%LOCALAPPDATA%\Temp\pytest-of-o_iseri`, dated Apr 1, predating the session) is **access-denied at
+  the OS level**. Director verified this independently: `ls` and `touch` against it both return
+  Permission denied. With `addopts` deleted, `tests/test_sim_integration.py` gave `1 passed, 6 errors`,
+  all `PermissionError`. So the undocumented pin has been **incidentally shielding every `tmp_path`
+  test from an unrelated OS lockout**. The executor reverted `pyproject.toml` to byte-identical —
+  director confirmed: the file is absent from `git status`, and the `addopts` line is still in place.
+  OPEN-52 now carries two sub-questions: (a) the original collision, reproduced and real, and (b) the
+  `pytest-of-o_iseri` lockout, which blocks (a)'s specified remedy. Choosing between ACL repair and a
+  different remedy shape is a design call, outside a measurement task's authority — it goes to the
+  user at CP-3. **Hard rule 3 (one pytest session at a time, repo-wide) therefore still binds.**
+- **T02 / OPEN-51 decided: `E-LA-16` is the cooling-coil-design-UA-failed / cooling-tower-UA-autosize
+  family** (`PLAN_structural-fixes_implementation.md:279`), **not**
+  `CheckWarmupConvergence`/`CheckAirLoopFlowBalance`. The original run's `.err` files are gone from
+  this machine, so the executor corroborated against the current E02 harvest, where the same three
+  named buildings exist in `la_urban_layout_assign`. Director re-derived the greps independently:
+  `way_402036176` 23 Severe / 23 cooling-coil-UA / **0** CheckWarmupConvergence / **0**
+  CheckAirLoopFlowBalance; `way_402036789` 21 / 21 / 0 / 0; `way_1395739331` 16 / 16 / 0 / 0. Every
+  Severe in all three is a cooling-coil-UA failure and neither competing signature appears once. The
+  code comment's grouping was a documentation error and is now corrected at
+  `openubem/geometry/layout_assigner.py:865` (comment lines only — director confirmed via `git diff`).
+  **One correction to the executor's numbers:** it reported 26/24/19 Severes; the true counts are
+  23/21/16. Its grep pattern also matched the three trailing `EnergyPlus … Error Summary` lines, which
+  contain the word "Severe" but are not Severes. The conclusion is untouched — the run's own summary
+  line says `23 Severe Errors`. To be fixed in the measurement doc during T06.
+  **Knock-on:** OPEN-09's C06 "five inherited log entries" narrows to four (E-LA-14, E-LA-18, E-LA-19,
+  E-LA-23); E-LA-16's own accuracy impact remains untested. OPEN-29 is unaffected — both its
+  measurement docs already used the correct reading and had flagged this contradiction as unresolved.
+- **2026-08-18 — T03–T05 dispatched.** Fresh Sonnet executor, background, stopping at CP-2. Carried
+  the CP-1 findings as corrections: `--basetemp` stays (removing it breaks `tmp_path` on this box),
+  hard rule 3 still binds, T01/T02 files are off-limits, no full suite in this dispatch.
+
+- **2026-08-18 — CP-2 signed by the director. T03, T04 and T05 landed; T06 dispatched.**
+  **T03 / OPEN-37 closes.** All five remaining sites now request `eplusout.eio`; director verified by
+  grep that no site anywhere under `scripts/` still carries the old four-file string, and `git diff
+  --stat` shows exactly 5 insertions / 5 deletions across 4 files — no collateral edits. The disk
+  census was re-derived independently by the director and matches the executor to the unit: 60
+  (cell,mode) directories, **40,800 building directories, 40,800 `.eio` with 0 empty, 40,800 `.err`,
+  39,926 `.sql`, 39,925 `.end`.** The `.sql`/`.end` shortfall (874, concentrated in
+  `austin_suburban_fast_zone`/`austin_suburban_floor` plus one `nyc_centre_fast_zone` directory) is an
+  incomplete-simulation signature, not a fetch gap — those directories still carry `.eio` and `.err`.
+  Worth its own register note; it is not OPEN-37's problem.
+- **T04 / OPEN-06 closes, and it is the strongest result of this pass.** The archetype column **did**
+  come from this repository. Commit **`67ede73` (2026-07-01 20:14)** reproduces the committed
+  `05_results.gpkg` archetype for all 41 buildings — not merely the Office family but the exact
+  per-building subtype. Director re-derived this from scratch against the committed gpkg files rather
+  than trusting the CSV: **41 exact matches, 0 mismatches, 0 missing**, `LargeOffice` 13 /
+  `MediumOffice` 21 / `SmallOffice` 7 on both sides. The finding is discriminating, not a coincidence:
+  the other historical states emit different distributions (`42f0c1d` and `62e5968` give 20/19/2,
+  `7635ce2` gives 6/17/18), so only `67ede73` fits.
+  **Mechanism**, verified by the director against the raw diff: the only change to
+  `building_classifier.py` between `67ede73` and `0df422e` is the `RULE_LODGING_TIER` rule gaining a
+  `building_tag` test it previously lacked — it read `function_tag` only. All 41 buildings carry
+  `hotel`/`motel` in `building_tag` with `function_tag` blank, so at `67ede73` they missed the lodging
+  rule entirely and fell through to an Office rule. The T11 fleet fan-out ran 07-01 23:14 → 07-02
+  22:07, after `67ede73` landed and more than twelve hours before `0df422e` did, so it necessarily ran
+  under the pre-fix classifier; `0df422e` then bundled the fix with the promotion of results that had
+  already been generated without it. **This resolves N07's provenance gap** — N07 checked the wrong
+  commit. Six of six historical states loaded; zero `NOT_LOADABLE`, so this is a category-(a) answer,
+  not (b) wearing (a)'s clothes.
+  Credit where due: the executor's first harness classified only the 41-row subset instead of the full
+  cell, the control failed at 31/10 instead of N04's 33/8, and it **reported that rather than tuning
+  around it** — `GROUPMEDIAN_LEVELS_MED` imputation is batch-dependent. The corrected harness
+  reproduced the control exactly. That is the discipline this arc asks for.
+- **T05 / OPEN-42 sharpens but does not close, and the negative is honest.** 15 of the 16 fatal
+  blow-up zones sit on the **topmost floor**, and the blow-up zone's geometry is byte-identical to its
+  own non-fatal siblings below it. Director confirmed on the raw `.eio`: `way_472960972`'s
+  `_F0_CORE`, `_F1_CORE` and `_F2_CORE` all report floor area 2,221.44 m² and volume 7,775.03 m³, and
+  only `_F2` fails — with 24 Severes, all `Temperature (high) out of bounds`. So the failing zone is
+  **ordinary, not degenerate**; shape-degeneracy is ruled out as the cause. Two candidate statistics
+  (a uniform `Volume=10.00 m³` anomaly, and raw zone size/aspect ratio) were killed by the plan's own
+  required 20-building background control — 12 of 20 background buildings show the same
+  `Volume=10.00` signature in `auto` mode and all 12 succeed. Verdict recorded as **not determinable
+  from `eplusout.eio`**. The executor ran the control before believing its result, which is why a
+  wrong answer did not get published.
+- **2026-08-18 — T06 dispatched** (register, checklist, this section, full suite), with the five
+  dispositions fixed by the director: **OPEN-37, OPEN-06 and OPEN-51 close; OPEN-52 and OPEN-42 stay
+  open** with sharpened next steps. Two corrections carried into it: the Severe counts in the OPEN-51
+  measurement doc (26/24/19 → **23/21/16**, the executor's grep also matched three trailing
+  `Error Summary` lines), and the `.sql`/`.end` shortfall, which needs its own register note.
+
+- **2026-08-18 — CP-3 reached. T06 lands; plan complete.** Both corrections applied: the OPEN-51
+  measurement doc and T02's own progress-log entry now read 23/21/16 with a one-line note on what the
+  original grep miscounted (the three trailing `Error Summary` lines). The `.sql`/`.end` shortfall was
+  opened as its own item, **OPEN-53**, with the census numbers (39,926/40,800 `.sql`, 39,925/40,800
+  `.end`, concentrated in `austin_suburban_fast_zone`/`austin_suburban_floor` plus one
+  `nyc_centre_fast_zone`) as its first evidence — explicitly out of OPEN-37's scope.
+  **Register §1 table recounted programmatically** (script over the table body, quoted in the plan's
+  §8 T06 entry): **26 live rows / 27 struck / 53 total, exactly OPEN-01…OPEN-53, no row missing, none
+  duplicated.** Retired-ID lineage: 22 going in + three this pass (OPEN-06, OPEN-37, OPEN-51) =
+  **25 retired IDs**; the struck-vs-retired reconciliation (27 struck − 25 retired = 2, still OPEN-02
+  and OPEN-28 folded under OPEN-01) survives, restated for the new arithmetic. **Next free item ID:
+  OPEN-54.** `docs/PROJECT_CHECKLIST.md` carries a matching dated entry. `docs/docs_DONE/`,
+  `docs_main/`, `docs_stepN/`, root `main.py` and all OVERVIEW/DESIGN docs untouched; no git write
+  command run.
+  **Full suite, alone:** see the RESUME box at the head of this file for the raw counts against the
+  1875/55/0 baseline — reported there rather than duplicated in this log.
+
+- **2026-08-18 — CP-3 signed by the director, and the suite "contradiction" is resolved: there is no
+  regression. The baseline definition was wrong, not the run.** T06 reported
+  `36 failed, 1918 passed, 55 skipped, 17 errors` from a **bare** `pytest -q` at the repo root and
+  — correctly — refused to smooth it over. The director resolved it without re-running the suite:
+  - `pyproject.toml` has **no `testpaths` and no `norecursedirs`**, so a bare `pytest -q` at the root
+    collects the whole tree, including five test files under
+    `docs/docs_DONE/LOADS & SCHEDULES/elevators/scripts/tests/` and
+    `scripts/analysis/test_viewer_layout_assign.py`.
+  - Those files have been in the tree since **`ef19141` (2026-07-21)** and **`69373f9` (2026-07-27)**
+    — both well before the 2026-08-17 baseline. So a bare root-level run **could never** have produced
+    `0 failed` on 2026-08-17 either. The 1875/55/0 baseline was produced by **`pytest -q tests/`**,
+    not by the bare command the plan's T06 step 5 wrote down. **The plan text was wrong; fix it in the
+    next plan.**
+  - Collection proves it exactly: **`tests/` alone collects 1930 tests = 1875 passed + 55 skipped**,
+    the baseline to the unit. Root-wide collects **2026**. The 96-test difference reconciles with no
+    slack: 43 passed + 36 failed + 17 collection errors = 96, all of them outside `tests/`.
+  - Therefore **inside `tests/` this run was 1875 passed / 55 skipped / 0 failed — the baseline
+    reproduced exactly.** The `access violation` line count was **7**, matching the last three logs.
+    This pass's only code edits were four harvest scripts (never imported by the suite) and one
+    comment, so a clean suite was the expected outcome and is what happened.
+  - **Two real findings fall out of this, both new and neither this plan's fault.** (a) There are
+    **`.py` files under `docs/`**, which `CLAUDE.md` forbids outright — five test files, sitting in the
+    read-only `docs_DONE/` archive since 2026-07-21. (b) One of them is named
+    `test_results_aggregator.py`, **colliding with `tests/test_results_aggregator.py`**; with no
+    `__init__.py` and pytest's default import mode that basename collision is what produces the 17
+    collection errors. Both want a register item; neither is in scope today. The cheap remedy for the
+    whole class is a `testpaths = ["tests"]` line in `pyproject.toml` — propose it, do not apply it
+    unasked.
+
 ## 6. The rule that governs this arc
 
 **No execution plan may be written for an item until that item's "first measurement" (named in its own
@@ -1680,6 +2219,18 @@ tcsh answered `Illegal variable name.`, and `sbatch` was never reached. It logge
   unrelated-looking logic failure in whichever test touched scratch next. **This cost a full
   false-failure investigation on 2026-08-13 (OPEN-52), and it was the director's error, not the
   executor's.** A test failure you cannot reproduce sequentially is this until proven otherwise.
+- 🔴🔴 **A test-suite baseline is a COMMAND, not a number — write the command down or the number
+  lies.** Added 2026-08-18, after T06 reported `36 failed … 17 errors` and looked like a regression.
+  It was not one: `pyproject.toml` sets **no `testpaths` and no `norecursedirs`**, so a bare
+  `pytest -q` at the repo root collects the whole tree, ~96 tests more than `tests/` — including five
+  `.py` test files parked under `docs/docs_DONE/` since `ef19141` and one under `scripts/analysis/`
+  since `69373f9`. **The 1875 / 55 / 0 baseline is `pytest -q tests/` and always was.** The resolution
+  needed no re-run, which is the transferable part: **`--collect-only` settles a scope dispute in
+  seconds where a re-run costs 25 minutes.** `tests/` collects **1930 = 1875 + 55**; root-wide collects
+  **2026**; the 96-test gap is exactly **43 passed + 36 failed + 17 errors**, all outside `tests/`.
+  ⚠️ **Two live defects fell out of it and are ruling `3b`:** `.py` files under `docs/` (forbidden by
+  `CLAUDE.md`) and a **basename collision** — `test_results_aggregator.py` exists twice, and with no
+  `__init__.py` that collision *is* the 17 errors.
 - 🔴 **A gate believed "parked" may simply never have been run.** OPEN-24's LIVE_SMOKE gate was
   carried for eight weeks as *"the most consequential of the four parked gates."* It was green:
   EnergyPlus 23.1.0-87ed9199d4 installed, no network needed, `7 passed` in ~66s, four times running.
@@ -1690,6 +2241,11 @@ tcsh answered `Illegal variable name.`, and `sbatch` was never reached. It logge
 - **Fresh Sonnet session per unit of work.** Never resume an old agent for new work. The plan doc is the
   single source of state. *Exception:* an agent still mid-task on a not-yet-reported unit.
 - **Never run cluster, harvest or inventory work in the manager session.** Delegate it.
+- 🔴 **Write `.venv/Scripts/python.exe -m pytest -q tests/` into every brief — never the bare
+  command.** A plan that says bare `pytest -q` makes a careful executor report a false regression and a
+  careless one bury a real change inside 36 pre-existing failures. `PLAN_five-items-2026-08-18.md`
+  T06 step 5 got this wrong; the executor reported the discrepancy rather than smoothing it, **which is
+  the behaviour to keep** — the plan was at fault, not the run.
 - **Tell executors upfront to block on artifacts on disk, never to wait for a notification.**
 - 🔴 **An executor's "completed" is a claim, not a fact — R10 proved it twice in one task.** That agent
   reported completion once while dead at 36/60 arrays and once with a live background child at 48/60.

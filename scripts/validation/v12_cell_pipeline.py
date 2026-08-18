@@ -351,7 +351,7 @@ def fetch_results(osm_ids: list[str], remote_fleet_dir: str, sim_out_dir: Path) 
     for i, batch in enumerate(batches):
         tgz = sim_out_dir.parent / f"fetch_batch_{i:03d}.tgz"
         paths = " ".join(
-            f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end"
+            f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end {oid}/eplusout.eio"
             for oid in batch
         )
         remote_cmd = f"cd {remote_fleet_dir}/out && tar czf - --ignore-failed-read {paths}"

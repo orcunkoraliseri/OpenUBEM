@@ -287,7 +287,7 @@ def fetch_results(job_id: str, osm_ids: list[str]) -> None:
     fetch_cmd = (
         f"cd {REMOTE_FLEET_DIR}/out && "
         f"tar czf - --ignore-failed-read "
-        + " ".join(f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end" for oid in osm_ids)
+        + " ".join(f"{oid}/eplusout.sql {oid}/eplusout.err {oid}/eplusout.end {oid}/eplusout.eio" for oid in osm_ids)
     )
     proc = subprocess.Popen(
         ["ssh", REMOTE_HOST, f"bash -lc '{fetch_cmd}'"],
