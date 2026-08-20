@@ -1,6 +1,6 @@
 # MEASUREMENT — Does the column-reproducibility result hold on the other eight cells? (OPEN-06 / N16)
 
-> **Task:** N16, `docs/docs_ACTIVE/openings/implemenation/PLAN_no-compute-queue-4.md` §6.
+> **Task:** N16, `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_no-compute-queue-4.md` §6.
 > **Scope:** Stage 2 only (semantic enrichment + classification), the plan's single authorised
 > compute exception. No Step 3/IDF/EnergyPlus/cluster was run. Measurement only — no remediation.
 

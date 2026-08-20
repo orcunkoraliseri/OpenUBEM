@@ -1,7 +1,7 @@
 # MEASUREMENT — the missing-input census (OPEN-35 · OPEN-12)
 
 > **Slug:** `open-35-12_missing-input-census` · **Date:** 2026-08-06 · **Task:** N06 of
-> `docs/docs_ACTIVE/openings/implemenation/PLAN_no-compute-queue-2.md`.
+> `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_no-compute-queue-2.md`.
 > **MEASUREMENT ONLY. No remediation was performed or proposed.** No EnergyPlus, no IDF generation, no
 > fleet pass, no cluster. Every number below is read directly from `01_buildings.gpkg` /
 > `05_results.gpkg` already on disk, with `pandas`/`geopandas`, no classifier execution.

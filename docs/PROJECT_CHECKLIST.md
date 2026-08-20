@@ -158,12 +158,65 @@ not.**
 > detail (§L); the quote-blocks above are the dated journal. If those three disagree, **this section
 > and the arc plan docs win** — the journal is append-only and never rewritten.
 
-**Adopted simulation baseline — UNCHANGED, and untouched by everything in Arc L.**
+**Adopted simulation baseline — RESTATED 2026-08-19.**
 `phaseE` + E-R3-3 correction + elevators. NYC −31.3% / LA −3.6% / Austin −30.5%, fleet
-~~158.0~~ **157.1 kWh/m²** (pooled: total simulated energy ÷ total simulated floor area; the struck
-figure was a count-weighted mean of the 12 cell means, superseded 2026-08-12, OPEN-43). It resolves
+~~158.0~~ ~~157.1~~ **153.8 kWh/m²** (pooled: total simulated energy ÷ total simulated floor area; the
+first struck figure was a count-weighted mean of the 12 cell means, superseded 2026-08-12, OPEN-43;
+the second was superseded 2026-08-19 by the twelve-cell re-run `open48_refleet4`). It resolves
 `thermal_mass=False` on every built row, so the E-LA-20 fix is provably
 inert on it (F10, by construction — no re-simulation was needed to establish this).
+
+> **What changed, in one paragraph.** The re-run put four landed fixes through all twelve cells on the
+> same 8,160 buildings. **Exactly one of them moved the number.** Buildings the model cannot identify
+> (`OpenUBEMUnknown` — 650 of them, 3.7% of the fleet's floor area) had been drawing their equipment
+> and lighting loads from a pool that included **data centres and laboratories**, which pushed some of
+> them to 450–580 kWh/m² — implausible for an unnamed building. OPEN-55's screen removed those donors.
+> That population fell **223.4 → 107.2 kWh/m² (−52%)** and pulled the fleet down **−4.16**; everything
+> else drifted **+0.93**, for a net **−3.23 kWh/m², −2.06%**. **This is a correction, not a new model:
+> the same buildings, the same definition, better donors.** ⚠️ **The new figure is not volume-correct
+> — OPEN-56 is still open, every building still simulates with a 10 m³ zone-volume stub worth about
+> +1.0 kWh/m², and that is NOT in the 153.8.** A volume-correct fleet would be ≈154.8. Derivation:
+> `docs/docs_ACTIVE/openings/extra/MEASUREMENT_fleet-restatement-2026-08-19.md`.
+>
+> **Two things are waiting on you.** (1) The floor-count fix (OPEN-35) corrected 20 buildings that were
+> wrongly modelled as single-storey — but the 21st, a 19-storey hotel in `nyc_centre`, **now fails to
+> simulate at all** where it used to run. That is a regression the fix introduced; it needs an ID and a
+> decision. (2) The donor screen also reclassified **4 `Courthouse` buildings to `Unknown`** — together
+> 477,804 m², one of them the largest building in its cell. That may be the screen being properly
+> cautious or over-rejecting; it is a judgement call, not a measurement.
+>
+> **Sharper now (CP-1 of the twenty-item pass, audited 2026-08-19 late).** On (1): the risk is **not**
+> one building and **not** all 21 — it is an **8-building group**, all of them `nyc_centre` hotels
+> imputed to 19 storeys, of which **4 needed repair and 1 failed outright**. Every other building the
+> fix touched came through clean, including *taller* 45-storey ones in `austin_centre`. Scope the
+> decision to those 8. A third open item, **OPEN-56** (the room-volume stub worth ≈ +1 kWh/m² that
+> sits outside the 153.8 headline), also now has a second possible remedy: the winding-correction
+> code we relied on turns out to never run at all — it tests each shape against a reference point
+> built from that same shape, so it always concludes "already correct". So either write the volume
+> explicitly, or turn on the orientation step that is currently switched off for our default mode.
+> **All three are yours to rule on; none was taken here.**
+>
+> **The twenty-item pass is finished (2026-08-19, late).** All 20 tasks ran and all three
+> checkpoints — CP-1, CP-3, CP-2, in the order they came back — are audited and signed. **Nothing in
+> the whole pass moved the 153.8 headline**, and no open item was opened, closed or retired: the
+> register still stands at 19 tracked, next free ID `OPEN-60`. Every task was measurement-only, and
+> no file under `openubem/`, `tests/` or `scripts/validation/` was touched — checked, not assumed.
+>
+> **Four things now wait on you, not three.** The fourth is new and came out of CP-3: **we currently
+> cannot measure the energy of anything built in `layout_assign` mode.** Every build in this arc was
+> made with the output-trimming switch on, and that switch strips exactly the per-zone output the
+> results parser checks for before it will read a building. Three separate tasks hit this wall and
+> **each said so instead of substituting a weaker number** — which is the right behaviour. ⚠️ **This
+> is a hole in what we can measure, not an error in any number we have published**: nothing adopted
+> depends on that mode, so the impact on published results is zero. It needs a rebuild with the
+> switch off to close, and **whether it becomes a tracked item is your call.**
+>
+> **Two things worth knowing from CP-2.** The test suite reproduces its baseline exactly —
+> **1,919 passed / 55 skipped**, run twice the same day on two independent processes. And the
+> scratch copy of the E02 results was **swept a second time by something outside this project**
+> (2026-08-19 16:19), after the first sweep on 2026-08-17. **The fleet data itself is fine** — the
+> run the 153.8 figure comes from still holds all 8,160 of its files, checked directly. But this is
+> now a pattern rather than an accident, which is what OPEN-53 exists to track.
 
 **Arc L — `layoutAssigner` — 🔄 RE-OPENED 2026-07-26 as the Q3 storey-matching arc.** The park
 lasted a day: Q3 (the √S form distortion, recorded at close as the largest open problem) is now
@@ -1154,11 +1207,11 @@ re-run that retains `eplusout.eio`.
 > **OPEN-25 CLOSED** (fixed 2026-06-10, the day after it was named — carried here for eight weeks
 > afterwards); **OPEN-34 and OPEN-35 opened**, both found by *auditing* a completed task rather than
 > by running one; first measurements made on **OPEN-22, OPEN-29, OPEN-06/07/11, OPEN-34**.
-> Plan doc for the no-compute work: `docs/docs_ACTIVE/openings/implemenation/PLAN_no-compute-queue.md`.
+> Plan doc for the no-compute work: `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_no-compute-queue.md`.
 > The five-mode local re-run is **parked at the user's instruction** until a machine is free.
 >
 > **Superseded the same night — round 2 of the no-compute queue:
-> `implemenation/PLAN_no-compute-queue-2.md` (N06–N12). Now 32 items, OPEN-01 … OPEN-36, next free ID
+> `implemenation/previous/PLAN_no-compute-queue-2.md` (N06–N12). Now 32 items, OPEN-01 … OPEN-36, next free ID
 > OPEN-37.** First measurements made on **OPEN-35 (size), OPEN-12, OPEN-06/07, OPEN-13, OPEN-14,
 > OPEN-15/16/17, OPEN-10, OPEN-19**. Three findings that change what other documents mean:
 > **(1) OPEN-06 is a provenance defect, not a labelling one** — the three failing buildings were
@@ -1171,7 +1224,7 @@ re-run that retains `eplusout.eio`.
 > **That last one makes every completion record in this file's history unverified until checked**, and
 > checking costs no CPU.
 >
-> **Round 3 opened the same night — `implemenation/PLAN_no-compute-queue-3.md` (N13–N15), all no-CPU.**
+> **Round 3 opened the same night — `implemenation/previous/PLAN_no-compute-queue-3.md` (N13–N15), all no-CPU.**
 > **N15 has landed and is audited: OPEN-12 and OPEN-14 are two separate items, not one defect.** The
 > four-cell convergence recorded under OPEN-14 — the four cells with no tracked Overture slice being the
 > four worst for missing `height_m` — **is a coincidence.** The fleet's `01_buildings.gpkg` never
@@ -1222,7 +1275,7 @@ re-run that retains `eplusout.eio`.
 > directions, finishing off N14's struck "same rows" claim.
 >
 > ### 2026-08-06 — the compute queue opens; **E02 is running**
-> Plan: `docs/docs_ACTIVE/openings/implemenation/PLAN_compute-queue.md` (C01–C06). **The user
+> Plan: `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_compute-queue.md` (C01–C06). **The user
 > released the local workstation for simulation**, unparking every measurement the no-compute queue
 > could not reach.
 > 🔴 **A second prerequisite was found, and it had an attractive wrong answer.** Besides the known
@@ -1273,7 +1326,7 @@ re-run that retains `eplusout.eio`.
 
 > **🔴 Amended 2026-08-11 (later) — the E02 audit and closure pass.
 > The register is now at 31 tracked items / 31 findings, down from 35 / 37.**
-> Plan: `docs/docs_ACTIVE/openings/implemenation/PLAN_e02-audit-and-closure.md` — T01–T06, all six
+> Plan: `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md` — T01–T06, all six
 > landed, three checkpoints director-signed by independent re-derivation from raw artifacts.
 > **Arithmetic, so it can be checked: 35 − 5 closed + 1 opened = 31.**
 >
@@ -1357,7 +1410,7 @@ substance, but one candidate mechanism has now been eliminated with evidence (se
 
 ~~**Next free defect ID: E-LA-42 · next free register item ID: OPEN-33.**~~
 
-🟩 **Current as of 2026-08-13 (CP-1 of `openings/implemenation/PLAN_two-measurements-2026-08-13.md`),
+🟩 **Current as of 2026-08-13 (CP-1 of `openings/implemenation/previous/PLAN_two-measurements-2026-08-13.md`),
 kept consistent with the register's own §1 header: 35 tracked items (OPEN-01 … `OPEN-50`), next free
 item ID `OPEN-51`; next free defect ID `E-LA-42` and next free UTCI defect ID `E-UTCI-17` both
 unchanged — this pass opened no defect ID.** Arithmetic since the last figure written here:
@@ -1459,7 +1512,7 @@ the site that matters. Full record: `extra/MEASUREMENT_open-01_denominator-swap.
 > **mechanism fixed, closure blocked**, not open on an unknown cause and not closed on an unverified
 > headline.
 
-🟩 **Five more items now in execution — `openings/implemenation/PLAN_five-items-2026-08-13.md`.** Chosen
+🟩 **Five more items now in execution — `openings/implemenation/previous/PLAN_five-items-2026-08-13.md`.** Chosen
 on your instruction: **OPEN-50, OPEN-44 (which carries OPEN-13's residual), OPEN-45, OPEN-36, OPEN-26.**
 One theme: **the test suite and this project's own completion records currently assert things that are
 not true** — 45 red tests containing **zero real defects**, a fixture the suite silently rewrites, a
@@ -1521,7 +1574,7 @@ ruling.** The user chose **option (b): keep the old gate, add a second one.** `t
 `TestTagRichTop1Accuracy` now gates `tests/fixtures/labelled_archetypes_tagrich_v2.csv` at **≥0.80**,
 measuring **88.8% on 98 graded rows** — **8.8 points of headroom** (91.6% excluding fallback;
 size-guessing 34.0% → 3.1%). `133 passed, no failures, no skips`.
-Plan: `openings/implemenation/PLAN_open22-tagrich-gate-2026-08-13.md` (CP-1 signed).
+Plan: `openings/implemenation/previous/PLAN_open22-tagrich-gate-2026-08-13.md` (CP-1 signed).
 Evidence: `openings/extra/FIX_open-22_tagrich-gate.md`.
 **Register: 35 tracked items → 34.**
 
@@ -1551,7 +1604,7 @@ artifacts rather than waiting on the report — **which is the part of the proce
 
 ---
 
-✅ **Five more items swept 2026-08-13 (later) — `openings/implemenation/PLAN_five-more-items-2026-08-13.md`, T01–T05, CP-1 and CP-2 both signed.**
+✅ **Five more items swept 2026-08-13 (later) — `openings/implemenation/previous/PLAN_five-more-items-2026-08-13.md`, T01–T05, CP-1 and CP-2 both signed.**
 **Closed and retired: OPEN-24, OPEN-32.** **Opened by the audit: OPEN-51, OPEN-52.**
 **Register: 29 tracked items → 29.** *(The count is flat and that is the honest reading — this pass
 closed two and found two. Re-counted programmatically: **29 live rows, 23 struck = 52, exactly
@@ -1641,7 +1694,7 @@ duplicated. Twenty-five IDs retired in all** (22 going in + OPEN-06/OPEN-37/OPEN
 **Next free item ID: OPEN-54.**
 
 **Full suite, run alone:** see the plan doc's T06 progress-log entry
-(`docs/docs_ACTIVE/openings/implemenation/PLAN_five-items-2026-08-18.md` §8) for the raw counts
+(`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_five-items-2026-08-18.md` §8) for the raw counts
 against the 1875/55/0 baseline.
 
 Full detail: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`.
@@ -1667,7 +1720,7 @@ pass).
 **Full suite, run alone (T01/A1, foreground):** `1875 passed, 55 skipped, 11 warnings in 1572.28s (0:26:12)`.
 
 Full detail: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`;
-`docs/docs_ACTIVE/openings/implemenation/PLAN_four-items-2026-08-18.md` §8.
+`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_four-items-2026-08-18.md` §8.
 
 ---
 
@@ -1692,5 +1745,570 @@ retired in all.** Struck-vs-retired difference unchanged at **exactly 2** (OPEN-
 **Full suite, run alone (T06, foreground):** `1875 passed, 55 skipped, 11 warnings in 1035.59s (0:17:15)`
 
 Full detail: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`;
-`docs/docs_ACTIVE/openings/implemenation/PLAN_open-52-and-four-items-2026-08-18.md` §8;
+`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-52-and-four-items-2026-08-18.md` §8;
 director's log `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` §5.20.
+
+---
+
+**Amendment 2026-08-18 (late) — `PLAN_open-48-and-four-items-2026-08-18.md`, T01–T06 complete.**
+🔴 **Zero items closed, and that is the correct outcome.** Four items whose register entries asserted
+facts about the live tree were re-derived; **all four premises were false and all four items stay
+open.** Correcting a record is not closing an item.
+
+| Item | Outcome |
+|---|---|
+| **OPEN-48** | 🔴 **STAYS OPEN. All five rows of its evidence table were false** and are struck in place. At HEAD: `builder.py:40` imports `assign_elevators`, `:609` calls it, `outputs.py:43` carries the meter, `HVAC_METERS` = 14 not 13, both result columns present, and a live standalone `BuildingIDF.build()` emits 1 elevator object for LargeOffice/12-level and 0 for a SmallOffice/1-level control. **Reason re-shaped: the gap is no longer "code is missing" — it is "no post-fix fleet re-run exists." Authorising a third fleet run is a ruling owed to you, and is now the largest blocker on the register.** |
+| **OPEN-47** | 🔴 **STAYS OPEN on Reason 2 alone.** Reason 1 — "the floor-count divergence is Not adjudicated" — was stale: **you ruled on it 2026-08-12** and the reasoning is in `building_classifier.py:167-189`. Every number in that ruling reproduces exactly on a freshly written script (598 changes, 380/161/57, 437 newly elevator-eligible, sources 85/346/167). What keeps it open is the citation half: a second fabricated DOI, a systemic wrong-locator pattern, two dead links. |
+| **OPEN-13** | 🔴 **STAYS OPEN, narrowed to nothing of its own.** Its claim that a bare `pytest` aborts at collection is false at HEAD by two independent mechanisms. All ten skips (corrected from nine) are future-feature pinning for OPEN-17, not lost production coverage. |
+| **OPEN-12** | 🔴 **STAYS OPEN; the six-week contradiction is explained.** Both original figures reproduce exactly on the UTCI arc's own untracked working copy; the fleet's tracked files really are 100% missing. **Two correct numbers describing two different populations — no reconciliation is owed.** |
+| **OPEN-48 — superseded 2026-08-18 (late)** | 🟢 **The third fleet run was authorised by you and has run. The blocker above is discharged.** Full result: `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-48_third-fleet-run.md`. **Answer: the OPEN-49 fix is worth nothing outside noise on classified buildings — under 0.08 %** (Unknown-free cells `la_rural` −0.0906 and `austin_urban` −0.0614; +0.0004 / +0.0001 / −0.0001 on three cells with Unknowns excluded). Every classified building changed value and no cell mean moved. 🔴 **CP-2 ruled: run 3 yields NO fleet figure** — five of twelve cells stopped on a defect the run itself found (**OPEN-55**, Unknown buildings drawing data-centre equipment loads up to 5381.96 W/m²), and four of the five passes passed *by dropping* exactly those buildings. 🔴 **CP-3 ruled: `157.1` STAYS** — OPEN-55 postdates it and nothing measured displaces it. ⚠️ **New, and it belongs beside the published figure:** run 2's Unknown path contributes **+4.058 kWh/m² (+2.615 %)** — 650 buildings, 3.7 % of floor area, mean EUI 264.9 vs fleet 159.2 — **nearly twice the +2.16 discrepancy this arc spent three fleet runs chasing.** Measured on run 2, **estimated** for the adopted run (whose per-building results are gone); **report it, never subtract it.** The run that could move 157.1 is one taken *after* the OPEN-55 ruling. |
+| **OPEN-51** | ⚠️ **Already closed hours earlier — a director error in choosing the slate**, recorded in the register rather than buried. Re-run anyway, which **located the original `.err` evidence a previous closure had declared lost**; verdict unchanged, evidence grade upgraded. |
+
+---
+
+**Amendment 2026-08-18 (late, second pass) — `PLAN_ten-items-2026-08-18-late.md`, ten items selected, planned and executed.**
+🔵 **Two items closed, one opened, and the one opened is the biggest thing here.** You asked for ten
+open items to be chosen, planned and carried to the end. That was done. Five of the ten turned out to
+be already answered — my selection error, recorded below rather than buried — and one of the remaining
+five found a defect nobody had seen.
+
+| Item | Outcome |
+|---|---|
+| 🔴 **OPEN-56 — NEW** | **Every building in the fleet simulates with a 10 m³ zone-volume stub.** EnergyPlus computes a **negative** air volume from the geometry we hand it (floors and ceilings wound the wrong way) and silently substitutes 10 m³. Measured at **8,160 / 8,160 — 100.00 %** of the twelve cells, re-confirmed in run 3. **Control: runs built from DOE-prototype geometry show 0 of 2**, so this is our geometry, not EnergyPlus. ⚠️ **This is NOT a claim that 157.1 is wrong** — infiltration is written per exterior-wall-area, not air-changes-per-hour, so it is not scaled by the stub, and the effect on annual EUI is **unmeasured and not assumed**. **What it needs first is a number, not a fix.** |
+| ✅ **OPEN-42 — mechanism found** | The item has been open since 11 August on *why* six buildings blow up thermally. **Answer: nothing is wrong with those six.** Their fatal zone is identical to its non-fatal siblings in the same file on every measurable field, and the "always the topmost storey" rule the item relied on **fails in run 2 — 4 of 6, not 6 of 6.** They are the extreme tail of OPEN-56: failures average −6,096 m³ of computed volume against −683 m³ for successes. 🔴 **The ruling that closed this investigation said the artifact needed "no longer exists on disk". It did exist** — one run newer — and finding it took a directory listing. |
+| ✅ **OPEN-48 — CLOSED, ID retired** | Its blocker was that no post-fix fleet re-run existed. One does now, and the fix it was testing measures **under 0.08 %**. Closes on a negative result, which is the honest closure. |
+| ✅ **OPEN-54 — CLOSED, ID retired** | Remedy implemented and tested. `_ssh` now raises on a non-zero remote exit and on timeout; the poll loop no longer reads a failed `squeue` as "array complete" — completion needs `sacct` to corroborate. Nine local tests pass, **none of them touching the cluster**. ⚠️ Not yet exercised against the live cluster; the first real run through it should be watched. |
+| 🟢 **OPEN-07 — closeable** | All three "regressed" buildings **succeed at HEAD**, 0 severe errors, on IDFs the item says do not exist. ⚠️ Caveat carried into the recommendation: the regression was seen in `layout_assign`, and this is the `auto`-family path. **Closure recommended, not taken — it is a scoping judgement, yours.** |
+| 🟢 **OPEN-11 — remedy invalidated** | Its six are **exactly** OPEN-42's six, predicted in writing before measuring. Its remedy is a six-building patch for a defect now measured in all 8,160. **Folds into OPEN-56 or closes against it — recommended, not applied.** |
+| ⚠️ **OPEN-38 / 53 / 29 / 13 / 12 — already done** | All five had a completed measurement in `openings/extra/`, four of them dated the same day. **I picked them off the register's summary rows, which still carried the original "not yet measured" framing with the answer recorded further down.** Cost: about half the pass. 🔵 **It exposes a real hygiene problem worth more than the wasted effort: the register's summary table is not a reliable index of what has already been measured.** |
+
+---
+
+**Amendment 2026-08-18 (overnight) — `PLAN_ten-items-2026-08-18-overnight.md`, ten items, all ten done.**
+You asked for ten different open tasks while you slept, with this checklist and the director prompt
+kept current. All ten landed. **This was the first batch where every live item already had a first
+measurement**, so each was picked by what its *own entry* names as the next unanswered question — six
+of the ten are questions the register itself writes down as *"the next thing on this item."*
+
+| Task | Outcome |
+|---|---|
+| ✅ **The room-volume cost, now measured on the whole fleet** | Last night's figure came from ten rural bungalows. This time: **69 buildings across all twelve cells**, every check clean (the tell-tale warning in **70 of 70** untreated runs, **0 of 70** treated, all 140 runs finished). **The fault makes buildings look 0.98 % cheaper on average — about 1 kWh/m² each — and 65 of 69 move the same way.** Slightly larger than the rural estimate, same direction. **I have not applied it to the published 157.1**, and it does not need restating. |
+| 🔴 **And my own prediction was half wrong** | I wrote down beforehand that the cost would grow with the number of rooms in a building. **It does not** — the correlation is 0.11, essentially nothing. It is a **flat ≈1 kWh/m² per building**, whatever its size. Last night's "per-room effect" reading was reasonable on ten buildings and is wrong on sixty-nine. |
+| 🔵 **Two problems that looked like one are two** | Writing the correct room volume fixes the six failing buildings — but it leaves the separate *non-convergence* warnings **completely untouched** (150 before, 150 after, unchanged on every building). **They are two independent faults that happen to hit the same 16 buildings.** Fixing one will not fix the other, and merging them would have been a mistake. |
+| ✅ **A figure declared un-reproducible, reproduced exactly** | A count of **90 buildings** has been quoted since early August; a previous check said reproducing it was out of scope and did not try. I ran it: **90 — and the same 66/24 split.** New with it: that fix would help **90 of 1,992 affected buildings, i.e. 4.5 %.** The other 95.5 % it cannot touch at all. |
+| ✅ **A blocker that was stale for the third time** | One item has been stuck since 5 August on *"the data we would need no longer exists."* **It does exist** — last week's sweep deleted the big files but left the small ones. The measurement it was waiting for now reads **3 buildings in 8,160 (0.04 %)**, with a control at exactly 0. |
+| 🔴 **A big-looking number that must not be quoted** | The 2,611 buildings with no storey data appear to use **48 % more energy** than the rest. **That is an illusion of mixing.** One neighbourhood supplies 1,589 of them and has nothing to compare against; **within neighbourhoods the direction is not even consistent** — four go up, four go down. The real answer needs the same kind of experiment I ran for the room-volume fault. |
+| ✅ **An old question about map data, settled** | The external-height source has **never once been used** — zero uses across 8,160 buildings, *including the one neighbourhood where we actually have the data file*. So the missing files were never the real obstacle; a switch in the settings closes the door first. |
+| 🔵 **Eight inherited defects, finally decidable** | Four of them (**E-LA-15, E-LA-18, E-LA-19, E-LA-30**) leave **no trace anywhere in 8,160 buildings**; a fifth is down to a single building. One (**E-LA-17**) turns out to be an existing item under another name — adopting it would count the same thing twice. **This is the material you need to say adopt or retire, and I have not decided for you.** |
+| ⚠️ **How exposed the evidence is, in gigabytes** | The simulation archives this work rests on are **152 GB, and 95 % of that is one file type** — the same type last week's sweep deleted elsewhere. **The part actually cited is under 0.12 GB.** Nothing was moved or deleted; this is a note, not an action. |
+
+⚠️ **Two mistakes of mine, caught before anything was reported, and recorded rather than quietly
+fixed.** (1) The first version of one measurement dropped a column and produced a number **ten times
+too large**; a missing row in its own summary table gave it away. (2) The fleet run put 140 jobs
+through six parallel workers and **ten produced empty output**, which reads as failure — run one at a
+time the same file finishes in 18 seconds. Both were corrected and re-run before any figure left the
+task.
+
+**No item was closed this pass and the count is unchanged.** Recommended closures now stand at
+**four**, all left to you: **OPEN-42**, **OPEN-11**, **OPEN-07**, and now **OPEN-08**.
+
+🔴 **Still waiting on you, unchanged since yesterday afternoon:** the **OPEN-55** ruling
+(`extra/PROPOSAL_open-55_unknown-pde-bounds.md` §10). Nothing is patched until it comes.
+
+**Register: 25 tracked items → 25** (nothing closed, nothing opened). Re-counted programmatically:
+**25 live / 31 struck / 56 total, exactly OPEN-01…OPEN-56, no row missing, none duplicated. Next free
+`OPEN-57`.** Struck-vs-retired difference unchanged at **exactly 2** (OPEN-02, OPEN-28).
+Full record: `docs/docs_ACTIVE/openings/extra/MEASUREMENT_ten-items-2026-08-18-overnight.md`.
+
+---
+
+**Amendment 2026-08-18 (night) — `PLAN_ten-tasks-2026-08-18-night.md`, ten tasks, all ten done.**
+🔵 **The zone-volume defect found this evening is now proved, and it is fixable by writing one
+number.** You asked for ten more open tasks chosen, planned and executed, with the director prompt
+kept current for tomorrow. All ten landed.
+
+| Task | Outcome |
+|---|---|
+| 🔵 **OPEN-56 — proved** | I wrote **one field** — the room's air volume — into a copy of each building's input file and re-ran EnergyPlus locally. **All six buildings that have been failing since 11 August now finish successfully with zero errors** (they had 9 to 39 errors each). The check that makes this trustworthy: the tell-tale warning appears in **16 of 16** untreated runs and **0 of 16** treated ones. **This is an experiment with a control, not a pattern spotted in a log.** |
+| 🔵 **What it costs — now a number** | On ten buildings that *did* run: **+0.75 % on average, +0.67 % typical, worst case +1.67 %.** Small. **But nine of the ten move the same way**, so the defect is a **bias, not noise — it makes buildings look slightly cheaper to run than they are.** ⚠️ **Ten buildings from two rural neighbourhoods is a bound and a direction, not a fleet figure**, and I have deliberately not multiplied it out into a correction to 157.1. **The published number does not need withdrawing or restating.** |
+| ✅ **OPEN-42 — solved** | Its question was *what is wrong with those six buildings.* **Nothing is.** They are simply the six where a fleet-wide defect tips over — the ones with the largest rooms, and therefore the largest error. **Closure recommended, not taken.** |
+| ✅ **Where the fault comes from** | **Not our code.** No part of OpenUBEM sets the floor/ceiling corner order; it comes from the third-party geometry library. 🔴 **We already have a check for exactly this and switched it off on purpose**, with a comment explaining that the signal is normal and checking it would raise false alarms. **That comment is why nobody looked for six weeks.** I have written the contradiction down rather than resolving it — resolving it means changing code. |
+| ✅ **A fleet-wide error taxonomy, a first** | All 8,160 error files censused: **123 message families, 9 present in every single building.** One that looked alarming — 52,932 "meter not found" warnings — was **checked and cleared**: every building with lift energy has its lift meter, every building carrying the warning has no lifts. Correct behaviour, and it independently confirms the lift-reporting item we closed earlier. |
+| 🔵 **OPEN-09 — half right** | Its concern was simulation non-convergence. Fleet-wide it affects **16 buildings in 8,160 — 0.20 %**, all in LA. **But all six of our failures are among those 16, and nothing outside them ever fails.** So "cosmetic" is true about how common it is and false about what it leads to. |
+| ✅ **Two old figures re-checked, both exact** | 32.00 % of buildings have neither a storey count nor a height; 34.39 % have no height. Both were measured on a fleet whose files were deleted last week. **Both reproduce to the unit on a fleet that still exists and can be re-run** — which is what the file-custody item has been asking for. |
+
+**No item was closed this pass and the count is unchanged.** Two closures are **recommended and left
+to you**, because retiring an item by folding it into another is your call, not mine.
+
+🔴 **One thing is still waiting on you and has been since this afternoon:** the **OPEN-55** ruling —
+how wide the screen on unnamed buildings should be (`extra/PROPOSAL_open-55_unknown-pde-bounds.md`
+§10). Nothing is patched until it comes.
+
+
+
+**Register: 24 tracked items → 24** (nothing closed, nothing opened). Re-counted programmatically:
+**24 live / 29 struck / 53 total, exactly OPEN-01…OPEN-53, no row missing, none duplicated. Twenty-seven
+IDs retired in all.** Struck-vs-retired difference unchanged at **exactly 2** (OPEN-02, OPEN-28).
+**Next free item ID: OPEN-54.**
+
+**Full suite, run alone (T06, foreground, `-rs`):** `1875 passed, 55 skipped, 11 warnings in 1477.74s (0:24:37)`
+**Skip census by file:** `tests/test_v19_national_cbecs_rescore.py` 18, `tests/test_draw_methods.py` 10, `tests/test_v19_basis_diagnostic.py` 8, `tests/test_debias.py` 5, `tests/test_impute_montage.py` 5, `tests/test_service_loads.py` 5, `tests/test_plotting_suite.py` 4.
+
+🔴 **Two things now waiting on you, both decisions rather than work.** (a) **Whether to authorise a
+third full fleet run** — this is the only thing left standing between the project and a reproducible
+published number. (b) **Whether to archive two sets of evidence out of gitignored scratch**: the three
+`E-LA-16` `.err` originals and the UTCI backfill dataset that is the only thing reproducing OPEN-12's
+original percentages. Both sit in the space the standing corpus-erosion warning covers.
+
+**🟢 The progress board is current again** — `https://claude.ai/code/artifact/0615b50a-75d6-49c6-a354-d4f2f74d3639`,
+six days stale when you asked, now carrying 13–18 August. Keeping it current is a standing obligation
+from now on.
+
+Full detail: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`;
+`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-48-and-four-items-2026-08-18.md` §8;
+director's log `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` §5.21.
+
+
+---
+
+**Amendment 2026-08-19 — `PLAN_ten-items-2026-08-19.md`, ten tasks, nine done.**
+🟢 **Your four approved closures are done, and the pass's biggest result is that two of the
+items were describing the problem wrongly.** You asked for ten new tasks chosen, planned and executed
+to the end, and you gave three rulings up front. Nine tasks landed. **One — the test that would
+prove the OPEN-55 fix works — never ran, and I am not going to dress that up.**
+
+| Task | Outcome |
+|---|---|
+| ✅ **Your ruling R1 — implemented** | The screen on unnamed buildings is in. An unidentified building can no longer draw a **data centre's** equipment load: the ceiling drops from **5,382 W/m² to 16.15**. Ten new tests; the full suite passes (1,885 tests). |
+| ⛔ **… but it is UNPROVEN** | The test that checks it actually works on real simulations **has failed to run three times** — **zero buildings simulated**. Every attempt died at the same point: the first call out to the cluster. **Do not read this as "it works."** |
+| 🔵 **OPEN-35 — the register was wrong about the size** | The item said ~**1,031** buildings are "chosen as a 19-storey building but built as one storey." A full census of all 1,031 says it is **11**. The other 1,020 get "1 storey" from *both* methods, so there is nothing to disagree about — mostly because two NYC cells have **no storey data at all** to take a median from. |
+| 🔵 **… and the effect is not one-directional** | On those 11, correcting the storey count moves energy use **up on 7 and down on 4** — from **+40.5 % to −12.6 %**, splitting by climate. The task's own prediction was **wrong**, and it said so. Controls were clean: 10 untreated buildings moved by **exactly zero**. |
+| ✅ **OPEN-12 vs OPEN-35 — not the same population** | The register implied these two might be the same buildings. They are not: one is a **strict subset** of the other. |
+| ✅ **Four items closed — your ruling R2** | **OPEN-42** and **OPEN-11** fold into OPEN-56; **OPEN-07** and **OPEN-08** close on their own measurements. Each closure record names **what survives it**, so nothing is lost by closing. |
+| ✅ **Evidence copied into the repo — your ruling R3** | **323 files, 12 MB** — about **8 %** of the space we budgeted — with a hash list. I re-checked 40 of them at random myself: all match. |
+| ✅ **OPEN-47 — de-scoped by a clean negative** | The two untraced size thresholds explain almost none of the errors we were blaming them for. |
+| ✅ **OPEN-38 — the blocker was stale** | "No input file survives" was true of the *old files*, not of our ability to rebuild them. Rebuilt and measured. Third time in two days a "blocked" item turned out not to be. |
+
+🔴 **Two new problems opened, and both were found by accident — which is the pattern worth
+noticing.** Neither came from a task that went looking for it.
+
+- **OPEN-57 — the cluster connection intermittently breaks.** Same failure, same place, twice, on
+  two different runs. It is the reason the OPEN-55 test has never run: each attempt does **3–4
+  minutes of good work locally** (all 1,589 buildings prepared successfully) and then throws it away
+  at the first call to the cluster. I stopped after the third attempt rather than trying a fourth.
+  **The OPEN-55 test cannot be retried until this is fixed.**
+- **OPEN-58 — a test helper script has two bugs.** It let two different buildings **overwrite each
+  other's results**, and it calculated energy use by a formula that is **not the one production
+  uses**. The task that found it **threw away its own completed results and re-ran them clean**
+  rather than publishing them — so this pass's numbers are fine. 🔴 **What is not known is
+  which *older* results used that same helper.** Nobody has checked. That check is the single most
+  useful next thing to do.
+
+**Register: 21 tracked items → 23.** Four closed (your R2), two opened. Re-counted programmatically
+after every edit: **23 live / 35 struck / 58 total, exactly OPEN-01…OPEN-58, no row missing, none
+duplicated. Next free item ID: OPEN-59.**
+
+**Checkpoints: three of four signed.** CP-1, CP-3 and CP-4 signed on evidence I re-derived myself
+rather than taking on the executor's word. **CP-2 cannot be signed** — the acceptance test did not
+run. Its stop condition was never triggered (it gates on a *wrong* answer, not a *missing* one), so
+the rest of the pass continued as designed and none of the other nine tasks depended on it.
+
+🔴 **What is waiting on you:** whether to spend a pass on **OPEN-57** (the cluster connection)
+so the OPEN-55 test can finally run, and whether to spend one on **OPEN-58's** blast radius — which
+old results used the buggy helper. Both are registered; neither is scheduled.
+
+Full detail: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`;
+`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-2026-08-19.md` §8;
+director's log `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`.
+
+---
+
+## 2026-08-19 (later) — four items driven to the end
+
+**The cluster connection is fixed, and it was never intermittent.** It was two separate faults
+stacked on top of each other, and the second one is the interesting one.
+
+- **Fault 1 — the command was simply too long.** Every building's name was packed into one line
+  sent to the cluster, and past a certain length the machine at the other end could not read it at
+  all. It is exactly reproducible: **565 names work, 566 do not.** Worth recording because it is
+  tempting to round: the last failing size is **one byte under 8,192**, so the obvious "it's an 8k
+  limit" explanation is wrong, and no round number fits. The content makes no difference — only
+  the length.
+- **Fault 2 — and this one nearly slipped through.** With the names moved out of the command, the
+  check **still reported zero finished buildings, against a folder that was full**. That looks
+  exactly like a folder that had been cleaned out, and it was very nearly written off as one. It
+  was not: Windows silently adds an invisible extra character to the end of every line sent that
+  way, so each building's name arrived slightly wrong and no file was ever found. **It returns a
+  clean, believable, completely wrong answer**, and it would never happen on a Linux machine.
+  🔴 Had we accepted the first explanation, we would have shipped a check that always says
+  "nothing is finished".
+- ✅ **Proved working on real data:** the fixed check now reports **225 of 226** for a real
+  neighbourhood — the exact number already on record for it from months ago.
+
+**The helper-script bug's reach is now measured, and the item's own description was wrong.**
+Three scripts really used it. The problem is **not** that they share an output folder — they don't
+— it is that they share the folder the simulator itself works in, which means **all three were
+affected, not only ones running side by side.** An audit looking for the wrong thing would have
+cleared two of them. **One genuinely corrupted result was found** out of 166 rechecked: one
+building carrying another building's numbers, identical to fifteen digits. It had already been
+thrown out, but for the wrong stated reason. ✅ **No published number is affected** — the wrong
+energy formula moves absolute values, and every figure we quote from those runs is a percentage
+change on the same building, which cancels it out.
+
+**The storey-count disagreement is fixed — and the count of affected buildings was wrong.** It was
+recorded as 11. It is **21**: the original count looked only at apartments, and ten hotel buildings
+reach the same invented storey count by the identical route. The 11 are entirely inside the 21. A
+broader fix that would have moved 509 buildings was rejected as a different change, not this one.
+🔴 The fix was first landed **switched off** — correct code that nothing actually called — and
+then wired into two of the three places that need it. Stopping there would have left the building
+step and the reading step disagreeing about the same 21 buildings, which is the very fault being
+fixed, moved somewhere new. All three now agree, with a test holding them together.
+
+**The office size-threshold question is answered.** The source is real and verified. What was still
+open is that the source's rule uses floor area **and** number of floors, and our code uses only
+area. **598 buildings would be classified differently — and every one of them would move to a
+larger office type. Not one moves smaller.** So the omission is not neutral. **167 of those 598
+have no floor count at all**, which is why this must be sequenced after the storey fix, not before.
+
+**Test suite green throughout, checked three times as the work landed** — 1,893 then 1,896 then **1,919 passed, 55 skipped, nothing failing**. The baseline before this pass was 1,885; the extra 34 are the new tests written for these fixes.
+
+🔴 **What is waiting on you:**
+1. **The 1,589-building test can finally run** — the thing that blocked it is fixed. I did not run
+   it; that needs your go-ahead.
+2. **Whether to restate the published fleet figure.** It was computed before the storey fix and is
+   now out of date for 21 buildings. I have not restated it.
+3. **Whether to adopt the source's full office rule**, or record our departure from it deliberately.
+4. **Four closures I recommend but have not made:** the connection fault, and the four earlier
+   items whose evidence is now complete.
+
+**Register unchanged at 23 live / 58 total** — nothing was closed, because closing is your call.
+
+---
+
+## 2026-08-19 (late) — you said close them all; three are closed, one is running
+
+**Three items are closed and their IDs retired. The open count drops 23 → 20.**
+
+- **The cluster connection fault — closed.** The fix is landed and it was checked against reality,
+  not against itself: it now reports **225 of 226** for a real neighbourhood, which is the exact
+  number already on record for that neighbourhood from months ago.
+- **"Defects the register never adopted" — closed.** Every defect it was carrying is now either
+  owned by another item, harmless, or sitting behind a mode the real pipeline never uses.
+  🔴 **I wrote the limit into the closure rather than leaving it implied: this does not say
+  those defects are fixed.** Nobody has tested them. It says the register no longer needs a separate
+  line for them. If that mode is ever revived, they come back first.
+- **The office size thresholds — closed, and this one needed no work at all.** It is closed as a
+  **deliberate, documented departure from the source**, which is one of the two endings the item
+  itself offered. 🔴 **The decision was already yours, taken on 2026-08-12, and it is written
+  word-for-word into the code it governs.** The item stayed on the list for a week only because
+  nobody had written that decision up as a closure. Nothing was changed to close it.
+  ⚠️ **The uncomfortable half is recorded too, not buried:** all 598 buildings that would move
+  are promotions, and not one is a demotion — so our simpler rule makes offices **systematically
+  smaller** than the source intends. That is accepted knowingly, on the grounds you gave in August:
+  adding the floor test would make the building's type depend on a guessed storey count twice over,
+  and **167 of those 598 have no real storey count at all.**
+
+**The 1,589-building test is running now.** Its result is fixed in advance so it cannot be talked
+into a pass: the failure count has to come in well below 71. ⚠️ **If it does not, that gets
+reported as a failure and the item stays open.** If it passes, **two items close together** — they
+are formally coupled and neither can close alone.
+
+🔴 **Before the fleet figure is restated, one thing you should have in front of you.** The
+restatement needs a full re-run of all twelve areas, because today's code differs from the code
+behind the published figure in four ways, not just the 21 buildings. **But the 10 m³ volume defect
+is still unfixed and it touches every building in the fleet**, at a measured **≈ +1.0 kWh/m² with a
+known direction**. So any figure produced now is **knowably too low by about that much, and will
+have to be restated a second time** once that defect is fixed. I am proceeding because you asked me
+to, and the restatement will carry that warning on its face rather than read as a clean number.
+
+---
+
+## 2026-08-19 (night) — the test passed; two more closed, one new thing found
+
+**The 1,589-building test ran and passed.** The number that had to come in well below 71 came in at
+**zero**. Two items closed together on it — they were formally coupled and neither could close
+alone. **Open count 20 → 19.**
+
+🟢 **This one closed the right way, and it is worth saying why.** The pass condition was
+written down *before* the test and could have failed. It did not. Everything else on the list this
+week closed on judgement; this closed on evidence.
+
+⚠️ **It took four attempts and the first three proved nothing** — each simulated zero
+buildings and each was a retry of a fault nobody had diagnosed. An item can sit implemented, ruled
+and completely unproven for a week.
+
+🔴 **I checked the passing run myself rather than taking the result, and found something the
+test was not looking for.** The fix worked — unidentified buildings now use *less* equipment
+energy than identified ones. **But they still use 1.7× as much energy overall.** The excess did
+not go away; it moved to hot water and heating. Lighting is 6.7× and cooling 5.6× the
+identified-building level.
+
+- **This does not undo the closure.** The item asked whether the crashes stopped. They stopped.
+- **It is a new item (OPEN-59), not a footnote inside a closed one** — something recorded only
+  inside a closed item is something the next session will never find.
+- **Cause unknown.** Either the same widened-bounds defect affects the other columns too — in
+  which case the same fix applies and this is quick — or those buildings really are
+  higher-intensity, which is a calibration question, not a bug. Telling the two apart is cheap and
+  needs no cluster time.
+- **These buildings are 18 % of that neighbourhood and occur everywhere**, so they lift the fleet
+  figure by an amount nobody has measured. I have commissioned that measurement as part of the
+  re-run already running.
+
+**The full twelve-area re-run is now running.** 🔴 **The figure it produces will carry two
+known caveats, not one:** the 10 m³ volume defect still makes it low by about 1 kWh/m² per
+building, and now this. **It is still worth running** — the caveats have known direction and
+rough size, so the number is usable as long as it is not quoted as final. **157.1 remains the
+adopted figure until that run lands.**
+
+
+---
+
+## 2026-08-19 (night, later) — the measurement three tasks asked for, finally run
+
+Three separate tasks in the last pass each stopped at the same wall and each named the same
+missing artifact. **That artifact now exists.** 48 buildings — 4 per neighbourhood across all 12,
+picked by size so the range is covered, no cherry-picking — rebuilt room-by-room with the detailed
+outputs left switched on, simulated, and read back through the production parser.
+
+🟢 **All 48 worked. No build failures, no simulation failures, no parse failures.** That settles a
+question that has blocked this arc for weeks: the room-by-room mode was never broken, it was being
+run with its detailed output switched off, and the parser needs that output to do its job.
+Switching it on is the entire fix — across 12 neighbourhoods, 9 building types, 1 to 18 storeys.
+
+🔵 **And it produced the number nobody has had.** Room-by-room comes out **about a quarter below**
+the normal mode — **−26.3 % pooled, −24.4 % typical building, across the 48.** 47 of the 48 are
+below; one small retail building is 2.7 % above. That is close to the −29 % recorded when this
+question was first opened, so the old figure holds up.
+
+🔴 **The obvious explanation is not the explanation.** More than half these buildings disagree
+between the two modes about their own floor area, and I expected that to be the whole story. It
+is not. On the 21 buildings where the floor areas *do* agree, the gap is still there — around
+−26 % typical. **So there is a real energy-side difference of roughly a quarter between two modes
+that are supposed to describe the same buildings, and nothing in this arc explains it.** That is
+now the open question.
+
+⚪ **What it does not settle.** It does not test *why* — the theory on the table is that
+room-by-room models internal loads at 2022 code regardless of the building's real age, and testing
+that needs a different run. And it does not size the small-buildings-in-cold-cities question: that
+slice is only 8 of the 48, and its own spread (−12 % to −37 %) is far wider than the 3-point
+difference from the rest. **8 is too few. I have said so rather than dressing it up.**
+
+🔵 **One practical number:** running the whole fleet this way would cost about **160 GB** of disk,
+not the 800+ GB feared. Affordable. **Whether to do it is your call, and I have not taken it.**
+
+- **Nothing published changed.** **153.8 kWh/m² over 8,153 buildings stands untouched** — this is a
+  48-building sample and is labelled as one everywhere it appears.
+- **Nothing was opened, closed or struck.** Still 19 live items, next free ID OPEN-60.
+- **The executor stalled mid-job** — it launched the run, then sat waiting for a notification that
+  never comes. The run itself finished fine; I picked up the analysis and write-up myself. Third
+  time this failure mode has cost a hand-off.
+- Full detail: `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-03-18_untrimmed-sample.md`.
+
+
+---
+
+## 2026-08-19 (night, last) — I have to correct the entry above, and the correction is worth more than the original
+
+**The quarter-below number I reported an hour ago is too big.** I sent a follow-up task to split
+those 48 buildings by end use — where the energy actually goes — and the first thing it did was
+check that the pieces add up to the total. **They did not. Only 6 of the 48 added up.**
+
+🔴 **The cause is a real fault, and it is in the part of the code that reports results.** When a
+building is modelled as a few representative floors and then multiplied up to full height, the
+lighting and equipment energy is counted **without** the multiplier while the floor area it is
+divided by is counted **with** it. Everything else — heating, cooling, fans, pumps, hot water —
+is fine to within a hundredth of a percent. So the energy-per-square-metre figure comes out too
+low for any building modelled that way, which was **42 of the 48**.
+
+✅ **Your published fleet figure is not affected, and I checked rather than assumed.** That
+multiplying only happens in the room-by-room mode. I looked inside the actual model files from the
+published run: **every multiplier is 1.** **153.8 over 8,153 buildings is untouched.** What it does
+mean is that every room-by-room energy figure this project has recorded is too low — a fault in a
+mode nothing published depends on.
+
+🔵 **Corrected, the gap is real but smaller:** **−11 %** across all 48 pooled, **−18 %** for the
+typical building, and **≈−24 %** on the cleanest subset. Eight buildings now come out *above* the
+normal mode instead of one.
+
+**The part of last night's finding that survives is the part that mattered:** the floor-area
+confusion inflates the gap but does not cause it. That still holds, and holds more cleanly.
+**The part that does not survive is the size** — "about a quarter below" is true only of the
+cleanest subset, not of the sample.
+
+⚠️ **And the follow-up task's own conclusion had to be withdrawn too.** It calculated that the
+old-building-age effect could explain at most 7.8 % of total energy and called that far short of
+half the gap — but it compared against the *uncorrected* gap. Against the corrected one, half is
+8.9 % and 7.8 % is available. **So that theory is back in play, not ruled out.** Inconclusive, not
+refuted, and recorded that way.
+
+🔵 **One more thing found along the way:** the code that would have caught this **already exists**
+and the fleet pipeline simply never calls it. Several other entry points do.
+
+- **Whether this multiplier fault gets its own tracked item is your call** — I have not taken it.
+- **The other question I owed you is answered and it is a clean answer:** for the 290 unnamed
+  buildings, **all four** drawn columns are inside their allowed bounds — none out of range. So
+  this is **not** a bounds defect like the last one. Those buildings look genuinely
+  higher-intensity, which makes it a calibration question, not a bug.
+- Full detail: `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-03-18_untrimmed-sample.md` §10.
+
+
+## 2026-08-19 (night, last two decisions taken + full board audit)
+
+**You handed both reserved decisions back to me. Both are taken and both are written down with their reasoning, so you can overrule either.**
+
+**1. The energy-reporting fault gets tracked — opened as OPEN-60.** `total_eui_kwh_m2` undercounts
+lighting and equipment wherever a zone stands in for several storeys: those two end uses are read
+per-zone, which EnergyPlus does not scale by the multiplier, while the floor area they are divided by is
+scaled. **6 of 48 buildings reconcile within 2 %; the worst is out by 192 %.** I gave it an ID *because*
+nothing published depends on it — that is exactly the kind of fault that gets forgotten and then
+rediscovered expensively. 🟢 **No adopted number moves: 153.8 kWh/m² over 8,153 buildings is untouched**,
+verified by reading three real fleet model files, not by argument. 🔴 **The more general finding:** the
+check that catches this **already exists in the code** (`check_building_integrity()`) and the fleet
+pipeline never calls it.
+
+**2. The unnamed-buildings item is rewritten, not closed — OPEN-59.** The screen came back clean:
+**0 of 4** drawn columns and **0 of 290** buildings outside their bounds. So it is **not** a repeat of the
+data-centre defect and no screen can fix it — every draw is legal. By elimination the pool we borrow from
+is genuinely more intensive than the buildings it stands in for: **a calibration question, not a bug.**
+I kept the ID open because the screen answered *why not*, not *why* — those buildings still use **10.2×**
+the hot water of named ones fleet-wide.
+
+**Register: 20 live, 40 struck, 60 ever opened, next free ID OPEN-61.** Recounted programmatically.
+
+---
+
+## 2026-08-19 (night, the board) — it was not rendering, and that is how I found out
+
+You quoted the board's counters — **12 decided, 6 in progress, 1 ready** — and asked me to finish those
+tasks. **The task list under those counters had not been rendering at all.** Fifteen rows carried a
+correction note appended to their status; the renderer could not match that against its five known
+states; the error threw the whole list away and left the counters standing. **So the board was showing
+numbers with nothing underneath them, and the numbers were the only part still working.** Fixed.
+
+**Then every unfinished row was audited against the register or the code, one at a time. 19 of the 24
+were already finished and had simply never been marked** — the re-run they were blocked on has run, the
+rulings they waited for were made, the closures they recommended were executed. One was verified in the
+source: the mis-credited paper is now cited by name at `openubem/semantic/building_classifier.py:216`.
+
+**What is actually left, and it is short:**
+
+- **3 ready.** The 26 untested result columns · the storey-count energy cost (OPEN-35) · the
+  evidence-retention decision — which is **no longer hypothetical**, since 874 of 875 harvest directories
+  from one earlier run have already lost their evidence files (OPEN-53).
+- **1 yours.** Who writes the new labels for the rebuilt classifier exam, and how many rows.
+- **1 running.** The vintage experiment below.
+
+---
+
+## 2026-08-19 (night, running) — testing the arc's oldest explanation, finally
+
+**The cross-mode gap is real and it is not the floor-area confusion. The standing explanation for it has
+never once been tested.** That explanation: the room-by-room mode gives every building 2022-code
+lighting and equipment no matter how old it really is, and that accounts for about half the gap.
+
+🔴 **I checked whether it can be tested honestly, and the answer shapes the experiment.** The load tables
+in this repository carry **one** lighting and equipment figure per building type and **no era key at
+all** — so a genuinely era-corrected rebuild would mean inventing a table, which this project does not do.
+
+**So the experiment measures the response instead of assuming it.** Twenty buildings — the cleanest
+subset, where both modes agree on floor area — rebuilt with internal loads scaled down 30 % and up 30 %,
+and then the question inverted: **what would lighting and equipment have to be for this explanation to
+account for half the gap?** If that comes out near 0.7× the answer is alive and worth pricing. If it comes
+out at 0.1× it is dead, whatever any external table says.
+
+**Why the arithmetic answer was not good enough:** the earlier attempt assumed total energy moves in
+proportion to the lighting share. It does not — lowering lighting lowers cooling and *raises* heating,
+and those do not cancel. Only a simulation measures that, and this one does.
+
+Plan: `docs/docs_ACTIVE/openings/implemenation/PLAN_vintage-elasticity-2026-08-19.md`. Local, no cluster
+time. First checkpoint is a control: rebuild one building with loads unchanged and confirm it reproduces
+the run we already have to within 0.5 %.
+
+### 2026-08-19 (late) — the 26 untested result columns, finally checked
+
+Board row **C04** is closed. All 26 simulation-derived columns of the results file were compared
+between the frozen June fixture (`docs/docs_VALIDATION/validations/overAll/results/phaseE/`) and the
+August local re-run (`open48_refleet4`), across all twelve cells and 8,153 buildings that succeed in
+both runs.
+
+**The answer is not a per-column pass/fail — the fleet splits in two.** 48.2 % of buildings come back
+unchanged within 0.1 %; 48.6 % within 1 %; **9.0 % move by more than 5 %**, and the 5th percentile of
+the per-building ratio sits at 0.824. In **48.4 %** of buildings all six core end uses move by a
+single common factor, which is the signature of a **divisor** changing rather than the physics —
+independently agreeing with the code-drift adjudication that traced the movement to the OPEN-01
+floor-area denominator change and the OPEN-46 elevator breakout, both made deliberately after the
+fixture was frozen.
+
+**Materially different, and named as such:** `pumps_eui_kwh_m2` (only 6.68 % of rows, but a median
+1.48 % shift when it moves — the largest real per-building change), `dhw_gas_eui_kwh_m2`, and `iod`
+(46.65 % of rows; **cause not established**, and recorded that way). Everything else differs only at
+rounding scale (median ≈ 0.002 %) and is not a reproducibility failure in any sense a reader cares
+about. `total_eui_kwh_m2` shows the largest >1 % share but is the **OPEN-60-defective** column and is
+not treated as physical evidence.
+
+**Two director corrections, both recorded because both would have looked like results.**
+1. The executor's headline "25 of 26 columns differ" was measured at a 1e-9 tolerance, which counts
+   rounding as failure. Re-derived with magnitudes, the picture inverts. Reported max-relative values
+   of 156,376× (heating) and 15,928× (`iod`) are **near-zero-denominator artefacts**, now labelled.
+2. **The first attempt compared against the wrong fixture family** — `step1/overAll/results/cases/`
+   (20 columns) instead of `validations/overAll/results/phaseE/` (32 columns) — and returned a
+   confident "NOT COMPARABLE" plus a suspected missing-fixture provenance defect. **Both were false
+   and both trace to the director naming the wrong path in the dispatch.** Verified afterwards:
+   commit `0df422e` **is** the commit that last touched the phaseE fixture, so OPEN-06b's provenance
+   citation is sound. **No defect; do not reopen.**
+
+**Standing lesson:** an executor handed a wrong baseline reports confidently on that baseline. Verify
+the fixture family — column count and last-touching commit — *before* dispatching a comparison.
+
+**Artifacts.** `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-06_twentysix-simulation-columns.md`,
+`openubem/outputs/comparisons/open06_26col_reproducibility.csv`.
+
+**Still open from this:** whether `iod` and one `simulation_status` flip are code drift or
+non-determinism. Settling it needs a **same-HEAD double run** to test bit-stability — cheap, and
+useful to the whole project beyond this row. Not started; the machine is busy with the elasticity run.
+
+### 2026-08-20 — OPEN-03's central claim is refuted, by a control nobody designed
+
+**The oldest live item in the arc claimed that ~half the cross-mode EUI gap comes from `layout_assign`
+applying vintage-blind 2022-code internal loads. Measured: ≈8 % of the pooled gap. The claim is
+refuted and the premise with it.**
+
+The ±30 % load perturbation reached **4 of 20 buildings**. That is not a failed experiment — it is a
+natural control. `layout_assign` has two internal-load paths (`openubem/idf/builder.py:69-83`,
+`:228-236`): archetypes with a mapped `STD2022` baseline IDF take the baseline's own densities and
+**never call `assign_loads()`**; archetypes without one read the **same archetype table `auto` reads**.
+
+| subset | n | `auto` EUI | `layout_assign` EUI | gap | load drop | share of gap |
+|---|---|---|---|---|---|---|
+| all 20 | 20 | 170.14 | 129.45 | **−23.91 %** | +3.52 | **8.0 %** |
+| loads held identical | 4 | 204.14 | 155.94 | **−23.61 %** | **−0.00** | **0.0 %** |
+| prototype-baseline path | 16 | 115.09 | 86.56 | −24.79 % | +9.23 | 29.9 % |
+
+**Four buildings whose internal loads are bit-identical across modes still show a −23.61 % gap** —
+indistinguishable from the −24.79 % of the sixteen whose lighting differs 2.6×. Hold the suspected
+cause perfectly constant and the effect does not move. The pooled −23.91 % reproduces the
+independently established **−23.93 %** to two decimals, which is the control on the calculation.
+
+**The premise was also wrong.** `auto` is equally vintage-blind — one fixed pair per archetype in
+`doe_prototype_loads.json`, no vintage key. This is a load-**source** disagreement, not a
+load-**vintage** one. **No era table would close it, and none should be commissioned for this item.**
+
+**Superseded:** the `k ≈ 1.4–2.1×` inversion from T03 — computed on the 4 buildings with *zero*
+load-driven gap, so it inverts a mechanism not operating there. The elasticity itself (0.21–0.29,
+linear across ±30 %) stands and supplies the ~7.4 % net HVAC damping.
+
+**Method lesson, and it was my error.** I wrote CP-1 to verify **one** building. That building was one
+of the 4 reachable ones, so the gate passed while the intervention was inert in 16 of 20. **A control
+on one exemplar cannot establish that an intervention reached a population.** Perturbation plans must
+gate on the count of responding buildings. The executor found the 16 non-responders unprompted and was
+right to flag rather than tidy them away.
+
+**OPEN-03 stays live with its scope replaced:** ~92 % of a −23.9 % gap is unexplained and now known
+**not** to be internal loads. **Cheapest next attack, no new simulation:** an end-use diff on the 4
+from-scratch buildings, where loads, archetype and weather are identical across modes, so the whole
+−23.61 % must live in geometry, zoning, envelope or HVAC sizing. Both runs are already on disk.
+
+**Artifacts.** `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-03_load-elasticity.md` §CP-2 ·
+`scripts/analysis/open03_load_source_decomposition_2026-08-20.py` ·
+`openubem/outputs/comparisons/open03_load_source_decomposition.csv` · `..._per_building.csv`.
+Register: **20 live / 40 struck / OPEN-01..OPEN-60 / next free OPEN-61** (re-derived after the edit).

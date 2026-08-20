@@ -65,6 +65,35 @@ _STEP5_COLS = [
 _SUCCESS_STATUSES = {"success", "success_cached", "success_csv_fallback"}
 
 
+def _fleet_levels_medians(gdf: gpd.GeoDataFrame) -> "tuple[dict, int | None]":
+    """OPEN-35 T05: the SAME group-/global-median levels lookup the classifier itself
+    computes (BuildingClassifier._build_levels_median_lookup), called on the fleet gdf
+    the aggregator already has in scope -- not a second, independently-derived route."""
+    from openubem.semantic.building_classifier import BuildingClassifier
+    return BuildingClassifier()._build_levels_median_lookup(gdf)
+
+
+def _derive_num_floors_wired(
+    row: pd.Series,
+    levels_group_median: dict,
+    levels_global_median: "int | None",
+) -> int:
+    """OPEN-35 T05: reach derive_num_floors()'s Scope B agreement kwargs for rows whose
+    fired archetype rule consumed the classifier's group-/global-median levels fallback.
+    All other rows are byte-identical to the pre-T05 call."""
+    from openubem.geometry.footprint import _archetype_consumed_group_median, derive_num_floors
+    if not _archetype_consumed_group_median(row):
+        return derive_num_floors(row)
+    from openubem.semantic.building_classifier import _normalise_use_class
+    use_class, _ = _normalise_use_class(row)
+    return derive_num_floors(
+        row,
+        use_class=use_class,
+        levels_group_median=levels_group_median,
+        levels_global_median=levels_global_median,
+    )
+
+
 def join_results(
     enriched_gdf: gpd.GeoDataFrame,
     metrics_df: pd.DataFrame,
@@ -142,17 +171,20 @@ def compute_neighbourhood_summary(
     # re-deriving it here, per plan step 3. Rows without that column (e.g. synthetic
     # GeoDataFrames built directly for tests, never routed through parse_building) fall
     # back to the pre-OPEN-01 footprint x floors computation so older call sites are unaffected.
-    from openubem.geometry.footprint import derive_num_floors
-
     gdf = results_gdf.copy()
+    _levels_group_median, _levels_global_median = _fleet_levels_medians(gdf)
+
+    def _num_floors(r: pd.Series) -> int:
+        return _derive_num_floors_wired(r, _levels_group_median, _levels_global_median)
+
     if "floor_area_m2" in gdf.columns:
         fallback = gdf.apply(
-            lambda r: float(r["footprint_area_m2"]) * derive_num_floors(r), axis=1
+            lambda r: float(r["footprint_area_m2"]) * _num_floors(r), axis=1
         )
         gdf["_floor_area"] = pd.to_numeric(gdf["floor_area_m2"], errors="coerce").fillna(fallback)
     else:
         gdf["_floor_area"] = gdf.apply(
-            lambda r: float(r["footprint_area_m2"]) * derive_num_floors(r), axis=1
+            lambda r: float(r["footprint_area_m2"]) * _num_floors(r), axis=1
         )
 
     success_mask = gdf["simulation_status"].isin(_SUCCESS_STATUSES)

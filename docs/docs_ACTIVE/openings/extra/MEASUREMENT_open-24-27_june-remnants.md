@@ -1,6 +1,6 @@
 # MEASUREMENT — Re-check the four June-audit remnants against HEAD (N03 · OPEN-24, 25, 26, 27)
 
-> **Task:** N03 of `docs/docs_ACTIVE/openings/implemenation/PLAN_no-compute-queue.md`.
+> **Task:** N03 of `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_no-compute-queue.md`.
 > **Method:** the audit doc (`docs/docs_INVESTIGATE/INVESTIGATION_steps-1-3-audit.md`, dated 2026-06-09)
 > is the hypothesis. Every verdict below is checked against HEAD code, cited by `path:line`.
 > **Remediation performed: none.** No file outside this report and the plan's progress log was written.

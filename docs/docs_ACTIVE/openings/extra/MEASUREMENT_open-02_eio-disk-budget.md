@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-02: `.eio` disk budget for a five-mode fleet pass
 
-> **Task:** M02 of `docs/docs_ACTIVE/openings/implemenation/PLAN_published-numbers.md` §6.
+> **Task:** M02 of `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_published-numbers.md` §6.
 > **Date:** 2026-08-05. **Type:** measurement only — no remediation performed, no cluster script edited.
 
 ## Verdict

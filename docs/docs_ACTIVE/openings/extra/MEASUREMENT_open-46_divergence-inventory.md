@@ -147,9 +147,9 @@ and `docs/PROJECT_CHECKLIST.md`, matching any of: `10th end-use`, `tenth end-use
 - **`docs/docs_ACTIVE/openings/implemenation/board_published-numbers.html:606-607`** and the identical
   copy at **`docs/docs_ACTIVE/openings/reporting/board_published-numbers.html:606-607`** — item N10,
   already framed as `"open"`: *"Elevators are not the tenth end-use they are described as."*
-- **`docs/docs_ACTIVE/openings/implemenation/PLAN_rulings-and-five-items-2026-08-12.md:750`** —
+- **`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_rulings-and-five-items-2026-08-12.md:750`** —
   references the open decision, not an assertion.
-- **`docs/docs_ACTIVE/openings/implemenation/PLAN_three-new-items-2026-08-12.md:252,262,292,304,424`**
+- **`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_three-new-items-2026-08-12.md:252,262,292,304,424`**
   — this plan itself (the one this task executes), forward-looking / conditional language about what
   T05 should do, not a standing claim.
 - **`docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md:280,1015`** — director

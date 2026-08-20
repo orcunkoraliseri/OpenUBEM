@@ -1,7 +1,7 @@
 # MEASUREMENT — OPEN-29 defect-status re-trace at HEAD, 2026-08-18
 
 **Slug:** `open-29_status-retrace` · **Date:** 2026-08-18 · **Register item:** OPEN-29
-**Task:** T04 of `implemenation/PLAN_open-52-and-four-items-2026-08-18.md`. **Measurement only — no
+**Task:** T04 of `implemenation/previous/PLAN_open-52-and-four-items-2026-08-18.md`. **Measurement only — no
 production code changed.** The register was NOT edited by this task (director-only edit this pass,
 per the task's own constraints); the required amendment is drafted in §5 below.
 **Script:** `scripts/analysis/open29_status_retrace_2026-08-18.py`
@@ -240,7 +240,7 @@ column; insert the correction after each, dated 2026-08-18:
 
 Also insert, immediately after that table, a dated note (this is new text, not a strike):
 
-> **Amended 2026-08-18 (T04 of `implemenation/PLAN_open-52-and-four-items-2026-08-18.md`).** Full
+> **Amended 2026-08-18 (T04 of `implemenation/previous/PLAN_open-52-and-four-items-2026-08-18.md`).** Full
 > 13-row re-trace at HEAD. One bucket change: **E-LA-21** moves STILL-OPEN → CLOSED-ELSEWHERE,
 > confirmed live (not cited from a document) across all 7 harvest sites — no one-space `has_fatal`
 > literal survives anywhere under `scripts/` or `openubem/`. **E-LA-16's row is unchanged**

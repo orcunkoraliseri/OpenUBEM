@@ -15,6 +15,7 @@ from shapely.geometry.polygon import orient
 from openubem import config
 from openubem.config import SHADING_SPHERE_RADIUS
 from openubem.geometry.footprint import (
+    _archetype_consumed_group_median,
     derive_num_floors,
     simplify_footprint,
     translate_to_origin,
@@ -148,6 +149,31 @@ def _coerce_to_polygon(geom, dq_flag: str) -> tuple:
         logger.warning("MultiPolygon footprint coerced to largest part (area=%.2f m²)", largest.area)
         return largest, dq_flag
     return geom, dq_flag
+
+
+def _fleet_levels_medians(gdf: gpd.GeoDataFrame) -> "tuple[dict, int | None]":
+    """OPEN-35 T05: the SAME group-/global-median levels lookup the classifier itself
+    computes (BuildingClassifier._build_levels_median_lookup), called on the fleet gdf
+    the builder already has in scope -- not a second, independently-derived route."""
+    from openubem.semantic.building_classifier import BuildingClassifier
+    return BuildingClassifier()._build_levels_median_lookup(gdf)
+
+
+def _derive_num_floors_wired(row: pd.Series, gdf: gpd.GeoDataFrame) -> int:
+    """OPEN-35 T05: reach derive_num_floors()'s Scope B agreement kwargs for rows whose
+    fired archetype rule consumed the classifier's group-/global-median levels fallback.
+    All other rows are byte-identical to the pre-T05 call."""
+    if not _archetype_consumed_group_median(row):
+        return derive_num_floors(row)
+    from openubem.semantic.building_classifier import _normalise_use_class
+    levels_group_median, levels_global_median = _fleet_levels_medians(gdf)
+    use_class, _ = _normalise_use_class(row)
+    return derive_num_floors(
+        row,
+        use_class=use_class,
+        levels_group_median=levels_group_median,
+        levels_global_median=levels_global_median,
+    )
 
 
 def normalized_space_loads(
@@ -424,7 +450,7 @@ class BuildingIDF:
             }
 
         poly_local, cx, cy = translate_to_origin(poly)
-        num_floors = derive_num_floors(row)
+        num_floors = _derive_num_floors_wired(row, gdf)
 
         # 3C: context discovery (simplified poly in world CRS for spatial index)
         target_row_ctx = row.copy()

@@ -23,7 +23,7 @@ from typing import Any
 import pandas as pd
 
 from openubem import config
-from openubem.geometry.footprint import derive_num_floors
+from openubem.geometry.footprint import _archetype_consumed_group_median, derive_num_floors
 
 # ── §3A constants (DESIGN lines 45-57) ───────────────────────────────────────
 HOURLY_QUERY = """
@@ -690,6 +690,29 @@ def check_building_integrity(
 
 # ── Top-level per-building parse ──────────────────────────────────────────────
 
+def _derive_num_floors_wired(row: "pd.Series") -> int:
+    """OPEN-35 T06: reach derive_num_floors()'s Scope B agreement kwargs for rows whose
+    fired archetype rule consumed the classifier's group-/global-median levels
+    fallback. Mirrors openubem/idf/builder.py and openubem/results/aggregator.py's T05
+    helper of the same name; the only difference is where the medians come from --
+    parse_building() has no fleet-wide gdf in scope, so aggregate_results()
+    (openubem/results/__init__.py) computes them once via the classifier's own
+    `_build_levels_median_lookup()` and carries them (plus `_use_class`, itself from
+    the classifier's own `_normalise_use_class()`) on manifest_row. All other rows are
+    byte-identical to the pre-T05/T06 call."""
+    if not _archetype_consumed_group_median(row):
+        return derive_num_floors(row)
+    use_class = row.get("_use_class")
+    levels_group_median = row.get("_levels_group_median") or {}
+    levels_global_median = row.get("_levels_global_median")
+    return derive_num_floors(
+        row,
+        use_class=use_class,
+        levels_group_median=levels_group_median,
+        levels_global_median=levels_global_median,
+    )
+
+
 def parse_building(
     sql_path: "Path | str | None",
     csv_path: "Path | str | None",
@@ -712,7 +735,7 @@ def parse_building(
 
     # OPEN-01 (T05, ruling 6): resolve the EUI denominator once, up front, so both the
     # success path and every failure path report the same floor_area_m2/provenance pair.
-    num_floors = derive_num_floors(manifest_row)
+    num_floors = _derive_num_floors_wired(manifest_row)
     footprint_area = float(manifest_row["footprint_area_m2"])
     floor_area, floor_area_provenance = resolve_simulated_floor_area(
         sql_path, footprint_area, num_floors

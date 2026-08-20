@@ -1,7 +1,7 @@
 # MEASUREMENT — Does the archetype column describe what was actually simulated? (OPEN-06 · OPEN-07)
 
 > **Slug:** `open-06-07_simulated-archetype` · **Date:** 2026-08-06 · **Task:** N08 of
-> `docs/docs_ACTIVE/openings/implemenation/PLAN_no-compute-queue-2.md`.
+> `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_no-compute-queue-2.md`.
 > **MEASUREMENT ONLY. No remediation was performed or proposed.** No EnergyPlus was run, no IDF was
 > generated, no simulation, no cluster access of any kind (no `ssh`/`srun`/`sbatch`). Every finding below
 > is a read of a file already on this machine — a `.idf` inside a `.zip`, a `.parquet`, and a `.sql`

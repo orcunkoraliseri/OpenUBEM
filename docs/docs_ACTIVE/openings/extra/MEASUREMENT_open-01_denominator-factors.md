@@ -1,7 +1,7 @@
 # MEASUREMENT — open-01-denominator-factors
 
 > **Slug:** `open-01-denominator-factors` · **Date:** 2026-08-05 · **Register item:** OPEN-01
-> **Plan:** `docs/docs_ACTIVE/openings/implemenation/PLAN_published-numbers.md`, task M01.
+> **Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_published-numbers.md`, task M01.
 > **This is a measurement-only report.** No remediation was performed or proposed. The only writes
 > this task made are this file and `openubem/outputs/comparisons/open01_denominator_factors.csv`.
 

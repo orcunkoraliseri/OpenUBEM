@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-03: is the loads/envelope vintage split deliberate, and how big is it?
 
-> Executes M03 of `docs/docs_ACTIVE/openings/implemenation/PLAN_published-numbers.md` §6.
+> Executes M03 of `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_published-numbers.md` §6.
 > Measurement only. No remediation performed or proposed. No EnergyPlus run.
 
 ---

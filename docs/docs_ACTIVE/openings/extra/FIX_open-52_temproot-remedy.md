@@ -1,7 +1,7 @@
 # FIX — OPEN-52 temp-root remedy (ruling `3a`)
 
 > **Slug:** `open-52_temproot-remedy` · **Date:** 2026-08-18 · **Register item:** OPEN-52
-> **Task:** T01 of `implemenation/PLAN_open-52-and-four-items-2026-08-18.md`.
+> **Task:** T01 of `implemenation/previous/PLAN_open-52-and-four-items-2026-08-18.md`.
 
 ---
 

@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-08 vintage half: cross-generation vintage disagreement
 
-> **Plan:** `docs/docs_ACTIVE/openings/implemenation/PLAN_open-52-and-four-items-2026-08-18.md`, T03.
+> **Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-52-and-four-items-2026-08-18.md`, T03.
 > **Script:** `scripts/analysis/open08_vintage_reproducibility.py`
 > **Output:** `openubem/outputs/comparisons/open08_vintage_reproducibility.csv` (738 rows, one per
 > `osm_id`, `nyc_centre` only — see §3 for why the scope is 1 of 5 T08 cells, not all 5).

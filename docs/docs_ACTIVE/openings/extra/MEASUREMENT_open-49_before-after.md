@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-49 T04: before/after on the twelve cells
 
-> Executes T04 of `docs/docs_ACTIVE/openings/implemenation/PLAN_open-49-and-open-01-2026-08-13.md` §6.
+> Executes T04 of `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-49-and-open-01-2026-08-13.md` §6.
 > Measures the change in Step-2.2 semantic-enrichment **inputs** only. **No EnergyPlus was run, no
 > cluster was touched.** No EUI claim is made anywhere in this document — floor area and energy are
 > not computed here. The ±300 kWh/m² figure belongs to OPEN-49's original measurement and is not

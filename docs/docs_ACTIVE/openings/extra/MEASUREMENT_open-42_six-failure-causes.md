@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-42, cause of the six `Warehouse` failures
 
-> **Plan:** `docs/docs_ACTIVE/openings/implemenation/PLAN_two-measurements-2026-08-13.md`, T01.
+> **Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_two-measurements-2026-08-13.md`, T01.
 > **Script:** `scripts/analysis/open42_failure_causes.py`
 > **Output:** `openubem/outputs/comparisons/open42_six_failure_causes.csv` (30 rows: 6 buildings x 5 modes)
 > **Corpus:** `C:\Users\o_iseri\AppData\Local\Temp\ubem_e02_harvest` (read-only, not modified)

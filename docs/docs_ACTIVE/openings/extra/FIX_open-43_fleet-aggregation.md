@@ -63,10 +63,10 @@ target — this is a real assertion, not a print statement.
 | `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-24-27_june-remnants.md` | 1 restatement |
 | `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-32_adopted-dependency.md` | 3 restatements (1 quote-block, 1 table cell annotated beside a preserved verbatim archived quote, 1 prose) |
 | `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-42_placeholder-and-fleet-impact.md` | 4 restatements (section header + 3 body) |
-| `docs/docs_ACTIVE/openings/implemenation/PLAN_compute-queue.md` | 1 restatement |
-| `docs/docs_ACTIVE/openings/implemenation/PLAN_e02-audit-and-closure.md` | 1 restatement |
-| `docs/docs_ACTIVE/openings/implemenation/PLAN_five-item-sweep-2026-08-12.md` | 2 restatements (§4 fact line, T02 task-header) — task body/CP table/progress log deliberately left, see §5 |
-| `docs/docs_ACTIVE/openings/implemenation/PLAN_no-compute-queue.md` | 1 restatement |
+| `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_compute-queue.md` | 1 restatement |
+| `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md` | 1 restatement |
+| `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_five-item-sweep-2026-08-12.md` | 2 restatements (§4 fact line, T02 task-header) — task body/CP table/progress log deliberately left, see §5 |
+| `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_no-compute-queue.md` | 1 restatement |
 | `docs/docs_ACTIVE/openings/implemenation/board_published-numbers.html` | 3 restatements (hero stamp, T02 board row, NEW/OPEN-43 board row) |
 | `docs/docs_ACTIVE/openings/reporting/board_published-numbers.html` | same 3 restatements — this file is byte-identical to the one above (verified by `diff` before editing) and is edited as a separate file |
 
@@ -88,12 +88,12 @@ boards found more matches than the 13 files above. Everything not restated, and 
    prompt" (that is the current file, excluded above by name), but editing a frozen historical
    snapshot to insert a 2026-08-12 finding would misrepresent what was known on 2026-08-06/10. Treated
    like a `docs_DONE` archive even though its path is under `docs_ACTIVE`.
-4. **`docs/docs_ACTIVE/openings/implemenation/PLAN_rulings-and-five-items-2026-08-12.md`** (this
+4. **`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_rulings-and-five-items-2026-08-12.md`** (this
    plan) — explicitly off-limits to the executor by the kickoff instructions (only the register,
    director prompt, and its own §10 were named, but this document is the live shared plan every
    parallel executor reads from; editing any part of it risks colliding with concurrent executors and
    was not asked for).
-5. **`docs/docs_ACTIVE/openings/implemenation/PLAN_five-item-sweep-2026-08-12.md`**, T02's numbered
+5. **`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_five-item-sweep-2026-08-12.md`**, T02's numbered
    "How" steps (lines ~245-261), the CP-1 stop-and-report row (line ~441), and its own `## 8. Progress
    log` section (lines ~486-500) — these are the **literal historical instruction text** given to,
    and the **literal completion record written by**, a past executor/director for an already-closed

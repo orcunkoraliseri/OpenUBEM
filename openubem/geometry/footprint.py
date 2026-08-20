@@ -55,12 +55,44 @@ def translate_to_origin(poly: shapely.Polygon) -> tuple[shapely.Polygon, float, 
     return (poly_local, cx, cy)
 
 
-def derive_num_floors(row: pd.Series, floor_to_floor_m: float = 3.5) -> int:
+def derive_num_floors(
+    row: pd.Series,
+    floor_to_floor_m: float = 3.5,
+    *,
+    use_class: "str | None" = None,
+    levels_group_median: "dict[str, int] | None" = None,
+    levels_global_median: "int | None" = None,
+) -> int:
+    """OPEN-35 Scope B agreement (director ruling 4.4a, 2026-08-19): when both `levels`
+    and `height_m` are missing, consume the SAME group-/global-median fallback that
+    `_impute_levels()` (openubem/semantic/building_classifier.py) computed for archetype
+    selection -- but only for the buildings whose fired archetype rule actually consumed
+    that imputed value. That population is exactly the rows whose `archetype_source`
+    carries a `GROUPMEDIAN_LEVELS_MED` token: building_classifier.py's own token-assembly
+    (~line 630-639) appends it only when the rule head is levels-consuming and the
+    imputed source isn't `OSM_OBSERVED` -- the identical test Scope B uses. `use_class`,
+    `levels_group_median` and `levels_global_median` mirror `_impute_levels()`'s own
+    extra parameters exactly, so a caller passing the same three values to both functions
+    is guaranteed to see them agree. Omitting them (every pre-existing call site) leaves
+    this function byte-identical to its pre-OPEN-35 behaviour.
+    """
     if pd.notna(row["levels"]):
         return max(1, int(row["levels"]))
     if pd.notna(row["height_m"]):
         return max(1, math.ceil(row["height_m"] / floor_to_floor_m))
+    if _archetype_consumed_group_median(row):
+        if levels_group_median and use_class in levels_group_median:
+            return max(1, int(levels_group_median[use_class]))
+        if levels_global_median is not None:
+            return max(1, int(levels_global_median))
     return 1
+
+
+def _archetype_consumed_group_median(row: pd.Series) -> bool:
+    src = row.get("archetype_source")
+    if src is None or pd.isna(src):
+        return False
+    return "GROUPMEDIAN_LEVELS_MED" in str(src).split(",")
 
 
 def compute_form_factor(

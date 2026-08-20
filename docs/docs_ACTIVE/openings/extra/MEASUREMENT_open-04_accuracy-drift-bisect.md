@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-04: bisect the classifier accuracy drift
 
-> Executes M04 of `docs/docs_ACTIVE/openings/implemenation/PLAN_published-numbers.md` §6.
+> Executes M04 of `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_published-numbers.md` §6.
 > Measurement only. No remediation performed. The fixture, the tests, and the classifier were
 > not edited by this task — every commit tested was read via a disposable `git worktree` that
 > left the main working tree untouched (verified `git status` clean at HEAD before and after,

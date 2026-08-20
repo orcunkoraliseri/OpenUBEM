@@ -1,7 +1,7 @@
 # MEASUREMENT — open-24-live-gate
 
 > **Slug:** `open-24-live-gate` · **Date:** 2026-08-13 · **Register item:** OPEN-24
-> **Task:** T03 of `implemenation/PLAN_five-more-items-2026-08-13.md`. **Measurement only — no code
+> **Task:** T03 of `implemenation/previous/PLAN_five-more-items-2026-08-13.md`. **Measurement only — no code
 > changed.** No document was edited except this file.
 
 ---

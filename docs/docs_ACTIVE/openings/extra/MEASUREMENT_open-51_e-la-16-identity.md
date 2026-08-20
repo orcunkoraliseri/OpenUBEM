@@ -1,7 +1,7 @@
 # MEASUREMENT — open-51 E-LA-16 identity
 
 > **Slug:** `open-51_e-la-16-identity` · **Date:** 2026-08-18 · **Register item:** OPEN-51
-> **Task:** T02 of `implemenation/PLAN_five-items-2026-08-18.md`. One code comment corrected
+> **Task:** T02 of `implemenation/previous/PLAN_five-items-2026-08-18.md`. One code comment corrected
 > (`openubem/geometry/layout_assigner.py:865`, comment text only — no code change). No other file
 > touched except this one.
 

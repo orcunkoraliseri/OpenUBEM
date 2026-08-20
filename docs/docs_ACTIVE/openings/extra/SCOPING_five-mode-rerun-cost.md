@@ -478,7 +478,7 @@ committing to the full 10–15-hour run, if the user wants that extra confidence
 > Appended after the E02/C02 local run was actually launched and measured. **Parts 1 and 2 above are
 > left unedited** — the prediction must stand as written so the error is visible. This part states
 > what the run measured and what must be used instead. Source of record:
-> `docs/docs_ACTIVE/openings/implemenation/PLAN_compute-queue.md` §8 **FINDING 3** (and the
+> `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_compute-queue.md` §8 **FINDING 3** (and the
 > append-only CORRECTION immediately following it).
 
 ## 3.1 What Part 2 predicted vs. what the machine actually did

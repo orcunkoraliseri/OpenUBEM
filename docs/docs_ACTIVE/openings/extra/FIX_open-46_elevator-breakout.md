@@ -1,6 +1,6 @@
 # FIX — OPEN-46: elevator reporting breakout, guarded
 
-**Task:** T05 of `implemenation/PLAN_three-new-items-2026-08-12.md`
+**Task:** T05 of `implemenation/previous/PLAN_three-new-items-2026-08-12.md`
 **Executor:** D. **Date:** 2026-08-12. **Scope:** reporting path only.
 
 ---

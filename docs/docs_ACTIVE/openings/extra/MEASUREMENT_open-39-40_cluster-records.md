@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-39 orphaned disk / task.rc test, OPEN-40 third-submission trace
 
-> **Plan:** `docs/docs_ACTIVE/openings/implemenation/PLAN_e02-audit-and-closure.md`, T05.
+> **Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md`, T05.
 > **Script:** `scripts/analysis/e02_cluster_readonly_audit.py`
 > **Date:** 2026-08-11. Read-only throughout: `ls`, `du`, `find`, `sacct` via `_ssh()`
 > (`scripts/cluster/t08_harvest_results.py:102-108`). No `sbatch`, `srun`, `ssh ... python`, or

@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-30 vintage persistence and OPEN-01(c) one-code-state evidence
 
-> **Plan:** `docs/docs_ACTIVE/openings/implemenation/PLAN_e02-audit-and-closure.md`, T03.
+> **Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md`, T03.
 > **Script:** `scripts/analysis/e02_vintage_and_code_state.py`
 > **Outputs:**
 > `openubem/outputs/comparisons/open30_vintage_distribution.csv` (192 data rows: 60 `mode_cell` +

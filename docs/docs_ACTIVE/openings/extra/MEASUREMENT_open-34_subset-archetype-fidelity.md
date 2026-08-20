@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-34: is a 3-building local re-run archetype-faithful to the fleet?
 
-**Task:** N05, `docs/docs_ACTIVE/openings/implemenation/PLAN_no-compute-queue.md` §6.
+**Task:** N05, `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_no-compute-queue.md` §6.
 **Scope:** Stage 2 only (semantic enrichment + classification). No Step 3, no IDF generation,
 no EnergyPlus, no cluster. Measurement only — no remediation attempted, none proposed.
 **Repo state:** HEAD `bca92d0a6cdc33923bea8424f1b86ab0f94d82d9`. `git status --short` on every file

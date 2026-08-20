@@ -1,7 +1,7 @@
 # FIX — OPEN-13 (E-UTCI-13 and E-UTCI-12)
 
 **Date:** 2026-08-12
-**Plan:** `implemenation/PLAN_five-item-sweep-2026-08-12.md`, tasks T03–T04
+**Plan:** `implemenation/previous/PLAN_five-item-sweep-2026-08-12.md`, tasks T03–T04
 **Status:** E-UTCI-13 **fixed**. E-UTCI-12 **contained, not fixed**. **OPEN-13 stays open.**
 
 > 🔴 **Authorship note, recorded rather than smoothed over.** This report is **written by the
