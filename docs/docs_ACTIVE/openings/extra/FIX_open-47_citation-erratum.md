@@ -1,6 +1,6 @@
 # FIX — OPEN-47 T06: erratum, full citation audit, and corrected code comment
 
-**Task:** T06 (Legs A, B, C), `docs/docs_ACTIVE/openings/implemenation/PLAN_three-new-items-2026-08-12.md`.
+**Task:** T06 (Legs A, B, C), `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_three-new-items-2026-08-12.md`.
 **Executor:** C. **Date:** 2026-08-12. **Order actually run:** Leg A research + Leg B research,
 then T07 (separate report: `RESEARCH_open-47_threshold-provenance.md`), then Leg A/B write-up
 (informed by T07's result — see note below), then Leg C.

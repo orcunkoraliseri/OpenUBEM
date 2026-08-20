@@ -108,12 +108,84 @@ CELL_CONFIGS: dict[str, dict] = {
 _floor_rx = _re.compile(r"_F(\d+)_")
 
 
-def _ssh(cmd: str, timeout: int = 120) -> str:
-    result = subprocess.run(
-        ["ssh", REMOTE_HOST, f"bash -lc '{cmd}'"],
-        capture_output=True, text=True, timeout=timeout,
-    )
-    return result.stdout + result.stderr
+class RemoteCommandError(RuntimeError):
+    """A remote command failed, timed out, or exited non-zero.
+
+    OPEN-54. Before 2026-08-18 `_ssh` returned `stdout + stderr` and never looked at
+    `returncode`, so a failed remote command surfaced later, somewhere else, with the
+    evidence already discarded — twice in one run, and both times the transport error
+    masked a model verdict that had already been reached.
+    """
+
+
+_ACTIVE_SLURM_STATES = {
+    "PENDING", "RUNNING", "REQUEUED", "RESIZING", "SUSPENDED",
+    "CONFIGURING", "COMPLETING",
+}
+
+
+def _ssh(cmd: str, timeout: int = 120, allow_fail: bool = False,
+          stdin_data: str | None = None) -> str:
+    """Run `cmd` on REMOTE_HOST under `bash -lc` and return stdout + stderr.
+
+    The remote login shell is tcsh, so bash syntax sent bare would silently fail;
+    the `bash -lc` wrapper is load-bearing and must not be removed.
+
+    `stdin_data`, if given, is piped to the remote command's stdin (e.g. for a
+    `while read` loop) instead of being embedded in `cmd` itself — OPEN-57. Default
+    `None` preserves prior behaviour exactly: this path is untouched below, so every
+    existing caller (which never passes `stdin_data`) is byte-for-byte unaffected.
+    When `stdin_data` is given, it is sent as raw bytes rather than through
+    `subprocess.run`'s `text=True` stdin — `text=True` wraps the child's stdin in a
+    `TextIOWrapper(newline=None)`, which on Windows silently rewrites every `\n` to
+    `os.linesep` (`\r\n`) on write, so a remote `while read o` receives `way_123\r`
+    and every `[ -s "$o/..." ]` path test fails silently — OPEN-57's actual second
+    cause, found after the stdin remedy alone still read back 0 complete against a
+    populated fleet.
+
+    Raises RemoteCommandError on a non-zero remote exit or a timeout. Pass
+    `allow_fail=True` only where a non-zero exit is itself a legitimate answer —
+    on timeout that returns "" so the caller re-polls rather than concluding.
+    """
+    argv = ["ssh", REMOTE_HOST, f"bash -lc '{cmd}'"]
+    try:
+        if stdin_data is None:
+            result = subprocess.run(
+                argv, capture_output=True, text=True, timeout=timeout, input=None,
+            )
+            stdout, stderr = result.stdout, result.stderr
+        else:
+            result = subprocess.run(
+                argv, capture_output=True, timeout=timeout,
+                input=stdin_data.encode("utf-8"),
+            )
+            stdout = result.stdout.decode("utf-8", errors="replace")
+            stderr = result.stderr.decode("utf-8", errors="replace")
+    except subprocess.TimeoutExpired as exc:
+        if allow_fail:
+            return ""
+        partial_stdout = exc.stdout.decode("utf-8", errors="replace") if isinstance(exc.stdout, bytes) else exc.stdout
+        partial_stderr = exc.stderr.decode("utf-8", errors="replace") if isinstance(exc.stderr, bytes) else exc.stderr
+        raise RemoteCommandError(
+            f"remote command timed out after {timeout}s: {cmd}\n"
+            f"partial stdout: {partial_stdout!r}\npartial stderr: {partial_stderr!r}"
+        ) from exc
+    if result.returncode != 0 and not allow_fail:
+        raise RemoteCommandError(
+            f"remote command exited {result.returncode}: {cmd}\n"
+            f"stdout: {stdout}\nstderr: {stderr}"
+        )
+    return stdout + stderr
+
+
+def _parse_sacct_state_counts(sacct_out: str) -> dict[str, int]:
+    """Parse `sacct --format=State --noheader | sort | uniq -c` into {STATE: count}."""
+    counts: dict[str, int] = {}
+    for line in sacct_out.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0].isdigit():
+            counts[parts[1].upper().rstrip("+")] = int(parts[0])
+    return counts
 
 
 def _scp_put(local: Path, remote: str, timeout: int = 300) -> None:
@@ -322,21 +394,48 @@ def poll_cluster(job_id: str, cell_name: str, poll_interval_s: int = 90) -> None
     print(f"[{cell_name}] Polling job {job_id} (poll every {poll_interval_s}s) ...")
     while True:
         time.sleep(poll_interval_s)
-        out = _ssh(f"squeue -j {job_id} --noheader 2>/dev/null | wc -l", timeout=60)
-        pending_count = int(out.strip()) if out.strip().isdigit() else -1
+        out = _ssh(
+            f"squeue -j {job_id} --noheader 2>/dev/null | wc -l; "
+            f"echo SQ_EXIT=${{PIPESTATUS[0]}}",
+            timeout=60, allow_fail=True,
+        )
+        pending_count, sq_exit = -1, None
+        for line in out.splitlines():
+            s = line.strip()
+            if s.startswith("SQ_EXIT="):
+                sq_exit = s.split("=", 1)[1]
+            elif s.isdigit() and pending_count < 0:
+                pending_count = int(s)
         sacct_out = _ssh(
             f"sacct -j {job_id} --format=State --noheader 2>/dev/null | sort | uniq -c",
-            timeout=60,
+            timeout=60, allow_fail=True,
         )
-        print(f"  [{time.strftime('%H:%M:%S')}] squeue count={pending_count}  sacct states: {sacct_out.strip()}")
-        if pending_count == 0:
-            print(f"[{cell_name}] Job {job_id}: no tasks in queue.")
-            sacct_full = _ssh(
-                f"sacct -j {job_id} --format=JobID,State,ExitCode --noheader 2>/dev/null",
-                timeout=60,
-            )
-            print(sacct_full)
-            break
+        print(f"  [{time.strftime('%H:%M:%S')}] squeue count={pending_count} (exit {sq_exit})  "
+              f"sacct states: {sacct_out.strip()}")
+
+        # OPEN-54: `squeue | wc -l` reports 0 both when the array is finished and when
+        # squeue itself failed with stderr eaten by 2>/dev/null, so a controller hiccup
+        # used to read as 'array complete'. Completion is now concluded only when sacct
+        # positively corroborates it.
+        if pending_count != 0:
+            continue
+        states = _parse_sacct_state_counts(sacct_out)
+        if not states:
+            print("  squeue says 0 but sacct returned no states — not concluding "
+                  "completion; re-polling.")
+            continue
+        active = sum(n for st, n in states.items() if st in _ACTIVE_SLURM_STATES)
+        if active:
+            print(f"  squeue says 0 but sacct still shows {active} active task(s) "
+                  f"{states} — re-polling.")
+            continue
+        print(f"[{cell_name}] Job {job_id}: no tasks in queue, sacct corroborates: {states}")
+        sacct_full = _ssh(
+            f"sacct -j {job_id} --format=JobID,State,ExitCode --noheader 2>/dev/null",
+            timeout=60, allow_fail=True,
+        )
+        print(sacct_full)
+        break
 
 
 def fetch_results(osm_ids: list[str], remote_fleet_dir: str, sim_out_dir: Path) -> None:
@@ -929,14 +1028,18 @@ def _remote_results_complete(osm_ids: list[str], remote_fleet_dir: str) -> bool:
     eplusout.end in {remote_fleet_dir}/out — i.e. the cluster already simulated this fleet."""
     if not osm_ids:
         return False
-    oid_list = " ".join(osm_ids)
+    # OPEN-57: the id list used to be embedded in the probe string itself; at fleet
+    # sizes above ~565 ids that made the remote command long enough that tcsh (the
+    # login shell `_ssh` hands it to) failed to parse it at all (`Unmatched '.`), so
+    # every large fleet silently read back as 0/N complete. Sending ids on stdin
+    # keeps the probe a few hundred characters regardless of fleet size.
     probe = (
         f"cd {remote_fleet_dir}/out 2>/dev/null || exit 0; "
-        f"n=0; for o in {oid_list}; do "
+        f"n=0; while read o; do "
         f'if [ -s "$o/eplusout.sql" ] && grep -q "EnergyPlus Completed Successfully" "$o/eplusout.end" 2>/dev/null; '
         f"then n=$((n+1)); fi; done; echo COMPLETE=$n"
     )
-    out = _ssh(probe, timeout=600)
+    out = _ssh(probe, timeout=600, stdin_data="\n".join(osm_ids) + "\n")
     m = _re.search(r"COMPLETE=(\d+)", out)
     n_complete = int(m.group(1)) if m else 0
     print(f"  [{remote_fleet_dir.rsplit('/',1)[-1]}] remote completeness probe: {n_complete}/{len(osm_ids)} complete")

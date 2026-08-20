@@ -38,6 +38,15 @@ def _load_pba_map() -> dict[str, Any]:
         return json.load(fh)["pba_map"]
 
 
+def _fleet_levels_medians(gdf: gpd.GeoDataFrame) -> "tuple[dict, int | None]":
+    """OPEN-35 T06: the SAME group-/global-median levels lookup the classifier itself
+    computes (BuildingClassifier._build_levels_median_lookup), called once on the
+    enriched_gdf already in scope here -- not a second, independently-derived route.
+    Mirrors builder.py/aggregator.py's T05 helper of the same name."""
+    from openubem.semantic.building_classifier import BuildingClassifier
+    return BuildingClassifier()._build_levels_median_lookup(gdf)
+
+
 def _weighted_quantiles(values: np.ndarray, weights: np.ndarray, quantiles: np.ndarray) -> np.ndarray:
     """Weighted quantiles via sorted-CDF interpolation."""
     order = np.argsort(values)
@@ -127,6 +136,12 @@ def aggregate_results(
     # ── P4: per-building sequential loop ────────────────────────────────────
     metrics_rows: list[dict[str, Any]] = []
 
+    # OPEN-35 T06: computed once, classifier's own route, so parse_building() can reach
+    # the Scope B agreement fallback (derive_num_floors()'s levels_group_median /
+    # levels_global_median kwargs) via manifest_row -- it has no other access to the
+    # fleet-wide gdf. See _derive_num_floors_wired() in openubem/results/parser.py.
+    _levels_group_median, _levels_global_median = _fleet_levels_medians(enriched_gdf)
+
     for _, sim_row in success_rows.iterrows():
         osm_id = str(sim_row["osm_id"])
         sql_path = sim_row.get("sql_path")
@@ -138,12 +153,18 @@ def aggregate_results(
         for col in ["num_zones", "zoning_strategy"]:
             if col in idf_row.index and col not in manifest_row.index:
                 manifest_row[col] = idf_row[col]
-        # Carry enriched GDF columns needed for EUI denominator
+        # Carry enriched GDF columns needed for EUI denominator. archetype_source
+        # (OPEN-35 T06) added so parse_building() can gate the Scope B agreement fix.
         enriched_rows = enriched_gdf[enriched_gdf["osm_id"].astype(str) == osm_id]
         if len(enriched_rows) > 0:
-            for col in ["footprint_area_m2", "levels", "height_m", "data_quality_flag"]:
+            enriched_row = enriched_rows.iloc[0]
+            for col in ["footprint_area_m2", "levels", "height_m", "data_quality_flag", "archetype_source"]:
                 if col in enriched_rows.columns and col not in manifest_row.index:
-                    manifest_row[col] = enriched_rows.iloc[0][col]
+                    manifest_row[col] = enriched_row[col]
+            from openubem.semantic.building_classifier import _normalise_use_class
+            manifest_row["_use_class"] = _normalise_use_class(enriched_row)[0]
+        manifest_row["_levels_group_median"] = _levels_group_median
+        manifest_row["_levels_global_median"] = _levels_global_median
 
         try:
             parsed = parse_building(sql_path, csv_path, manifest_row)

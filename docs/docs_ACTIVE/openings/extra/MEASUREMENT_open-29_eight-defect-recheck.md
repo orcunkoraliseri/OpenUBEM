@@ -1,7 +1,7 @@
 # MEASUREMENT — open-29-eight-defect-recheck
 
 > **Slug:** `open-29-eight-defect-recheck` · **Date:** 2026-08-13 · **Register item:** OPEN-29
-> **Task:** T05 of `implemenation/PLAN_five-more-items-2026-08-13.md`. **Measurement only — no code
+> **Task:** T05 of `implemenation/previous/PLAN_five-more-items-2026-08-13.md`. **Measurement only — no code
 > changed.** No document was edited except this file. The register, director prompt, board and plan's
 > own progress log were not touched (per the plan's §1.7).
 

@@ -81,6 +81,17 @@ _PLAUS = {
 
 _DONOR_ARCH = "MediumOffice"  # F13: Unknown donor archetype
 
+# OPEN-55, ruling B+, 2026-08-19: screen the Unknown PDE donor pool — exclude
+# archetypes that are not plausible readings of an unnamed building. Applied
+# inside _build_unknown_loads at the bounds/median construction, not at the
+# call site (OPEN-49 ruling 3 keeps passing the full table unconditionally).
+_UNKNOWN_DONOR_EXCLUDE = {
+    "SmallDataCenterLowITE", "SmallDataCenterHighITE",
+    "LargeDataCenterLowITE", "LargeDataCenterHighITE",
+    "Laboratory", "FullServiceRestaurant", "QuickServiceRestaurant",
+}
+_UNKNOWN_DONOR_EXCLUDE_OCCUPANCY = _UNKNOWN_DONOR_EXCLUDE | {"Warehouse"}
+
 
 def _validate_input_schema(gdf: gpd.GeoDataFrame) -> None:
     """Gate: check names + required non-null columns (DESIGN §3A F2)."""
@@ -245,7 +256,24 @@ def _build_unknown_loads(
     pde_cols = ["lighting_w_m2", "equipment_w_m2", "occupant_m2_per_person", "wwr"]
     scalar_cols = ["heating_setpoint_c", "cooling_setpoint_c", "heating_setback_c", "cooling_setup_c"]
 
-    bounds = {col: (real_loads[col].min(), real_loads[col].max()) for col in pde_cols}
+    def _screened_donor_pool(exclude: set) -> pd.DataFrame:
+        # OPEN-55, ruling B+: guard against silently falling back to the
+        # unscreened table if the exclusion set ever empties the pool.
+        screened = real_loads.loc[~real_loads.index.isin(exclude)]
+        if screened.empty:
+            raise ValueError(
+                f"OPEN-55 donor screen: excluding {sorted(exclude)} empties the "
+                "Unknown PDE donor pool"
+            )
+        return screened
+
+    donor_pool_default = _screened_donor_pool(_UNKNOWN_DONOR_EXCLUDE)
+    donor_pool_occupancy = _screened_donor_pool(_UNKNOWN_DONOR_EXCLUDE_OCCUPANCY)
+
+    bounds = {}
+    for col in pde_cols:
+        pool = donor_pool_occupancy if col == "occupant_m2_per_person" else donor_pool_default
+        bounds[col] = (pool[col].min(), pool[col].max())
     for col in pde_cols:
         result[col] = np.nan
     for idx, osm_id in gdf.loc[unk_mask, "osm_id"].items():
@@ -255,7 +283,7 @@ def _build_unknown_loads(
             result.at[idx, col] = row_rng.uniform(lo, hi)
 
     for col in scalar_cols:
-        result[col] = float(real_loads[col].median())
+        result[col] = float(donor_pool_default[col].median())
 
     # Post-guard: ensure heating < cooling
     if (result["heating_setpoint_c"] >= result["cooling_setpoint_c"]).any():

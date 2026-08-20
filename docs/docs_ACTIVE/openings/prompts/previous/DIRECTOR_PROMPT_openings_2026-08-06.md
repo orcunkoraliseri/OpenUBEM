@@ -194,7 +194,7 @@
 > 3. **CP-C2's scheduling axis is RULED: measure first.** The allowance was verified free the same day
 >    (`chachemv`, `cpu=32`, **0 in use**; 4.1 TB quota headroom). Given probe-first / all-five-now /
 >    four-now-with-`fast_zone`-after, the user chose **a bounded calibration probe**, then the scope
->    decision against measured numbers. **Execution: `implemenation/PLAN_speed-resume.md`** — R01 the
+>    decision against measured numbers. **Execution: `implemenation/previous/PLAN_speed-resume.md`** — R01 the
 >    `.eio` deletion, R02 the cluster harvest's broken fatal test, R03 the vintage column, R04 FINDING
 >    1's markers plus a guard, **then** R05's probe (`la_rural` + `nyc_rural`, whole cells, five modes,
 >    ten arrays). **CP-R1 gates every submission; CP-R2 returns the numbers to the user.**
@@ -427,7 +427,7 @@ The user selected **the four items that can make already-published numbers wrong
 04) and instructed that a plan be written and execution begun. OPEN-28 was bundled in for measurement
 because it closes with the same fleet run.
 
-**Plan doc:** `docs/docs_ACTIVE/openings/implemenation/PLAN_published-numbers.md`
+**Plan doc:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_published-numbers.md`
 *(the folder name is misspelled — the user created it that way; keep the spelling, do not "fix" it)*.
 Five measurement tasks M01–M05, all complete, all independently re-derived by the director.
 Reports in `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-0*.md`.
@@ -635,7 +635,7 @@ complet, mettre à jour de progress log pour [the register] et aussi ce prompt d
 sessions prochaines."* **Every completed task updates three surfaces, unasked:** the plan's progress
 log, the register, and **this prompt**. A task is not finished until all three are written.
 
-**New plan doc:** `implemenation/PLAN_no-compute-queue.md` — tasks **N01–N05**, all first
+**New plan doc:** `implemenation/previous/PLAN_no-compute-queue.md` — tasks **N01–N05**, all first
 measurements, all dispatched 2026-08-06 to fresh Sonnet executors in parallel.
 
 **🔴 ALL FIVE LANDED AND ALL FIVE WERE AUDITED BY RE-DERIVATION. Nothing in N01–N05 is unreviewed.**
@@ -761,7 +761,7 @@ Together with the standing *"tu peux choisir à toi-même"*, this is a **mandate
 every item whose first measurement costs no CPU, without asking which.** E02 stays parked; nothing
 about it is cancelled.
 
-**Plan doc:** `implemenation/PLAN_no-compute-queue-2.md` — opened as a *second* document rather than
+**Plan doc:** `implemenation/previous/PLAN_no-compute-queue-2.md` — opened as a *second* document rather than
 extending the first, which is at 688 lines. Same structure, same 14 hard rules, §5 facts re-grepped by
 the manager.
 
@@ -861,7 +861,7 @@ candidate for the next round.**
 
 ## 4quater. Round 3 — dispatched 2026-08-06 night. N14 and N15 have landed; N13 was re-dispatched.
 
-Plan: `openings/implemenation/PLAN_no-compute-queue-3.md`. Three tasks, all no-CPU. **N14** and
+Plan: `openings/implemenation/previous/PLAN_no-compute-queue-3.md`. Three tasks, all no-CPU. **N14** and
 **N15** are done and audited (§4quater.1, §4quater.2). **N13** sweeps every completed progress-log
 entry naming a code artifact (T07 is the blind control, must return NEVER-COMMITTED) — **its first
 attempt stalled without producing anything**: the agent ended its turn saying it would *"wait for the
@@ -935,7 +935,7 @@ committed column*.
 
 ## 4quinquies. Round 4 — dispatched 2026-08-06 night. ~~One task, N16, in flight.~~ **N16 landed and was audited; N13 landed too. The no-compute queue is empty.**
 
-**Plan doc:** `implemenation/PLAN_no-compute-queue-4.md`. **It exists because N14 named its own
+**Plan doc:** `implemenation/previous/PLAN_no-compute-queue-4.md`. **It exists because N14 named its own
 coverage gap** — four cells of twelve — and Stage 2 is authorised as non-CPU, so that gap is closeable
 now rather than parked with the compute-bound work.
 
@@ -1011,7 +1011,7 @@ measures and the way it could come back wrong, it is not worth the tokens.
 
 ## 4sexies. The compute queue — opened 2026-08-06 when the user released the machine
 
-Plan: `implemenation/PLAN_compute-queue.md` (C01–C06). The user released the local workstation for
+Plan: `implemenation/previous/PLAN_compute-queue.md` (C01–C06). The user released the local workstation for
 simulation and instructed the arc to run overnight to completion, updating documents as it goes.
 
 ### 4sexies.1 🔴 The blocker you would otherwise have walked into

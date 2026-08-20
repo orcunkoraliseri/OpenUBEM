@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-32, net of OPEN-01 and OPEN-03 on `layout_assign` EUI
 
-> **Plan:** `docs/docs_ACTIVE/openings/implemenation/PLAN_five-more-items-2026-08-13.md`, T04.
+> **Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_five-more-items-2026-08-13.md`, T04.
 > **Script:** `scripts/analysis/open32_layout_assign_net.py`
 > **Output:** `openubem/outputs/comparisons/open32_layout_assign_net.csv` (8,153 rows, one per building)
 > **Inputs (all read-only):** `e02_simulated_floor_area.csv`, `open01_denominator_audit.csv`,

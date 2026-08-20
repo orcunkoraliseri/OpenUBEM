@@ -1,7 +1,7 @@
 # MEASUREMENT — Which step writes the wrong `archetype_id` into `05_results.gpkg`? (OPEN-06)
 
 > **Slug:** `open-06_archetype-writer-trace` · **Date:** 2026-08-06 · **Task:** N07 of
-> `docs/docs_ACTIVE/openings/implemenation/PLAN_no-compute-queue-2.md`.
+> `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_no-compute-queue-2.md`.
 > **MEASUREMENT ONLY. No remediation performed or proposed.** No EnergyPlus, no IDF generation, no
 > cluster, no fleet pass. All code paths were read; the only computation performed was calling the
 > already-imported, already-existing `BuildingClassifier().classify()` on data already on disk (the

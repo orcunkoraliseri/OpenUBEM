@@ -1,6 +1,6 @@
 # MEASUREMENT — Is `archetype_id` the only published column current code cannot regenerate? (OPEN-06 §3 / N14)
 
-> **Task:** N14, `docs/docs_ACTIVE/openings/implemenation/PLAN_no-compute-queue-3.md` §6.
+> **Task:** N14, `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_no-compute-queue-3.md` §6.
 > **Scope:** Stage 2 only (semantic enrichment + classification), the plan's single authorised
 > compute exception. No Step 3/IDF/EnergyPlus/cluster was run. Measurement only — no remediation.
 > **Verdict, one sentence:** **No** — `archetype_id` is not the only column current code cannot

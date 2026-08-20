@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-42: placeholder trace (T01) + fleet-EUI impact (T02)
 
-> Plan: `docs/docs_ACTIVE/openings/implemenation/PLAN_five-item-sweep-2026-08-12.md`, T01+T02.
+> Plan: `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_five-item-sweep-2026-08-12.md`, T01+T02.
 > Measurement only. Nothing fixed, nothing republished.
 
 ## T01 — where does `footprint_area_m2 == 200.0` come from

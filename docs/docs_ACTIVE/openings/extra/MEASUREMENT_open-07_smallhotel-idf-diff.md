@@ -2,7 +2,7 @@
 
 **Script:** `scripts/analysis/open07_smallhotel_idf_diff.py`
 **Output:** `openubem/outputs/comparisons/open07_smallhotel_idf_diff.csv`
-**Task:** T02 of `docs/docs_ACTIVE/openings/implemenation/PLAN_open-52-and-four-items-2026-08-18.md`
+**Task:** T02 of `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-52-and-four-items-2026-08-18.md`
 
 ## Scope
 

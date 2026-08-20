@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-33: archiving rule written, dead-path re-sweep, 2026-08-12
 
-> **Plan:** `docs/docs_ACTIVE/openings/implemenation/PLAN_five-item-sweep-2026-08-12.md`, T07.
+> **Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_five-item-sweep-2026-08-12.md`, T07.
 > **Scope:** (a) write the ruled-obligatory archive-citation-sweep rule where the next person
 > archiving an arc will meet it; (b) re-run the dead-path sweep over live documents and compare
 > against the 2026-08-06 baseline (58 dead paths / 23 documents / 8 arcs). Measurement only —

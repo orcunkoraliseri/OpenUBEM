@@ -1,7 +1,7 @@
 # FIX — open-52 pytest --basetemp
 
 > **Slug:** `open-52_pytest-basetemp` · **Date:** 2026-08-18 · **Register item:** OPEN-52
-> **Task:** T01 of `implemenation/PLAN_five-items-2026-08-18.md`.
+> **Task:** T01 of `implemenation/previous/PLAN_five-items-2026-08-18.md`.
 
 ---
 

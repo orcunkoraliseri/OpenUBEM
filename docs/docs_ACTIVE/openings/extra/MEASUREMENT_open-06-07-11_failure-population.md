@@ -1,7 +1,7 @@
 # MEASUREMENT — the fleet's failure population (OPEN-06 · OPEN-07 · OPEN-11)
 
 > **Slug:** `open-06-07-11_failure-population` · **Date:** 2026-08-06 · **Task:** N04 of
-> `docs/docs_ACTIVE/openings/implemenation/PLAN_no-compute-queue.md`.
+> `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_no-compute-queue.md`.
 > **MEASUREMENT ONLY. No remediation was performed or proposed as an action.** No EnergyPlus was run,
 > no simulation, no cluster, no `ssh`/`srun`/`sbatch`. Every number below is read from a file already on
 > disk, or is a plain `pandas`/`geopandas` merge of two such files — no classifier execution occurred in

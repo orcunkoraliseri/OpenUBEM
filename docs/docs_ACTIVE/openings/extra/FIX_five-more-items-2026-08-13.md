@@ -1,6 +1,6 @@
 # FIX — T01 (OPEN-13) and T02 (OPEN-27), executed 2026-08-13
 
-**Plan:** `docs/docs_ACTIVE/openings/implemenation/PLAN_five-more-items-2026-08-13.md`
+**Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_five-more-items-2026-08-13.md`
 **Scope of this report:** T01 and T02 only, stopping at CP-1 as instructed. T03–T05 not started.
 **Interpreter:** `./.venv/Scripts/python.exe`. No packages installed. No cluster, no network, no `git commit` / `add` / `restore` / `checkout --`.
 

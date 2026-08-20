@@ -1,7 +1,7 @@
 # MEASUREMENT — open-28-harvest-generation-join
 
 > **Slug:** `open-28-harvest-generation-join` · **Date:** 2026-08-05 · **Register item:** OPEN-28
-> **Plan:** `docs/docs_ACTIVE/openings/implemenation/PLAN_published-numbers.md`, task M05.
+> **Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_published-numbers.md`, task M05.
 > **This is a measurement-only report.** No remediation was performed or proposed, and no corrected
 > cross-mode delta was computed (plan §6 M05, explicit prohibition). The only writes this task made
 > are this file and `openubem/outputs/comparisons/open28_t08_t20_join.csv`.

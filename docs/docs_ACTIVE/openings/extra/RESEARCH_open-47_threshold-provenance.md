@@ -1,6 +1,6 @@
 # RESEARCH — OPEN-47 T07: tracing the office 25,000 / 100,000 ft² thresholds to a primary source
 
-**Task:** T07, `docs/docs_ACTIVE/openings/implemenation/PLAN_three-new-items-2026-08-12.md`.
+**Task:** T07, `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_three-new-items-2026-08-12.md`.
 **Executor:** C. **Date:** 2026-08-12.
 
 **Verdict (one sentence):** A primary, retrievable, Crossref-verified source for the exact

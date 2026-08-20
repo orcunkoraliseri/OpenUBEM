@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-01 T07: before/after per building, all five modes
 
-> Executes T07 of `docs/docs_ACTIVE/openings/implemenation/PLAN_open-49-and-open-01-2026-08-13.md` §6.
+> Executes T07 of `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-49-and-open-01-2026-08-13.md` §6.
 
 ## Reassurance first
 

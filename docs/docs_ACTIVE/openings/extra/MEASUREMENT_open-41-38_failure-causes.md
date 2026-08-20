@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-41 failure causes and OPEN-38 subsurface census
 
-> **Plan:** `docs/docs_ACTIVE/openings/implemenation/PLAN_e02-audit-and-closure.md`, T02.
+> **Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md`, T02.
 > **Script:** `scripts/analysis/e02_failure_causes_subsurface.py`
 > **Outputs:** `openubem/outputs/comparisons/open41_failure_causes.csv` (44 rows),
 > `openubem/outputs/comparisons/open38_subsurface_census.csv` (8 rows)
