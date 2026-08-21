@@ -214,6 +214,44 @@ def normalized_space_loads(
     return out
 
 
+def _write_zone_volumes(idf: GeomIDF, zones: list[dict]) -> None:
+    """OPEN-56: write Zone.Volume explicitly as floor_area x ceiling_height for every
+    extruded zone, instead of leaving it to EnergyPlus's own "Indicated Zone Volume"
+    calculation. That calculation goes negative for WHOLE (one_zone_per_floor/single_zone)
+    footprints under the adopted GGR winding (openubem/idf/builder.py:464-465's orient()
+    call is gated off for resolution_mode=="auto" and never fires), so EnergyPlus
+    substitutes a 10 m3 stub for every such zone (fact 2). CORE/PERIM zones mostly escape
+    this because geomeppy's core/perim path re-derives the core polygon via
+    Polygon2D.buffer(), which internally calls shapely's real orient(sign=1.0)
+    unconditionally (geomeppy/geom/polygons.py:104-113) -- that correction never runs
+    for the by_storey/WHOLE path (geomeppy/idf.py:263-267), which uses the raw,
+    unoriented footprint coordinates.
+
+    Floor area is read from each zone's own FLOOR surface(s) in the built IDF (not from
+    the zones[] dict's `floor_polygon`, which core/perim zone dicts share as the whole
+    building's placeholder footprint and would give the wrong area). Ceiling height is
+    the zone's own `height_m` (floor-to-floor height), already correct for every zone
+    role. Zones with no floor surface or non-positive area/height are left untouched.
+    """
+    zone_bunches = {z.Name: z for z in idf.idfobjects["ZONE"]}
+    floor_area_by_zone: dict[str, float] = {}
+    for surf in idf.getsurfaces("floor"):
+        floor_area_by_zone[surf.Zone_Name] = floor_area_by_zone.get(surf.Zone_Name, 0.0) + surf.area
+
+    for z in zones:
+        if not z.get("extruded"):
+            continue
+        zname = z.get("name")
+        zone_bunch = zone_bunches.get(zname)
+        if zone_bunch is None:
+            continue
+        floor_area = floor_area_by_zone.get(zname)
+        ceiling_height = z.get("height_m")
+        if not floor_area or floor_area <= 0 or not ceiling_height or ceiling_height <= 0:
+            continue
+        zone_bunch.Volume = floor_area * ceiling_height
+
+
 class BuildingIDF:
     def __init__(self, row: pd.Series, thermal_mass: Optional[bool] = None, resolution_mode: str = "auto",
                  trim_outputs: bool = False) -> None:
@@ -617,6 +655,9 @@ class BuildingIDF:
                 "generation_status": "failed_no_extruded_zones",
                 "resolution_mode": self.resolution_mode,
             }
+
+        # OPEN-56: write Zone.Volume explicitly, ending the 10 m3 stub (fact 2).
+        _write_zone_volumes(self.idf, extruded_zones)
 
         # 3F: constructions (needs extruded surfaces for set_wwr)
         self.assign_constructions()

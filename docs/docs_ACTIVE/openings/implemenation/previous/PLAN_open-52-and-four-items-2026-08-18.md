@@ -4,7 +4,7 @@
 **Written:** 2026-08-18 (night), by the director, on the user's instruction
 *"tu peux choisir OPEN-52, vas-y continuer jusqu'à la fin. et aussi, est-ce que si possible
 choisir 5 tâches ouverts pour créer un plan d'implémentation."*
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`
 **Director prompt:** `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`
 **Predecessor:** `implemenation/previous/PLAN_four-items-2026-08-18.md` — CLOSED at CP-3, 2026-08-18.
 **Register state at write time:** 25 live rows, 28 struck, 53 total (OPEN-01…OPEN-53),
@@ -63,7 +63,7 @@ the user has not given.
 | Purpose | Path |
 |---|---|
 | This plan | `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-52-and-four-items-2026-08-18.md` |
-| Register (amend) | `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` |
+| Register (amend) | `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` |
 | Support docs | `docs/docs_ACTIVE/openings/extra/` |
 | Analysis scripts | `scripts/analysis/` |
 | CSV outputs | `openubem/outputs/comparisons/` |

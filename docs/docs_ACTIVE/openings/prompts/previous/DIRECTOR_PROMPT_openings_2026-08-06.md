@@ -387,7 +387,7 @@ two readings and what each one costs.
 A register of **everything open in this project** lives at:
 
 ```
-docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md
+docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md
 ```
 
 **Read it first, in full.** It is the single source of state for this arc — not this prompt, and not

@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-61 fleet census
 
-> Plan: `docs/docs_ACTIVE/openings/implemenation/PLAN_open61-census-open03-storeys-2026-08-20.md`
+> Plan: `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open61-census-open03-storeys-2026-08-20.md`
 > Predecessor: `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-61_district-heating.md`
 
 ## T01 — the district-heating read path

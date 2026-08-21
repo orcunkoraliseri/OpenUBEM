@@ -3,7 +3,7 @@
 > **Slug:** `no-compute-queue-3` · **Opened:** 2026-08-06 · **Author:** manager session
 > **Predecessors:** `PLAN_no-compute-queue.md` (N01–N05) and `PLAN_no-compute-queue-2.md` (N06–N12) —
 > **all twelve landed and all twelve were audited by independent re-derivation.**
-> **Binding upstream contract:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`.
+> **Binding upstream contract:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`.
 > **Governing arc rule:** *no execution plan may be written for an item until that item's first
 > measurement has been made.* **This is a measurement plan. Phase 2 does not exist and is not written.**
 

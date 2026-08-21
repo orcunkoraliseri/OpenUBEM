@@ -1,7 +1,7 @@
 # PLAN — E02 audit and register closure pass
 
 > **Slug:** `e02-audit-and-closure` · **Opened:** 2026-08-11 · **Author:** manager (director) session
-> **Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`
+> **Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`
 > **Director prompt:** `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`
 > **Predecessor plan:** `implemenation/previous/PLAN_speed-resume.md` — **CLOSED at 1,451 lines, finished through
 > R10. Do not append to it.** Prior findings are cited here by task ID (R01…R10), never re-derived.
@@ -717,7 +717,7 @@ proof of" — reported as such rather than manufactured into a stronger claim.
    buildings were identified as: `mode == layout_assign`, `zoning_strategy_manifest == 'layout_assign'`
    (went through `match_storeys()`), and absent from `open01_denominator_factors.csv` entirely — this
    gives 7,442 − 6,939 = 503, which matches the register's own stated arithmetic
-   (`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md:536`) exactly. This derivation is
+   (`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md:536`) exactly. This derivation is
    documented in full, with the numbers that justify it, in §2 of the measurement report. It reads
    existing artifacts only; it does not recompute `match_storeys()` or any other pipeline logic.
 
@@ -982,7 +982,7 @@ executor number failed to reproduce.
 
 #### T06 (b)(c)(d) — The closure pass, bookkeeping half — completed 2026-08-11 (director)
 **Artifacts:**
-- `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — §0 amendment, §1 heading, count
+- `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — §0 amendment, §1 heading, count
   arithmetic block, 11 table rows amended or added, and 10 item sections amended under their own
   headings (OPEN-01, 02, 28, 30, 34, 35, 38, 39, 40, 41) plus a new OPEN-42 section.
 - `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` — state box, §2 counts and

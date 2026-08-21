@@ -2,7 +2,7 @@
 
 **Slug:** `PLAN_ten-items-2026-08-18-late`
 **Date:** 2026-08-18 (late)
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`
 **Predecessor:** `PLAN_open-48-third-fleet-run-2026-08-18.md` — closed the same evening, all six tasks
 discharged or void.
 **Selected by:** the director, on the user's instruction *"choisir nouvelle 10 taches ouverts par list

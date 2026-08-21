@@ -4131,6 +4131,54 @@ three. If they do, the cause is per-building input data and this becomes an inpu
 they do not, it is mode-specific and splits. **Do not write a remedy plan before this scan** — the
 current evidence names no cause to remedy.
 
+> ✅ **THE SCAN IS RUN — 2026-08-20 (T04 of
+> `implemenation/previous/PLAN_ten-live-items-2026-08-20-evening.md`). The 43 nameless fatals now have names,
+> and the second observation resolves to an item we already have.**
+>
+> **(1) Every fatal has a cause, and 86 % of them are one cause.** All **44 of 44** carry an
+> identifiable `** Severe **` line before the trailer — `no_preceding_severe` is **0**, which is the
+> headline, not a footnote. The classes:
+>
+> | severe class | count |
+> |---|---:|
+> | `Temperature (high) out of bounds` for a zone/surface | **21** |
+> | `CalcHeatBalanceInsideSurf: The temperature of <N> C` for a zone/surface | **17** |
+> | `Temperature (low) out of bounds` for a zone/surface | **5** |
+> | `DetermineShadowingCombinations: ... surfaces ... are non-convex` | **1** |
+>
+> **38 of 44 (86 %) are one family: the inside-surface heat balance diverging until a temperature
+> leaves its bounds.** The generic trailer was hiding a single dominant mechanism, not 43 different
+> ones.
+>
+> **(2) The `la_rural` concentration is a `Warehouse` story, and it is already tracked.** 11 distinct
+> `la_rural` stems fail in at least one of `fast_zone` / `auto` / `floor`; **6 of the 11 fail in all
+> three**. 🔴 **Director's cross-check, at the artifact rather than by inference: all 11 are
+> `Warehouse`, and 5 of the 6 that fail in all three modes are EXACTLY run 4's five `la_rural`
+> `not_simulated` buildings** — `way/472960972`, `way/472961034`, `way/472961088`, `way/472961091`,
+> `way/472961171` — verified against `openubem/outputs/comparisons/open61_census_fleet.csv`, where
+> the other six (`way/472961047`, `472961089`, `472961090`, `472961092`, `472961093`, `472961164`)
+> appear as `Warehouse` / `success`. **So the mode-independent half of this population is not a new
+> input-validation item: it is OPEN-42/OPEN-56's `Warehouse` face, still fatal today, and the
+> hypothesis that `la_rural`'s 4.7 % failure rate points at "the inputs for those buildings" is
+> confirmed with the buildings named.**
+>
+> ⚠️ **The split is real and is not smoothed over.** The other 5 of 11 fail in only one or two modes
+> (3 `fast_zone`-only, 1 `auto`-only, 1 `fast_zone`+`floor`), which the same-building mechanism does
+> **not** explain. The evidence selects "same buildings" for the majority and leaves a mode-specific
+> remainder. **No remedy is written either way**, per the scan's own instruction.
+>
+> 🔵 **A mechanism worth stating and NOT yet tested:** OPEN-56 puts a **10 m³ volume stub** in
+> every zone of every building in the fleet, and 86 % of these fatals are heat-balance temperature
+> divergence — exactly what a near-zero thermal capacitance produces. That is a **hypothesis with a
+> cheap test** (re-run a handful of the 44 with `Zone.Volume` written, the intervention OPEN-56
+> already has tooling for), **not a finding**. It is recorded here so it is not lost, and it belongs
+> to whoever scopes OPEN-56's remedy.
+>
+> **Evidence:** `extra/MEASUREMENT_open-38_fatal-cause-census.md`;
+> `openubem/outputs/comparisons/open38_fatal_causes_2026-08-20.csv` (44 rows);
+> `open38_la_rural_intersection_2026-08-20.csv` (11 rows);
+> script `scripts/analysis/open38_fatal_cause_census_2026-08-20.py`.
+
 ### OPEN-42 — The `Warehouse` population is broken in two measured ways, and one of them reaches the adopted baseline ✅ **CLOSED 2026-08-19 (T09, ruling R2), folded into OPEN-56 — ID RETIRED**
 
 **Opened 2026-08-11** by the E02 audit and closure pass — found by *auditing* T02's and T04's output
@@ -7540,10 +7588,22 @@ adopted run; it is reported, not subtracted.
 > `nyc_centre / relation_3566904` (14 zones) was excluded from the cost statistic because writing
 > `Zone.Volume` **also changed its reported Total Building Area: 157,115 m² → 37,551 m² (÷ 4.18)**.
 > Its apparent −47.8 % is not a cost — the denominators are not comparable. **59 of 60 buildings had
-> identical areas to within 0.1 %**, so this is isolated. It matters anyway: **the project's EUI
-> denominator is EnergyPlus's own simulated floor area**, and this is a case where the same broken
-> geometry that stubs the volume also mis-reports the area. **Registered as a lead; NOT generalised
+> identical areas to within 0.1 %**, so this is isolated. ~~It matters anyway: the project's EUI
+> denominator is EnergyPlus's own simulated floor area, and this is a case where the same broken
+> geometry that stubs the volume also mis-reports the area.~~ **Registered as a lead; NOT generalised
 > from n = 1**, and it does not by itself implicate any published figure.
+>
+> 🔴 **THE STATED REASON IS WRONG AND IS CORRECTED HERE — 2026-08-20 (director, T06 of
+> `implemenation/previous/PLAN_ten-live-items-2026-08-20-evening.md`).** This row is **not** a geometry
+> defect. `nyc_centre/relation_3566904`'s **base-arm `.sql` is cross-contaminated**: its zone keys
+> read `RELATION/11171793_F0_WHOLE`, and its `base_floor_area_m2` (157,115.48),
+> `base_site_energy_gj` (150,207.12) and `base_eui_kwh_m2` (265.563924) are **exact matches to
+> `relation_11171793`'s own base-arm row in the same CSV, to the last decimal**. Two different
+> buildings cannot agree to fifteen significant figures. **This is OPEN-58 defect (a) manifesting for
+> real** — caught by `parse_building()`'s own foreign-`osm_id` check, 1 of 166 arm-cells. The row was
+> already excluded from the pooled statistic, so **no published figure moves**; what changes is the
+> reason on the record. Evidence: `extra/MEASUREMENT_open-58_blast-radius.md`;
+> `openubem/outputs/comparisons/open58_blast_radius_artifacts.csv`.
 >
 > 🔵 **X03 — this item does NOT subsume OPEN-09.** The ten non-convergent-but-successful buildings
 > show **150 warnings baseline, 150 treated, 15 / 15 unchanged on every one**. Writing the volume
@@ -7946,9 +8006,18 @@ most reliable source of real defects: auditing an artifact for a different quest
 `extra/MEASUREMENT_open-35_storey-intervention.md` and this register's **OPEN-35** amendment.
 
 > **Defect (a) — cross-contamination.** `run_ep()` invokes EnergyPlus with `-x`, and buildings that
-> share a working directory can overwrite each other's outputs. **Caught as two byte-identical
-> `.sql` files produced for two different building footprints** — a physically impossible result,
-> which is what made it visible.
+> ~~share a working directory~~ **share the process's current working directory** can overwrite each
+> other's outputs. **Caught as two byte-identical `.sql` files produced for two different building
+> footprints** — a physically impossible result, which is what made it visible.
+>
+> 🔴 **Wording corrected 2026-08-20 (director, T06 of
+> `implemenation/previous/PLAN_ten-live-items-2026-08-20-evening.md`).** The original "shared working
+> directory / shared outdir" phrasing is **wrong and it cleared the wrong scripts**: every real
+> importer already passes a per-building-unique `-d` outdir. EnergyPlus's `-x` / ExpandObjects step
+> reads and writes relative to the **process's own cwd**, which is shared across every invocation
+> unless `cwd=` is passed explicitly — only `run_ep_isolated` does. **All three importers are
+> exposed, serial ones included**; an audit that looked only for parallel runs would have cleared two
+> of the three wrongly.
 
 > **Defect (b) — wrong EUI formula.** It computes EUI as Total Site Energy ÷ Total Building Area.
 > **Production does not do this.** `openubem/results/parser.py`'s `total_eui_kwh_m2`, read via
@@ -8013,6 +8082,18 @@ Record: `extra/MEASUREMENT_open-58_blast-radius.md`; artifact table
 > **0.7739 % / 0.6847 % / 1.6920 %**; `open56_fleet_cost_stratified.csv`'s post-exclusion
 > +0.98 % / +0.84 % reproduce as **1.0165 % / 0.8584 %**, with the same-sign fraction identical
 > (65/69).
+
+✅ **THE FOUR CORRECTIONS ARE APPLIED — 2026-08-20 (director, T06 of
+`implemenation/previous/PLAN_ten-live-items-2026-08-20-evening.md`).** All four were record repairs with the
+evidence already in hand, and leaving them un-taken was itself the risk. (a) The item's "shared
+outdir / shared working directory" mechanism language is corrected to **shared process cwd** at the
+defect-(a) block above, with the note that it clears no serial importer. (b) The stated reason for
+excluding `nyc_centre/relation_3566904` is corrected from *"geometry mis-reports area"* to
+**cross-contamination**, at the OPEN-56 X01 block where the wrong reason was written. (c) The raw
+artifact now carries its own warning: `openubem/outputs/comparisons/open56_fleet_cost_stratified.csv`
+gained a `data_quality_note` column and that row reads *"UNSOUND base arm — cross-contaminated `.sql`
+… Do not cite this row."* (d) **The remedy decision is the user's and is un-taken** — see below.
+**No published figure moved; every correction is to a stated reason or a label.**
 
 ⚠️ **Still open, and still no remedy authorised.** Neither defect is fixed — only its reach is
 now known. What changed is that the blast radius is **measured** (3 importers, 6 descended

@@ -30,7 +30,7 @@
 | # | File | Opened | What it contributed |
 |---|---|---|---|
 | 1 | `docs/PROJECT_CHECKLIST.md` | Yes, lines 800-870 read in full | CP-C closing summary for the height-backfill sub-plan; confirms E-UTCI-11/12/13 disposition at arc close |
-| 2 | `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` | Yes, lines 130-150, 930-950, 1200-1220 read | OPEN-13/OPEN-14's register-level framing, both still marked 📄 |
+| 2 | `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` | Yes, lines 130-150, 930-950, 1200-1220 read | OPEN-13/OPEN-14's register-level framing, both still marked 📄 |
 | 3 | `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-05_defect-id-sweep.md` | Yes, lines 95-225 read | Independent 2026-08-06 ID sweep; confirms E-UTCI-12/13 status unchanged since arc close, confirms no duplicate with E-UTCI-11 |
 | 4 | `docs_DONE/OUTDOOR/UTCI/UTCI_CHECKLIST.md` | Yes, lines 1-92 read | Arc-level defect ledger; E-UTCI-12/13 both still shown OPEN, forwarded out of the arc |
 | 5 | `docs_DONE/OUTDOOR/UTCI/implementation/sub-plans/DONE-PLAN_e-utci-09_height_backfill.md` | Yes — read in full (2038 lines): §0 checklist, §5 facts, §7 progress log excerpts, §8 error log (E-UTCI-11/12/13/14 in full), §10 (reproduction procedure), §11 (closing statement) | The defining site for all three items; §8's E-UTCI-12/13 entries and §10 are the primary evidence used below |

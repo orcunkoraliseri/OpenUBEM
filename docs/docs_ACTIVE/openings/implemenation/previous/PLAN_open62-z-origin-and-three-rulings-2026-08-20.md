@@ -8,11 +8,16 @@ in `docs/docs_main/`, and are explicitly outside every executor's reach.
 **Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md` — §2 (the 19 live
 items), §4 (priority order), §6 OPEN-62 at :399-472.
 
-⚠️ **Two plans are in force at once, deliberately.**
-`PLAN_open61-census-open03-storeys-2026-08-20.md` is still live — its T03 fleet census has been
-running locally at 12 workers since ~14:20 and finishes tonight. **Neither plan is archived until
-both close.** This plan exists because every task in it is CPU-cheap and needs no EnergyPlus, so it
-can run beside the census instead of behind it.
+> **Status:** ✅ **CLOSED 2026-08-21.** T01, T02, T04, T05, T06, T07 complete and logged in §8.
+> **T03 was replaced, not executed** — see the ruling at the end of the T02 entry (§8, "T03 is
+> replaced, not executed"). **Archived to `implemenation/previous/` on 2026-08-21**, together
+> with `PLAN_open61-census-open03-storeys-2026-08-20.md`, which ran beside it and also closed.
+
+*(Historical note, kept as written: while this plan was live, two plans were in force at once,
+deliberately. `PLAN_open61-census-open03-storeys-2026-08-20.md` was still running its T03 fleet
+census locally at 12 workers. Neither plan was archived until both closed. This plan existed
+because every task in it was CPU-cheap and needed no EnergyPlus, so it could run beside the
+census instead of behind it.)*
 
 **Why this plan exists.** The user asked, on 2026-08-20, what could move in parallel with the census
 and ruled on four questions the same afternoon. Those rulings are §4 below. This plan executes them.
@@ -829,3 +834,50 @@ was also right — it is a diagnostic, and its value on `TallBuilding` (11) coll
 zones named `Attic`. Name-matching zone names is exactly the generalisation A1 already falsified
 (F-07, cited at `layout_assigner.py:389`), and it would silently move archetypes across
 `match_storeys()`'s `n_proto` branches, which the production docstring warns against by name.
+
+---
+
+#### T07 — Preserve the census corpus — completed 2026-08-20 *(director, ruling R6)*
+
+**Artifacts:**
+- Corpus moved to **`C:/Users/o_iseri/OpenUBEM_corpora/open61_census_2026-08-20`**.
+- `INVENTORY.json` written at the corpus root (per-cell counts, sizes, provenance).
+- `docs/docs_ACTIVE/openings/extra/INVENTORY_preserved-simulation-corpora.md` — the human inventory.
+- `scripts/analysis/corpus_inventory_check_2026-08-20.py` — the checker R6 asks for.
+
+**Gate honoured.** Executed only after `open61_census_fleet.csv` reached its final **8,160 rows**, and
+after confirming no `energyplus.exe` process was alive. Nothing was moved while the census ran.
+
+**What was moved.** **7,861 building directories, 7,861 `.sql` files, 121.9 GB, 12 cells.** Same-volume
+`os.rename` — **0.77 s, no copy, no extra disk**. Re-scanned at the destination immediately after:
+12 cells, 7,861 dirs, 7,861 `.sql`, 121.9 GB. Checker run: **PASS**.
+
+**Deviations — three, all deliberate:**
+1. **R6 estimated ~38 GB; the corpus is 121.9 GB** — 3.2x the ruling's figure. Nothing was pruned to
+   meet the estimate: R6 explicitly chose full preservation over "preserve only what is cited", so the
+   whole tree moved. Composition: `.sql` 75.7 GB (all 7,861), `.eso` 33.8 GB (**only 799 buildings**),
+   `.csv` 8.9 GB, `.htm` 1.8 GB, remainder < 1.5 GB. The `.eso`/`.htm`/`.csv` tail belongs to the 799
+   buildings run before the driver was switched to a leaner output set, so per-building size is not a
+   uniform quantity and must not be used as a signal.
+2. **Destination is outside the Windows temp tree, breaking with the existing convention.** The other
+   corpora live in `%LOCALAPPDATA%\Temp\ubem_validation\`. That is a standard Windows temp root, which Storage
+   Sense and Disk Cleanup may purge by age without warning — the exact class of loss R6 was written
+   after. Durability was ranked above convention. Still on the C: volume, so the move stayed a rename.
+3. **A checker script was written**, which the task text did not name. R6's wording is "an inventory
+   that is **checked** rather than written once"; an inventory with no way to check it does not satisfy
+   the ruling. Exit 0 = intact, exit 1 = discrepancies listed.
+
+**Test status:** `py -3 scripts/analysis/corpus_inventory_check_2026-08-20.py <root>` -> **PASS —
+corpus matches its manifest.** 12 cells, 7,861 dirs, 7,861 `.sql`, 121.9 GB.
+
+**Notes — the coverage number, stated so it is never quoted as 100 %.** 7,861 directories stand against
+**8,152 `ok` census rows = 96.4 %**. The 291-building gap is the census's kill-and-resume: their
+`sim_out` was reclaimed before preservation. Their *numbers* survive in `open61_census_fleet.csv`;
+their raw EnergyPlus output does not, so anything needing a re-read of raw output for those 291 must
+re-simulate. This was pre-committed in the OPEN-61 plan's T03 entry before the move and is reproduced
+by the checker at every run.
+
+**Named, not fixed:** the run-4 fleet corpus (`open48_refleet4`) and five siblings remain under
+`%LOCALAPPDATA%\Temp\ubem_validation\`, exposed to the same temp-cleanup risk. Moving them is a
+separate cost and a separate decision; it is recorded in the inventory doc §2 so the next person
+decides knowingly rather than discovers it after a loss.

@@ -1,7 +1,7 @@
 # PLAN — ten open items, overnight pass
 
 > **Slug:** `ten-items-2026-08-18-overnight` · **Date:** 2026-08-18 (overnight) · **Author:** manager session
-> **Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`
+> **Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`
 > **Predecessor:** `PLAN_ten-tasks-2026-08-18-night.md` (W01–W10, all discharged)
 > **Instruction:** *"si des taches sont completes, choisir 10 taches differentes et demarrer de
 > l'execution"* … *"continuer jusqu'a la fin, et mettre a jour ce prompt … je vais dormir."*

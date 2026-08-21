@@ -454,7 +454,7 @@ to reuse `run_ep_isolated()` verbatim (not copied, not reimplemented) for the me
 **Notes.** `git status --short` at end of task:
 ```
  M docs/PROJECT_CHECKLIST.md
- M docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md
+ M docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md
  M docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-35_storey-intervention.md
  M docs/docs_ACTIVE/openings/implemenation/previous/PLAN_four-board-items-2026-08-20.md
  M docs/docs_ACTIVE/openings/implemenation/board_published-numbers.html
@@ -524,7 +524,7 @@ error.
 `git status --short` at end of task:
 ```
  M docs/PROJECT_CHECKLIST.md
- M docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md
+ M docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md
  M docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-35_storey-intervention.md
  M docs/docs_ACTIVE/openings/implemenation/previous/PLAN_four-board-items-2026-08-20.md
  M docs/docs_ACTIVE/openings/implemenation/board_published-numbers.html
@@ -605,7 +605,7 @@ bimodal — 43/60 at 0.5–5.3 kWh/m² (matches T01's 48-sample range), 17/60 at
 of task:
 ```
  M docs/PROJECT_CHECKLIST.md
- M docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md
+ M docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md
  M docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-35_storey-intervention.md
  M docs/docs_ACTIVE/openings/implemenation/previous/PLAN_four-board-items-2026-08-20.md
  M docs/docs_ACTIVE/openings/implemenation/board_published-numbers.html
@@ -698,7 +698,7 @@ floors; 0/48 paired `auto` IDFs do.
 `git status --short`:
 ```
  M docs/PROJECT_CHECKLIST.md
- M docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md
+ M docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md
  M docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-35_storey-intervention.md
  M docs/docs_ACTIVE/openings/implemenation/previous/PLAN_four-board-items-2026-08-20.md
  M docs/docs_ACTIVE/openings/implemenation/board_published-numbers.html
@@ -811,7 +811,7 @@ no new entry was appended.
 
 ```
  M docs/PROJECT_CHECKLIST.md
- M docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md
+ M docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md
  M docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-35_storey-intervention.md
  M docs/docs_ACTIVE/openings/implemenation/previous/PLAN_four-board-items-2026-08-20.md
  M docs/docs_ACTIVE/openings/implemenation/board_published-numbers.html

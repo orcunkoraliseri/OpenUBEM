@@ -1,7 +1,7 @@
 # PLAN — Twenty tasks across the nineteen live register items
 
 > **Slug:** `twenty-items-2026-08-19` · **Date:** 2026-08-19 (late) · **Author:** manager/director session
-> **Register:** `../INVESTIGATION_open-items-register.md` — 19 live / 40 struck / 59 total, next free `OPEN-60`
+> **Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — 19 live / 40 struck / 59 total, next free `OPEN-60`
 > **Predecessor:** `previous/PLAN_close-all-2026-08-19.md` (CP-2 signed 2026-08-19; fleet baseline restated to `153.8231 kWh/m²`)
 > **Board:** `../reporting/board_published-numbers.html` → artifact `0615b50a-75d6-49c6-a354-d4f2f74d3639`
 
@@ -89,7 +89,7 @@ restatement, and that is (c) answerable **without the cluster and without a user
 | analysis scripts | `scripts/analysis/*.py` |
 | tabular outputs | `openubem/outputs/comparisons/*.csv` |
 | figures | `openubem/outputs/*.png` (**flat**) |
-| register (director edits only) | `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` |
+| register (director edits only) | `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` |
 
 ## 5. Pinned facts the tasks rest on
 

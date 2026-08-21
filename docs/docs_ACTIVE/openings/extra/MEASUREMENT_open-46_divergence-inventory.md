@@ -141,7 +141,7 @@ and `docs/PROJECT_CHECKLIST.md`, matching any of: `10th end-use`, `tenth end-use
 - **`tests/test_parser_elevators.py:5`** (live tree) — docstring: *"...in total. T05 breaks them out
   into a mutually-exclusive 10th end-use while keeping..."* — this is a **currently-live file** making
   the claim, attached to a test that currently fails.
-- **`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md:2865`** — already a correction,
+- **`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md:2865`** — already a correction,
   quoting the phrase as false: *"the adopted-baseline phrase 'elevators, the 10th end-use' describes
   the archived arc, not the live code."*
 - **`docs/docs_ACTIVE/openings/implemenation/board_published-numbers.html:606-607`** and the identical

@@ -3,7 +3,7 @@
 **Slug:** `five-more-items-2026-08-13`
 **Written:** 2026-08-13, on the user's instruction *"continuer des autres 5 tâches sur le liste … avec
 d'un plan d'implementation et aussi jusqu'a la fin."*
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — **29 tracked items,
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — **29 tracked items,
 next free ID `OPEN-51`.**
 **Director prompt:** `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`
 **Predecessor, closed — cite by task ID, do not append to it:**

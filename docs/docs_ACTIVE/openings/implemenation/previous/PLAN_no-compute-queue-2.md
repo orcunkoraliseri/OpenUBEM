@@ -8,7 +8,7 @@
 > autres taches, et vas-y jusqu'a la fin pour completer toutes des taches pas necessaire d'utiliser des
 > ressources CPU, en continu"* — and the earlier *"n'a pas besoin de me poser, tu peux choisir à
 > toi-même et tu peux choisir plusieurs des tâches de faire."*
-> **Binding upstream contract:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`.
+> **Binding upstream contract:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`.
 > **Governing arc rule:** *no execution plan may be written for an item until that item's first
 > measurement has been made.* Every task here **is** a first measurement, or the closing measurement an
 > item explicitly asked for. **This is a measurement plan. Phase 2 does not exist and is not written.**

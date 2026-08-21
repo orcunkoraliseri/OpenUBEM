@@ -3,7 +3,7 @@
 **Slug:** `three-new-items-2026-08-12`
 **Opened:** 2026-08-12 (night pass, after `PLAN_rulings-and-five-items-2026-08-12.md` closed)
 **Author:** director. **Executors:** fresh Sonnet sessions, one per task group.
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — §2 (OPEN-45),
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — §2 (OPEN-45),
 §4 (OPEN-46), §6 (OPEN-47).
 **Director prompt:** `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`
 **Predecessor plan:** `implemenation/previous/PLAN_rulings-and-five-items-2026-08-12.md` §10, entries T04, T05, T07.

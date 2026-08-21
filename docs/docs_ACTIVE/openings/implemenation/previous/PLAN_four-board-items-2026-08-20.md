@@ -3,7 +3,7 @@
 > **Slug:** `four-board-items-2026-08-20` · **Opened:** 2026-08-20 · **Author:** manager session
 > **Board:** `docs/docs_ACTIVE/openings/reporting/board_published-numbers.html` — rows **AA7**, **S03**,
 > **W9**, **C05** are the only four not marked done.
-> **Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` (20 live, next free ID OPEN-61).
+> **Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` (20 live, next free ID OPEN-61).
 > **User ruling 2026-08-20:** *"pas necessaire de prendre ma decision, tu peux decider pour toutes les steps"* —
 > the manager decides scope for all four. W9's option (prune to ~3.5 GB, move out of Temp) and S03's
 > option (executor labels from raw evidence, flags thin rows) were chosen by the user explicitly, and

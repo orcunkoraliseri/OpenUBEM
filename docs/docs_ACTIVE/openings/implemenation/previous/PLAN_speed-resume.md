@@ -1,7 +1,7 @@
 # PLAN — resuming E02 on the Speed cluster
 
 **Slug:** `speed-resume` · **Opened:** 2026-08-09 · **Arc:** `openings`
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — the binding source of
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — the binding source of
 state. **Predecessor plans:** `PLAN_published-numbers.md` (§8 holds E02's whole history, CP-M1, the
 C02 `MemoryError` audit and its FINDING 1/2/3), `PLAN_compute-queue.md` (C01–C07, CP-C1 signed,
 CP-C2 owed).

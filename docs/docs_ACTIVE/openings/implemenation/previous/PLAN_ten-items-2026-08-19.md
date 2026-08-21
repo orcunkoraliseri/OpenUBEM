@@ -1,7 +1,7 @@
 # PLAN — ten open items, 2026-08-19
 
 > **Slug:** `ten-items-2026-08-19` · **Date:** 2026-08-19 · **Author:** manager session
-> **Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`
+> **Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`
 > **Director prompt:** `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`
 > **Predecessor:** `PLAN_ten-items-2026-08-18-overnight.md` (X01–X10, all discharged)
 > **Instruction:** *"choisir des nouvelles dix taches, preparer une plan d'implementation pour

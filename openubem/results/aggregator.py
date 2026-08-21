@@ -24,6 +24,7 @@ from openubem import config
 # ── F9: Step-5 output columns (Phase-E: 25 EUI/GWP + 3 meta) ─────────────────
 # Phase-E T14: expanded from 14 to 28 columns (9 EUI + 9 GWP + iod + parse_status + error_summary +
 # simulation_status + dhw_gas_eui + dhw_elec_eui).
+# OPEN-61 T01 (2026-08-22): +1 column, dhw_district_eui_kwh_m2, inserted after dhw_elec_eui_kwh_m2.
 _STEP5_COLS = [
     # Core EUI (4, always populated when simulation succeeds)
     "heating_eui_kwh_m2",
@@ -35,6 +36,7 @@ _STEP5_COLS = [
     "pumps_eui_kwh_m2",
     "dhw_gas_eui_kwh_m2",
     "dhw_elec_eui_kwh_m2",
+    "dhw_district_eui_kwh_m2",
     "dhw_eui_kwh_m2",
     "cooking_eui_kwh_m2",
     "refrigeration_eui_kwh_m2",

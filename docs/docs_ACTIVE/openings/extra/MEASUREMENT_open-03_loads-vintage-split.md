@@ -88,7 +88,7 @@ geometry issue.
 
 ### 5. The register itself, and the results doc, both call it "documented" — the one place a reader could read this differently
 
-`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md:179` (OPEN-03 entry): **"Status:
+`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md:179` (OPEN-03 entry): **"Status:
 documented in results §7, never actioned."** And the results doc itself,
 `docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md:460-463` (§7.2):
 

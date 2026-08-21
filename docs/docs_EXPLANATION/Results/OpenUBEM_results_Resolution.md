@@ -402,7 +402,7 @@ the nominal denominator is known to be wrong.
 **The condition that restores the column:** a fleet re-run that retains `eplusout.eio`, giving a
 verified, multiplier-aware denominator for every building rather than the 6-building local sample
 above. This is tracked as register item **OPEN-01** in
-[`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`](../../docs_ACTIVE/openings/INVESTIGATION_open-items-register.md).
+[`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`](../../docs_ACTIVE/openings/INVESTIGATION_open-items-register.md).
 Until that condition is met, `layout_assign` stays out of §4 by design.
 
 ### 10.6 The transformer cliff

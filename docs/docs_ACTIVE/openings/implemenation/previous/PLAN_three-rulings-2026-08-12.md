@@ -7,7 +7,7 @@
 rulings held for the user. Three were answered 2026-08-12 night-2. This plan executes them.
 **DESIGN pointers:** `docs/docs_stepE/DESIGN_phase-E-service-loads.md` (elevator emitter);
 `docs/docs_step3/DESIGN_step-3-semantic.md` §3C (17-rule classifier).
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — OPEN-45,
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — OPEN-45,
 OPEN-47, OPEN-48. Next free ID **OPEN-49**.
 
 ---

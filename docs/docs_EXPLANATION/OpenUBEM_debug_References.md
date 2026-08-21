@@ -41,18 +41,36 @@
   only *fatal* on the largest footprints (1,173–22,444 m²). Fix: `shapely.geometry.polygon.orient(poly_local,
   sign=1.0)` before `build_zones` in `openubem/idf/builder.py`.
   *(docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/debugs/DONE_10_fails.md; docs/docs_REPORTS/REPORT_phaseE_final.md §5)*
-- **[OPEN] The same `orient()` fix is deliberately skipped in `auto` mode** — the guard at
+- **The same `orient()` fix is deliberately skipped in `auto` mode** — the guard at
   `openubem/idf/builder.py:464-465` excludes `auto`, which is the mode the published fleet EUI was built in;
   `GetVertices: ... is upside down!` therefore fires on 8,160/8,160 `auto` buildings. Underlying library
   defect: geomeppy 0.12.2's `is_clockwise()` returns `False` unconditionally on its CCW branch, so
-  `invert_orientation()` never fires. (OPEN-56)
-  *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-56_writer-localisation.md)*
-- **[OPEN] Every building simulates with a 10 m³ zone-volume stub** — understates EUI by a fleet-stratified
+  `invert_orientation()` never fires. Root cause fully localised 2026-08-21: CORE zones (0% stubbed) escape
+  this because geomeppy's `core/perim` path re-derives the core polygon via `Polygon2D.buffer()`
+  (`geomeppy/geom/polygons.py:104-113`), which internally calls the *real* `shapely.geometry.polygon.orient
+  (sign=1.0)` unconditionally — a different, working `orient()` than the one openubem gates off. That
+  correction never runs for the `by_storey`/WHOLE path (`geomeppy/idf.py:263-267`, used by
+  `one_zone_per_floor`/`single_zone`), which extrudes the raw, unoriented footprint coordinates — 100%
+  stubbed. PERIM zones (95.75% stubbed) sit in between because `core_perim.py`'s `get_perims()` mixes the
+  correctly-oriented core boundary with the original (unoriented) footprint edge points. Winding itself was
+  left alone (remedy shape (a), extending `orient()` to `auto`, was explicitly not authorised — sign
+  unverified, changes geometry fleet-wide); fixed instead by writing `Zone.Volume` explicitly (below). (OPEN-56)
+  *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-56_writer-localisation.md;
+  docs/docs_ACTIVE/openings/extra/FIX_open-56_zone-volume.md)*
+- **Every building simulates with a 10 m³ zone-volume stub** — understates EUI by a fleet-stratified
   mean **+0.98%** (median +0.84%, up to +3.25%), direction-consistent in 65/69 sampled buildings. Magnitude
   does *not* scale with zone count (refuted, corr=+0.113): best model is a fixed ≈+1.0 kWh/m² per-building
-  offset. Fix proven by intervention (write `Zone.Volume` explicitly → 6/6 previously-failing buildings
-  complete, 0 severe) but **not applied to the published baseline**. (OPEN-56)
-  *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_ten-tasks-2026-08-18-night.md)*
+  offset. Fixed 2026-08-21 (T02, `rulings-and-fixes-2026-08-21` plan): `BuildingIDF.build()` now calls
+  `_write_zone_volumes(idf, extruded_zones)` (`openubem/idf/builder.py`, right after the extruded-zones guard
+  and before `assign_constructions()`), which sets each `ZONE` object's `Volume` field explicitly to
+  `floor_area x height_m` — floor area summed from that zone's own `FLOOR`-type
+  `BUILDINGSURFACE:DETAILED` objects (`idf.getsurfaces("floor")`, real post-extrusion geometry, not the
+  zones-dict `floor_polygon` which CORE/PERIM zone dicts share as the whole-building placeholder footprint
+  and would give the wrong area), height from the zone's own `height_m` (floor-to-floor height, correct for
+  every zone role already). **Not applied to the published baseline** (153.8231 over 8,153 is unchanged —
+  no fleet re-run was part of this fix). (OPEN-56)
+  *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_ten-tasks-2026-08-18-night.md;
+  docs/docs_ACTIVE/openings/extra/FIX_open-56_zone-volume.md)*
 - **`GetSurfaceData: There are 100 degenerate surfaces (number of sides < 3)` → Fatal** — geomeppy's
   `core/perim` emits one perimeter wedge per footprint edge; an 89-edge near-convex footprint explodes into
   ~52 wedges/floor, many collapsing below 3 vertices. `idf.add_block()` does **not** raise, so the
@@ -105,7 +123,14 @@
 - **`.err` ends mid-line inside a `GetSimpleAirModelInputs` block, no Fatal marker anywhere, no `.end` file**
   — a silent `std::bad_alloc` OOM crash (seen on an 89-storey building). Invisible to every fatal-marker
   regex because E+ never reaches controlled termination.
-  *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-41-38_failure-causes.md)*
+  Same crash also seen ending mid-line inside a `SizeWaterCoil:` warning during plant sizing, on a
+  43-storey LargeHotel (`nyc_centre way/266170763`, OPEN-61 census): 0 Severe / 0 Fatal in `.err`,
+  no `.end`, a 318 MB `.eso` and a 305 MB `.sql` that has 36 tables but **no `TabularDataWithStrings`**,
+  and a 15.6 GB working set at death. Diagnostic that separates OOM from a real fatal: open the `.sql`
+  and test for `TabularDataWithStrings` — a controlled fatal still writes it, an OOM crash never does.
+  Fix: none available in-process; the building is recorded as a null-with-reason census row, not retried.
+  *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-41-38_failure-causes.md;
+  docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open61-census-open03-storeys-2026-08-20.md)*
 
 ## 2. Thermal runaway & envelope thermal mass
 
@@ -437,7 +462,16 @@
   condition that had hidden it. A donor screen was implemented (71→0 divergences) but exposed OPEN-59:
   Unknown buildings still run **1.7× classified**, now via DHW (+61.0, 2.4×) and lighting/cooling (5.6–6.7×).
   (OPEN-55/59)
-  *(docs/docs_ACTIVE/openings/extra/PROPOSAL_open-55_unknown-pde-bounds.md; docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md)*
+  *(docs/docs_ACTIVE/openings/extra/PROPOSAL_open-55_unknown-pde-bounds.md; docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md)*
+- **[OPEN] `ImportError: cannot import name 'recover_pairs' from 'openubem.validation.mask_recover'`** —
+  `openubem/results/impute_scatter.py:63` imports a name that does not exist in `mask_recover.py` (the
+  module only defines `mask_and_recover`); the module fails at import time, before its own
+  `config.IMPUTE_DRAW_METHOD_BY_TARGET` unguarded read at `impute_scatter.py:235` (F7) is ever reached.
+  `openubem/results/draw_leaderboard.py:174` has no such import problem and does reproduce F7's
+  `AttributeError: module 'openubem.config' has no attribute 'IMPUTE_DRAW_METHOD_BY_TARGET'` on first
+  use of `_draw_pairs`. Both modules are orphaned (OPEN-17: `ml`/`draw` are intentionally not in
+  `IMPUTE_ENABLED_TIERS`); not fixed here — no tier is promoted or wired by this measurement.
+  *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-17_tier-census.md)*
 
 ## 8. Results parsing, EUI arithmetic & meters
 
@@ -455,12 +489,20 @@
 - **`has_fatal` is a dead column fleet-wide since T17** — same one-space vs two-space literal mismatch.
   (E-LA-21)
   *(docs/docs_DONE/SETUP/layoutAssigner/DONE/e-la-20/COMPLETION_REPORT_e-la-20-investigation.md)*
-- **[OPEN] `total_eui_kwh_m2` undercounts lighting and equipment for any building with a zone multiplier —
+- **`total_eui_kwh_m2` undercounts lighting and equipment for any building with a zone multiplier —
   only 6/48 buildings reconcile end-use sums to total within 2%** — the total sums Interior Lighting and
   Interior Equipment from *per-zone hourly output variables*, which E+ does **not** scale by zone multiplier,
   then divides by a multiplier-aware floor area (`openubem/results/parser.py:431-433`). Heating/cooling/fans/
   pumps/DHW come from the multiplier-correct ABUPS table and match to <0.01%. (OPEN-60)
-  *(docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md)*
+  Fix: `parse_eio_zone_multipliers()` returns `{ZONE_NAME_UPPER: Zone Multiplier × Zone List
+  Multiplier}` from the same `.eio` route `resolve_simulated_floor_area()` already uses (not a second
+  reader), and `_compute_eui()` groups each zone variable by `key_value` and scales per zone before
+  summing — `openubem/results/parser.py`, 2026-08-21 (T03). Unknown zone → 1.0; empty/absent map
+  → bit-identical to the pre-fix path, so no new failure mode. ⚠️ **The 6/48 figure has NOT been
+  re-measured after the fix** — that sample's `.sql` files were deleted in the 2026-08-20 W9 prune
+  (OPEN-53) and re-measuring needs a re-simulation. Do not quote the fix as verified against n=48.
+  *(docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md;
+  docs/docs_ACTIVE/openings/extra/FIX_open-60_multiplier-eui.md)*
 - **A rebuilt script's fleet EUI is 15–37% higher than the archived production figure for byte-identical
   IDFs** — the ad hoc script computed "Total Site Energy ÷ Total Building Area" from the ABUPS summary, while
   production's `openubem/results/parser.py` sums per-end-use EUIs from custom RunPeriod meters divided by
@@ -511,6 +553,16 @@
 - **12 corrupt SQL files shipped in one cell** — a truncated `tar` transfer from the cluster. Verify every
   fetched SQL with `PRAGMA integrity_check` plus `Zones > 0` before treating a harvest as complete.
   *(docs/docs_DONE/GENERAL/Resume_Prompts/monitorRun_resumeManager.md)*
+- **`Zone Information` fields parsed from `eplusout.eio` come back shifted by one column (volume reads as ceiling height, etc.)** — the `! <Zone Information>` header line begins with the `!` comment token, so splitting it on `,` yields one more leading element than the data rows that follow. Indexing data rows by `header.index(name)` is then off by one for every field. Fix: strip the leading `! <...>` token from the header before building the index map, and assert on a known-good row (a `_F0_WHOLE` zone whose `Floor Area × Ceiling Height` is recomputable) before reporting any number. Found and fixed mid-task while parsing all 8,160 `.eio` of the adopted run for OPEN-56.
+  *(docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-live-items-2026-08-21-night.md T02)*
+- **A fleet recomputation reproduces the adopted headline to 0.005 % but never exactly (153.8304 vs 153.8231)** — not a parsing or filter bug, and not rounding: every row-set filter, every precision 0–5 dp, all six archived `evidence/open48_refleet*` run directories, and the provenance path the restatement doc itself cites (`%LOCALAPPDATA%\Temp\ubem_validation\open48_refleet4\`) all return 153.8304 on an identical sorted `osm_id` set. Cause unknown and **not recoverable from what is on disk**. Fix: none — do not "correct" the recomputation to match, and do not restate the adopted figure; quote 153.8231 and cite this entry.
+  *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_t01_headline-reproduction.md)*
+- **`_parse_meters_sql` silently zeroed ALL nine HVAC meters, not just the new one, for any `.sql` lacking `TabularDataWithStrings`** (self-inflicted while adding OPEN-61's district-heating read) — the new `_read_abups_district_heating(conn)` call was placed inside the same `try` block *before* the `for name, value_j in rows:` loop that applies the real meter rows; when the ABUPS table didn't exist (every minimal synthetic fixture in `tests/test_parser_hvac_metered.py`, `tests/test_parser_elevators.py`), the `OperationalError` propagated out of the `with` block and was caught by the outer swallow-all `except Exception: pass` before the loop ever ran, so `Cooling:Electricity`, `Elevators:InteriorEquipment:Electricity`, etc. all came back 0.0 instead of their real values. Fix: give the ABUPS read its own inner `try/except`, placed *after* the meter-rows loop, so a failure there defaults only `_DISTRICT_HEATING_KEY` to 0.0 and never touches the other nine (`openubem/results/parser.py`, `_parse_meters_sql`). Caught by three previously-passing tests going red (`test_reads_all_four_meters`, `test_missing_meter_returns_zero`, `test_elevator_meter_read`) on the first full-suite run after the change.
+  *(docs/docs_ACTIVE/openings/implemenation/PLAN_open61-dh-remedy-2026-08-22.md T01)*
+- **`total_eui_kwh_m2` golden regression tests failed after OPEN-61's district-heating fold** (`test_r1_total_eui`, `test_r2_total_eui`, `test_r6_total_eui`, `tests/test_results_parser.py:279,289,304`) — T01 folded ABUPS "District Heating" `Total End Uses` into `dhw_eui_kwh_m2` unconditionally, on plan F3's finding that 100.00% of district heating is Water Systems — but F3 measured only the OPEN-61 fleet census corpus (8,152 rows, `open61_census_fleet.csv`), not every `.sql` the parser can ever see. The three golden fixtures (`tests/fixtures/golden_sql/r1_single_zone.sql`, `r2_one_zone_per_floor.sql`, `r6_perimeter_core.sql`) are pre-Phase-D artifacts whose ABUPS table routes 100% of the District Heating column to the **Heating** row (148.24 / 709.99 / 1646.86 GJ respectively) and 0.00 to Water Systems — the exact opposite of F3 — consistent with an Ideal-Loads-Air-System heating plant (EnergyPlus tags Ideal Loads heating as DistrictHeating fuel by convention; superseded fleet-wide by Phase-D's metered `Heating:Electricity`/`Heating:NaturalGas` route, per `parser.py`'s own module docstring). T01's fold therefore misattributed 105.05 / 78.89 / 101.66 kWh/m² of real HEATING energy into `dhw_eui_kwh_m2` for these three fixtures, inflating `total_eui_kwh_m2` by the same amount (`heating_eui_kwh_m2` itself was untouched and its own golden tests still passed — only the three `total_eui` assertions failed). **Fix (T01b, director-authored 2026-08-22, F11): `_read_abups_district_heating()` reads `RowName='Water Systems'`, not `'Total End Uses'`** (`openubem/results/parser.py`, `_read_abups_district_heating`) — on all 8,152 fleet census rows the two rows are identical (max diff 0.0, F11), so this changes no fleet number, but on the three golden fixtures (Water Systems = 0.00 GJ) it correctly reads 0.0 instead of the misattributed heating energy. All three golden tests pass again with no fixture or expected-value edit. New guard test added: `tests/test_parser_open61_district_heating.py::TestDistrictHeatingServingSpaceHeatingNotFoldedIn` (uses `r1_single_zone.sql` directly). Tracked as **OPEN-64** (district heating serving a non-DHW end use, general case).
+  *(docs/docs_ACTIVE/openings/implemenation/PLAN_open61-dh-remedy-2026-08-22.md T01/T01b, CP-1 STOP + fix 2026-08-22)*
+
+- **`assert False` in `TestEuiGolden::test_r1_total_eui` — `math.isclose(276.9193027210884, 171.873920234131, rel_tol=1e-06)`** (and the identical failures in `test_r2_total_eui`, 265.1497 vs 186.2619, and `test_r6_total_eui`, 262.9418 vs 161.2838), while `test_r1_heating_eui` / `test_r1_cooling_eui` / `test_r1_lighting_eui` on the **same fixture** all pass — the OPEN-61 district-heating fold read the ABUPS `RowName='Total End Uses'` cell instead of `RowName='Water Systems'`, so district heating that serves **space heating** was added into `dhw_eui_kwh_m2` and thence into the total. **Only the total failing while every component passes is the signature of energy being ADDED, not recomputed** — go straight to a newly-summed term, do not re-derive the components. Confirm in one query: `SELECT RowName,Value FROM TabularDataWithStrings WHERE ReportName='AnnualBuildingUtilityPerformanceSummary' AND TableName='End Uses' AND ColumnName='District Heating'` — the golden fixtures return `Heating` 148.24 GJ and `Water Systems` 0.00 GJ, and 148.24 × 277.7778 ÷ 392 m² = 105.0456 kWh/m² matches the observed delta exactly. Fix: `RowName` changed to `'Water Systems'` in `_read_abups_district_heating`, `openubem/results/parser.py` (OPEN-61 T01b). ⚠️ **Root method trap, not just a typo: a quantity measured over the production fleet ("100 % of district heating is Water Systems", 8,152 buildings) was used as a statement about the code. The golden fixtures are the mirror image of the fleet.** The 13 unread ABUPS district-heating rows are tracked as **OPEN-64**. *(docs/docs_ACTIVE/openings/implemenation/PLAN_open61-dh-remedy-2026-08-22.md §5 F11, T01b)*
 
 ## 9. Validation gates & metric traps
 
@@ -771,6 +823,11 @@
   Seen in the drop-log path (la_rural fan-out) and in `scripts/diagnostics/v19_phasec_rescore.py`. Fix:
   remove the glyphs; add `# -*- coding: utf-8 -*-`.
   *(docs/docs_REPORTS/REPORT_phaseE_final.md §10.4; docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_phaseC-combined-resim.md)*
+  Also seen as **`UnicodeEncodeError: 'charmap' codec can't encode character '∩' in position 3:
+  character maps to <undefined>`** — an `∩` (set-intersection glyph) in an f-string `print()` inside
+  `scripts/analysis/open09_open38_overlap_2026-08-21.py`, run via `.venv/Scripts/python.exe` on the
+  default cp1252 console (T10, `PLAN_ten-live-items-2026-08-21.md`). Fix: replaced the glyph with `x`
+  in the print string; `PYTHONIOENCODING=utf-8` also unblocks it without an edit if the glyph must stay.
 - **Resim driver freezes mid-run: 4 nested python processes at ~0% CPU, no exception** — `joblib`'s `loky`
   backend (`run_step3(..., n_jobs=4)`) deadlocks intermittently under Python 3.14 on Windows (IPC deadlock,
   not compute). Fix: `n_jobs=1`, plus a skip-if-remote-done resumable fetch and a per-cell wall-clock timeout
@@ -895,7 +952,7 @@
   one rewrite already committed in `6aeebb0`) — the `synthetic_30_gdf` session fixture wrote its GeoPackage to
   the checked-in path (GDAL's GPKG driver writes through a filename). Fix: write to `tmp_path_factory`.
   (OPEN-50)
-  *(docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md)*
+  *(docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md)*
 - **The suite baseline is `pytest -q tests/`** — a bare root-level `pytest -q` reports ~36 false failures.
   *(project convention; see MEMORY index)*
 - **Benign noise, never a failure: `Windows fatal exception: access violation` / `<cannot get C stack on this
@@ -1159,6 +1216,35 @@ Grep target for "which module can throw this, and what does it mean?"
   against by name.
   *(scripts/analysis/open03_storey_census_2026-08-20.py; scripts/analysis/open03_envelope_decomposition_2026-08-20.py; docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-03_storey-census.md; docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md §6 OPEN-62)*
 
+- **A pre-registered control answered with a different denominator than the one it was registered
+  with, returning the opposite verdict** — OPEN-61's C6 asked for the ratio `dh / dhw_eui`; the
+  executor computed `dh / total_site_energy` and reported the 60-building pilot as "NOT
+  REPRESENTATIVE, ~50x off", asserting its denominator matched the pilot's construction. It did not.
+  On the registered ratio the fleet median is 0.6503 (IQR 0.3117-0.8642) against the pilot's 0.714
+  (0.362-0.840) — **representative**. Fix: re-derive the headline and every pre-registered control
+  from the artifact yourself before it enters the register; one `csv.DictReader` loop did it here.
+  Detection rule: a verdict that reverses a prior result by an order of magnitude is a denominator
+  bug until proven otherwise. *(scripts/analysis/open61_fleet_dh_number_2026-08-20.py; corrected in
+  docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-61_fleet-dh-number.md §C6)*
+
+- **A per-building MEDIAN ratio applied to a fleet-POOLED quantity, silently biasing the estimate
+  low** — OPEN-61's pre-census estimate scaled a 60-building median `dh/dhw` of 0.714 onto the fleet.
+  Measured, the fleet's median ratio is 0.6503 but its **pooled** ratio is **0.9382, 44 % higher**,
+  because large buildings carry far more district heating per unit of DHW. The method therefore
+  topped out at 17.43 kWh/m² where the truth is 19.47 — it could not have reached the answer at any
+  point in its own IQR, while still appearing to "land inside the band". Fix: when the target is a
+  pooled statistic, scale by the **pooled** ratio, never the median of per-building ratios; the two
+  differ by exactly the size-correlation the pooling exists to capture.
+  *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-61_fleet-dh-number.md §C6)*
+
+- **A pooled fleet figure read as a per-building offset** — 19.47 kWh/m² of unreported district
+  heating is a *fleet* quantity, not a property of a typical building. 116 buildings (1.4 % of 8,144)
+  carry 70.5 % of it; every office, retail and shop archetype sits at 1.3-2.7 kWh/m². Applying the
+  pooled figure as a uniform correction would move energy onto ~5,000 buildings that do not have it.
+  Fix: before proposing any remedy from a pooled number, print the per-archetype concentration; if the
+  top decile carries most of the mass, no flat offset is admissible.
+  *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-61_fleet-dh-number.md §C6b)*
+
 ## 17. Not-a-bug: expected behaviour & accepted limitations
 
 - **E+'s 10 m³ minimum-volume clamp warning is universal and benign as a *warning*** — and the `.err`
@@ -1187,7 +1273,7 @@ Grep target for "which module can throw this, and what does it mean?"
 
 ## 18. Currently open items (register snapshot 2026-08-20)
 
-Authoritative list: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` (20 tracked, next free
+Authoritative list: `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` (20 tracked, next free
 ID OPEN-61). Snapshot only — always re-read the register before acting.
 
 | ID | One-line |

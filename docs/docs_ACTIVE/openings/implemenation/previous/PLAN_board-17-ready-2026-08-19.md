@@ -11,7 +11,7 @@ finish everything the progress board shows as **ready**.
 (local copy: `scratchpad/board.html`). Its script maps status `open` → the visible label
 **`ready`** (`board.html:926`), so **"17 ready" is exactly the 17 rows carrying `"open"`**.
 
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — **23 live / 35
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — **23 live / 35
 struck / 58 total, next free `OPEN-59`.**
 
 ---

@@ -147,7 +147,7 @@ including `MANIFEST.md` itself: 12,664,328 bytes, still 0.0127 GB.)
 
 ## 7. Deviation from the plan (disclosed per hard constraint 2 of the dispatch)
 
-**The register (`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`) was not edited by
+**The register (`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`) was not edited by
 this task.** Another executor owns that file concurrently; the dispatch instructed this task to write
 its proposed OPEN-53 restatement here instead, for the director to insert. This is a deviation from the
 plan's T10 step 7 ("restate OPEN-53's closure condition... and name precisely what is still only on the
@@ -209,7 +209,7 @@ decision, not a measurement.
 ## Proposed OPEN-53 restatement (NOT yet inserted into the register)
 
 *(For the director to insert into OPEN-53's §-section in
-`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`, as a new dated amendment following
+`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`, as a new dated amendment following
 the existing 2026-08-18 (late) amendment.)*
 
 > 🔵 **Amended 2026-08-19 (T10 of `implemenation/previous/PLAN_ten-items-2026-08-19.md`, ruling R3). The costed

@@ -3,7 +3,7 @@
 > **Slug:** `published-numbers` · **Opened:** 2026-08-05 · **Author:** manager session
 > **Selected by the user** 2026-08-05: *"les nombres déjà publiés, analyse, créer un plan
 > d'implémentation … pour ces quatre options, commencer à l'exécution."*
-> **Binding upstream contract:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` §2
+> **Binding upstream contract:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` §2
 > (Theme A) and §9 pattern 1. This plan does not restate the register; it executes against it.
 > **Governing arc rule (register §5 of the director prompt):** *no execution plan may be written for
 > an item until that item's first measurement has been made.* This document therefore opens as a

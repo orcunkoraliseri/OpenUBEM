@@ -151,5 +151,5 @@ that the remaining blocker is now narrower and named.
 
 T01 holds the pen for OPEN-48 (plan §2 rule 9). The register's evidence table and status line were
 struck in place (not deleted) and a new dated block was appended directly in
-`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`, citing this document and its CSV.
+`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`, citing this document and its CSV.
 See the register itself for the applied text; it is not duplicated here.

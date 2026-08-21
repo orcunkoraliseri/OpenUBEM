@@ -6,8 +6,11 @@
 > OPEN-03) · **predecessor plan:** `PLAN_five-items-2026-08-20-late.md` §6b/§6c (facts D8–D12).
 > **DESIGN pointers:** `docs/docs_main/docs_step5/` (results parsing) and
 > `docs/docs_main/docs_step3/` (geometry build). **Neither is edited by this plan.**
-> **Status:** OPEN — **T01, T02, T05 complete; CP-1, CP-2, CP-4 signed 2026-08-20.**
-> Arc B is closed. **T03 running** (full-fleet census, local, 12 workers, ≈8 h). T04 + CP-3 follow.
+> **Status:** ✅ **CLOSED 2026-08-21.** All tasks complete — T01–T05; CP-1, CP-2, CP-3 and CP-4
+> all audited and signed 2026-08-20. Arc A delivered the fleet district-heating number
+> (19.4707 kWh/m² over n = 8,144, §6e); Arc B closed at CP-4. T02 has no separate progress-log
+> entry by design — its record is CP-2 in §6d (see the note in §8).
+> **Archived to `implemenation/previous/` on 2026-08-21.**
 
 ---
 
@@ -506,6 +509,37 @@ proportional census, and nowhere else.
 
 ---
 
+## 6e. ✅ CP-3 — AUDITED AND SIGNED, 2026-08-20
+
+**The question:** *does the measured fleet number stand, and how far off was the estimate?*
+
+**It stands.** The headline was re-derived by the director directly from
+`open61_census_fleet.csv`, not taken from the executor: **19.470690 kWh/m² over n = 8,144**, matching
+the executor's 19.4707 to every digit reported. The population reconciles to 8,160 with every excluded
+building carrying a named reason. The sensitivity test (H) shows it is independent of the floor-area
+column, and the two known anomalies cannot move it past the third decimal.
+
+**How far off was the estimate — the honest answer is "further than C5 suggests."** Against the
+literal published band the measurement is inside it, 3.6 % under the ceiling. But F5's *method*,
+re-run against the fleet's own measured DHW base, tops out at 17.43 kWh/m² — the measurement is
+**11.7 % above what that method could have produced at any point in its IQR**. The sampling was fine
+(C6, corrected: the 60-building ratio distribution matches the fleet's). The error was applying a
+per-building median ratio to a pooled quantity, which understates by the 44 % median-to-pooled gap.
+
+**One executor finding was overturned, not accepted.** C6 was answered with the wrong denominator and
+returned the opposite verdict, together with a false claim that the denominator matched the pilot's.
+The director re-derived it, rewrote the report section and patched the script. Recorded here because
+the plan's audit rule requires a DESIGN/plan citation for any unplanned decision, and because "the
+60-building sample was unrepresentative" would have entered the register as a fact had it not been
+checked.
+
+**What is NOT ruled here.** No corrected fleet EUI, and no change to the adopted **153.8 kWh/m²**.
+The census measures the size of what is missing; whether and how 470.8 GWh should enter the reported
+total is a design question, and §C6b's concentration result means it cannot be answered by adding a
+flat offset. **Carried to the user, not decided.**
+
+---
+
 ## 7. Stop-and-report points
 
 | | After | What the director rules on |
@@ -559,6 +593,152 @@ census therefore stands on one proven read path, not two — reported explicitly
 **Notes:** No error was hit during T01 (reader matched on first run against all 108 rows plus
 both controls), so no new entry was added to `OpenUBEM_debug_References.md` — nothing to
 register. No simulation was run; this task read only pre-existing `.sql` files.
+
+#### T03 — Run the census over all 8,160 and harvest it — completed 2026-08-20
+
+**Artifacts:**
+- `openubem/outputs/comparisons/open61_census_fleet.csv` — **8,160 rows, 8,160 unique `osm_id`, 41
+  columns.** One row per fleet building, no building missing, every non-`ok` row carrying a reason.
+- Census work tree (`.sql` corpus): `<scratchpad>/open61_census_fleet_work/<cell>/<stem>/sim_out/eplusout.sql`
+  — **7,861 directories**, preserved under ruling R6 and still to be moved by
+  `PLAN_open62-z-origin-and-three-rulings-2026-08-20.md` T07.
+- Backups kept: `open61_census_fleet.pre-retry.csv`, `open61_census_fleet.csv.pre-statusfix`.
+
+**Note on T02's record:** T02's pilot was audited and signed in **§6d (CP-2)** of this plan, which
+carries its numbers and its three deviations. No separate `#### T02` progress-log entry was written.
+Recorded here so the gap is not read later as an unexecuted task.
+
+**Outcome, by status (all 8,160):**
+
+| status | n | meaning |
+|---|---|---|
+| `ok` | **8,152** | simulated and harvested |
+| `not_simulated_upstream_excluded_from_census_population` | **7** | never simulated upstream; appended as reason-rows, not re-run |
+| `failed_energyplus_oom_crash_no_fatal_no_end` | **1** | `nyc_centre way/266170763`, 43-storey LargeHotel |
+
+Per-cell n sums to 8,160 across all 12 cells (nyc_urban 1,779 · nyc_suburban 1,589 · la_suburban
+1,343 · nyc_centre 738 · la_urban 618 · austin_suburban 437 · austin_urban 425 · austin_centre 413 ·
+austin_rural 245 · la_centre 226 · nyc_rural 198 · la_rural 149).
+
+**Of the 8,152 `ok` rows:** `parsed_parse_status` = success **8,146** / `failed_zone_mismatch` **6**
+(all `nyc_centre`, five of them `LargeHotel`; same signature as OPEN-53, but here in a *local*
+rebuild, which is the point). `dh_b_available` is **False on all 8,152** — route B is never
+available, so the census stands entirely on route A, exactly as T01 predicted.
+`dh_a_reconciles` **True on 8,144**, blank on 8. `c2b_pass` True 8,144 / False 8.
+
+**The number T04 must pool over is 8,144, not 8,152.** Eight `ok` rows have a null `dh_total_kwh`:
+the six `failed_zone_mismatch` rows, plus **two rows that parsed successfully and still produced no
+DH term** — `la_rural way/472961047` (Warehouse) and `la_centre way/319507579` (SecondarySchool).
+Those two are not explained by the parse failure and are handed to T04 as a named question, not a fix.
+
+**`c1_pass` False on 9 of 8,152**: the six `failed_zone_mismatch` rows (no diff computable), plus
+`la_rural way/472961092` (+2.93 kWh/m²), `la_rural way/472961047` (−9.71), and
+`la_centre way/319507579` (**−116.59**). The last is large enough that T04 must name it rather than
+average over it.
+
+**Deviations — five, all disclosed:**
+1. **Killed and resumed.** The first census leg was stopped mid-flight and restarted against the
+   partial CSV rather than from zero. The resume keys on `osm_id`, so no building was simulated twice
+   into two rows — but the wall-clock figures below are per-leg, not one continuous run.
+2. **Thread pool → process pool.** The original driver used a thread pool; it was replaced with
+   `<scratchpad>/t03_fleet_mp.py`, a process-pool driver, after the thread arm proved to share a
+   process cwd between workers (the same defect recorded against OPEN-58 defect (a)).
+3. **Three collision rows stripped.** Three rows written by the thread arm under the shared-cwd
+   defect were removed from the CSV before the resume, because their `sim_out` could not be attributed
+   to the building named in the row. All three were re-simulated cleanly by the process arm.
+4. **Four smoke rows merged.** Four rows produced by the earlier smoke test were merged in rather
+   than re-run, after checking `osm_id`, archetype and column set matched `ROW_FIELDS` exactly.
+5. **Two solo retries.** The final two buildings (a LargeOffice and a LargeHotel, both `nyc_centre`)
+   were re-launched alone with `--workers 2` because they had been the two survivors of the main leg.
+   One completed; the other is the OOM row above.
+
+**Wall clock:** final process-pool leg **9,687 s**; solo retry leg **1,868.8 s**. Host: local, 12
+workers, per the CP-2 host decision — not Speed.
+
+**Test status (plan-specified):**
+- **"8,160 rows, one per building, a failure is a row with a null and a reason"** — PASS. 8,160 rows,
+  8,160 unique `osm_id`, 0 missing buildings, 0 reasonless nulls.
+- **Corpus preserved for R6** — PASS in kind, not in count. 7,861 `.sql` directories exist against
+  8,152 `ok` rows. The gap is 291 buildings whose `sim_out` was reclaimed during the kill-and-resume.
+  **R6 must therefore record 7,861 / 96.4%, not 100%** — stated here so T07 cannot inherit a wrong number.
+
+**Notes:** The OOM row was diagnosed before being written off, not assumed: its `.err` shows **0
+Severe / 0 Fatal** and ends mid-line inside a `SizeWaterCoil:` warning, there is no `.end` file, the
+`.eso` reached 318 MB and the `.sql` 305 MB, and the `.sql` opens with 36 tables but **no
+`TabularDataWithStrings`** — so nothing could be rescued from disk and a re-run would only repeat the
+crash. This is the same silent `std::bad_alloc` signature already recorded for an 89-storey building,
+at a different phase; the existing debug-reference entry (§1) was **extended** rather than duplicated,
+per the house rule, and now carries the `TabularDataWithStrings` test that separates an OOM crash from
+a controlled fatal. The row's `status` cell had been written by the driver as a truncated 200-character
+`exception:Command '[...` string; it was replaced with the single token
+`failed_energyplus_oom_crash_no_fatal_no_end` so the reason is legible in the CSV itself, with the
+pre-edit file kept as `.pre-statusfix`.
+
+#### T04 — Compute the fleet number, and say plainly how it compares to the estimate — completed 2026-08-20
+
+**Artifacts:**
+- `scripts/analysis/open61_fleet_dh_number_2026-08-20.py`
+- `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-61_fleet-dh-number.md`
+
+**THE NUMBER — pooled, n = 8,144:**
+
+> **19.4707 kWh/m²** of district heating is present in the simulations and absent from the reported
+> total. `Σ dh_total_kwh = 470,831,194.4 kWh ÷ Σ parsed_floor_area_m2 = 24,181,536.0 m².`
+
+Independently re-derived by the director from the CSV, to 6 decimal places: **19.470690**. The
+population is 8,144, exactly the figure T03 pre-committed — 8,160 rows, less 8 non-`ok`, less 8 `ok`
+rows with a null DH term.
+
+Reported alongside and explicitly **not** the headline: mean and median of the per-building ratio.
+Per-cell reported as **twelve numbers**, never averaged; per-archetype as a full table.
+
+**Test status:**
+- **C5 — PASS, inside the band.** 19.47 against 8.7 / 17.2 / 20.2: **3.6 % below the ceiling**,
+  13.2 % above the midpoint, 123.8 % above the floor. See the director's note below on what "inside
+  the band" is actually worth.
+- **C6 — 🔴 EXECUTOR WRONG, CORRECTED BY THE DIRECTOR; the verdict reverses.** The executor computed
+  DH ÷ *total site energy* and returned **NOT REPRESENTATIVE** (fleet median 0.0133 vs pilot 0.714,
+  "roughly 50× smaller"), asserting that its denominator "is the same construction used for the
+  pilot's C6 statistic". That assertion is false: fact F5 (`§5`, line 101) defines the ratio as
+  **dh ÷ dhw_eui**. Re-derived on the correct denominator, n = 8,144: fleet median **0.6503**, IQR
+  **0.3117–0.8642**, against the 60-building pilot's 0.714 / 0.362–0.840 and the 200-building pilot's
+  0.644 / 0.310–0.935. **The small sample was representative** — the 60-building median is ~10 % high,
+  which for 60 of 8,160 is a good result. Both the report §C6 and the script's C6 block were rewritten;
+  the script's own verdict now prints REPRESENTATIVE.
+- **C7 — measured.** `MidriseApartment`, n = 2,818 (34.6 % of the population, the largest archetype):
+  **31.76 kWh/m²** against the fleet's 19.47 — **63 % above** the fleet figure, yet only **14.9 %** of
+  the fleet's total DH energy.
+- **H (sensitivity) — PASS.** Swapping `parsed_floor_area_m2` for `recorded_floor_area_m2` (present on
+  all 8,144) moves the headline by **+0.000135 kWh/m² (+0.0007 %)**. The number does not depend on
+  which floor-area column is used.
+- **I (T03's two anomalies) — immaterial.** Imputing `la_rural way/472961047` and
+  `la_centre way/319507579` at their own archetypes' pooled rates moves the headline by −0.0013 and
+  −0.0009 kWh/m². Neither is worth re-simulating for this number.
+
+**Deviations:** The plan's §T04 prohibition was honoured — no corrected fleet EUI was produced, and the
+report closes by naming the design question rather than answering it. Two director additions beyond the
+executor's brief are marked as such in the report: the C6 correction above, and a new **§C6b** on
+concentration.
+
+**Notes — two things the plan did not ask for and that change how the number should be read:**
+
+1. **The estimator was biased low by construction, and C5's "inside the band" hides it.** The
+   per-building *median* ratio is 0.6503 but the *pooled* ratio (Σ dh ÷ Σ dhw) is **0.9382 — 44 %
+   higher**, because large buildings carry a far higher DH-to-DHW ratio than the median building.
+   Applying a median per-building ratio to a pooled quantity therefore understates the answer.
+   Reconstructing F5's own arithmetic against the fleet's measured pooled DHW of 20.75 kWh/m² gives
+   7.51 / 14.82 / **17.43** kWh/m² — so the measurement lands **above F5's reconstructed ceiling**.
+   F5's published 20.2 ceiling contains the answer only because its DHW base differed from the fleet's.
+   The sampling was sound; the median-ratio-applied-pooled step was not. **This, not C5, is the real
+   verdict on the estimate.**
+2. **The term is not a fleet-wide offset.** `SuperTallBuilding` (n=24) and `TallBuilding` (n=92) —
+   **116 buildings, 1.4 % of the population — carry 70.5 % of the fleet's district heating**; four
+   archetypes carry 91.8 %. Everything office-, retail- or shop-like sits at 1.3–2.7 kWh/m², i.e. near
+   zero. The DH term is a **tall-residential phenomenon**. Any decision taken on 19.47 is really a
+   decision about ~3,000 residential buildings, and applying it as a flat fleet offset would move
+   energy onto ~5,000 buildings that do not have it.
+
+---
 
 #### T05 — Census the storey disagreement across the fleet (Arc B, no simulation) — completed 2026-08-20
 **Artifacts:**

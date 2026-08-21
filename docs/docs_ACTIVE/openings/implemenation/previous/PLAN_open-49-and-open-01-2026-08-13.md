@@ -1,7 +1,7 @@
 # PLAN — OPEN-49 (the coupled random draw) and OPEN-01 (the denominator swap)
 
 **Slug:** `open-49-and-open-01` · **Date:** 2026-08-13 · **Author:** director (manager session)
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — §OPEN-49 (line ~4462), §OPEN-01 (line ~778, rulings 5 and 6 at ~827 and ~855)
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — §OPEN-49 (line ~4462), §OPEN-01 (line ~778, rulings 5 and 6 at ~827 and ~855)
 **DESIGN pointers:** `docs/docs_main/DESIGN_openubem-…-the-full-sys.md`; step-3 semantic enrichment under `docs/docs_main/docs_step3/`; results/reporting under `docs/docs_main/docs_step-5/`. **These are read-only.** If any task below contradicts a DESIGN statement, **STOP and quote the conflict** — do not reconcile it yourself.
 
 **User rulings taken 2026-08-13 that authorise this plan** (all four, recorded verbatim in intent):
@@ -478,7 +478,7 @@ other content, per the plan's own instruction.
 
 #### T08 — Update the register, the director prompt, and the checklist — completed 2026-08-17
 
-**Artifacts.** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`: OPEN-01's heading and
+**Artifacts.** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`: OPEN-01's heading and
 §1 table row struck and marked `CLOSED 2026-08-17`, with a full closure block (the swap as landed, the
 T05 reproduction, T06's non-vacuity, T07's five-mode table and deciles, the two ruling-6 corrections,
 what the closure does not do) inserted after the heading; §1 summary header amended with a new dated

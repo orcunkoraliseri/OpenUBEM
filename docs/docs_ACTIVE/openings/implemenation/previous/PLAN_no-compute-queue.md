@@ -6,7 +6,7 @@
 > la computation du CPU comme des simulations … dès que speed ou des ressources locales vont être
 > disponible, nous pouvons retourner des tâches des simulations"* — and *"n'a pas besoin de me poser,
 > tu peux choisir à toi-même et tu peux choisir plusieurs des tâches de faire."*
-> **Binding upstream contract:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`.
+> **Binding upstream contract:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`.
 > This plan does not restate the register; it executes against it.
 > **Governing arc rule:** *no execution plan may be written for an item until that item's first
 > measurement has been made.* Every task here **is** a first measurement. **This is a measurement

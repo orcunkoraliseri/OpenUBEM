@@ -4,7 +4,7 @@
 **Written:** 2026-08-18, by the director, after `PLAN_five-items-2026-08-18.md` closed at CP-3 and the
 user gave the instruction *"oui vas-y, continuer jusqu'à la fin."*
 **Arc:** `openings` — `docs/docs_ACTIVE/openings/`
-**Register (the authority on every item below):** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`
+**Register (the authority on every item below):** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`
 **Director prompt (state of the arc):** `prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`
 
 **Item selection is the director's, per the user's standing instruction of 2026-08-12** (no-compute
@@ -72,7 +72,7 @@ of evidence already read.**
 - `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-53_missing-sql.md` (T02)
 - `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-42_surface-orientation.md` (T03)
 - `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-38_laundryroom.md` (T04)
-- `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` (T05, and per-item amendments)
+- `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` (T05, and per-item amendments)
 - `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` (T05)
 - `docs/PROJECT_CHECKLIST.md` (T05)
 - §8 of this file (every task)
@@ -358,7 +358,7 @@ Artifacts / Deviations / Test status / Notes.)*
 - `scripts/analysis/open53_missing_sql_census.py` (new)
 - `openubem/outputs/comparisons/open53_missing_sql_census.csv` (new, 40,800 rows)
 - `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-53_missing-sql.md` (new)
-- `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — OPEN-53 §1 row and §-section
+- `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — OPEN-53 §1 row and §-section
   amended (strike-and-correct style, nothing deleted)
 
 **Deviations.** None from the plan's How. Step 2's reproduction matched the pinned census exactly
@@ -447,7 +447,7 @@ pin (OPEN-52). T01 is released only once that run exits.
 - `scripts/analysis/open42_surface_orientation_census.py` (new)
 - `openubem/outputs/comparisons/open42_surface_orientation.csv` (new, 696 rows)
 - `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-42_surface-orientation.md` (new)
-- `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — dated amendments in both the
+- `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — dated amendments in both the
   OPEN-42 section and the §1 OPEN-42 summary row, and both the OPEN-11 section and the §1 OPEN-11
   summary row (strike-and-correct style, nothing deleted)
 
@@ -566,7 +566,7 @@ axis.
 - `scripts/analysis/open38_laundryroom_signature.py` (new)
 - `openubem/outputs/comparisons/open38_laundryroom_signature.csv` (new, 7 rows)
 - `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-38_laundryroom.md` (new)
-- `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — dated amendment in the OPEN-38
+- `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — dated amendment in the OPEN-38
   section and the §1 OPEN-38 summary row (strike-and-correct style, nothing deleted)
 
 **Deviations.** None from the plan's How. One addition beyond the plan's explicit step list, within
@@ -620,7 +620,7 @@ Full detail: `extra/MEASUREMENT_open-38_laundryroom.md`.
 **Artifacts.**
 - `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-46_path-verification.md` (already on disk; this
   entry closes the bookkeeping the plan required after it)
-- `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — OPEN-46's own §-section (T05
+- `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — OPEN-46's own §-section (T05
   passage corrected in strike-and-correct style; a new `#### ✅ CLOSED 2026-08-18` closure subsection
   appended), OPEN-46's §1 table row (struck, closure appended), and the §1 header count line (new
   dated extension bracket)
@@ -665,7 +665,7 @@ confirms the full-suite baseline matches exactly.
 **Artifacts.**
 - `scripts/analysis/open_register_recount_2026-08-18.py` (new) — programmatic recount script over the
   register's §1 table body
-- `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — §1 header count line extended
+- `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — §1 header count line extended
   (dated bracket, strike-and-correct on the "26 tracked items" figure); OPEN-38 and OPEN-42
   §-sections and §1 rows carry new director-ruling amendments (stay-separate, reframe); OPEN-53
   §-section and §1 row carry the custody-risk ruling and the `e02_corpus_inventory.csv` snapshot

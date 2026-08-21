@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-03 storey-count census, fleet-wide (Arc B, T05)
 
-> **Plan:** `docs/docs_ACTIVE/openings/implemenation/PLAN_open61-census-open03-storeys-2026-08-20.md`,
+> **Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open61-census-open03-storeys-2026-08-20.md`,
 > T05, Arc B. **Date:** 2026-08-20. **Script:** `scripts/analysis/open03_storey_census_2026-08-20.py`.
 > **Output:** `openubem/outputs/comparisons/open03_storey_census.csv` (8,160 rows).
 > **No simulation was run and no per-building `layout_assign` IDF was generated.** This is geometry
