@@ -4,7 +4,7 @@
 > **Authority:** user ruling 2026-08-19 — *"est-ce que tu peux fermer toutes en exécutant"*.
 > **Predecessors:** `PLAN_open-57-and-58_2026-08-19.md` (CP-3, complete),
 > `PLAN_board-17-ready-2026-08-19.md` (T01–T06, complete).
-> **Register:** `../INVESTIGATION_open-items-register.md` — 23 live / 35 struck / 58 total,
+> **Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — 23 live / 35 struck / 58 total,
 > next free `OPEN-59`.
 
 ---

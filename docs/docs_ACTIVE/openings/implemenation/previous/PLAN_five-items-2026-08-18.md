@@ -1,7 +1,7 @@
 # PLAN — five open items, 2026-08-18
 
 > **Slug:** `five-items-2026-08-18` · **Written:** 2026-08-18 by the manager session ·
-> **Arc:** `openings` · **Register:** `../INVESTIGATION_open-items-register.md`
+> **Arc:** `openings` · **Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`
 > **Director prompt:** `../prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` (§5.18 is this plan's log)
 > **Predecessor:** `PLAN_open-49-and-open-01-2026-08-13.md` — fully executed, CP-1 and CP-2 signed
 > 2026-08-17. Nothing was in flight when this plan was written.
@@ -65,7 +65,7 @@
 - `scripts/validation/v12_nyc_urban_recovery.py` — T03, lines 94 and 199 only
 - `openubem/geometry/layout_assigner.py` — T02, the comment at `:863-865` only, **and only if T02's
   adjudication proves it wrong**
-- `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — **T06 only**
+- `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — **T06 only**
 - `docs/PROJECT_CHECKLIST.md` — **T06 only**
 - `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` — **T06 only**
 - this plan's §8 — every task
@@ -566,7 +566,7 @@ code. Both raw numbers go in the progress log, not a summary of them.
 
 #### T06 — bookkeeping: register, checklist, director prompt, full suite — completed 2026-08-18
 
-- **Artifacts:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` (amended: OPEN-06,
+- **Artifacts:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` (amended: OPEN-06,
   OPEN-37, OPEN-51 closed + retired with dated blocks in their own §-sections and struck §1 rows;
   OPEN-52 and OPEN-42 sharpened with dated blocks, §1 rows updated in place; OPEN-09's C06 narrowed to
   four inherited entries; new item **OPEN-53** opened with its own §10 section and §1 row; §1 header

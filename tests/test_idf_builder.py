@@ -563,3 +563,62 @@ class TestDoubleExtrusionFailure:
         assert lights_zones == set(), f"LIGHTS references zones despite extrusion failure: {lights_zones}"
         assert hvac_zones == set(), f"HVAC references zones despite extrusion failure: {hvac_zones}"
         assert manifest["num_zones"] == 0, f"expected num_zones==0, got {manifest['num_zones']}"
+
+
+class TestZoneVolumeWritten:
+    """OPEN-56 (T02): every zone must carry an explicit, correct Volume field
+    (floor_area x ceiling_height), ending the 10 m3 EnergyPlus stub."""
+
+    def _build(self, tmp_path, footprint_side, num_floors):
+        import geopandas as gpd
+        from shapely.geometry import box as _box
+
+        arch = "MediumOffice"
+        poly = _box(0, 0, footprint_side, footprint_side)
+        row = _make_row(arch, SYNTHETIC_EPW)
+        row["osm_id"] = "way/701"
+        row["levels"] = num_floors
+        row["height_m"] = num_floors * FLOOR_TO_FLOOR_M
+        row["footprint_area_m2"] = float(poly.area)
+        row["geometry"] = poly
+        row["data_quality_flag"] = ""
+
+        gdf = gpd.GeoDataFrame([row], geometry="geometry", crs="EPSG:32618")
+        bidf = BuildingIDF(row, resolution_mode="auto")
+        out_path = tmp_path
+        (out_path / "idfs").mkdir()
+        manifest = bidf.build(gdf, {}, out_path)
+        return bidf.idf, manifest
+
+    def _assert_all_zone_volumes_correct(self, idf):
+        assert len(idf.idfobjects["ZONE"]) > 0
+        floor_area_by_zone: dict = {}
+        for surf in idf.getsurfaces("floor"):
+            floor_area_by_zone[surf.Zone_Name] = (
+                floor_area_by_zone.get(surf.Zone_Name, 0.0) + surf.area
+            )
+        for z in idf.idfobjects["ZONE"]:
+            volume = float(z.Volume)
+            assert volume > 0, f"{z.Name}: Volume not positive ({volume})"
+            floor_area = floor_area_by_zone.get(z.Name)
+            assert floor_area, f"{z.Name}: no floor surface found"
+            expected = floor_area * FLOOR_TO_FLOOR_M
+            ratio = volume / expected
+            assert 0.99 <= ratio <= 1.01, (
+                f"{z.Name}: Volume={volume} not within 1% of floor_area*height={expected} "
+                f"(ratio={ratio})"
+            )
+
+    def test_one_zone_per_floor_whole_zones_get_correct_volume(self, tmp_path):
+        """Small multi-floor footprint -> one_zone_per_floor (WHOLE zones), the path
+        that was 100% stubbed at 10 m3 before this fix (fact 2)."""
+        idf, manifest = self._build(tmp_path, footprint_side=10.0, num_floors=3)
+        assert manifest["zoning_strategy"] == "one_zone_per_floor"
+        self._assert_all_zone_volumes_correct(idf)
+
+    def test_core_perim_zones_still_get_correct_volume(self, tmp_path):
+        """Large multi-floor footprint -> core/perim (CORE/PERIM zones), the path that
+        already mostly worked -- the fix must not regress it."""
+        idf, manifest = self._build(tmp_path, footprint_side=30.0, num_floors=3)
+        assert manifest["zoning_strategy"] == "perimeter_core"
+        self._assert_all_zone_volumes_correct(idf)

@@ -29,7 +29,7 @@ the tool's own persisted output files (not a re-implementation of the search its
    style used throughout the layoutAssigner and UTCI plan docs), then individual `E-LA-NN` /
    `E-UTCI-NN` greps with context (`-C`/`-B`) against the specific plan file each ID's header
    pointed to, to pull the original defining paragraph rather than a later citation.
-5. Full read of `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` (470 lines) — this
+5. Full read of `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` (470 lines) — this
    document is itself a **later consolidator**, not an original logging site, but it was read in full
    because it already names the known E-LA-21/E-LA-39 pair and several other open IDs' summaries; every
    number and file:line claim taken from it below was cross-checked against the ID's own original

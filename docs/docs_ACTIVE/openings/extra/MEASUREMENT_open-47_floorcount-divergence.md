@@ -212,7 +212,7 @@ This is a recommendation for the director, per the plan's measurement-only rule.
 
 *(Per this task's constraints, the register is not edited directly — T01 holds the pen
 concurrently. The following is the exact text for the director to place under the OPEN-47
-§-section, `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md:4730`, appended
+§-section, `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md:4730`, appended
 immediately after the existing "Reason 1 ... Not adjudicated" paragraph. Strike, do not delete.)*
 
 > ✅ **Amended 2026-08-18 (T04 of `PLAN_open-48-and-four-items-2026-08-18.md`). Reason 1 is

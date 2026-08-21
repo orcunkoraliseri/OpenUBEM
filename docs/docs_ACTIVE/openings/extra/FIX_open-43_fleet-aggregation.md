@@ -79,7 +79,7 @@ The grep (`158\.0[0-9]*|fleet EUI`) over `docs/docs_ACTIVE/`, `docs/docs_REPORTS
 `docs/docs_EXPLANATION/`, `docs/PROJECT_CHECKLIST.md`, `openubem/`, `scripts/`, and the two `.html`
 boards found more matches than the 13 files above. Everything not restated, and why:
 
-1. **`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`** — hard rule 3 forbids editing
+1. **`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`** — hard rule 3 forbids editing
    the register; belongs to the director.
 2. **`docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`** — hard rule 3
    forbids editing the (current) director prompt.

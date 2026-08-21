@@ -3,7 +3,7 @@
 **Status:** Backlog (not started) — **deferred by user ruling 2026-08-05**
 **Logged:** 2026-08-05, from register item **OPEN-21**
 **Priority:** Future / optional — does not block any current work.
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` §6, OPEN-21 (deferred)
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` §6, OPEN-21 (deferred)
 
 ---
 

@@ -10,7 +10,7 @@
 
 The plan's §4.3 and the dispatching prompt both frame the floor-count divergence as **the
 one open question left on OPEN-47**, as if unmeasured. It is not. The register's own
-`### OPEN-47` §-section (`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md:5616`)
+`### OPEN-47` §-section (`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md:5616`)
 carries a **2026-08-18 amendment that already measured this exact question and ruled on it**:
 
 > "✅ Amended 2026-08-18 ... Reason 1 IS adjudicated and no longer keeps this item open ...

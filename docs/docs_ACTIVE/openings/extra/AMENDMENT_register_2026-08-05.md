@@ -1,7 +1,7 @@
 # PROPOSED AMENDMENT — open-items register, 2026-08-05
 
 > **Status: proposed, not applied.** Awaiting the user's approval before it is written into
-> `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`.
+> `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`.
 > Source: the five Phase-1 measurements M01–M05, each independently re-derived by the manager.
 > Reports in `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-0*.md`.
 

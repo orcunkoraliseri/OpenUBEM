@@ -5,7 +5,7 @@
 ≥0.80**) and `2h` (retire OPEN-04 / OPEN-31 / OPEN-43), and reaffirmed the autonomy grant:
 *"continuer jusqu'à la fin."*
 **Director prompt:** `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` §3, ruling `2a`
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — **35 tracked items,
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — **35 tracked items,
 next free ID `OPEN-51`.**
 **Predecessors, closed — cite by task ID, do not append to them:**
 `PLAN_rulings-and-five-items-2026-08-12.md` (which built the fixture),

@@ -5,7 +5,7 @@
 (`2f` — register the `wwr` defect as OPEN-49; `2g` — **keep `157.1 kWh/m²`**) and reaffirmed the
 autonomy grant: *"continuer jusqu'à la fin comme tu recommends finir."*
 **Director prompt:** `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — **34 tracked items,
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — **34 tracked items,
 next free ID `OPEN-50`.**
 **Predecessors, closed — cite by task ID, do not append to them:**
 `PLAN_e02-audit-and-closure.md` (T01–T06), `PLAN_five-item-sweep-2026-08-12.md` (T01–T07),

@@ -8,7 +8,7 @@ cannot be evidenced with a file path + line number or a dated ruling is `UNRESOL
 The 17 rows are the ones whose status literal is `"open"` in `scratchpad/board.html`'s `WP` array,
 at the line numbers given in the dispatch: 604, 618, 702, 704, 721, 727, 735, 740, 770, 809, 823,
 839, 858, 864, 867, 873, 905. Each was read directly from `board.html`, matched to a register ID
-using the register's §1 summary table (`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`,
+using the register's §1 summary table (`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`,
 table body starting line 686), and classified. Where a row maps to a "ruling executed" rather than a
 single register ID (V7, W11, W9), the executing plan doc's own progress log was read to confirm
 completion.

@@ -48,6 +48,7 @@ def _make_metrics_df(n: int = 3, include_failed: bool = True) -> pd.DataFrame:
     """Synthetic metrics rows (T11 tests): 2 success + 1 failed.
 
     Phase-E (T14): includes all 28 _STEP5_COLS columns.
+    OPEN-61 T01 (2026-08-22): +1, dhw_district_eui_kwh_m2 (29 total).
     """
     rows = []
     for i in range(n):
@@ -60,7 +61,8 @@ def _make_metrics_df(n: int = 3, include_failed: bool = True) -> pd.DataFrame:
                 "heating_eui_kwh_m2": nan, "cooling_eui_kwh_m2": nan,
                 "lighting_eui_kwh_m2": nan, "equipment_eui_kwh_m2": nan,
                 "fans_eui_kwh_m2": nan, "pumps_eui_kwh_m2": nan,
-                "dhw_gas_eui_kwh_m2": nan, "dhw_elec_eui_kwh_m2": nan, "dhw_eui_kwh_m2": nan,
+                "dhw_gas_eui_kwh_m2": nan, "dhw_elec_eui_kwh_m2": nan,
+                "dhw_district_eui_kwh_m2": nan, "dhw_eui_kwh_m2": nan,
                 "cooking_eui_kwh_m2": nan, "refrigeration_eui_kwh_m2": nan,
                 "elevators_eui_kwh_m2": nan,
                 "total_eui_kwh_m2": nan,
@@ -86,6 +88,7 @@ def _make_metrics_df(n: int = 3, include_failed: bool = True) -> pd.DataFrame:
                 "pumps_eui_kwh_m2": 2.0,
                 "dhw_gas_eui_kwh_m2": 8.0,
                 "dhw_elec_eui_kwh_m2": 1.0,
+                "dhw_district_eui_kwh_m2": 0.0,
                 "dhw_eui_kwh_m2": 9.0,
                 "cooking_eui_kwh_m2": 3.0,
                 "refrigeration_eui_kwh_m2": 0.0,

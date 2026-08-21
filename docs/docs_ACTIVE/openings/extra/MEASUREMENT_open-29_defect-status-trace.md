@@ -170,7 +170,7 @@ given it. **The method is trusted on the candidates below.**
   plan (rediscovered there as E-LA-39, closed as a *duplication* by OPEN-05 on 2026-08-05, **not** as
   a defect).
 - **Last document (the register itself, 2026-08-05):**
-  `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md:546-549` — *"Closing OPEN-05 closes
+  `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md:546-549` — *"Closing OPEN-05 closes
   the duplication, not the defect. The `has_fatal` column is still dead fleet-wide and, with OPEN-05
   struck, it is now tracked in this register only inside a closed item's disposition."*
 - **Current-code confirmation (strongest possible evidence — HEAD, not a document):**
@@ -203,7 +203,7 @@ given it. **The method is trusted on the candidates below.**
   `scripts/cluster/t20_layout_assign_full_sweep.py:31-32` — *"E-LA-21, E-LA-22, E-LA-23, E-LA-24,
   E-LA-33 remain OPEN/carried-forward and are NOT addressed by this run."*
 - **Corroboration in the register itself (2026-08-05):**
-  `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md:170` — still describes it as a
+  `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md:170` — still describes it as a
   standing, documented, unresolved design fact ("a fallback design that was always documented
   (E-LA-33: height does not track `num_floors`)").
 

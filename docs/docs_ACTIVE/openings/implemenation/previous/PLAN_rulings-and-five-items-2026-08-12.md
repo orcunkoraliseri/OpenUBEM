@@ -3,7 +3,7 @@
 **Slug:** `rulings-and-five-items-2026-08-12`
 **Opened:** 2026-08-12 (evening pass, after `PLAN_five-item-sweep-2026-08-12.md` closed)
 **Author:** director. **Executors:** fresh Sonnet sessions, one per task group.
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`
 **Director prompt:** `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`
 **DESIGN pointers:** `docs/docs_main/docs_step2/PLAN_step-2.5-oq7-labelled-fixture.md` (fixture
 provenance), `docs/docs_main/docs_step2/PLAN_step-2-classifier-coverage-R3.md` (rule 17a / E-R3-2),

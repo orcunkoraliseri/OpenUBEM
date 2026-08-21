@@ -1,7 +1,7 @@
 # PLAN — the compute queue (C01 … C06)
 
 > **Slug:** `compute-queue` · **Opened:** 2026-08-06 · **Author:** manager session
-> **Binding contract:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` (the item
+> **Binding contract:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` (the item
 > definitions) and `docs/docs_ACTIVE/openings/extra/SCOPING_five-mode-rerun-cost.md` Part 2 (the
 > costed local plan). Neither may be edited by an executor.
 > **Predecessors:** `PLAN_published-numbers.md` (M01–M05, E01/E01b/E01c, E02 scoped-not-run) and

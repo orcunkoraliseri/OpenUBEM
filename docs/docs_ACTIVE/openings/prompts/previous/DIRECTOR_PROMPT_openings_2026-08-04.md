@@ -33,7 +33,7 @@ before `non-applied`. Depth goes in the documents, not in the chat.
 A register of **everything open in this project** was compiled on 2026-08-04 and lives at:
 
 ```
-docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md
+docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md
 ```
 
 **Read it first, in full.** It is the single source of state for this arc. It contains **27 items**

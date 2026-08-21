@@ -2,7 +2,7 @@
 
 **Slug:** `open-48-and-four-items-2026-08-18`
 **Written:** 2026-08-18 (late), by the director, at the user's instruction *"continue jusqu'a la fin pour des taches ouverts vas-y, executer"*.
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`
 **Director's log:** `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` §5.21
 **Predecessor:** `PLAN_open-52-and-four-items-2026-08-18.md` (CP-3 signed, closed)
 
@@ -432,7 +432,7 @@ documentary only — no `.py` script per §3, no other file touched, register un
 **Deviations:** None from the plan's "How" steps — all five were executed. One thing surfaced that
 the plan did not anticipate and that changes the shape of the task, reported in full at the top of
 the measurement doc (§0): **OPEN-51 was already closed and its ID retired before this plan was
-written.** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md:5292` already carries `✅
+written.** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md:5292` already carries `✅
 CLOSED 2026-08-18 — T02 of implemenation/previous/PLAN_five-items-2026-08-18.md`, and `git log` shows
 `extra/MEASUREMENT_open-51_e-la-16-identity.md` was added in commit `b2d0220`, already an ancestor of
 HEAD. This plan's §1 rationale ("nobody has run [the check]") was stale at the moment of writing.
@@ -518,7 +518,7 @@ residual. Full reasoning and the register amendment text are in the measurement 
   1 level).
 - `openubem/outputs/comparisons/open48_reproducibility_retest.csv` — 8 rows: 1 control row + 5
   re-derived table rows (some rows split into sub-checks) + 1 live-build row + 1 negative-control row.
-- Register: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` amended in place under
+- Register: `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` amended in place under
   T01's pen (rule 9) — the OPEN-48 evidence table's five stale cells struck (`~~...~~`, not deleted)
   and pointed at a new "Amendment 2026-08-18" block; the OPEN-48 index-table row (§9 summary list)
   appended with a matching status note.

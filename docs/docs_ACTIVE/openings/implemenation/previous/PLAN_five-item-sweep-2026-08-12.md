@@ -1,7 +1,7 @@
 # PLAN — five-item sweep, 2026-08-12
 
 > **Slug:** `five-item-sweep-2026-08-12` · **Opened:** 2026-08-12 · **Author:** manager (director) session
-> **Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md` — the single source of
+> **Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — the single source of
 > state. This plan does not restate it; it cites it.
 > **DESIGN pointers:** no DESIGN doc is edited or extended by this plan. The specs that bound the work
 > are `docs/docs_main/docs_step2/DESIGN_step-2-classify-*.md` (archetype/coarse-class definitions, read

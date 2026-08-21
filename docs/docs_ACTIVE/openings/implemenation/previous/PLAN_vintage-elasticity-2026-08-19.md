@@ -1,7 +1,7 @@
 # PLAN — how much of the cross-mode gap can internal loads possibly explain (OPEN-03)
 
 **Slug:** `vintage-elasticity` · **Date:** 2026-08-19 (late) · **Author:** manager/director session
-**Register:** `../INVESTIGATION_open-items-register.md` — **OPEN-03** (live), **OPEN-60** (live, opened tonight)
+**Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — **OPEN-03** (live), **OPEN-60** (live, opened tonight)
 **Predecessors:** `PLAN_layout-assign-untrimmed-2026-08-19.md` (produced the 48-building run),
 `PLAN_gap-decomposition-2026-08-19.md` (produced the end-use split and found OPEN-60)
 **Board:** row **AA5** of `../reporting/board_published-numbers.html`

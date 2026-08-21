@@ -13,7 +13,7 @@ verification only — nothing was run, fitted, or imputed to produce this brief.
 ## 0. The one decision behind three register items
 
 Register §5, verbatim: *"These are one decision, not three: **does this project want a non-deterministic
-input tier at all?**"* (`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md:948`). The three
+input tier at all?**"* (`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md:948`). The three
 items are OPEN-15 (Phase E frontier methods), OPEN-16 (`ml` tier), OPEN-17 (`draw` tier) — three rungs of
 the same imputation arc, all currently off, all requiring the same underlying ruling before any one of
 them could move.
