@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-58: blast radius (independent re-derivation)
 
-> T03 of `implemenation/PLAN_twenty-items-2026-08-19.md`. Script:
+> T03 of `implemenation/previous/PLAN_twenty-items-2026-08-19.md`. Script:
 > `scripts/analysis/open58_run_ep_enumeration_2026-08-19.py`. Output:
 > `openubem/outputs/comparisons/open58_run_ep_consumers.csv`.
 

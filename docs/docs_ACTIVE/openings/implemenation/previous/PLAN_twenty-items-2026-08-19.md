@@ -84,7 +84,7 @@ restatement, and that is (c) answerable **without the cluster and without a user
 
 | what | where |
 |---|---|
-| this plan | `docs/docs_ACTIVE/openings/implemenation/PLAN_twenty-items-2026-08-19.md` |
+| this plan | `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_twenty-items-2026-08-19.md` |
 | findings docs | `docs/docs_ACTIVE/openings/extra/MEASUREMENT_*.md` / `INVESTIGATION_*.md` |
 | analysis scripts | `scripts/analysis/*.py` |
 | tabular outputs | `openubem/outputs/comparisons/*.csv` |

@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-16: the `ml` tier is reachable only from the validation entry point
 
-**Task:** T11 of `../implemenation/PLAN_twenty-items-2026-08-19.md`. No new script — traces
+**Task:** T11 of `../implemenation/previous/PLAN_twenty-items-2026-08-19.md`. No new script — traces
 existing code and re-runs an existing, targeted slice of `tests/test_ml_imputer.py` as the
 constructed reachability proof, rather than writing a duplicate throwaway script for a question
 the repo's own test suite already answers directly.

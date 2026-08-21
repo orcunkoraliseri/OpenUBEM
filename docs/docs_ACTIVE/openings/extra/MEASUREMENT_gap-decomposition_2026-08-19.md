@@ -1,6 +1,6 @@
 # MEASUREMENT — end-use decomposition of the 48 (T01) and the OPEN-59 four-column bounds screen (T02)
 
-**Slug:** `gap-decomposition` · **Date:** 2026-08-19 · **Plan:** `implemenation/PLAN_gap-decomposition-2026-08-19.md`, T01-T02, CP-1.
+**Slug:** `gap-decomposition` · **Date:** 2026-08-19 · **Plan:** `implemenation/previous/PLAN_gap-decomposition-2026-08-19.md`, T01-T02, CP-1.
 **Scope:** measurement only. Nothing opened, closed, struck or retired. Recommendations only.
 
 ---

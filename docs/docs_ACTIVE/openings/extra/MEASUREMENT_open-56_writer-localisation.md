@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-56: localise the writer
 
-> T02 of `implemenation/PLAN_twenty-items-2026-08-19.md`. No fix made. Read-only investigation of
+> T02 of `implemenation/previous/PLAN_twenty-items-2026-08-19.md`. No fix made. Read-only investigation of
 > code already installed in `.venv` plus run-4 `.err` artifacts.
 
 ## Premise check — the plan's premise is FALSE at HEAD, and it is worth reporting why

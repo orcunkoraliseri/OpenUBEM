@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-17: the router hook's "never existed in any commit" claim, verified with a positive control
 
-**Task:** T12 of `../implemenation/PLAN_twenty-items-2026-08-19.md`. Read-only git archaeology only
+**Task:** T12 of `../implemenation/previous/PLAN_twenty-items-2026-08-19.md`. Read-only git archaeology only
 — `log`/`grep`/`show`/`rev-list`, no write commands. No new script; every command reproduced
 verbatim.
 

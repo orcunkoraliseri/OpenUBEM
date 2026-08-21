@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-15: Phase E has no code path at HEAD
 
-**Task:** T10 of `../implemenation/PLAN_twenty-items-2026-08-19.md`. No script — a search-and-cite
+**Task:** T10 of `../implemenation/previous/PLAN_twenty-items-2026-08-19.md`. No script — a search-and-cite
 task; every search command is reproduced verbatim below rather than run through a throwaway
 script, so it can be re-run directly.
 

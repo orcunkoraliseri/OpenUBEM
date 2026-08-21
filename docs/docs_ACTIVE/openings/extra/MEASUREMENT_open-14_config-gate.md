@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-14: localising the config gate, and what a clean checkout needs to reproduce the backfill
 
-**Task:** T07 of `../implemenation/PLAN_twenty-items-2026-08-19.md`. Script:
+**Task:** T07 of `../implemenation/previous/PLAN_twenty-items-2026-08-19.md`. Script:
 `scripts/analysis/open14_t07_gate_construction_2026-08-19.py` (constructed local case, run
 against the real committed `overture_nyc_centre_slice.parquet`, not the synthetic testcell
 fixture).

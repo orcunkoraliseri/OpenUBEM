@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-03: does internal-load elasticity support "roughly half the gap"?
 
-> Executes T02-T04 of `docs/docs_ACTIVE/openings/implemenation/PLAN_vintage-elasticity-2026-08-19.md`.
+> Executes T02-T04 of `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_vintage-elasticity-2026-08-19.md`.
 > T01 (runner build, CP-1 control) completed separately; see that plan's §9 for the T01 entry.
 > Measurement only. No `openubem/` code touched. No register edits.
 

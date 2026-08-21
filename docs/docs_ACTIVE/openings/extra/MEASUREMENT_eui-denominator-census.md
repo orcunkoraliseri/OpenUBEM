@@ -1,6 +1,6 @@
 # MEASUREMENT — the EUI denominator census, fleet-wide on run-4
 
-> T05 of `implemenation/PLAN_twenty-items-2026-08-19.md`. Script:
+> T05 of `implemenation/previous/PLAN_twenty-items-2026-08-19.md`. Script:
 > `scripts/analysis/open01_eui_denominator_census_2026-08-19.py`. Output:
 > `openubem/outputs/comparisons/eio_area_vs_derived_fleet.csv` (8,153 rows).
 

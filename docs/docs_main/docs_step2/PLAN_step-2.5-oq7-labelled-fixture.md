@@ -75,7 +75,7 @@ The manager has independently verified these against current files and the 2026-
 **5.4 OQ-7 (d) — out of scope.** Logged as `OQ-7-FOLLOWUP` in DESIGN §7. Do not implement two-expert agreement, do not pre-allocate 200×4 city storage.
 
 **5.5 Coarse-class mapping (load-bearing, sealed in §11 entry):**
-- residential ⇔ archetype's `sector == "Residential"` per `openubem/data/openstudio_archetypes.json` → exactly **2 archetypes**: `MidriseApartment`, `MultifamilyHome`.
+- residential ⇔ archetype's `sector == "Residential"` per `openubem/data/openstudio_archetypes.json` → exactly **2 archetypes**: `MidriseApartment`, `HighriseApartment`.
 - commercial ⇔ everything else → **28 archetypes** (Office, Retail, Food Service, Lodging, Healthcare, Education, Government, Data Center, Research, Industrial, High-Rise, Fallback).
 DESIGN §5.1 row `Labelled top-1 accuracy`: ≥ 90% coarse; warn 80–90%; fail < 80%.
 
