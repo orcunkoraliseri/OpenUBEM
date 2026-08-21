@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-13: E-UTCI-12 containment at HEAD, and independent verification of the 43 traded-away tests
 
-**Task:** T09 of `../implemenation/PLAN_twenty-items-2026-08-19.md`. Script:
+**Task:** T09 of `../implemenation/previous/PLAN_twenty-items-2026-08-19.md`. Script:
 `scripts/analysis/open13_t09_containment_and_lost_tests_2026-08-19.py`. Output:
 `openubem/outputs/comparisons/open13_t09_containment_and_lost_tests.csv`.
 

@@ -1,6 +1,6 @@
 # MEASUREMENT — untrimmed `layout_assign`: a 48-building sample at HEAD
 
-**Date:** 2026-08-19 (late) · **Plan:** `implemenation/PLAN_layout-assign-untrimmed-2026-08-19.md` (T01–T04, CP-1)
+**Date:** 2026-08-19 (late) · **Plan:** `implemenation/previous/PLAN_layout-assign-untrimmed-2026-08-19.md` (T01–T04, CP-1)
 **Items touched:** OPEN-03 (cross-mode gap), OPEN-18 (vertical-form distortion), OPEN-10 (floor-area denominator)
 **Author:** director. T01/T02 executed by a Sonnet executor; T03/T04 computed by the director from the
 executor's tables after the executor stalled without writing up (see §8).
@@ -152,7 +152,7 @@ finding.**
 
 **§3, §4 and §6 above overstate the gap. The numbers below supersede them.** The finding survives;
 its size does not. This correction was produced by the follow-on plan
-(`implemenation/PLAN_gap-decomposition-2026-08-19.md`, T01) and re-derived independently by the
+(`implemenation/previous/PLAN_gap-decomposition-2026-08-19.md`, T01) and re-derived independently by the
 director before being applied.
 
 ### What was wrong

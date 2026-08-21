@@ -74,6 +74,18 @@
 > 🟩 one**, whose register counts are stale. Register **19 live / 40 struck / 59 total**, next free
 > **OPEN-60**. **Nothing is running.** ⚠️ The new figure is **not volume-correct** — OPEN-56's ≈+1.0
 > kWh/m² is not in it. Derivation: `extra/MEASUREMENT_fleet-restatement-2026-08-19.md`.
+> 🟪🟪 **UPDATED 2026-08-20, at the user's instruction (*"mettre a jour ce prompt … et fermer le
+> document"*).** Two things changed since the 🔴 line above. **(1)** A further pass ran and closed —
+> `implemenation/previous/PLAN_four-board-items-2026-08-20.md`, all four board rows (AA7, S03, W9, C05) —
+> **one item opened (OPEN-61)**, one item's stated population corrected (OPEN-35), 206.79 GiB
+> recovered. Its full account is the last `<!-- SEC:… -->` section of this file.
+> **(2) 🔒 THE REGISTER HAS BEEN ROTATED. `INVESTIGATION_open-items-register.md` IS CLOSED** at 8,246
+> lines and **the live register is now `INVESTIGATION_open-items-register-II.md`** — 21 live items,
+> nothing else. The closed book stays at its own path (79 documents cite into it) and remains the
+> authority on closed items and on each live item's full history. **A 🟪 RESUME box now heads the
+> green box below and supersedes every earlier box, including the 🟨 one**, whose "a plan is in force
+> and three executors are running it" is long stale. Register **21 live / 40 struck / 61 total**,
+> next free **`OPEN-62`**. **Nothing is running. No plan is in force. No ruling is owed.**
 > **Supersedes:** `previous/DIRECTOR_PROMPT_openings_2026-08-10.md` — **spent, do not paste it.** That
 > file was written *before* the harvest landed and then amended in place; every load-bearing sentence
 > has been carried here as plain statement rather than as a struck-through correction. It is kept only
@@ -109,6 +121,311 @@
 > question at both stages (IDFs byte-identical, results max Δ 0.00836 kWh/m²). Nothing is running and
 > nothing is queued. The arc is idle and blocked on TWO rulings only — see the RESUME box below.**
 >
+<!-- RESUME-2026-08-20-CENSUS-START -->
+> ## 🟩🟩🟩 RESUME HERE — written 2026-08-20 (later), with the fleet census IN FLIGHT. **THIS BOX SUPERSEDES EVERY RESUME BOX BELOW IT, INCLUDING THE 🟪🟪 ONE.**
+>
+> ### 🔴 SOMETHING IS RUNNING. Read this before starting anything.
+>
+> **T03 of `implemenation/PLAN_open61-census-open03-storeys-2026-08-20.md` is simulating all 8,153
+> buildings locally**, 12 concurrent workers, launched 2026-08-20 ~14:20 via the scratchpad driver
+> `t03_fleet.py`. Expect **≈8 h**. It is **fire-and-forget: poll the output file, never wait to be
+> woken.**
+>
+> - Output, written incrementally: `openubem/outputs/comparisons/open61_census_fleet.csv`
+> - Log: `<scratchpad>/t03_fleet.log` — one line per building
+> - Done when the CSV has **8,154 lines** (8,153 + header)
+> - ⚠️ **Do not launch a second simulation of any kind while it runs** — 12 of this host's 20 cores are busy.
+>
+> ### What has been signed today, and what each gate actually proved
+>
+> | Gate | Verdict | The evidence that matters |
+> |---|---|---|
+> | **CP-1** (T01) | ✅ signed | The parser has **one** read path for the district term, not two — `reader_b` is absent on 108/108. D14 found the free cross-check the executor missed: the district column **is** the Water Systems row and nothing else. |
+> | **CP-2** (T02) | ✅ signed | 200-building pilot: rebuild reproduces run 4 on **200/200** (max Δ 1.49 × 10⁻⁴ kWh/m²), district term non-zero on **200/200**, C2b holds on **200/200**, mean 47.7 s, **20/20** archetypes present. |
+> | **CP-4** (T05) | ✅ signed | Storey disagreement counted on all 8,160. `layout_assign` represents the real storey count for **30.0 %** and ignores it for **70.0 %**. Arc B closed. |
+> | **CP-3** (T04) | ⏳ owed | Blocked on T03 finishing. |
+>
+> ### The three numbers to carry, and the two not to
+>
+> - ✅ **Census cost, measured: 97.2 CPU-hours** fleet-weighted. 797 buildings (9.8 %) buy 53 % of it.
+> - ✅ **OPEN-03's fleet result: 70.0 % unmatched**, not the 60.2 % the executor reported — that
+>   compared a per-building count against a **per-archetype constant**.
+> - ✅ **The fleet is 8,160 IDFs**, one per building. **Never cite 16,336** — a recursive glob double-counted.
+> - 🔴 **Do NOT quote the pilot's pooled 23.87 kWh/m² as a fleet figure.** The pilot is stratified,
+>   not proportional; it over-weights the large buildings that carry the most hot water. C5's
+>   comparison against **8.7 / 17.2 / 20.2** happens in T04, on the census, and nowhere else.
+> - 🔴 **Do NOT withdraw the 33.1 CPU-hour projection quietly** — it is withdrawn *in writing* at CP-2.
+>   It came from a sample containing none of the heavy tail. F4's ≈119 was the better estimate.
+>
+> ### 🆕 OPEN-62 is open, on the user's grant — and it was bounded the same hour
+>
+> Granted 2026-08-20 for the `Z_Origin` parsing gap (6 archetypes, **2,983 buildings, 36.6 %**). It was
+> opened with its alarming reading stated as **unchecked**, then checked at the source: **production
+> geometry code does NOT share the omission** (`layout_assigner.py:471`, `:491-493`;
+> `viz/geometry_extract.py:143-155`). It is a **measurement-instrument erratum bounded to two analysis
+> scripts and one CSV column** — no building is built at the wrong height. Still live because unfixed,
+> and **the fix must land together with a restated control C9**, never alone.
+>
+> ### What T04 must do, and the one thing it may not
+>
+> Pooled figure = total unreported energy ÷ total floor area over 8,153. **Never a mean of per-cell
+> means**; the twelve cells are reported as twelve numbers. Then C5 (vs 8.7 / 17.2 / 20.2 — state
+> inside or outside, and by how much), C6 (ratio stats vs the 60-building IQR 0.362–0.840, median
+> 0.714), C7 (the `MidriseApartment` concentration, 2,818 of 8,160).
+> ⛔ **T04 may NOT produce a corrected fleet EUI.** What the model should have done with that energy is
+> a design question and is out of this plan's scope. Write the number, name the question, stop.
+>
+> ### 🆕 A SECOND PLAN IS IN FORCE, and that is deliberate
+>
+> `implemenation/PLAN_open62-z-origin-and-three-rulings-2026-08-20.md`, authorised 2026-08-20
+> (afternoon). **Every task in it is IDF text parsing — no EnergyPlus — so it runs BESIDE the
+> saturated census instead of behind it.** T01 (make `parse_idf()` origin-aware, additively) then T02
+> (re-run the storey census, restate C9). **Neither plan is archived until both close** — the
+> one-plan-in-`implemenation/` rule is about archiving completed plans, not about forbidding two live
+> ones.
+>
+> 🔴 **The restated C9 is the point of that plan, not a side effect.** The old C9 passed **96/96**
+> because both sides were produced by the same naive parser against the same files. **A control that
+> re-runs the suspect code cannot exonerate it.** The replacement checks against a reader that never
+> imported `parse_idf()` — `layout_assigner.py`'s own origin-aware path — and **it is allowed to
+> fail.** If it fails, that is the finding; do not tune the parser until it agrees.
+>
+> ### 🆕 Five rulings were taken 2026-08-20 (afternoon). None is reopenable by an executor.
+>
+> - **R1** — fix OPEN-62's parser **and** restate C9. Both, together.
+> - **R2** — 🔒 **OPEN-15 and OPEN-16 RETIRED into OPEN-17**, which is now the carrier for all three
+>   imputation facts. They were one fact described three times: the tiers were built and never wired
+>   to the router. ⚠️ **Bookkeeping, not progress** — nothing was measured, fixed or decided by it.
+> - **R3** — 🔴 **retire NONE of OPEN-09 / 10 / 14 / 18 / 19 / 38.** The director recommended retiring
+>   OPEN-18 and OPEN-19; **the user declined.** Recorded as *declined*, so it is not quietly
+>   re-proposed next pass.
+> - **R4** — OPEN-27 stays with the user. ⚠️ **Superseded the same afternoon by R5.**
+> - **R5** — 🔓 **a narrow one-time exception to the never-edit-`docs_main/` rule, for OPEN-27's two
+>   lines only.** Granted after the user was told that rule was the *only* thing holding the item
+>   open. The director applied both edits and **closed OPEN-27**. 🔴 **The exception does not
+>   generalise.** `docs_main/`, OVERVIEW and DESIGN remain unwritable without a fresh, equally
+>   explicit grant. Do not read this precedent as standing permission.
+>
+> ### Register state
+>
+> **16 live / 46 retired / 62 total, next free `OPEN-63`.** (Was 19/43 at open, 17/45 after R2,
+> 16/46 after OPEN-27 closed.) Live IDs, recounted: `03, 09, 10, 14, 17, 18, 19, 35, 38, 53, 56, 58,
+> 59, 60, 61, 62`. Book II is `INVESTIGATION_open-items-register-II.md`; book I stays the authority
+> on closed items. Board artifact:
+> https://claude.ai/code/artifact/7960a833-541b-4eab-a006-403c53c4bddc — update in place.
+> **Nothing is owed by the user** — the OPEN-27 erratum was applied and closed under R5.
+>
+> 🟢 **R6 and R7 taken 2026-08-20 (evening).** **R6** — the OPEN-61 census's ≈38 GB `.sql`
+> corpus is **preserved**: move it out of the session scratchpad to a durable path **once the census
+> finishes** (not before — the run is still writing), and inventory it. The last discard cost
+> **97.2 CPU-hours**. **R7** — a storey count is derived from **FLOOR SURFACES**, origin-corrected,
+> not from wall bases. Executing as **T06** (executor) and **T07** (director) of the OPEN-62 plan.
+>
+> 🔴 **CP-3 SIGNED 2026-08-20 (evening) — T06 AUDITED, C17 REFUSED, AND CP-2's OWN FRAMING
+> WITHDRAWN. STILL DO NOT CLOSE OPEN-62.** Read this before the CP-2 box below it, which it corrects.
+> **(a)** T06's allowed-to-fail control **C16 failed**: 38 rows, all `Warehouse`, floor 1 < wall 2.
+> Measured on the preserved prototype — exterior wall z-bases `{0.0: 8, 4.267: 2}` against **3 FLOOR
+> surfaces all at z = 0.0**, a one-storey high-bay facade split into two wall bands. 🔴 **So the
+> wall-base method OVER-counts as well as under-counts. `storey_count` is NOT a lower bound and not a
+> bound of any kind — the "LOWER BOUND / ≥ 2.25 / ≥ 16" instruction in the CP-2 box below is
+> WITHDRAWN.**
+> **(b)** 🔴 **The replacement reader is biased too — `storey_count_floor` counts an ATTIC as a
+> storey.** `SmallOffice.idf` carries **9 floor surfaces at z = 3.05, all in zone `Attic`**; both
+> restaurant archetypes carry zone `attic` at z = 3.049. Three one-storey prototypes read as 2 —
+> **3,580 buildings, 43.9 % of the fleet**, and 2,797 of the 5,714 unmatched rows. **Built mean is
+> 2.45 attic-corrected, not the 2.94 T06 reported. Publish OPEN-03's built-storey headline ONLY as
+> the range 2.45 – 2.94.**
+> **(c)** ⚠️ **C14's 18/18 agreement with `compute_band_map()`'s `n_proto` does not certify a storey
+> count** — `n_proto` is documented as *"deliberately left as the measured Z-BAND COUNT, never a
+> represented-storey count"* (`layout_assigner.py:404-406`). ✅ **Not a production defect.**
+> **(d)** 🔴 **Net: no reader in this codebase returns a storey count.** What is owed is not another
+> reader but a **definition** of a storey for prototypes with attics, plenums and high bays.
+> ⚠️ **Do not let an executor resolve it by excluding zones named `Attic`** — zone-name matching is
+> the generalisation A1 already falsified (F-07, `layout_assigner.py:389`) and would move archetypes
+> across `match_storeys()`'s `n_proto` branches.
+> **(e)** ✅ **T06's own deviations were correct and are accepted**: unfiltered floor count as primary
+> (R7's wording carries no filter), and `n_proto` in place of the plan's fixed 6-row table.
+>
+> ⚠️ **THE CONTROL LESSON, NOW THREE-FOR-THREE.** C9 could not fail and hid a wrong quantity. C9b was
+> allowed to fail, failed, and found it. C16 was allowed to fail, failed, and found the **opposite**
+> error in the same column. **Write controls that are allowed to fail, and audit a passing control
+> for whether it shares its subject's assumptions.** The cheap "fix it and keep the control" option
+> would by now have closed OPEN-62 twice.
+>
+> 🔴 **CP-2 IS SIGNED AND T03 IS BLOCKED. DO NOT CLOSE OPEN-62.** The restated control **C9b
+> FAILED** — 12 of 18 archetypes agree, **6 disagree over 3,734 buildings**. Traced: on
+> `TallBuilding.idf`, floor surfaces give **20** distinct elevations; *exterior wall bases in
+> floor-area-counting zones* — what `parse_idf()` counts — give **10**. 🔴 **`storey_count` is not a
+> storey count; it counts the heights at which a new exterior wall starts, so it undercounts any
+> facade spanning multiple floors.** The `Z_Origin` fix is correct and **not sufficient**.
+> **Any value from that column is a LOWER BOUND** — C13's built mean is **≥ 2.25**, built max **≥ 16**,
+> never "= 2.25". ✅ OPEN-03's **30 / 70** headline is untouched and stays quotable
+> (`compute_band_map()` was already origin-aware). ✅ No production code implicated.
+> **What is owed is a ruling, not a measurement:** what should a storey count be derived from?
+> ⚠️ **Do not let an executor "fix" the parser to make C9b pass.** The disagreement is the finding.
+>
+> 🔴 **CP-1 of the OPEN-62 plan is signed, with control C12 AMENDED — not passed.** Predicted 6
+> archetypes move, 12 hold; measured **4 move, 14 hold**. `Outpatient` (59/118 zones carry a non-zero
+> `Z_Origin`) and `SecondarySchool` are wrong **per zone** and right **per building** by coincidence
+> of their own mixed encoding. **Any measure that counts storeys per zone will see both move.** Do
+> not restate this as "unaffected".
+>
+> 🔴 **`open03_envelope_decomposition_2026-08-20.py:parse_idf()` fails to ZERO, silently, on raw
+> registry IDFs.** It resolves fields by their `!- field name` comments; the DOE baseline files do
+> not carry them, so every area comes back `0.0` and `storey_count` `0` with no error. **It is only
+> valid on geomeppy-resaved corpora.** The 18 resaved prototypes are preserved at
+> `scratchpad/open03_proto_saved/` (gitignored). If a parse returns all-zero areas, that is this
+> bug, not a real building — count those rows separately, never average them in.
+>
+> ⚠️ **A recurring failure, now seen twice in one day:** book II's §1 **Live IDs** line was written
+> `(18)` and omitted OPEN-62 — the same one-row-short defect its own rotation note describes. **Recount
+> the ID list, do not trust the header number.**
+>
+<!-- RESUME-2026-08-20-CENSUS-END -->
+<!-- RESUME-2026-08-20-START -->
+> ## ~~🟪🟪 RESUME HERE — written 2026-08-20~~ **(SUPERSEDED by the 🟩🟩🟩 box above — a census pass has since signed CP-1, CP-2 and CP-4, opened OPEN-62, and left T03 running. Its findings STAND; its counts and its "nothing is running" state are stale.)** — at the close of `implemenation/previous/PLAN_four-board-items-2026-08-20.md` and of the register rotation. **THIS BOX SUPERSEDES EVERY RESUME BOX BELOW IT, INCLUDING THE 🟨 ONE.**
+>
+> ### The three things a fresh session must not get wrong
+>
+> 1. 🔒 **THE REGISTER HAS MOVED. The live register is
+>    `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md`** — 21 live items and
+>    nothing else, 180 lines. **`INVESTIGATION_open-items-register.md` is CLOSED** at 8,246 lines and
+>    carries a 🔒 banner saying so. **Do not add open work to the closed book.** It stays at its own
+>    path on purpose — 79 documents cite into it — and it remains the authority on every closed item
+>    and on every live item's full history. §2 of this prompt still describes the old file's role;
+>    read it as describing book II.
+> 2. 🟢 **A NEW PLAN IS IN FORCE, AUTHORISED BY THE USER 2026-08-20:**
+>    `implemenation/PLAN_open61-census-open03-storeys-2026-08-20.md` — **not started.** Two arcs the
+>    user approved together: **Arc A (T01–T04)** replaces OPEN-61's 6–13 % *estimate* with a real
+>    fleet measurement; **Arc B (T05)** censuses OPEN-03's storey-count disagreement and needs **no
+>    simulation**. Four checkpoints; **nothing simulates before CP-1 is signed and the 119 CPU-hours
+>    are not spent before CP-2 is signed.**
+>    🔴 **The fact that shaped the plan:** run 4 is on disk but **its `.sql` files were discarded**
+>    — all 8,160 buildings keep only `.eio`, `.end`, `.err`. The census cannot be done by reading;
+>    it needs a re-run. Director-measured cost: median **14.2 s**, mean **52.5 s** per building over a
+>    400-building sample ⇒ **≈119 CPU-hours** for the fleet. Host (local `n_jobs≤10` vs Speed
+>    `sbatch --array`) is **T02's decision on its own measured pilot rate**, deliberately not
+>    pre-empted.
+>    ⚠️ **Three of four executors on the previous plan stalled** by backgrounding a job and waiting
+>    to be woken. Hard rule 2 of the new plan forbids it explicitly. **Keep that rule in every
+>    kickoff prompt.**
+>
+> 2b. ✅ **THE PREVIOUS PLAN IS DONE. `implemenation/previous/PLAN_five-items-2026-08-20-late.md` was executed end to
+>    end on 2026-08-20 and is CLOSED** — T01–T05, five tasks over four items, all five progress-log
+>    entries in §8, all three checkpoints signed in §6b/§6c/§6d. **Nothing is running. No ruling is
+>    owed.** What it changed, all recorded in **book II §6**:
+>    🔴 **OPEN-61 is roughly ten times its recorded size and is fleet-wide.** Mechanism confirmed by
+>    experiment (delete the orphan `DHW_WaterUse_*` pair → District Heating 0.72 → 0.00 GJ, gas
+>    unchanged). Discriminator exact on 108 buildings; **60 of 60** re-simulated production buildings
+>    carry it; **all 16,336** fleet IDFs match the pattern. Concentrated by archetype — apartments
+>    ~32 kWh/m², offices ~1.4 — and `MidriseApartment` is 2,818 of 8,160. Fleet exposure **estimated**
+>    at 8.7–20.2 kWh/m² (6–13 % of 153.8). ⚠️ **That range is an estimate transferred from 60
+>    buildings onto 8,153. Never publish it as a correction.** The next arc is a census-scale
+>    measurement and is **not yet authorised**.
+>    🔴 **OPEN-03's stated mechanism is retracted** — the 44 % wall figure reproduces on exactly one
+>    building; the live question is a storey-count disagreement. Fourth carried figure retracted on
+>    this arc.
+>    🔒 **OPEN-12 and OPEN-13 are CLOSED** — the user ruled *"oui ferme OPEN-12 & 13"* on
+>    2026-08-20. OPEN-12 closed on a completed census (third cell `nyc_suburban`; the 36.4 %/19.2 %
+>    retracted for 100 %/100 %; fleet counts confirmed exactly), OPEN-13 on a refutation (the 43
+>    "lost" tests were never lost — they run at HEAD: `43 passed, 10 skipped in 0.65s`). Their §2
+>    rows are struck, not deleted, and each carries a §6 closing note naming what survives:
+>    **OPEN-12's 2,806-building coverage gap → OPEN-14 / OPEN-15**, **OPEN-13's 10 residual skips
+>    → OPEN-17** (recorded on OPEN-17's own row). ⚠️ **Never requote the 43 as a coverage loss.**
+>    🟡 **Suite baseline restated: `1,918 passed / 56 skipped`** from `py -3 -m pytest -q tests/`.
+>    The carried 1,875/55 and "1,937 collected" are both stale.
+>    **Count: 19 live / 42 retired / 61 total, next free `OPEN-62`.** The plan itself opened, closed
+>    and merged nothing — the two closures are the user's separate ruling of the same day, and are the
+>    first count movement in book II.
+>    🟡 **Two leads are still unfiled, deliberately.** The **storey-count disagreement** between
+>    `layout_assign` and `auto` (OPEN-03's real question) and the **census-scale OPEN-61 measurement**
+>    both need the user's go-ahead before they get an ID or a plan. Do not open them unasked.
+>
+> 2b. *(superseded, kept for provenance)* 🟡 **A PLAN IS IN FORCE as of 2026-08-20 (late):**
+>    `implemenation/previous/PLAN_five-items-2026-08-20-late.md` — **T01–T05, five tasks over four items**
+>    (OPEN-61 twice, OPEN-03, OPEN-12, OPEN-13), written on the user's instruction *"choisir 5 taches
+>    ouverts pour executer, mais avant faire d'une plan d'implementation"*. All local; **T02 is the
+>    only task that simulates**, and it is gated behind CP-1. Progress log is §8 of that plan —
+>    **check it before assuming anything about what has landed.** No ruling is owed by the user.
+>    🟢 **T01 was dispatched to one Sonnet executor on 2026-08-20 on the user's instruction *"vas-y
+>    commencer l'execution"*, hard-stopped at CP-1.** T02 does not start until the director signs
+>    CP-1; T03–T05 were deliberately held back so that a CP-1 stop can re-scope them.
+>    🔴 **The plan's §1 carries seven director-verified facts that change OPEN-61's shape**, chief
+>    among them: **no IDF anywhere — 0 of 16,336 fleet, 0 of 48 sample — declares district heating,
+>    yet the energy is booked to that column**, and the service-water objects are identically shaped
+>    in both corpora with **zero plant loops**. If that is what it looks like, OPEN-61 is structural
+>    and fleet-wide, not a sample artifact. **T01 tests it; it is not assumed.** Every decision that
+>    had been reserved for them was delegated on 2026-08-20 (*"pas necessaire de prendre mon
+>    decision, tu peux decides pour toutes des steps"*) and taken. **The 🟨 box below still says a
+>    plan is in force with three executors running it — that sentence is stale and is struck there.**
+> 3. **Register: 21 live · 40 struck · 61 total**, exactly `OPEN-01…OPEN-61`, no gap, no duplicate.
+>    **Next free item ID: `OPEN-62`.** Counted by
+>    `scripts/analysis/open_register_recount_2026-08-18.py`, which reads the **closed** book's table
+>    — the only table that still holds the struck rows. Book II's own check is *live IDs + retired
+>    IDs = the full sequence*, stated in its §1.
+>
+> ### What landed on 2026-08-20
+>
+> `implemenation/previous/PLAN_four-board-items-2026-08-20.md`, **CP-2/CP-3/CP-4 all signed, plan closed.**
+> All four board rows done — **AA7, S03, W9, C05**. Full account: the last `<!-- SEC:… -->` section
+> of this file.
+>
+> - 🔴 **OPEN-61 opened** — `total_eui_kwh_m2` drops the District Heating component of Water Systems.
+>   ~1 % on the four buildings measured; blast radius **unmeasured**, and ⚠️ **the fleet `.sql`
+>   corpus that would have sized it was deleted the same day by W9's prune**, so sizing it now needs
+>   a **re-simulation, not a re-read**. That cost is on the record rather than discovered later.
+> - 🔵 **OPEN-35 finally has a paired measurement** — 21 buildings, 7 neighbourhoods, 42 simulations,
+>   same building twice. The untouched arm reproduced the fleet record to **0.02 %**, so the
+>   movement is the change and not the rig. Within-cell medians, **never merged**: la_centre +75.25 %,
+>   austin_suburban +73.58 %, austin_centre +73.09 %, austin_urban +70.28 %, nyc_centre +59.88 %,
+>   la_urban +37.89 %, **la_suburban −2.58 %**.
+> - 🔴 **The sign of that defect is NOT fixed** — two `SmallOffice` buildings going 1 → 2 storeys in
+>   `la_suburban` get *better*. **Pooling the 21 would have produced one confident positive number
+>   and erased the only structurally interesting result in the set.** The no-pooling rule now rests
+>   on a measurement, not on an argument. **Quote it that way to any executor tempted to pool.**
+> - **W9's prune recovered 206.79 GiB**; **206.79 GiB** is also why OPEN-61 cannot be sized without
+>   new simulation. Both halves belong in the same sentence.
+> - ⚠️ **It does NOT restate `153.8231 kWh/m²`.** 21 of 8,153 do not move a fleet baseline, the 21
+>   were selected *because* the two fallbacks disagree, and **which** storey count is correct is
+>   still the DESIGN decision OPEN-35 has always been waiting on.
+>
+> ### Open and unstarted, in priority order
+>
+> 1. **OPEN-61** — needs a re-simulation to size; remedy shape (request the meter in the IDF vs read
+>    the ABUPS table) is an open design question.
+> 2. **OPEN-03** — ~92 % of the cross-mode gap is attributed to envelope geometry. Next question:
+>    *why* does `layout_assign` produce 44 % less wall on the same floor plate?
+> 3. **OPEN-35's remaining half** — *which* fallback is correct. Well-sized now, still undecided.
+> 4. **C04 leftover** — `iod` and one `simulation_status` flip: code drift or non-determinism?
+>    Needs a **same-HEAD double run**.
+> 5. Carried forward untouched: **OPEN-56's** remedy shape, the 4 `Courthouse` → `OpenUBEMUnknown`
+>    flips (477,804 m²), **OPEN-35's** regression remedy, **OPEN-53's** own 874-of-875 finding.
+>
+> ### Still true from the 🟨 box below — read it, do not re-derive it
+>
+> Everything in that box **except** its 🟡 "a plan is in force" line stands: CP-1's four findings
+> (OPEN-56's third remedy shape and the `set_entry_direction` no-op proof, the OPEN-35 regression
+> being an 8-building subset, OPEN-59's two disagreeing statistics), CP-3's seven, and the
+> `relation_3566904` retraction. **They were audited and signed; re-deriving them costs real tokens
+> and buys nothing.**
+>
+> ### Two cautions this pass earned
+>
+> - **A stalled executor's work is usually already on disk.** T04b blocked waiting on its own
+>   background run instead of reporting — the known *executors block on disk artifacts* failure mode.
+>   The director audited from the results CSV rather than re-dispatching. **Do the same.**
+> - **Three passes running, the defect came from an executor auditing its own arithmetic**
+>   (OPEN-58, OPEN-60, OPEN-61) and **no plan asked for that control.** The remedy that keeps
+>   suggesting itself is a reconciliation check **inside** `parse_building()`.
+>
+> 🧹 **One housekeeping gap, stated and not acted on:** five completed plans still sit in
+> `implemenation/` rather than `implemenation/previous/` — `PLAN_four-board-items-2026-08-20.md`,
+> `PLAN_gap-decomposition-2026-08-19.md`, `PLAN_layout-assign-untrimmed-2026-08-19.md`,
+> `PLAN_twenty-items-2026-08-19.md`, `PLAN_vintage-elasticity-2026-08-19.md`. All are checkpoint-
+> signed and closed. Moving them is a citation-sweep obligation, so it is left for a session that
+> will finish it.
+<!-- RESUME-2026-08-20-END -->
+>
 <!-- RESUME-2026-08-19-CP2-START -->
 > ## 🟨🟨🟨🟨🟨 RESUME HERE — written 2026-08-19 (late), at **CP-2 of `PLAN_close-all-2026-08-19.md`**. **THIS BOX SUPERSEDES EVERY RESUME BOX BELOW IT, INCLUDING THE 🟩🟩🟩🟩 ONE.**
 >
@@ -116,8 +433,10 @@
 > (`open48_refleet4`) FINISHED 2026-08-19 20:52. `previous/PLAN_close-all-2026-08-19.md` is executed
 > through T05 and **CP-2 is signed**.
 >
-> 🟡 **A PLAN IS IN FORCE and three executors are running it locally.**
-> `implemenation/PLAN_twenty-items-2026-08-19.md` — **20 tasks across all 19 live items**, dispatched
+> ~~🟡 **A PLAN IS IN FORCE and three executors are running it locally.**~~ 🔴 **STALE — struck
+> 2026-08-20. That plan ran to CP-3 and closed on 2026-08-19; three further passes have closed since.
+> Nothing is running. See the 🟪 box above.**
+> `implemenation/previous/PLAN_twenty-items-2026-08-19.md` — **20 tasks across all 19 live items**, dispatched
 > 2026-08-19 (late) on the user's instruction *"choisir 20 taches ouverts et creer d'un plan
 > implemenation et continuer executer"*, given as they went to sleep. Three fresh Sonnet executors,
 > one per checkpoint block: **T01–T05 → CP-1**, **T06–T12 → CP-2**, **T13–T20 → CP-3**. Every task is
@@ -212,7 +531,7 @@
 >    finds `_ml_tier` in **3 commits** and `_draw_tier` in **zero**. The absence is real, not a blind
 >
 > ▶️ **NEXT PLAN DISPATCHED, still in flight at the time of writing:**
-> `implemenation/PLAN_layout-assign-untrimmed-2026-08-19.md` — one Sonnet executor, T01–T04, one
+> `implemenation/previous/PLAN_layout-assign-untrimmed-2026-08-19.md` — one Sonnet executor, T01–T04, one
 > checkpoint. It runs **the artifact T15, T18 and T20(a) each named and none could run**: a
 > deterministic **48-building stratified sample** (4 per cell × 12, at the 10/35/65/90th percentile
 > of footprint area) rebuilt in `layout_assign` with **`trim_outputs=False`**, simulated locally,
@@ -1171,8 +1490,14 @@ two readings and what each one costs.
 A register of **everything open in this project** lives at:
 
 ```
-docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md
+docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md
 ```
+
+🔒 **Changed 2026-08-20.** ~~`INVESTIGATION_open-items-register.md`~~ — that book was **closed** at
+8,246 lines (61 items, 40 struck) and **book II is the live register**: 21 live items, 180 lines.
+The closed book stays at its own path, carries a 🔒 banner, and remains the authority on every closed
+item and on **every live item's full history** — book II points back to it by heading rather than
+restating it. **Read book II in full; open the closed book only for the item you are working.**
 
 **Read it first, in full.** It is the single source of state for this arc — not this prompt, and not
 any conversation. Each item carries: what is known, what is only believed, where the evidence lives,
@@ -4227,7 +4552,7 @@ no cluster time**, and it can run *while* the fleet re-run continues — they to
 (total simulated energy ÷ total simulated floor area) over 8,153 successful buildings /
 24,320,582 m² — restated 2026-08-19, superseding ~~157.0552~~ and ~~158.0~~, and **not
 volume-correct** (OPEN-56's 10 m³ stub, ≈ +1.0 kWh/m²/building, sits outside it; ≈154.8 is **not**
-adopted). All three checkpoints of `implemenation/PLAN_twenty-items-2026-08-19.md` are signed.**
+adopted). All three checkpoints of `implemenation/previous/PLAN_twenty-items-2026-08-19.md` are signed.**
 
 
 ---
@@ -4239,7 +4564,7 @@ adopted **153.8231 kWh/m²**. Nothing is in flight as you read this. Read this s
 
 ### What was run and what it settles
 
-`implemenation/PLAN_layout-assign-untrimmed-2026-08-19.md`, T01–T04, **CP-1 signed by the director**.
+`implemenation/previous/PLAN_layout-assign-untrimmed-2026-08-19.md`, T01–T04, **CP-1 signed by the director**.
 48 buildings (4 per cell × 12, at the 10/35/65/90th percentile positions of `footprint_area_m2`,
 run-4 `open48_refleet4` fixtures, integer index, no RNG), rebuilt in `layout_assign` with
 **`trim_outputs=False`** as the only variable changed, simulated locally in isolated per-building
@@ -4455,7 +4780,7 @@ New board group **AA**, rows AA1–AA5. Artifact republished, label `aa-status-a
 
 ### What is running
 
-`implemenation/PLAN_vintage-elasticity-2026-08-19.md` — **T01 dispatched to a Sonnet executor, stop at
+`implemenation/previous/PLAN_vintage-elasticity-2026-08-19.md` — **T01 dispatched to a Sonnet executor, stop at
 CP-1.** Tests OPEN-03's central claim, which has never been tested in the life of the arc.
 
 🔴 **Read §2 of that plan before touching it.** A vintage-*corrected* rebuild is impossible here:
@@ -4474,14 +4799,14 @@ loads have to be for the vintage story to explain half the gap. That framing is 
 
 ---
 
-## HANDOVER — 2026-08-20 (supersedes every earlier handover section in this file)
+## ~~HANDOVER — 2026-08-20 (supersedes every earlier handover section in this file)~~ — SUPERSEDED by the 2026-08-20 overnight pass at the foot of this file
 
 **Register state, re-derived programmatically after the last edit:** 20 live / 40 struck /
 OPEN-01..OPEN-60 / **next free OPEN-61**. Invariant holds (struck rows − retired IDs = 2).
 
 ### What changed since the previous handover
 
-1. **OPEN-03's central claim is REFUTED** (CP-2 ruling, `implemenation/PLAN_vintage-elasticity-2026-08-19.md`;
+1. **OPEN-03's central claim is REFUTED** (CP-2 ruling, `implemenation/previous/PLAN_vintage-elasticity-2026-08-19.md`;
    full working in `extra/MEASUREMENT_open-03_load-elasticity.md` §CP-2). "Roughly half the cross-mode
    gap is vintage-blind internal loads" measures at **≈8 % pooled**. The decisive evidence is a control
    the experiment produced accidentally: **4 of 20 buildings have bit-identical internal loads across
@@ -4527,3 +4852,202 @@ OPEN-01..OPEN-60 / **next free OPEN-61**. Invariant holds (struck rows − retir
   numbers. Not started.
 - Carried forward untouched: OPEN-56's remedy shape, the 4 `Courthouse` → `OpenUBEMUnknown` flips
   (477,804 m²), OPEN-35's regression remedy.
+
+---
+
+## HANDOVER — 2026-08-20 (overnight autonomous pass) — SUPERSEDES every earlier handover section in this file, including the one immediately above
+
+> The user went to sleep with the instruction *"continuer jusqu'a la fin, je vais dormir"*, having first
+> removed every reserved decision from their plate: *"pas necessaire de prendre mon decision, tu peux
+> decides pour toutes des steps."* Every ruling recorded below was therefore taken by the **director**,
+> under that standing delegation, and each one says so. The user also asked, mid-pass, that this file be
+> updated **at every step rather than only at the end** — the same instruction given on 2026-08-17.
+
+**Plan in force:** `implemenation/previous/PLAN_four-board-items-2026-08-20.md` — the four unfinished board rows
+(**AA7, S03, W9, C05**) turned into T01–T04, dispatched as four concurrent Sonnet executors.
+
+**Register state after this pass:** **21 live**, OPEN-01…OPEN-61, **next free `OPEN-62`**. Invariant
+*struck rows − retired IDs = 2* (OPEN-02, OPEN-28) unchanged — one row added, none struck.
+
+### What landed
+
+**1. Board AA7 / OPEN-03 — DONE. The cross-mode gap is localised, and it is not what the item is named
+after.** End-use diff on the 4 from-scratch buildings, **no new simulation**. Controls first: all four
+per-building ratios reproduce and the pooled figure comes back at **−23.6090 %** against the −23.61 % on
+record; each arm's seven end uses reconcile to its own ABUPS total within **0.031 %**.
+
+| end use | Δ kWh/m² | share |
+|---|---:|---:|
+| **Heating** | **−42.20** | **87.6 %** |
+| Fans | −4.98 | 10.3 % |
+| Cooling | −2.37 | 4.9 % |
+| Pumps | −0.74 | 1.5 % |
+| **Interior Lighting / Interior Equipment** | **0.00** | **0.0 %** |
+
+🔴 **The cause is envelope area.** Floor area, zone count and WWR are identical between arms in all four
+buildings, but `nyc_centre/265424467` — which dominates the pool by floor area — has **44 % less
+exterior wall (16,270 → 9,122 m²) and 44 % less window (6,502 → 3,645 m²)** under `layout_assign` at the
+**same** floor area, **same** 81 zones and **same** 39.96 % WWR. **OPEN-03 is a geometry finding wearing
+a loads-shaped name.** Evidence: `extra/MEASUREMENT_open-03_enduse-localisation.md`.
+
+**2. 🔴 OPEN-61 OPENED — `total_eui_kwh_m2` drops the District Heating component of Water Systems.**
+Found by T01's own reconciliation control, which no plan asked for. `METER_QUERY`
+(`openubem/results/parser.py:48-54`) names no `DistrictHeating` meter of any kind. Director control on
+a real `.sql`: ABUPS reports **0.72 GJ** of Water Systems District Heating = **1.22 %** of that
+building's total end uses, and **no `DistrictHeating` Run Period meter exists in the file at all** — so
+**adding the name to the query would change nothing.** The remedy is a design decision (request the
+meter in the IDF, or read the ABUPS table) and is **not taken**. **The adopted `153.8231 kWh/m²` is NOT
+restated** — four buildings do not size a fleet.
+
+**3. Board S03 — DONE. The classifier exam is rebuilt over the whole pool, not a sample.**
+`tests/fixtures/labelled_archetypes_tagrich_v3.csv`, **592 graded rows** (Boston 233 / Chicago 359,
+reproducing v2's own pool definition exactly), plus `..._tagpoor_v3.csv` with the remaining **290 rows,
+deliberately ungraded**. Labels come from tag evidence only; size may pick a band *inside* an
+already-tag-determined class and may never invent the class — which is exactly the circularity the user
+objected to in v2. **589 strong / 3 thin, all 3 flagged.**
+
+🔴 **Two numbers, always quoted together:** fine top-1 **71.1 %** strict, **89.0 %** once the
+classifier's own deliberate `TallBuilding`/`SuperTallBuilding` height override is credited (emitted 106
+times; v3's key is forbidden to produce it). **Coarse top-1 100.0 % on all 592.**
+⚠️ **Not an improvement on v2's 88.8 %/98 rows and may not be stated as one** (checklist ruling `2a`).
+⚠️ **Residual limit, named rather than hidden:** of the 65 errors surviving the override credit, almost
+all are **size-band confusions inside the correct family** — and the band is the one part of a v3 label
+still allowed to touch a classifier input. **v3 removed the circularity from the class and could not
+remove it from the band, and that is exactly where the classifier now fails.**
+**Gate set by the director:** coarse ≥ 0.98 (1.000, pass), fine-with-override ≥ 0.85 (0.890, pass),
+strict fine **ungated as a diagnostic**. **No ID opened.** Evidence:
+`extra/MEASUREMENT_s03_tagrich-v3-exam.md`.
+
+**4. Board W9 / OPEN-53's custody half — DISCHARGED, in two stages with a signed checkpoint between
+them.** Stage A inventoried and copied; the director audited and signed CP-2; stage B deleted.
+
+| stage | result |
+|---|---|
+| re-inventory | **140,261 files / 233.898 GB across 6 corpora** — the 2026-08-18 census of 87,887 / 152.4 GB is **superseded, not retracted** (`open48_refleet4` postdates it) |
+| copied out of Temp | **116,128 files / 11.73 GB** → `OpenUBEM\evidence\<corpus>\…`, gitignored at `.gitignore:42` |
+| verification | per-extension counts equal source for all 9 extensions × 6 corpora; SHA-256 on **380** files (200 random ∪ all 180 `.gpkg`/`.parquet`), **380/380 match** |
+| deleted | **23,862 `.sql`, 206.79 GiB**, under `%LOCALAPPDATA%\Temp\ubem_validation` **only**; remaining `.sql` there: **0** |
+
+🔴 **One cost is on the record and it is not hypothetical.** T01 was reading `auto`-arm `.sql` **from
+that very root** while the copy was being audited. It finished first, so nothing was lost — but the
+pre-deletion safety check (*"nothing modified in the last 90 minutes"*) **could not have caught it,
+because a reader does not update mtime.** Re-deriving any `open48_*` end-use number now needs a
+**re-simulation, not a re-read** — and **OPEN-61 is already a live item that would have been sized from
+that corpus.** OPEN-53 itself **stays open**: a storage prune does not touch its 874-of-875 finding.
+
+**5. Board C05 / OPEN-35 — T04 STOPPED at a failed pre-registered control, correctly, before EnergyPlus
+was invoked.** It could not fill `austin_rural`: across **all 244** of that cell's affected buildings and
+all 11 archetypes present, the two storey fallbacks **agree**, because the cell's levels-group-median is
+1 for every `use_class` with an observed row. It refused to substitute a cell or pick a known-null
+triple. **Director controls reproduced both load-bearing claims exactly** from the 790-row census.
+
+**Two director rulings followed (CP-3):**
+- **Proceed on 21 buildings / 7 cells; do not substitute a cell.** `austin_rural` is recorded as a
+  **structural null, 0 of 244** — itself an answer to C05: where there is no storey evidence anywhere,
+  the mismatch cannot arise. The other seven cells hold **459** eligible buildings.
+- **OPEN-35's stated population is corrected, not its ID.** The headline *"1,031 mid-/high-rise
+  apartments"* is **stale**: only **25** apartment-archetype candidates remain in the 8 in-scope cells,
+  **24 of the 25** already build at the group-median storey count in today's production after the item's
+  own T05/T06 wiring fix of 2026-08-19, and **0** are eligible. *"As built today"* no longer equals
+  *"levels = 1.0"* for most of the originally cited population.
+
+**T04b** (the 21-building paired run) was dispatched and is the one piece of this pass still moving.
+
+### Standing lessons earned this pass
+
+- 🔴 **Three passes running, the defect came from an executor auditing its own arithmetic** — OPEN-60,
+  then OPEN-61, neither commissioned. **The reconciliation control belongs inside `parse_building()`,
+  not in whichever task happens to think of it.** Two independent omissions in one formula, found four
+  days apart, is the argument.
+- 🔴 **An mtime check does not prove a corpus is idle.** Readers leave no trace. Before deleting shared
+  evidence, check what is *running*, not what was *written*.
+- 🟢 **An executor that stops at a failed control is worth more than one that delivers a number.** T04
+  produced no measurement and is the most useful result of the pass: it proved a cell is structurally
+  empty and it caught that the item's headline population had silently self-corrected.
+- The older rule paid again: **re-derive every load-bearing executor conclusion.** All four re-derived
+  here (the pooled −23.61 %, the 592/290 pool split, the 116,128-file copy, the 0-of-244 null) held.
+
+### What is open right now
+
+- **T04b** — 21 paired storey-intervention runs, 3 pre-registered controls. **Report within-cell medians
+  only; never pool into a headline, never restate as a fleet EUI correction, never carry back onto the
+  1,031-building framing.**
+- **OPEN-61** — blast radius unmeasured, and the corpus that would have sized it is gone. Needs a
+  re-simulation, and the remedy shape is an open design question.
+- **OPEN-03** — ~92 % of the cross-mode gap is now attributed to envelope geometry rather than merely
+  "not loads". The next question is *why* `layout_assign` produces 44 % less wall on the same floor plate.
+- **Unsettled from C04:** whether `iod` and one `simulation_status` flip are code drift or
+  non-determinism. Needs a **same-HEAD double run**. Not started.
+- Carried forward untouched: OPEN-56's remedy shape, the 4 `Courthouse` → `OpenUBEMUnknown` flips
+  (477,804 m²), OPEN-35's regression remedy, OPEN-53's own 874-of-875 finding.
+- **NO RULING IS OWED BY THE USER.** Everything reserved for them was delegated on 2026-08-20 and taken.
+
+### T04b landed at 02:37 — the pass is CLOSED, all four board rows done (CP-4, director, 2026-08-20)
+
+**6. Board C05 / OPEN-35 — the intervention RAN. First paired within-building measurement this item
+has ever had.** 21 buildings / 7 cells / 42 EnergyPlus runs. **base arm = geometry fallback (1 storey,
+all 21) = what the fleet record actually used; treated arm = archetype fallback (levels-group median,
+2–19).** Same building, same weather, same archetype, one input changed — the design OPEN-35 needed
+and the reason its naive +62.20 kWh/m² composition gap could never answer the question.
+
+**All three pre-registered controls pass**, and control 1 is what makes the rest usable:
+
+| control | threshold | measured |
+|---|---|---|
+| base EUI reproduces `on_record_total_eui_kwh_m2` | within 1 % | **0.0199 %** worst, 0 of 21 outside |
+| treated runs clean | >= 18 of 21 | **19 of 21**; all 21 completed, **0 fatal** |
+| treated IDF storey count differs, read from the built IDF | 21 of 21 | **21 of 21** |
+
+**Result — within-cell medians ONLY, per the standing prohibition:** la_centre **+75.25 %** ·
+austin_suburban **+73.58 %** · austin_centre **+73.09 %** · austin_urban **+70.28 %** · nyc_centre
+**+59.88 %** · la_urban **+37.89 %** · **la_suburban −2.58 %** · austin_rural **structural null
+(0 of 244)**. By archetype: `LargeOffice` n=15 **+68.02 %**, `Courthouse` n=4 **+67.63 %**,
+`SmallOffice` n=2 **−6.95 %**. Production uses the **lower** arm in all 21 cases.
+
+🔵 **The finding the plan did not anticipate, and it is now the load-bearing argument for the
+no-pooling rule: THE SIGN OF THIS DEFECT IS NOT FIXED.** Cell ordering tracks **how many storeys the
+treated arm adds**, not climate and not density tier — and the two `SmallOffice` buildings going
+1 → 2 storeys in `la_suburban` get *better* (`way/449558400` **−11.31 %**, `way/449558402` **−2.58 %**):
+a second floor on a small building in a mild climate halves roof and ground loss per unit area faster
+than it adds load. **Pooling the 21 would have produced one confident positive number and erased the
+only structurally interesting result in the set.** Until tonight the prohibition rested on a
+composition argument; it now rests on a measured sign flip. **Quote it that way to any future
+executor tempted to pool.**
+
+⚠️ **Four things this does NOT do, stated so they do not drift.** (a) It does **not** restate
+`153.8231 kWh/m²` — 21 of 8,153 do not move a fleet baseline and no attempt was made. (b) It is
+**not** a population estimate — the 21 were selected *because* the fallbacks disagree; the 459
+eligible across seven cells are the sampling frame. (c) It does **not** decide **which fallback is
+correct** — still the DESIGN decision OPEN-35 has always been waiting on; tonight sizes the question,
+not its answer. (d) **OPEN-61's omission is present in BOTH arms and untreated** — common-mode in a
+paired difference, far below these effect sizes, but on the record.
+
+**Note on how it finished:** the T04b executor stalled waiting on its own background run instead of
+reporting (the known *executors block on disk artifacts* failure mode). The director audited directly
+from the results CSV rather than re-dispatching. **Do the same next time — a stalled executor's work
+is usually already on disk.**
+
+**Evidence:** `extra/MEASUREMENT_open-35_storey-intervention.md` §T4b ·
+`openubem/outputs/comparisons/open35_storey_intervention_runs_2026-08-20.csv` ·
+`scripts/analysis/open35_storey_intervention_runs_2026-08-20.py`.
+
+### Status at the close of the pass
+
+🟢 **All four board rows are DONE: AA7, S03, W9, C05.** One item opened (**OPEN-61**), one item's
+stated population corrected (**OPEN-35**), one custody obligation discharged (**W9**), **206.79 GiB**
+of disk recovered. **Register: 21 live, OPEN-01…OPEN-61, next free `OPEN-62`**, invariant
+*struck − retired = 2* unchanged. **T04b is no longer open** — strike it from the list below.
+
+**Still open and unstarted, in priority order:**
+1. **OPEN-61** — blast radius unmeasured; the corpus that would have sized it was deleted the same
+   day, so this needs a **re-simulation**, and the remedy shape (request the meter in the IDF vs read
+   the ABUPS table) is an open design question.
+2. **OPEN-03** — ~92 % of the cross-mode gap is now attributed to envelope geometry. Next question:
+   *why* does `layout_assign` produce 44 % less wall on the same floor plate?
+3. **OPEN-35's remaining half** — *which* fallback is correct. Now well-sized and still undecided.
+4. **C04 leftover** — `iod` and one `simulation_status` flip: code drift or non-determinism? Needs a
+   **same-HEAD double run**.
+5. Carried forward untouched: OPEN-56's remedy shape, the 4 `Courthouse` → `OpenUBEMUnknown` flips
+   (477,804 m²), OPEN-35's regression remedy, OPEN-53's own 874-of-875 finding.
+
+**NO RULING IS OWED BY THE USER.** Everything reserved for them was delegated on 2026-08-20 and taken.

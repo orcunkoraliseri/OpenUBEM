@@ -1,0 +1,555 @@
+<title>OpenUBEM Open Items</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --paper:#f6f7f9; --card:#ffffff; --ink:#151a21; --ink-2:#4c5766; --ink-3:#7c8798;
+    --rule:#dde2ea; --rule-2:#eceff4;
+    --blue:#0b6e99; --blue-soft:#e6f1f6;
+    --done:#2f6b4a; --done-soft:#e6f1ea;
+    --hold:#9a6208; --hold-soft:#fbf1e0;
+    --stop:#a8322c; --stop-soft:#f9e9e8;
+    --idle:#66707e; --idle-soft:#eef0f3;
+    --shadow:0 1px 2px rgba(21,26,33,.06),0 8px 24px -16px rgba(21,26,33,.28);
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --paper:#0e1218; --card:#151b23; --ink:#e8ecf2; --ink-2:#a3aebd; --ink-3:#6f7b8b;
+      --rule:#242d38; --rule-2:#1c242d;
+      --blue:#5cb8e0; --blue-soft:#122c3a;
+      --done:#63c294; --done-soft:#122a1f;
+      --hold:#e0a94f; --hold-soft:#2c2314;
+      --stop:#e88a84; --stop-soft:#2e1917;
+      --idle:#8b95a3; --idle-soft:#1b222a;
+      --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#0e1218; --card:#151b23; --ink:#e8ecf2; --ink-2:#a3aebd; --ink-3:#6f7b8b;
+    --rule:#242d38; --rule-2:#1c242d;
+    --blue:#5cb8e0; --blue-soft:#122c3a;
+    --done:#63c294; --done-soft:#122a1f;
+    --hold:#e0a94f; --hold-soft:#2c2314;
+    --stop:#e88a84; --stop-soft:#2e1917;
+    --idle:#8b95a3; --idle-soft:#1b222a;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 8px 24px -16px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+  }
+  code{font-family:"IBM Plex Mono",ui-monospace,"Cascadia Mono",Consolas,monospace; font-size:.88em;
+    background:var(--rule-2); padding:1px 4px; border-radius:2px; color:var(--ink)}
+  .wrap{max-width:1180px; margin:0 auto; padding:40px 24px 80px; display:flex; flex-direction:column; gap:30px}
+
+  header{display:flex; flex-direction:column; gap:10px; padding-bottom:22px; border-bottom:2px solid var(--ink)}
+  .eyebrow{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace; font-size:11px;
+    letter-spacing:.16em; text-transform:uppercase; color:var(--blue); font-weight:600}
+  h1{margin:0; font-size:clamp(28px,4vw,42px); line-height:1.06; letter-spacing:-.02em;
+    text-wrap:balance; font-weight:600}
+  .sub{margin:0; color:var(--ink-2); max-width:66ch}
+  .stamp{font-size:12.5px; color:var(--ink-3); font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+
+  .counts{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px}
+  .count{background:var(--card); border:1px solid var(--rule); border-radius:3px;
+    padding:14px 16px; display:flex; flex-direction:column; gap:3px; box-shadow:var(--shadow);
+    border-left:3px solid var(--c,var(--idle))}
+  .count b{font-size:27px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:tabular-nums;
+    color:var(--c,var(--ink)); line-height:1.1}
+  .count span{font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3);
+    font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace}
+
+  .note{background:var(--card); border:1px solid var(--rule); border-left:4px solid var(--stop);
+    border-radius:3px; padding:18px 20px; box-shadow:var(--shadow)}
+  .note h2{margin:0 0 9px; font-size:14px; letter-spacing:.03em; text-transform:uppercase;
+    font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace; color:var(--stop)}
+  .note p{margin:0 0 8px; color:var(--ink-2); font-size:14.2px; max-width:82ch}
+  .note p:last-child{margin-bottom:0}
+  .note b{color:var(--ink); font-weight:600}
+
+  .next{background:var(--hold-soft); border:1px solid var(--hold); border-left-width:4px;
+    border-radius:3px; padding:18px 20px; display:flex; flex-direction:column; gap:12px}
+  .next h2{margin:0; font-size:14px; letter-spacing:.03em; text-transform:uppercase;
+    font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace; color:var(--hold)}
+  .next ol{margin:0; padding-left:22px; display:flex; flex-direction:column; gap:10px}
+  .next li{color:var(--ink)}
+  .next .why{display:block; color:var(--ink-2); font-size:13.6px; margin-top:2px; max-width:80ch}
+
+  section.theme{display:flex; flex-direction:column; gap:14px}
+  .theme-head{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap;
+    border-bottom:1px solid var(--rule); padding-bottom:8px}
+  .theme-head h2{margin:0; font-size:17px; font-weight:600; letter-spacing:-.01em}
+  .theme-head .n{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace; font-size:11.5px;
+    letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3)}
+
+  .grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(330px,1fr)); gap:12px}
+  article.item{background:var(--card); border:1px solid var(--rule); border-radius:3px;
+    border-left:3px solid var(--c,var(--idle)); padding:15px 17px; box-shadow:var(--shadow);
+    display:flex; flex-direction:column; gap:9px}
+  .id-row{display:flex; align-items:center; gap:9px; flex-wrap:wrap}
+  .id{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace; font-size:12px; font-weight:600;
+    letter-spacing:.04em; color:var(--c,var(--ink)); background:var(--cs,var(--idle-soft));
+    border:1px solid var(--c,var(--rule)); border-radius:2px; padding:1px 7px}
+  .tag{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace; font-size:10.5px;
+    letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3)}
+  article.item h3{margin:0; font-size:14.6px; font-weight:600; line-height:1.4; text-wrap:balance}
+  article.item p{margin:0; font-size:13.7px; color:var(--ink-2); max-width:60ch}
+  .facts{display:flex; flex-direction:column; gap:5px; border-top:1px solid var(--rule-2); padding-top:9px}
+  .fact{display:flex; gap:8px; font-size:12.8px; align-items:baseline}
+  .fact .k{font-family:"IBM Plex Mono",ui-monospace,Consolas,monospace; font-size:10.5px;
+    letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3); flex:0 0 78px}
+  .fact .v{color:var(--ink-2)}
+  .fact .v b{color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums}
+
+  footer{border-top:1px solid var(--rule); padding-top:18px; color:var(--ink-3); font-size:12.8px;
+    display:flex; flex-direction:column; gap:6px}
+  footer b{color:var(--ink-2); font-weight:600}
+</style>
+
+<div class="wrap">
+
+<header>
+  <div class="eyebrow">OpenUBEM &middot; open-items register, book II</div>
+  <h1>16 items are open, and the biggest one is being measured right now</h1>
+  <p class="sub">Everything this project knows is unfinished, in one place. Book I closed on
+  2026-08-20 at 8,246 lines with 40 of its 61 items already shut. The register moved four times the
+  same day: <b>OPEN-12 and OPEN-13 closed</b> &mdash; one on a completed census, one because the loss
+  it recorded never happened &mdash; <b>OPEN-20 retired</b> as a scope question rather than a defect,
+  and <b>OPEN-15 and OPEN-16 merged into OPEN-17</b>, three rows that were describing one unwired
+  router. Of what is left, one had its stated mechanism retracted and one turned out to be roughly ten
+  times its recorded size.</p>
+  <p class="stamp">State of 2026-08-20 (latest) &middot;
+  <b>two plans in force</b> &mdash; <code>PLAN_open61-census-open03-storeys-2026-08-20.md</code>
+  (CP-1, CP-2, CP-4 signed; <b>the 8,153-building census is running</b>) and
+  <code>PLAN_open62-z-origin-and-three-rulings-2026-08-20.md</code> (<b>both gates signed</b>; its
+  final task is <b>blocked on purpose</b> &mdash; two checks were written so they could fail, both
+  did, and the item may not close) &middot; <b>seven rulings taken</b> &middot; <b>nothing is waiting
+  on you except decisions</b></p>
+</header>
+
+<div class="counts">
+  <div class="count" style="--c:var(--stop)"><b>16</b><span>live items</span></div>
+  <div class="count" style="--c:var(--done)"><b>46</b><span>closed &amp; retired</span></div>
+  <div class="count" style="--c:var(--idle)"><b>62</b><span>opened since 08-04</span></div>
+  <div class="count" style="--c:var(--blue)"><b>OPEN-63</b><span>next free id</span></div>
+  <div class="count" style="--c:var(--hold)"><b>1</b><span>erratum with you</span></div>
+  <div class="count" style="--c:var(--done)"><b>3</b><span>left the register today</span></div>
+</div>
+
+<div class="note">
+  <h2>What this board does not say</h2>
+  <p><b>The adopted fleet figure is 153.8231 kWh/m&sup2;, pooled over 8,153 buildings, and nothing here
+  restates it.</b> Two items on this board sit underneath it. <b>OPEN-56</b>'s volume stub is worth
+  roughly +1.0&nbsp;kWh/m&sup2; and is not included. <b>OPEN-61</b> was sized on 2026-08-20 and is
+  the larger of the two by an order of magnitude: <b>60 of 60 re-simulated production buildings carry
+  the dropped term</b>, and scaling the measured ratio across the fleet puts the unreported energy at
+  an estimated <b>8.7&ndash;20.2&nbsp;kWh/m&sup2;</b>, or <b>6&ndash;13&nbsp;% of the adopted
+  figure</b>. That range transfers a 60-building ratio onto 8,153 buildings &mdash; <b>it sizes the
+  exposure, it does not settle it, and it must not be published as a correction.</b> The honest
+  statement is still that the figure is low, but no longer by an unknown amount.</p>
+  <p><b>Four passes running, the defect came from an executor checking its own arithmetic</b> &mdash;
+  OPEN-58, OPEN-60, OPEN-61, and now OPEN-62 &mdash; and no plan asked for any of those controls. The remedy that keeps
+  suggesting itself is a reconciliation check inside <code>parse_building()</code> rather than in
+  whichever task happens to look.</p>
+</div>
+
+<div class="next">
+  <h2>What is next &mdash; the top two are authorised</h2>
+  <ol>
+    <li><b>&#9654; RUNNING NOW &mdash; OPEN-61: the whole fleet is being re-simulated to measure it.</b>
+      <span class="why">Both gates are passed. A 200-building trial reproduced the recorded results
+      on every single one and found the missing term on every single one, so the measurement is
+      trusted before it is taken. All <b>8,153</b> buildings are now re-running &mdash; about eight
+      hours &mdash; because the original results files were deleted and there is nothing left to
+      re-read. The estimate below gets replaced by a number tonight. The design decision after that
+      is no longer "add the meter": the model is spending hot-water energy through a channel that was
+      never meant to exist.</span></li>
+    <li><b>&#10003; DONE 2026-08-20 &mdash; OPEN-03's storey question is counted, on all 8,160.</b>
+      <span class="why">One mode ignores the real storey count for <b>70&nbsp;%</b> of the fleet.
+      The item stays open, but it now has a number instead of a retracted claim. What is left is a
+      design decision, not a measurement.</span></li>
+    <li><b>&#9654; RUNNING NOW &mdash; OPEN-62: fixing the measuring script, and replacing the
+      control that could never have caught it.</b>
+      <span class="why">It was opened with the alarming reading stated as <i>unchecked</i> rather
+      than asserted, and one search settled it the same hour: the real geometry code reads the
+      height correctly. Nothing is built wrong &mdash; it is one wrong column in one spreadsheet.
+      You ruled to fix it now and to <b>restate the control rather than keep it</b>: the old one
+      passed 96 out of 96 because both sides of the comparison were produced by the same suspect
+      parser, which is agreement, not correctness. The replacement is checked against a reader that
+      never touched that code, and it is allowed to fail.<br><b>Update, same afternoon:</b> the
+      fix is in and the first gate is signed &mdash; but the check that was supposed to confirm it
+      came back <i>amended</i>, not passed. Six archetypes were predicted to change; four did. The
+      two that did not are read wrongly floor-by-floor and come out right for the building as a
+      whole, purely by accident of how their files are written. That is recorded as a coincidence,
+      not a clean bill of health, because the next measurement that looks floor-by-floor will see
+      them move.<br><b>Then the replacement check failed &mdash; and that is the best thing that
+      happened today.</b> You ruled to replace a check that could never fail with one that could.
+      It could, and it did. Measured against the real geometry code, the measuring script agrees on
+      only <b>12 of 18</b> building types, and disagrees on <b>3,734 buildings</b>. Tracing it showed
+      why: the script was never counting storeys. It counts <i>the number of heights at which a new
+      outside wall begins</i>. On a tower whose glass facade runs unbroken past several floors, that
+      is one height, not several &mdash; so a 20-storey building reads as 10. <b>The height fix was
+      right and it was not enough: it corrected an error inside a measurement of the wrong thing.</b>
+      Had the old check been kept, it would have passed again and this would have been signed off as
+      correct today. Nothing built is wrong &mdash; the real geometry code reads 20 correctly.
+      <br><b>Then, that evening, you ruled to count floor surfaces instead &mdash; and that reader
+      turned out to be half right too.</b> It gets the tower right (20, not 10) and it settled a
+      question nobody had asked: <b>the old method also counts too many, not only too few.</b> A
+      warehouse is a one-storey building whose tall outside wall is built in two stacked bands, and
+      the old reader called that two storeys. So the old column is neither a floor nor a ceiling
+      &mdash; the <i>&ldquo;at least 2.25&rdquo;</i> wording given that afternoon is <b>withdrawn</b>.
+      <br><b>And the new reader counts attics.</b> A small office is one storey with an attic above
+      it; the attic has a floor, so the reader calls it two. That is <b>3,580 buildings &mdash; 44&nbsp;%
+      of the fleet</b>. Attics removed, the average storeys built is <b>2.45</b>, not the 2.94 the run
+      reported, so the figure is published as a <b>range, 2.45 to 2.94</b>, and not as a number.
+      <b>What the item needs now is not a third reader.</b> It needs something this project has never
+      written down: what counts as a storey when a building has an attic, a plenum or a double-height
+      bay. That is a modelling definition, and it is yours to set.</span></li>
+    <li><b>&#10003; DONE 2026-08-20 &mdash; OPEN-27 is closed, and it should have closed weeks
+      ago.</b>
+      <span class="why">A specification defined the accuracy metric against a building type this
+      project does not have. The fix was two words. It stayed open not because it was hard but
+      because those two lines live in a file this session is not allowed to edit, and nobody had
+      asked you for permission &mdash; only for the edit. You granted a one-time exception and it
+      closed in minutes. The replacement was checked against the data rather than taken on trust,
+      and the three tests that guard it still pass. <b>The lesson is about the question, not the
+      fix:</b> an item whose only obstacle is a permission is not work in progress.</span></li>
+    <li><b>&#10003; DONE 2026-08-20 &mdash; three imputation items became one.</b>
+      <span class="why">OPEN-15, OPEN-16 and OPEN-17 were three descriptions of a single fact: the
+      imputation tiers were built and never wired to the router. They are now one row. Nothing was
+      measured or fixed by it &mdash; it is bookkeeping, and it means the same decision cannot be
+      re-argued from three directions.</span></li>
+    <li><b>OPEN-35 &mdash; which storey fallback is correct?</b>
+      <span class="why">Well-sized as of 2026-08-20 and still undecided. This is a DESIGN decision,
+      not a measurement; the measurement has now been made.</span></li>
+    <li><b>C04 leftover &mdash; code drift, or non-determinism?</b>
+      <span class="why">One <code>iod</code> difference and one <code>simulation_status</code> flip
+      between two runs. Needs a same-HEAD double run. Deliberately not given an item ID yet.</span></li>
+    <li><b>Carried forward untouched:</b> OPEN-56's remedy shape &middot; the 4 <code>Courthouse</code>
+      &rarr; <code>OpenUBEMUnknown</code> flips (477,804&nbsp;m&sup2;) &middot; OPEN-35's regression
+      remedy &middot; OPEN-53's own 874-of-875 finding.</li>
+  </ol>
+</div>
+
+<section class="theme">
+  <div class="theme-head"><h2>Integrity of the numbers we publish</h2><span class="n">5 items</span></div>
+  <div class="grid">
+
+    <article class="item" style="--c:var(--stop); --cs:var(--stop-soft)">
+      <div class="id-row"><span class="id">OPEN-61</span><span class="tag">census running 2026-08-20</span></div>
+      <h3>Every building spends hot-water energy the total never reports</h3>
+      <p>The models carry a hot-water use object wired to nothing &mdash; no plant loop anywhere in
+      the fleet. EnergyPlus computes its load, finds no plant to charge it to, and books it to a
+      district-heating column the model never declares and the parser never reads. Deleting that one
+      object moved the term to zero while the gas water heater's own consumption stayed
+      bit-identical, so this is <b>additional energy the model spends and reports nowhere</b> &mdash;
+      not a double count.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Reach</span><span class="v"><b>60 of 60</b> re-simulated production buildings; <b>all 8,160</b> fleet IDFs match the affected pattern &mdash; <i>the 16,336 once quoted here was a double-counting glob</i></span></div>
+        <div class="fact"><span class="k">Size</span><span class="v">offices <b>~1.4</b>, apartments <b>~32&nbsp;kWh/m&sup2;</b>; worst building <b>89.1</b></span></div>
+        <div class="fact"><span class="k">Fleet</span><span class="v"><b>8.7&ndash;20.2&nbsp;kWh/m&sup2;</b> unreported &mdash; <b>estimated</b>, from a 60-building ratio</span></div>
+        <div class="fact"><span class="k">Evidence</span><span class="v">mechanism confirmed by experiment; discriminator exact on 108 buildings, then on <b>200 of 200</b> rebuilt at HEAD</span></div>
+        <div class="fact"><span class="k">Running now</span><span class="v">all <b>8,153</b> buildings re-simulated to replace the estimate with a measurement &mdash; <b>97 CPU-hours</b>, ~8&nbsp;h</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--stop); --cs:var(--stop-soft)">
+      <div class="id-row"><span class="id">OPEN-60</span><span class="tag">opened 2026-08-19</span></div>
+      <h3>Zone multipliers make every <code>layout_assign</code> EUI too low</h3>
+      <p>Interior lighting and interior equipment are summed from per-zone hourly variables, which
+      EnergyPlus does not scale by the zone multiplier &mdash; while the floor-area divisor is
+      multiplier-aware. Every other end use matches the multiplier-correct table to under
+      0.01&nbsp;%.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Size</span><span class="v"><b>6 of 48</b> reconcile within 2&nbsp;%; median error <b>4.71&nbsp;%</b>, max <b>192.28&nbsp;%</b></span></div>
+        <div class="fact"><span class="k">Adopted</span><span class="v"><b>zero rows affected</b> &mdash; verified: every multiplier in three fleet IDFs is 1</span></div>
+        <div class="fact"><span class="k">Sharp edge</span><span class="v">the gate that catches this exists, and the fleet path never calls it</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--hold); --cs:var(--hold-soft)">
+      <div class="id-row"><span class="id">OPEN-03</span><span class="tag">counted fleet-wide, 2026-08-20</span></div>
+      <h3>One mode ignores how many storeys a building actually has</h3>
+      <p>Two claims were retracted from this item on 2026-08-20 &mdash; the vintage claim in the
+      morning, the "44&nbsp;% less wall" claim the same evening. What was left was a storey-count
+      disagreement that had never been counted past 48 buildings. It has now been counted on
+      <b>all 8,160</b>, without sampling and without a single simulation.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">The finding</span><span class="v"><code>layout_assign</code> represents the real storey count for only <b>30.0&nbsp;%</b> of the fleet. For the other <b>5,714 buildings (70.0&nbsp;%)</b> it builds the prototype's storeys regardless</span></div>
+        <div class="fact"><span class="k">What that costs</span><span class="v">those buildings average <b>3.12</b> real storeys and reach <b>105</b> &mdash; and are built with an average of <b>1.21</b>, never more than <b>6</b></span></div>
+        <div class="fact"><span class="k">Read the right number</span><span class="v">the raw disagreement rate is <b>60.2&nbsp;%</b>, but it compares a per-building count against a <b>per-archetype constant</b> &mdash; <b>70.0&nbsp;%</b> is the statement that means something</span></div>
+        <div class="fact"><span class="k">Trust</span><span class="v">reproduces the earlier 48-building result <b>exactly</b> &mdash; 96/96 rows, and <b>28 of 48</b> to the unit</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--hold); --cs:var(--hold-soft)">
+      <div class="id-row"><span class="id">OPEN-59</span><span class="tag">reframed 2026-08-19</span></div>
+      <h3>Unknown-building draws are a calibration question, not a bounds defect</h3>
+      <p>All four drawn columns were screened for all 290 unidentified buildings against their donor
+      bounds: nothing out of bounds, worst excursion 0.0 on every column. The draws are legal;
+      whether they are <em>right</em> is the open part.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Size</span><span class="v"><b>18.3&nbsp;%</b> of one cell; fleet share and EUI effect <b>unmeasured</b></span></div>
+        <div class="fact"><span class="k">Caution</span><span class="v">two legitimate disagreeing statistics &mdash; pooled 107.22 vs median 309.95; always label the weighting</span></div>
+        <div class="fact"><span class="k">Evidence</span><span class="v">measured on one cell; cause unknown</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--stop); --cs:var(--stop-soft)">
+      <div class="id-row"><span class="id">OPEN-53</span><span class="tag">opened 2026-08-18</span></div>
+      <h3>874 of 875 harvest directories came home without their results file</h3>
+      <p>Against 40,800 building directories with a complete diagnostic pair, the results files are
+      short by 874 and the completion markers by 875, concentrated in two Austin sub-cells. Genuine
+      simulation failure is retired &mdash; every short directory reports zero fatals.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Size</span><span class="v">up to <b>875</b> directories, two Austin sub-cells plus one New York</span></div>
+        <div class="fact"><span class="k">Open part</span><span class="v">harvest gap vs output configuration &mdash; not distinguishable from what survives</span></div>
+        <div class="fact"><span class="k">Evidence</span><span class="v">census counted, location established, error logs read for all 875</span></div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section class="theme">
+  <div class="theme-head"><h2>Simulation correctness</h2><span class="n">5 items</span></div>
+  <div class="grid">
+
+    <article class="item" style="--c:var(--stop); --cs:var(--stop-soft)">
+      <div class="id-row"><span class="id">OPEN-56</span><span class="tag">opened 2026-08-18</span></div>
+      <h3>Every building in the fleet simulates on a 10&nbsp;m&sup3; zone-volume stub</h3>
+      <p>EnergyPlus computes a negative volume from the geometry we hand it &mdash; floors and
+      ceilings wound the wrong way &mdash; and substitutes 10&nbsp;m&sup3;. The control on
+      prototype geometry is 0 of 2, so this is our geometry, not EnergyPlus.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Size</span><span class="v"><b>8,160 / 8,160 = 100&nbsp;%</b>, re-confirmed across two fleet runs</span></div>
+        <div class="fact"><span class="k">Worth</span><span class="v">&asymp;<b>+1.0 kWh/m&sup2;</b> &mdash; not in the adopted figure</span></div>
+        <div class="fact"><span class="k">State</span><span class="v">writer localised, three remedy shapes, none authorised</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--stop); --cs:var(--stop-soft)">
+      <div class="id-row"><span class="id">OPEN-35</span><span class="tag">measured 2026-08-20</span></div>
+      <h3>Two fallbacks invent the missing storey count and disagree</h3>
+      <p>The archetype is chosen at group-median storeys; the geometry is built at one. Paired on 21
+      buildings across 7 neighbourhoods &mdash; the same building twice, 42 simulations &mdash; the
+      untouched arm reproduced the fleet record to 0.02&nbsp;%, so the movement is the change and
+      not the test rig.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Size</span><span class="v"><b>2,611 / 8,160 = 32&nbsp;%</b> of the fleet; 1,031 given a mid- or high-rise archetype and built flat</span></div>
+        <div class="fact"><span class="k">Result</span><span class="v">per cell, never merged: <b>+75&nbsp;%</b> to <b>&minus;3&nbsp;%</b> &mdash; the sign is not fixed</span></div>
+        <div class="fact"><span class="k">Undecided</span><span class="v">which fallback is correct &mdash; a DESIGN decision, not a measurement</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--hold); --cs:var(--hold-soft)">
+      <div class="id-row"><span class="id">OPEN-38</span><span class="tag">mechanism found 2026-08-19</span></div>
+      <h3>Seven fatals trace to one prototype zone with no HVAC in it</h3>
+      <p>The laundry zone carries the largest internal gain on its floor &mdash; 46,286&nbsp;W of
+      dryer and water-heater loss &mdash; and appears in none of the prototype's equipment
+      connections. Nothing caps it, so it free-floats into a heat-balance divergence. Not a volume
+      stub: its recorded volume is 378.63&nbsp;m&sup3;, positive and plausible.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Size</span><span class="v">7 fatals, one prototype zone; a second defect on 8 buildings, 1 of them publishing</span></div>
+        <div class="fact"><span class="k">Correction</span><span class="v">the register's stated cause was wrong &mdash; the message is a warning and kills nothing</span></div>
+        <div class="fact"><span class="k">Ruled</span><span class="v">tested against its suspected twin, confirmed distinct, stays separate</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--blue); --cs:var(--blue-soft)">
+      <div class="id-row"><span class="id">OPEN-09</span><span class="tag">measured, bounded</span></div>
+      <h3>Warm-up non-convergence is real, small, and provably cosmetic</h3>
+      <p>The "cosmetic" claim had never been tested until it was: 96.3&nbsp;% distribution overlap
+      with a small, correctly-signed residual. Independently confirmed as not downstream of the
+      volume stub.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Size</span><span class="v"><b>16 / 8,160 = 0.196&nbsp;%</b>, byte-identical to the previous fleet run</span></div>
+        <div class="fact"><span class="k">Evidence</span><span class="v">tested and holds; re-derived by the director from the raw results</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--blue); --cs:var(--blue-soft)">
+      <div class="id-row"><span class="id">OPEN-10</span><span class="tag">measured, bounded</span></div>
+      <h3>A list-multiplier edit would restore exact expressibility</h3>
+      <p>The capability is real and confirmed against the schema; the remedy is narrower than the
+      item originally claimed. The carried "90 buildings" re-derived exactly &mdash; 66 midrise plus
+      24 highrise apartment &mdash; and finally has a denominator under it.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Ceiling</span><span class="v"><b>4.78&nbsp;%</b> &mdash; 96 of 2,007 inexpressible buildings</span></div>
+        <div class="fact"><span class="k">Evidence</span><span class="v">measured by running the experiment an earlier task named and declined</span></div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section class="theme">
+  <div class="theme-head"><h2>Data acquisition and imputation</h2><span class="n">2 live &middot; 2 closed &middot; 2 merged away</span></div>
+  <div class="grid">
+
+    <article class="item" style="--c:var(--done); --cs:var(--done-soft)">
+      <div class="id-row"><span class="id"><s>OPEN-12</s></span><span class="tag">closed 08-20</span></div>
+      <h3>The recorded rural height residuals do not re-derive</h3>
+      <p>Settled on 2026-08-20. The third unnamed cell is <b>nyc_suburban</b>, where all 1,589
+      buildings are missing a source height &mdash; joining nyc_rural and austin_rural at
+      100&nbsp;%. The old 36.4&nbsp;% and 19.2&nbsp;% only ever reproduced on a scratch dataset that
+      was never committed and never fed the pipeline.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Replacement</span><span class="v">all three cells at <b>100.0000&nbsp;%</b> &mdash; 245/245, 198/198, 1,589/1,589</span></div>
+        <div class="fact"><span class="k">Confirmed</span><span class="v">the fleet counts already recorded &mdash; <b>2,806 of 8,160</b>, <b>2,032</b> in three cells &mdash; are exactly right</span></div>
+        <div class="fact"><span class="k">Newly recorded</span><span class="v">austin_centre sits at <b>84.5&nbsp;%</b> (349/413) and never appeared in the framing</span></div>
+        <div class="fact"><span class="k">What survives</span><span class="v">the 2,806-building coverage gap is real, but it is <b>OPEN-14</b>&rsquo;s and <b>OPEN-17</b>&rsquo;s &mdash; not a defect this item still owns. <i>(It was written as OPEN-15&rsquo;s; that item merged into OPEN-17 on 2026-08-20 and the pointer was swept with it.)</i></span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--done); --cs:var(--done-soft)">
+      <div class="id-row"><span class="id"><s>OPEN-13</s></span><span class="tag">closed 08-20</span></div>
+      <h3>The 43 tests were never lost</h3>
+      <p>The containment added a module-level skip; nothing was ever deleted from git, and a
+      follow-up the next day narrowed the skip and brought the tests back. All 43 run at HEAD today,
+      same file, same names. The number in the register was right &mdash; it was never a coverage
+      loss.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">At HEAD</span><span class="v"><b>43 passed, 10 skipped</b> in 0.65&nbsp;s &mdash; run directly, not reported</span></div>
+        <div class="fact"><span class="k">Reassigned</span><span class="v">the 10 remaining skips wait on unimplemented draw-tier code &mdash; that is <b>OPEN-17</b></span></div>
+        <div class="fact"><span class="k">Suite baseline</span><span class="v">restated to <b>1,918 passed / 56 skipped</b>; the carried 1,875/55 is stale</span></div>
+        <div class="fact"><span class="k">What survives</span><span class="v">nothing to fix &mdash; it closed on refutation. <b>Never requote the 43 as a loss.</b></span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--blue); --cs:var(--blue-soft)">
+      <div class="id-row"><span class="id">OPEN-14</span><span class="tag">measured</span></div>
+      <h3>The height backfill cannot be reproduced from a clean checkout</h3>
+      <p>No source slice is tracked for any affected cell, and the check that would have shown the
+      backfill firing found zero fused-provenance tokens across all 8,160 buildings &mdash;
+      including the one cell that does have a tracked slice.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Reach</span><span class="v">outdoor-comfort stage inputs</span></div>
+        <div class="fact"><span class="k">Evidence</span><span class="v">confirmed; the step this item named as next has been taken</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--hold); --cs:var(--hold-soft)">
+      <div class="id-row"><span class="id">OPEN-17</span><span class="tag">carrier &mdash; absorbed 15 and 16 on 2026-08-20</span></div>
+      <h3>Every imputation tier was built, and none was ever wired to the router</h3>
+      <p>This was three items describing one fact, so on the user's ruling it is now one. The final
+      phase (ex-<b>OPEN-15</b>) was deferred in writing and never built &mdash; no code path exists at
+      all. The learned tier (ex-<b>OPEN-16</b>) is built but enterable only from the validation entry
+      point, never from the pipeline that produces published numbers. And the six variance-preserving
+      imputers are not "off awaiting a promotion decision" &mdash; they are unreachable, because the
+      router hook has never existed in any commit on any branch.</p>
+      <p>Merging is bookkeeping, not progress: nothing here was measured, fixed or decided by it, and
+      all three facts stand exactly as they did.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Reach</span><span class="v">the whole unwired-router surface &mdash; six imputers, the learned tier, and the phase that was never built</span></div>
+        <div class="fact"><span class="k">Waiting on it</span><span class="v"><b>10 skipped tests</b> in <code>tests/test_draw_methods.py</code> unskip themselves the day the hook exists</span></div>
+        <div class="fact"><span class="k">Evidence</span><span class="v">measured against the full commit history</span></div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section class="theme">
+  <div class="theme-head"><h2>Method and validation</h2><span class="n">3 live &middot; 1 retired</span></div>
+  <div class="grid">
+
+    <article class="item" style="--c:var(--hold); --cs:var(--hold-soft)">
+      <div class="id-row"><span class="id">OPEN-19</span><span class="tag">blocked on data</span></div>
+      <h3>Los Angeles runs about 40&nbsp;% hot, and the fix is not representable</h3>
+      <p>The suspected cause is a code-standard mismatch, but no climate-zone or code-year switch
+      exists anywhere in the model, and LA's mechanical system currently comes from a Buffalo
+      prototype. The blocker is a missing data table, before any code.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Reach</span><span class="v">one whole city</span></div>
+        <div class="fact"><span class="k">Evidence</span><span class="v">measured; the hook that exists reaches only the synthetic archetype</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--blue); --cs:var(--blue-soft)">
+      <div class="id-row"><span class="id">OPEN-18</span><span class="tag">bounded</span></div>
+      <h3>The vertical-form distortion is unreachable by the mechanism built for it</h3>
+      <p>The question stays open; that particular approach is eliminated, and eliminated on proof
+      rather than on preference.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Reach</span><span class="v">small buildings in cold cells</span></div>
+        <div class="fact"><span class="k">Evidence</span><span class="v">confirmed</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--done); --cs:var(--done-soft)">
+      <div class="id-row"><span class="id"><s>OPEN-20</s></span><span class="tag">retired 08-20</span></div>
+      <h3>The validation matrix stops at 3 cities and 4 rings</h3>
+      <p>Retired as a <b>scope question, not a defect</b> &mdash; nothing broken, nothing blocked,
+      nothing to measure. It sat unactioned from 2026-06-17 and was tracked twice the whole time. The
+      question survives in <code>docs/docs_TODO/wider_validation_matrix.md</code>; only the duplicate
+      row is gone.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">What survives</span><span class="v">the caveat, and it binds <b>153.8231&nbsp;kWh/m&sup2;</b> &mdash; a pooled statistic over exactly this population</span></div>
+        <div class="fact"><span class="k">Hardest bound</span><span class="v">the model does not vary construction or HVAC by climate zone, so even the three sampled climates are weaker evidence than the geography suggests &mdash; that is <b>OPEN-19</b></span></div>
+        <div class="fact"><span class="k">ID</span><span class="v"><b>retired, never reused</b> &mdash; the OPEN-21 precedent</span></div>
+      </div>
+    </article>
+
+    <article class="item" style="--c:var(--stop); --cs:var(--stop-soft)">
+      <div class="id-row"><span class="id">OPEN-62</span><span class="tag">new 2026-08-20</span></div>
+      <h3>A tower can be read as a one-storey building</h3>
+      <p>An IDF may record a floor's height in either of two places: written into every wall corner,
+      or held once on the room itself with the corners left relative to it. The script that counted
+      storeys only ever read the first. For six building types that use the second, every floor
+      reports the same height and a tower collapses to one to three storeys. It was found by the
+      executor checking its own parser, and deliberately <b>flagged rather than fixed</b> &mdash;
+      fixing it mid-task would have destroyed the control that proved the census matched the earlier
+      sample.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Reach</span><span class="v"><b>6</b> building types, <b>2,983 of 8,160</b> buildings &mdash; <b>36.6&nbsp;%</b> of the fleet</span></div>
+        <div class="fact"><span class="k">Worst</span><span class="v"><code>SuperTallBuilding</code> <b>232 of 256</b> rooms affected; <code>TallBuilding</code> <b>145 of 164</b></span></div>
+        <div class="fact"><span class="k">Does not explain OPEN-03</span><span class="v">that result survives excluding every affected building &mdash; <b>60.8&nbsp;%</b> clean vs <b>59.2&nbsp;%</b> at risk</span></div>
+        <div class="fact"><span class="k">Bounded same day</span><span class="v">the <b>real geometry code does it correctly</b> &mdash; no building is built at the wrong height. This is a measuring error, not a modelling one</span></div>
+        <div class="fact"><span class="k">Grew twice</span><span class="v">the height fix is in and verified on all <b>8,160</b>. What the column measures is still wrong: it <b>under</b>-counts a tower (20&nbsp;&rarr;&nbsp;10) and <b>over</b>-counts a warehouse (1&nbsp;&rarr;&nbsp;2)</span></div>
+        <div class="fact"><span class="k">The replacement is biased too</span><span class="v">counting floor surfaces reads an <b>attic</b> as a storey &mdash; <b>3,580 buildings, 44&nbsp;%</b> of the fleet. Built average <b>2.45&ndash;2.94</b>, published as a range</span></div>
+        <div class="fact"><span class="k">What it now needs</span><span class="v">not another reader &mdash; a <b>definition</b> of a storey for attics, plenums and double-height bays. Never written down here</span></div>
+      </div>
+    </article>
+
+  </div>
+</section>
+
+<section class="theme">
+  <div class="theme-head"><h2>Tooling and specification</h2><span class="n">2 items</span></div>
+  <div class="grid">
+
+    <article class="item" style="--c:var(--stop); --cs:var(--stop-soft)">
+      <div class="id-row"><span class="id">OPEN-58</span><span class="tag">opened 2026-08-19</span></div>
+      <h3>An experiment helper contaminates its own results, two ways</h3>
+      <p>Buildings sharing a working directory overwrite each other's outputs &mdash; caught as two
+      byte-identical results files for two different footprints &mdash; and the helper reads EUI by a
+      formula that is not the production one. Any earlier local batch that imported it is exposed to
+      both. It has already produced one false lead that took a director pass to retract.</p>
+      <div class="facts">
+        <div class="fact"><span class="k">Size</span><span class="v"><b>unmeasured</b> &mdash; every local batch result that imported the helper</span></div>
+        <div class="fact"><span class="k">Evidence</span><span class="v">both defects reproduced and understood; no remedy authorised</span></div>
+      </div>
+    </article>
+
+    
+
+  </div>
+</section>
+
+<footer>
+  <div><b>Source of truth:</b> <code>docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md</code>
+  &mdash; 16 live items, opened 2026-08-20 at 19. Book I,
+  <code>INVESTIGATION_open-items-register.md</code>, is closed and remains the authority on every
+  closed item and on each live item's full history.</div>
+  <div><b>Counts:</b> recomputed from the register table by
+  <code>scripts/analysis/open_register_recount_2026-08-18.py</code>, never by hand &mdash;
+  16 live &middot; 46 struck &middot; 62 total &middot; <code>OPEN-01&hellip;OPEN-62</code>, no gap,
+  no duplicate.</div>
+  <div><b>Sibling board:</b> the published-numbers board carries the adopted figures and the arc's
+  checkpoint history. This one carries only what is unfinished.</div>
+</footer>
+
+</div>

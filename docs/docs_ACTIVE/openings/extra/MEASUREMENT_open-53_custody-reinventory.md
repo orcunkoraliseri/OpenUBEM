@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-53: custody re-inventory against today's disk (2026-08-19)
 
-**Task:** T06 of `../implemenation/PLAN_twenty-items-2026-08-19.md`. Script:
+**Task:** T06 of `../implemenation/previous/PLAN_twenty-items-2026-08-19.md`. Script:
 `scripts/analysis/open53_t06_custody_reinventory_2026-08-19.py`. Output:
 `openubem/outputs/comparisons/corpus_inventory_2026-08-19.csv`.
 

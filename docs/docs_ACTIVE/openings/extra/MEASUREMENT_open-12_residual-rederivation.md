@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-12: re-deriving the height_m residual on run-4 tracked Stage-1 files
 
-**Task:** T08 of `../implemenation/PLAN_twenty-items-2026-08-19.md`. Script:
+**Task:** T08 of `../implemenation/previous/PLAN_twenty-items-2026-08-19.md`. Script:
 `scripts/analysis/open12_t08_residual_rederivation_2026-08-19.py`. Output:
 `openubem/outputs/comparisons/open12_t08_residual_rederivation_2026-08-19.csv`.
 

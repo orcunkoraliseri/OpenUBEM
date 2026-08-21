@@ -526,7 +526,7 @@ On MODE=new this section MUST contain only this comment block — no `### Sessio
 
 **Coarse-class mapping (load-bearing — pinned for L2 implementation):**
 The "residential-vs-commercial coarse split" in §5.1 row `Labelled top-1 accuracy` is operationalised against the `sector` field of `openubem/data/openstudio_archetypes.json`:
-- **residential** ⇔ `sector == "Residential"` (2 archetypes — MidriseApartment, MultifamilyHome)
+- **residential** ⇔ `sector == "Residential"` (2 archetypes — MidriseApartment, HighriseApartment)
 - **commercial** ⇔ all other sectors (28 archetypes, including Lodging, High-Rise, Industrial, Healthcare, Education, Government, Data Center, Research, Office, Retail, Food Service, Fallback)
 
 This binary mapping is sealed in this revision-log entry; do not re-debate during PLAN execution.

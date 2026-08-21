@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-59 at fleet scale (run 4, all twelve cells)
 
-> T01 of `implemenation/PLAN_twenty-items-2026-08-19.md`. Script:
+> T01 of `implemenation/previous/PLAN_twenty-items-2026-08-19.md`. Script:
 > `scripts/analysis/open59_fleet_scale_2026-08-19.py`. Output table:
 > `openubem/outputs/comparisons/open59_unknown_gap_fleet.csv`. Data:
 > `%LOCALAPPDATA%/Temp/ubem_validation/open48_refleet4/<cell>/results/05_results.csv`

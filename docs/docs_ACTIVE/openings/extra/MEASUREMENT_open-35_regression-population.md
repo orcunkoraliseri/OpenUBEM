@@ -1,6 +1,6 @@
 # MEASUREMENT — OPEN-35 run-4 regression: one building or a population?
 
-> T04 of `implemenation/PLAN_twenty-items-2026-08-19.md`. Script:
+> T04 of `implemenation/previous/PLAN_twenty-items-2026-08-19.md`. Script:
 > `scripts/analysis/open35_regression_population_2026-08-19.py`. Output:
 > `openubem/outputs/comparisons/open35_regression_population_2026-08-19.csv` (9 rows). Sources:
 > `%LOCALAPPDATA%/Temp/open48_run4/<cell>.log` (repair census, read directly from pipeline log
