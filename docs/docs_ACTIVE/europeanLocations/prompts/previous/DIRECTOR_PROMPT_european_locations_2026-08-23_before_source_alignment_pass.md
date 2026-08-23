@@ -2,19 +2,9 @@
 
 **Project:** OpenUBEM × GSSCanada Step 8 integration  
 **Working directory:** `C:\Users\o_iseri\Desktop\OpenUBEM`  
-**Status at handoff:** documentation and reusable visual/table assets were updated on 2026-08-23; a **source-verification and citation audit closed on 2026-08-23** (§4.1, §18); a **source-alignment pass against the parent Step 8 authorities closed later the same day** (§4.2) — MVP §11 and walkthrough §12 are new; the same night the **DR08–DR11 deep-research reports were accepted and every closable decision closed** (§4.3 closure note, MVP §11.13) — only the upstream Step 7 chaining rule remains blocked, `f>0` cells only. **Implementation is in progress**: the current executor evidence and slice status are maintained in §19.5 and the append-only walkthrough log. This prompt is the director's, not the executor's.
+**Status at handoff:** documentation and reusable visual/table assets were updated on 2026-08-23, and a **source-verification and citation audit closed on 2026-08-23** (see §4.1 and §18); implementation and production simulations are not yet proven
 **Audience:** a future director session coordinating implementation, validation, and evidence  
 **Language rule:** the user may write in French; always answer the user in English. Keep code, documentation, filenames, and technical deliverables in English.
-
-> **Head box — read this first (2026-08-23, end of day).**
-> - **Tree:** `HEAD = fda5336`, dirty: the two arc documents, `content/README.md`, `content/walkthrough_progress_log.csv`, this prompt, and the untracked `debugs/` folder. The user commits; you do not.
-> - **Current implementation state (supersedes the handoff wording above):** `X-01`, `X-02`, `X-03`, and `X-08` are local passes. `X-04`, `X-05`, and `X-06` are partial: R5/R7 pass while R3 remains a strict expected failure; X-05 has a passing four-type D-EU-01 box plan and exact source-coefficient readback; X-06 has passing saved-IDF heating, air, gain, no-cooling, and `F_red_temp` control emission. The box surfaces remain to be emitted. `X-07` has its approved dependencies installed but remains blocked for live ERA5 retrieval by absent CDS credentials. The append-only walkthrough log is authoritative for timestamps and evidence paths.
-> - **What is true:** every claim in MVP §9.2 was re-verified against the code on 2026-08-23; nothing European exists under `openubem/data/construction/` (only `ashrae_90_1_2019.json` + `PROVENANCE.md`); the schedule writer emits `Schedule:Compact`; no G8 gate is implemented.
-> - **What changed today (v1.3):** the parent's own 102-archetype parameter tables were read for the first time — see §4.2 for the eight facts that move the implementation. The most consequential: **all 102 archetypes use TABULA's EU boundary-condition set** (`c_m = 45`, `n_air_use = 0.4`, `phi_int = 3`, `θ_i = 20`), so several country-specific values in the older MVP/walkthrough text are *national* rows the campaign does not use; they are superseded in place, not deleted.
-> - **Continuation rule for a fresh session:** do **not** restart or dispatch historical slice `X-01`; it is complete. Start from the current ledger in §19.5 and the append-only log. The single paste-able handoff is now **`prompts/EXECUTOR_X-01_paste_into_codex.md`**, repurposed as the *continuation executor prompt* for Codex/Antigravity. It authorises bounded, evidence-led continuation through the remaining local work; no Speed work is authorised.
-> - **Later the same evening (§4.3):** the user ruled *"vas-y résoudre maintenant"* on the open parent decisions. **Eight are now RULED** from the calculator workbook's cached values (`debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`, MVP §11.12 Table 20); **four are OWED to deep-research briefs** `DeepResearch/DR08`–`DR11` (weather sources/licences; TABULA licence + France registry; open EPC/cadastre data + neighbourhood candidates; TABULA→dynamic translation review); **one stays BLOCKED upstream** (Step 7 chaining rule, `f>0` only). The briefs are to be run by the user in a deep-research tool and their reports source-verified before any number enters the MVP.
-> - **Closures (2026-08-23, night):** the user ran DR08–DR11 and the reports were audited and **ACCEPTED** (`DeepResearch/README.md` §Acceptance Record; caveats there bind). **D-EU-05/08/10/11 are CLOSED and D-EU-01/02/03/07 VALIDATED** — MVP §11.13 (Table 21) supersedes Table 20's status column; the decision record carries a closure addendum. Highlights: ERA5/C3S weather (publication-compatible, redistributable), stations Madrid/London/Bologna confirmed, six-gate EPW checklist adopted into EU-07 (slice **X-07**); TABULA publication **unblocked** with the mandatory `IEE Projects TABULA + EPISCOPE (www.episcope.eu)` attribution (clause re-verified live; X-02 files it, licence field `VERIFIED`); fourth city = **Lyon**, city datasets/crosswalks/candidates pinned (GB age-band straddles carry `PERIOD_STRADDLE_*` tokens); France = **40 `FR.N` rows**, 10 `FR.OPHM` excluded (slice **X-08**); DR11 overturned nothing (6 Standard, 4 Acceptable-with-caveat) and its three numeric fixtures join X-04. **The arc's only remaining block is D-EU-09** (upstream chaining rule, `f>0` cells and Q4 only) — everything else is pure execution.
-> - **Do not:** submit cluster jobs; edit MVP §9.2; reintroduce any withdrawn figure (§18); treat a Q1/Q2 TMY smoke EUI as a baseline (MVP §11.6 rule 3); quote a DR10 neighbourhood count as a project number (candidates only — the project computes its own counts under `NS-03`/`NS-05`); quote DR11 bias magnitudes as project measurements (dossier caveat text only).
 
 ---
 
@@ -98,9 +88,8 @@ Earlier sections in those documents remain as historical design material. Where 
 Read only what is needed for the current task, but do not implement before understanding the relevant contract.
 
 1. This director prompt.
-2. The status notices and Sections 9–**11** of `MVP_european_locations.md` (§11 is the v1.3 source-alignment addendum: Tables 13–19).
-3. The status notices and Sections 9–**12** of `WALKTHROUGH_european_locations.md` (§9.3.1 parent-table reconciliation; §12 executor contract and slices X-01–X-03).
-3a. `Step8_docs/outputs_step8/archetype_parameter_provenance.md` §3–§6 and §11 — the honesty clause, the exclusion rules, the open decisions, and the weather ruling. Twenty minutes; it is the document the earlier arc text had not read.
+2. The status notice and Sections 9–10 of `MVP_european_locations.md`.
+3. The status notice and Sections 9–11 of `WALKTHROUGH_european_locations.md`.
 4. `docs/docs_ACTIVE/europeanLocations/content/README.md` for reusable figure/table sources.
 5. The parent and validation documents named in Section 2.
 6. `docs/docs_DONE/SETUP/parallelProcessing/parallel_idf_prep_detailed.md`.
@@ -130,7 +119,6 @@ Treat the following as the last documented audit state, then re-check it:
 - Older examples mentioning `IDFModelBuilder`, `reconstruct_eui`, or `fetch_osm_buildings` are not reliable descriptions of the current public API.
 - Relevant current APIs observed during the audit included `ingest_buildings`, `impute_missing(gdf, cfg, targets, rng)`, `BuildingIDF`/`run_step3`, `run_neighbourhood`, and `reconstruct_frame`. Reconfirm names and signatures before use.
 - Existing result reconstruction contains US-oriented assumptions and is normally disabled when service loads are modeled physically. A European implementation must choose one accounting path and prevent double counting.
-- **(v1.3)** On the GSSCanada side, `Step8_docs/outputs_step8/archetype_parameters_{es,uk,it}.csv` and `archetype_parameter_provenance.md` exist (built 2026-08-21, 24/36/42 rows, 44 columns, raw workbooks pinned under `outputs_step8/raw/`). Nothing under `outputs_step8/` is an IDF, a weather file, a control run, or a gate result; the parent's own status line says so (`4thJ_08_bemSimulation.md` line 10).
 
 At every handoff, classify each claim with one of these states:
 
@@ -192,109 +180,6 @@ its source file and line are named.** Search the paper PDF, then `IMP_step8/outp
 `IMP_step8/DeepResearch/`, then `IMP_step8/resources/`, and record where it was found. Absence from
 all four is a finding, not a formatting problem.
 
-### 4.2 Source-alignment pass — closed 2026-08-23 (v1.3)
-
-<!-- SEC:source-alignment-pass-2026-08-23 -->
-
-The arc documents had been written from the tier-3 implementation document and the tier-4 research
-syntheses. On 2026-08-23 the **tier-1** authorities were read in full for the first time —
-`4thJ_08_bemSimulation.md` (529 lines), `4thJ_08_bemSimulation_val.md`,
-`outputs_step8/archetype_parameter_provenance.md`, and the three parameter tables, whose column values
-were re-read with a CSV reader. Eight facts moved the implementation; all are recorded in MVP §11 with
-file and line, and each earlier passage they supersede carries an inline `v1.3` note (nothing deleted):
-
-1. **The 102-archetype parameter tables already exist** — `outputs_step8/archetype_parameters_{es,uk,it}.csv`,
-   24/36/42 data rows + three trailing `#` comment lines, 44 columns, built by `tools/4thJ_step8_tabula.py`
-   from the two pinned workbooks. `EU-01` consumes and reconciles them (MVP §11.3, Table 14);
-   re-deriving from the workbooks is the independent check, not the primary path.
-2. **All 102 rows point at the EU boundary-condition set** (`EU.SUH` for SFH/TH, `EU.MUH` for MFH/AB):
-   `θ_i = 20 °C`, `F_red_htr = 0.9/0.8` (SUH) and `0.95/0.85` (MUH), `n_air_use = 0.4 h⁻¹`,
-   `phi_int = 3 W/m²`, `c_m = 45 Wh/(m²·K)` — identical in every fold (MVP Table 13). The
-   country-specific ventilation rates (0.40/0.59/0.30) in MVP §2.2.2 and walkthrough §5.4, and the
-   country-specific `c_m` (ES 50 / IT 87 / GB 32.8) in MVP §2.3.2, are TABULA *national* rows the
-   parent ruling (`FINDING 57`) deliberately does not use, because they are country-correlated and
-   confounded with the held-out-fold signal. Ruling Q5-A is unaffected: §2.3.2 stands as a declared
-   mapping decision, but `EU-03`/`EU-05` realise the EU values.
-3. **The 22 construction-year bands are listed verbatim** with year boundaries (MVP Table 15). The
-   Spanish label is `CTE-79`, never `NBE-CT-79`. The walkthrough's §2.1 example and §4.1
-   `map_construction_vintage` contradict the bands and are marked illustrative; the real
-   `kbem_ankara_pipeline.py` function returns Turkish 1960/1980/2000 bins.
-4. **The folds do not share one archetype structure**: ES 24/24 complete grid; GB 29/32 with parallel
-   parameterisations (`.Gen` and `.Detached`) and merged periods; IT 42/48 with composite types
-   (`MFH-AB`, `SFH-TH`) and periods. Which row represents a cell, and the 3 empty GB / 6 empty IT
-   cells, is parent open decision §6.4 — **not taken** (MVP §11.5, Table 16). The 510 count is a count
-   of table rows, not of grid cells.
-5. **Weather is ruled, not acquired**: `es` 2009–2010, `uk` 2014–2015, `it` 2013–2014, actual
-   meteorological year of each fold's fieldwork window. Three items are owed (fieldwork calendars →
-   twelve definite months; a licence permitting *published* derived results; a station) and **no
-   weather-driven number may be quoted until they are on disk — not even a provisional TMY one**
-   (MVP §11.6). Q1/Q2 smoke runs on a TMY carry `weather_status: "SMOKE_TMY"` and are never baselines.
-6. **Diary facts for the schedule adapter**: mean at-home 71.4 % of the day; **1,320 diaries (1.802 %)
-   have zero at-home minutes** (`uk` 2.927 %, `es` 1.641 %, `it` 1.417 %) and must be an explicit
-   branch, not a rejection (MVP §11.7). **The chaining rule (open decision 14) blocks every `f>0`
-   cell**; `f=0` (Q1–Q3, FR-B) does not depend on it.
-7. **The twelve-row perturbation matrix and the seven V8 guards are itemised** (MVP Tables 17–18),
-   with the EnergyPlus-version note for the `Gas:Facility` mutation (valid name in 23.1 is
-   `NaturalGas:Facility`) and the sentence that must accompany every G8.1–G8.4 report.
-8. **Parent open decisions are mapped to work packages** (MVP Table 19): §6.1 geometry box, §6.3 layer
-   build-up, §6.4 archetype selection, §7 licence, decision 14 chaining — all OPEN; §6.2 zoning, §6.5
-   `phi_int`, §6.6 weather — RULED.
-
-Standing lesson added by this pass: **read the parent's own artefacts before the parent's
-illustrations.** The tier-3 document presented Madrid/London/Bologna, ERA5, E+ 9.2, hydronic plant
-curves and national ventilation rates as settled; the tier-1 rulings and tables settle none of them
-and contradict two. When a value in this arc has a country suffix, ask whether the campaign actually
-uses the national row — on the EU set, it does not.
-
-### 4.3 Parent open items ruled under delegation — 2026-08-23 (evening)
-
-<!-- SEC:rulings-under-delegation-2026-08-23 -->
-
-Asked why the open parent decisions should wait, the user ruled *"vas-y résoudre maintenant"*. The
-director opened `tabula-calculator.xlsx` (`Calc.Set.Building`, cached values, `openpyxl`) for the
-102 archetype keys and found that TABULA itself settles most of what the parent had listed as "ours
-to assume": `n_Apartment` (dwellings per archetype), `g_gl_n_Window_1`, per-row `n_air_infiltration`
-(0.05–0.4 on top of `n_air_use = 0.4`), `b_Transmission_*` factors, `delta_U_ThermalBridging`
-("supplement to all U-values"), and a per-archetype `F_red_temp` (0.80–0.99). Extraction filed as
-`debugs/docs/tabula_102_extra_columns_2026-08-23.csv`; rulings in
-`debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`; one-line table in MVP §11.12 (Table 20).
-
-| ID | Ruling | Status |
-|---|---|---|
-| D-EU-01 | Box **from** TABULA areas; faces N/E/S/W literal; dwellings = `n_Apartment`; core outside `A_C_Ref` | RULED |
-| D-EU-02 | Mass-less `NoMass` envelope at `U + ΔU_tb`; all mass = one `InternalMass` = `c_m`·A; `b = 0.5` via `OtherSideCoefficients`; `SHGC = g_gl_n` | RULED |
-| D-EU-03 | Air change = `n_air_use + n_air_infiltration` (0.45–0.8 h⁻¹ per archetype) — **corrects the morning's "0.4 for every cell"** | RULED |
-| D-EU-04 | All 102 rows run; deterministic observed-building mapping; ambiguity → exclusion; empty cell → nearest older band; non-integer `n_Apartment` rounded | RULED |
-| D-EU-05 | Weather rules (12-month rule, ERA5-derived AMY candidate, station rule); files/licence/station confirmation OWED | RULES RULED → **DR08** → **CLOSED 2026-08-23** (stations confirmed; acquisition = X-07) |
-| D-EU-06 | EUI accounting = four-end-use mode, DHW from TABULA `q_w_nd` | RULED |
-| D-EU-07 | `OtherEquipment` all-convective gain; no cooling; `F_red_temp` as U and air-change multiplier | RULED |
-| D-EU-08 | TABULA licence: internal use now, publication blocked until text filed | PROCESS RULED → **DR09 A** → **CLOSED 2026-08-23** (publication permitted with attribution; X-02 files the verbatim text) |
-| D-EU-09 | Chaining rule — Step 7 experiment, not rulable here | BLOCKED upstream (`f>0` only) — **the arc's sole remaining block**; experiment protocol issued to the parent 2026-08-23 as §10 of `GSSCanada…\IMP_step8\4thJ_08_bemSimulation_IMP.md` (unblocks when the frozen rule + spread table are filed back) |
-| D-EU-10 | Density metric ruled; datasets and candidate lists OWED | SHAPE RULED → **DR10** → **CLOSED 2026-08-23** (Lyon; datasets/crosswalks pinned; final unit by own counts) |
-| D-EU-11 | France registry | OWED → **DR09 B** → **CLOSED 2026-08-23** (40 `FR.N` rows; `FR.OPHM` excluded; X-08 re-derives) |
-
-Deciding principle, to reuse when a new gap appears: *reproduce TABULA's own monthly balance as
-literally as a dynamic engine can, declare every assumption, make it a one-line sensitivity later.*
-It yields two per-archetype read-back assertions (MVP §11.12) that tie every IDF to TABULA's own
-`h_Transmission` and `h_Ventilation` — use them as EU-03/EU-05 acceptance gates.
-
-The user may overrule any ruling with `D-EU-nn: overruled → <rule>`; record the overruling in the
-decision record and in MVP Table 20 before any slice implements it.
-
-**Deep-research briefs** (`docs/docs_ACTIVE/europeanLocations/DeepResearch/`, format of the parent
-dossier; two files per topic: `_brief.md` written here, report saved next to it unchanged): DR08
-weather sources and licences; DR09 TABULA licence + France subset; DR10 open building data +
-neighbourhood candidates; DR11 TABULA→dynamic translation review of D-EU-01/02/03/07. When a report
-comes back: open every cited source for each number the arc will use, mark the report `accepted` in
-`DeepResearch/README.md` with the date, then and only then let a slice consume it.
-
-**Done 2026-08-23 (night): all four reports returned and ACCEPTED.** Verdicts + binding caveats:
-`DeepResearch/README.md` §Acceptance Record. Closures: decision-record closure addendum and MVP
-§11.13 (Table 21 supersedes Table 20's status column). Director's live spot-checks: the episcope.eu
-third-party clause matches DR09 verbatim; the DR08 Copernicus licence-PDF URL is stale (404) but
-the current CDS ERA5 page states plain CC-BY — verdict unchanged, X-07 files the text served at
-download time. Only **D-EU-09** remains blocked, and it gates `f>0` cells and Q4 only.
-
 ---
 
 ## 5. Frozen scientific decisions
@@ -336,10 +221,6 @@ These are genuine design obligations, not details to fill with convenient defaul
 - any use of a separately conditioned or unconditioned common core.
 
 Resolve these through explicit, reviewable artifacts. Never bury them as literals in a script.
-
-**Status of this list on 2026-08-23 (evening), per §4.3:** geometry → D-EU-01 RULED; layers/mass → D-EU-02 RULED; archetype selection/crosswalk → D-EU-04 RULED; France registry → D-EU-11 OWED (DR09 B); France occupant contract → deferred by design; weather window/station/source/licence → D-EU-05 rules RULED, files OWED (DR08); service loads physical vs reconstructed → D-EU-06 RULED; dwelling allocation → D-EU-01 item 6 / D-EU-04 item 3 RULED; neighbourhood density rule → D-EU-10 shape RULED, data OWED (DR10); schedule semantics, timestep, DST → walkthrough §9.8 + MVP §11.7 (chaining rule BLOCKED upstream); gain fractions → D-EU-07 RULED; common core → D-EU-01 item 7 RULED.
-
-**Final status, 2026-08-23 (night), after DR acceptance (§4.3 closure note, MVP §11.13):** every OWED entry above is CLOSED — France registry (D-EU-11: 40 `FR.N` rows, X-08), weather files/station/licence (D-EU-05: ERA5 + Madrid/London/Bologna, X-07), neighbourhood data (D-EU-10: Lyon + pinned datasets/crosswalks), licence text (D-EU-08: publication permitted with attribution, X-02). Deliberately open by design: the France occupant contract (future scope) and the Step 7 chaining rule (upstream, `f>0` only). **This list contains no decision an executor must wait on.**
 
 ---
 
@@ -571,7 +452,7 @@ Stop the campaign when any of these occurs:
 - A request to implement does not automatically authorize Speed submission.
 - A request to prepare SLURM files does not automatically authorize submitting them.
 - If asked to implement, finish a coherent tested slice rather than producing only a plan.
-- Do not delegate work or create sub-agents unless the user explicitly requests delegation or the active session instructions expressly allow it. **Standing exception from 2026-08-23:** the user has ruled that implementation slices are executed by external LLM tooling (Codex, Antigravity) under §19. Delegation to those executors is therefore authorised by default; delegation to Claude sub-agents still is not, unless asked.
+- Do not delegate work or create sub-agents unless the user explicitly requests delegation or the active session instructions expressly allow it.
 - Use primary or official sources for standards, software behavior, and Speed policy. Browse only when current facts or source verification require it.
 
 ### Scientific discipline
@@ -656,8 +537,6 @@ Unless newer repository evidence changes the state, begin with **CP0 / EU-01–E
 
 Do not submit Speed work during this initial audit. The planning documents and this prompt establish how to run the campaign safely; they do not grant submission authority.
 
-**Superseded as a dispatch instruction on 2026-08-23T20:50Z.** `X-01` → `X-03` and `X-08` are complete. A new session must use §19.5 rather than this historical ordering. Its first independent implementation action is to complete saved-IDF S0 geometry/envelope emission and the heating-only fixture (`X-05`/`X-06`). It must preserve the two external dependencies: the strict R3 reconciliation in `debugs/docs/ANALYSIS_REQUEST_X-04-R3_X-07-CDS_2026-08-23.md`, and live ERA5 retrieval until CDS credentials exist. It must not submit Speed work.
-
 ---
 
 ## 18. Constraints for any documentation-enrichment pass
@@ -719,140 +598,3 @@ A number that reads as empirical validation is not evidence until its source fil
 named. Before any figure in this arc is promoted to `VERIFIED`, search it in the paper PDF, in
 `IMP_step8/outputs/`, in `IMP_step8/DeepResearch/`, and in `IMP_step8/resources/` — in that order —
 and record where it was found. Absence from all four is a finding, not a formatting problem.
-
-### 18.3 Additional constraints after the v1.3 pass
-
-Any later documentation pass must also be checked against these; a pass that breaks one is rejected:
-
-```
-8.  Do not re-attribute c_m = 50/87/32.8 or n_air_use = 0.40/0.59/0.30 as campaign
-    values. The campaign set is EU.SUH/EU.MUH: c_m = 45, n_air_use = 0.4, phi_int = 3,
-    theta_i = 20, F_red_htr = 0.9/0.8 (SUH) and 0.95/0.85 (MUH). Cite MVP Table 13.
-9.  Do not re-type construction-year bands. Quote MVP Table 15 (22 verbatim codes).
-    The Spanish ES.05 label is "CTE-79"; "NBE-CT-79" appears nowhere in the workbook.
-10. Do not describe tabula_archetypes_*.json as derived from the workbooks directly.
-    EU-01 consumes Step8_docs/outputs_step8/archetype_parameters_{es,uk,it}.csv.
-11. Do not state a weather station, year or source as settled. Windows are ruled
-    (es 2009-2010, uk 2014-2015, it 2013-2014); files, licence and station are owed.
-12. Do not collapse GB parallel parameterisations or IT composite codes into one
-    row per cell; that is parent open decision §6.4, not taken.
-13. Do not present the Q1/Q2 TMY smoke EUIs as baselines or compare them to TABULA bands.
-```
-
----
-
-## 19. External-executor protocol (OpenAI Codex, Google Antigravity) — from 2026-08-23
-
-<!-- SEC:external-executor-protocol-2026-08-23 -->
-
-The user has ruled that implementation is executed by external LLM tooling, not by Claude
-sub-agents. The director's job is unchanged in kind — preserve the contract, dispatch bounded work,
-audit evidence, refuse unproven success — and changes in form: the executor is a separate product
-that receives **one paste-able prompt per slice** and returns **one evidence pack**. Walkthrough §12
-is the executor-facing contract; this section is the director-facing procedure.
-
-### 19.1 Division of labour
-
-| Director (this session) | External executor (Codex / Antigravity) |
-|---|---|
-| Chooses the slice; writes nothing in `openubem/`, `tests/`, `scripts/`. | Writes code and tests only inside the slice's file list. |
-| Pastes the slice prompt (§19.3 pattern) with walkthrough §12.2–12.3 verbatim. | Reads the cited MVP/walkthrough sections; asks nothing mid-task; stops at ambiguity and reports. |
-| Audits the evidence pack against the working tree (§19.4). | Returns the ten-item evidence pack, including the progress-log row text. |
-| Appends the accepted progress-log row (Walkthrough Table 4 + `content/walkthrough_progress_log.csv`); updates this prompt's head box. | Never edits documentation except its own log row. |
-| Owns every decision record; the executor never chooses between authorities. | Surfaces decisions as questions (evidence-pack item 7). |
-| Never commits; reports `git status` to the user. | Never runs a git state-changing command. |
-
-Cost discipline carries over from CLAUDE.md: one slice per executor session, the exact commands in
-the prompt, output capped, the conclusion requested rather than the logs. A slice that would exceed
-roughly ten files or one test module is two slices.
-
-### 19.2 What the director verifies before pasting a slice
-
-1. The slice exists in walkthrough §12.4 (or is written there first, in the same What/Why/How/How-to-test
-   form, before being dispatched — the walkthrough is the record, the chat is not).
-2. Every MVP section the slice cites exists and says what the slice claims (`grep -n` the heading).
-3. The file list is complete and names no file outside `openubem/`, `tests/`, `scripts/`, `openubem/outputs/`.
-4. No step needs a cluster, the network, or a scientific decision.
-5. The fixture source it copies from is named with its path and will be checksummed.
-
-### 19.3 Paste-able continuation executor prompt (new sessions and other LLMs)
-
-**Supersedes the historical X-01 dispatch pattern.** The current, self-contained continuation prompt
-is [`EXECUTOR_X-01_paste_into_codex.md`](EXECUTOR_X-01_paste_into_codex.md). Its filename is retained
-only for compatibility with the user's familiar path; it is **not** an instruction to redo X-01.
-Paste that one file into a new Codex/Antigravity session with working directory
-`C:\Users\o_iseri\Desktop\OpenUBEM`. Do not paste this director prompt into an executor.
-
-The continuation prompt makes the executor read the authoritative current-state sources, resume from
-the ledger, and carry out independent local implementation in dependency order. It must append both
-progress logs after every completed, partial, blocked, or documented material step. It may not make a
-scientific decision, start a Speed/cluster job, or expose credentials. It stops only for an authority
-conflict or an external dependency, documents that stop, and continues unrelated work.
-
-The mandatory first target at this handoff is `X-05`/`X-06`: emit the S0 geometry and envelope into a
-saved IDF without relaxing D-EU-01 invariants, integrate the existing controls, and run the
-heating-only fixture. `X-04` R3 is an evaluator decision, not a reason to pause that work. `X-07`
-must install nothing further and must not attempt live ERA5 retrieval until a local CDS credential is
-configured; it may safely perform non-network implementation and validation work.
-
-### 19.4 Director audit of an evidence pack (do all of it before accepting)
-
-1. `git status --short` and `git diff --stat` yourself; the file list must equal the executor's item 2 and lie inside the slice's list. Anything else → return the pack.
-2. Re-run the named targeted test command yourself. Run the full suite only when it is proportionate; the known Windows/joblib stall at 89% in `tests/test_step3_orchestrator.py` is a recorded infrastructure finding, never proof of a European failure or success.
-3. Open the evidence directory `openubem/outputs/eu_evidence/<slice>/`; confirm every artefact item 4 cites exists and is non-empty.
-4. Check item 5 assertion by assertion against the relevant MVP/walkthrough requirement: observed values, not ticks. Do not apply X-01 loader criteria to a later slice.
-5. Check no `.py` landed under `docs/`, no existing test was modified, no GSSCanada file changed (`git -C C:\Users\o_iseri\Desktop\GSSCanada status --short` if it is a repo; otherwise compare SHA-256 of the three CSVs against `tests/fixtures/eu/step8_outputs/SHA256SUMS`).
-6. Read item 7 (decisions needed). Each one becomes a decision record under `docs/docs_ACTIVE/europeanLocations/debugs/docs/` or is answered from the MVP with a citation; none is answered in chat only.
-7. Read item 9; every registered error must actually be in `OpenUBEM_debug_References.md` in the house format.
-8. Only then append item 8's row to both progress logs, update the head box of this prompt, and tell the user the verified outcome in the §16 form.
-
-A pack with status `LOCAL_PASS` whose tests you could not reproduce is `IMPLEMENTED_NOT_TESTED`, whatever it says.
-
-### 19.5 Slice ledger
-
-**Live continuation snapshot, 2026-08-23T22:25:00Z (supersedes older X-04 wording below):**
-`X-01`, `X-02`, `X-03`, `X-04`, and `X-08` are `LOCAL_PASS`; X-04's independently re-verified
-evidence is 9/9 physics and 94/94 European tests. `X-05` and `X-06` are the current `IN_PROGRESS`
-work: implement and validate an area-faithful equivalent-envelope saved-IDF emitter, then integrate
-the heating-only fixture. The TABULA aggregates must not be silently reshaped into a false closed
-prism. `X-07` is `IN_PROGRESS`, externally blocked only by missing CDS credentials for live ERA5.
-MVP §9.7 and `content/table_9_7_work_packages.csv` are the human and machine-readable WP-status
-views. On every material state change, update this snapshot and the executor continuation prompt as
-well as both append-only walkthrough logs.
-
-**Status correction, 2026-08-23T22:08:25Z (this paragraph supersedes older R3 wording in this section):** `X-04` is `LOCAL_PASS` and accepted under the recorded R3-A/R3-B ruling. The analytical one-node R3 primitive remains normative; the revised EnergyPlus fixture uses natural convection and proves non-stagnating physical decay. Independent evidence: 9 physics tests passed in 2.92 s and 94 European `test_eu_*.py` tests passed in 12.28 s (`openubem/outputs/eu_evidence/X-04/targeted_pytest_complete_reverified.log`). The repository-wide rerun stalled at 10% on the known Windows/joblib process issue and is not claimed as complete. `X-05` and `X-06` remain the active local implementation work; `X-07` remains blocked only by absent CDS credentials.
-
-**Current accepted slice status (2026-08-23T20:50:00Z):** `X-01`, `X-02`, `X-03`, and `X-08` are `LOCAL_PASS`; see their corresponding `openubem/outputs/eu_evidence/X-*/` directories. `X-04` is `PARTIAL`: R5 and R7 pass under the accepted engine-aware R5 criterion, while the local executable R3 fixture remains a strict expected failure (19.998714 C at tau versus the DR11 target 7.357589 C). Its complete evaluator packet is `debugs/docs/ANALYSIS_REQUEST_X-04-R3_X-07-CDS_2026-08-23.md`; do not change R3's strict criterion without a recorded resolution. `X-05` is `PARTIAL`: its deterministic four-type D-EU-01 box plans and full source-coefficient readback pass 60 targeted tests; saved-IDF envelope emission remains. `X-06` is `PARTIAL`: saved-IDF heating-only, no-cooling, gain, ACH, and `F_red_temp` control emission passes 7 targeted tests; it awaits integration with X-05 geometry and a heating fixture. `X-07` is `PARTIAL`: `cdsapi`/`pvlib`/`xarray` are installed, but live ERA5 retrieval remains blocked by absent CDS credentials. X-01's targeted suite passed 24/24; its full-suite rerun stalled at 89% after unrelated Windows/joblib access violations in `tests/test_step3_orchestrator.py`. X-02's six targeted registry tests pass, X-03's 47 tests cover all 22 band boundaries, and X-08's combined 81 tests re-derive the France physical registry.
-
-| Slice | Scope | Status | Evidence |
-|---|---|---|---|
-| `X-01` | CP0 baseline capture + EU-01 reconciliation loader over parent tables; fixture copy with SHA-256; one negative test | `LOCAL_PASS` | `openubem/outputs/eu_evidence/X-01/` |
-| `X-02` | EU-01 registry JSON (`es`/`gb`/`it`) + EU boundary-condition join + `TABULA_PROVENANCE.md` + `exclusions.csv` | `LOCAL_PASS` | `openubem/outputs/eu_evidence/X-02/` |
-| `X-03` | EU-02 22-band `tabula_period()` with boundary tests; multi-/no-match error path | `LOCAL_PASS` | `openubem/outputs/eu_evidence/X-03/` |
-| `X-04` | EU-03 single-surface fixtures proving D-EU-02 arithmetic (NoMass U, `InternalMass` = `c_m`, `OtherSideCoefficients` 0.5/0.5) **+ the three DR11 §4 numeric fixtures** (R3 time constant 7.3576 °C ± 0.05 at τ; R5 flux 20.000 W ± 0.001; R7 scaling ratio 0.8500 ± 0.0001) | `PARTIAL` | R5/R7 pass; 8 passed, 1 strict R3 xfailed. The executable R3 fixture measures 19.998714 C at tau versus the DR11 target 7.357589 C; see `openubem/outputs/eu_evidence/X-04/targeted_pytest_r3_fixture.log`. |
-| `X-05` | EU-04 box generator from TABULA areas (D-EU-01) on the S0 fixtures + `h_Transmission`/`h_Ventilation` read-back + GEO-01 | `PARTIAL` | 60 targeted tests pass: four S0 plans conserve ruled area/volume/walls and all source coefficients read back. Saved-IDF emission remains; `debugs/docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md`. |
-| `X-06` | EU-05/EU-07 heating-only ideal loads, constant air change, `F_red_temp` multiplier, Q1 list prepared | `PARTIAL` | 7 saved-IDF control tests pass. Integrate S0 geometry-surface emission and run the heating-only fixture next. |
-| `X-07` | EU-07 weather: ERA5 fetch (Madrid 2009–10, London 2014–15, Bologna 2013–14) → EPW via `pvlib` + six-gate checklist (DR08 §6) → `weather_registry.json` with the CDS-served licence text; 12-month pinning script (`RULED_NOT_PINNED` until corpus dates read) | `PARTIAL` | `cdsapi`, `pvlib`, and `xarray` are installed; live retrieval remains blocked only by absent CDS credentials. |
-| `X-08` | EU-01 (FR): France registry from the pinned workbook — assert 50 existing rows, adopt 40 `FR.N`, exclude 10 `FR.OPHM` with reasons; `tabula_archetypes_fr.json` + FR bands in `tabula_period()` + tests | `LOCAL_PASS` | `openubem/outputs/eu_evidence/X-08/` |
-| — | EU-02 residential filter + candidate-neighbourhood metrics | `BLOCKED` until the city density-rule decision record is registered (DR10 **accepted 2026-08-23**; its candidate lists are inputs, never counts) | — |
-
-(Walkthrough §12.4 carries X-01–X-03 in full, §12.5 the X-04–X-06 outlines, and §12.6 the X-02/X-04 amendments plus X-07/X-08; X-02 was extended the same evening with the eleven extra `Calc.Set.Building` columns the rulings need, and again after DR09 acceptance: `TABULA_PROVENANCE.md` gets the verbatim clause and the licence field becomes `VERIFIED`.)
-
-Update this ledger at every acceptance; it is the only place the executor's progress is summarised
-outside the walkthrough log.
-
-### 19.6 Fresh-session restart checklist
-
-1. Read this prompt's head box, §19.3, and §19.5; then read the last ten rows of
-   `content/walkthrough_progress_log.csv` and Table 4 in the walkthrough. Treat the newest dated row
-   as the operational state if wording differs.
-2. Inspect `git status --short`, `git diff --stat`, and the named evidence directory before changing
-   code. The worktree is intentionally dirty; preserve all unrelated changes and never commit.
-3. Continue the first unblocked dependency in the next-action field. At this handoff that is saved-IDF
-   S0 geometry/envelope emission plus the X-06 heating fixture. Do not repeat tests merely to recreate
-   evidence that already exists.
-4. For every material result append the same UTC row to **both** Table 4 and
-   `content/walkthrough_progress_log.csv`, with command, evidence path, observed result/blocker, and
-   next action. Update this §19.5 ledger at the same time.
-5. A response after the executor has ended is not background execution. A later session resumes only
-   from the recorded state; it must not claim it continued while inactive.

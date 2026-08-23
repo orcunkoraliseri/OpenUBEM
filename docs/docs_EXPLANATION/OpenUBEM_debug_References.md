@@ -1303,5 +1303,26 @@ ID OPEN-61). Snapshot only — always re-read the register before acting.
 
 ---
 
+- **EU parent-table reconciliation rejected six valid GB rows as non-existing variants** — X-01 copied rows such as `GB.ENG.AB.02-03.ApartmentBuildings.SyAv.002.001` failed a local `.endswith(".001.001")` assertion, although the parent generator's actual retention predicate is `code.endswith('.001')` (`C:\Users\o_iseri\Desktop\GSSCanada\GSSCanada-main\4J_docs_occ\tools\4thJ_step8_tabula.py:315`) and the final `.001` is the existing-state component. Fix: validate the final `.001` suffix plus `Number_BuildingVariant == 1` in `openubem/data/construction/tabula_reconcile.py`; the X-01 decision record preserves the authority resolution. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-01_variant-suffix-2026-08-23.md)*
+
 *Maintenance: when a debug/measurement doc lands, add its distinct, reusable failure modes here in the same
 `**Symptom** — cause -> fix. *(path)*` form. Keep `[OPEN]` markers current against the register.*
+# X-02 ventilation coefficient mismatch (2026-08-23): the planned `V_C / A_C_Ref` identity did not reproduce the pinned TABULA `h_Ventilation` values. The direct `Calc.Set.Building` relation is `0.34 * (n_air_use + n_air_infiltration) * h_room`; ruling and source example are in `docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-02_ventilation-coefficient-2026-08-23.md`.
+
+## European locations X-04
+
+- **DR11 R5 returns 19.993496 W, not the literal 20.000 W ± 0.001 W** — the local EnergyPlus
+  23.1 fixture confirms its 0.5/0.5 other-side temperature is exactly 10.000 C, but retains an
+  effective inside-film resistance even after a very large inside convection coefficient is
+  requested. This stays a strict `xfail`; see
+  `docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-04_R5-engine-film-2026-08-23.md`.
+
+- **X-04 resolution and R3 follow-up (2026-08-23)** — the evaluator accepted the documented
+  engine-aware R5 tolerance, so R5 now passes; R7 also passes. The executable R3 fixture
+  preconditions to 20 C and applies a 0 C boundary but returns 19.998714 C at 14.0625 h rather
+  than 7.357589 C. It is retained as a strict expected failure pending reconciliation; see
+  `openubem/outputs/eu_evidence/X-04/targeted_pytest_r3_fixture.log`.
+
+## European locations X-05
+
+- **A weighted U-value cannot reconstruct TABULA's `h_Transmission` target** — component-specific boundary factors are embedded in the calculator's eleven `H_Transmission_*` terms. Preserve and sum those cached terms, divided by `A_C_Ref`, for the exact source readback; do not substitute a weighted-U approximation. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*

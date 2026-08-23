@@ -5,9 +5,14 @@
 - **Location in Repo**: [`docs/docs_ACTIVE/europeanLocations/WALKTHROUGH_european_locations.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_ACTIVE/europeanLocations/WALKTHROUGH_european_locations.md)
 - **Sister MVP Implementation Spec**: [`docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md)
 - **GSSCanada Reference**: [`C:\Users\o_iseri\Desktop\GSSCanada\GSSCanada-main\4J_docs_occ\Step8_docs\IMP_step8\4thJ_08_bemSimulation_IMP.md`](file:///C:/Users/o_iseri/Desktop/GSSCanada/GSSCanada-main/4J_docs_occ/Step8_docs/IMP_step8/4thJ_08_bemSimulation_IMP.md)
-- **Scientific & Algorithmic Provenance**: *Iseri et al. (2025), Energy and Buildings 337, 115620*; `IMP_step8/outputs/floor_layout_generation_report.md`, `IMP_step8/outputs/kbem_ankara_pipeline.py`, `IMP_step8/extracted_scripts/custom_scripts_catalog.json`
+- **Scientific & Algorithmic Provenance** — three distinct tiers, never conflated (citation rule fixed 2026-08-23):
+  1. **Published paper**: *Iseri et al. (2025), Energy and Buildings 337, 115620* — method and sample (593 residential buildings of 642; 6,458 dwelling units).
+  2. **Raw dataset**: `IMP_step8/resources/AllV{1,2,3,4}_updated2023June.csv`.
+  3. **Derived re-analysis (2026-08-22) and algorithm sources**: `IMP_step8/outputs/simulation_results_analysis_report.md`, `floor_layout_generation_report.md`, `kbem_ankara_pipeline.py`, `IMP_step8/extracted_scripts/custom_scripts_catalog.json`. **Not the published paper**; cite by filename.
 - **Core OpenUBEM Docs**: [`OpenUBEM_fundamentals.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_fundamentals.md), [`OpenUBEM_inputs_reference.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_inputs_reference.md), [`OpenUBEM_imputation_methods.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_imputation_methods.md), [`simulated_vs_reconstructed_methodology.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/simulated_vs_reconstructed_methodology.md), [`OpenUBEM_debug_References.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_debug_References.md)
 - **Reusable Figure/Table Assets**: [`content/`](content/README.md)
+- **Parent Step 8 Authorities (tier 1)**: `Step8_docs/4thJ_08_bemSimulation.md`, `Step8_docs/4thJ_08_bemSimulation_val.md`, `Step8_docs/outputs_step8/archetype_parameter_provenance.md`, and the existing tables `Step8_docs/outputs_step8/archetype_parameters_{es,uk,it}.csv` (relative to `C:\Users\o_iseri\Desktop\GSSCanada\GSSCanada-main\4J_docs_occ\`).
+- **Revision**: v1.3 (2026-08-23) — source-alignment notes added in place, §12 executor contract added for external LLM sessions (Codex / Antigravity). Nothing from v1.0–v1.2 was removed.
 
 > **Document role.** The MVP is the principal technical specification. This walkthrough is the execution layer: ordered tasks, commands, evidence requirements, stop conditions, and an append-only progress log. When scientific wording differs, update the MVP first and make this document point to that decision.
 >
@@ -16,6 +21,21 @@
 > **Implementation-status notice (v1.1 review, 2026-08-22).** The original v1.0 walkthrough below is retained in full for provenance. Several snippets are proposed interfaces rather than runnable calls against OpenUBEM `0.1.0`. Use the code-audited procedure in **Section 9** as the operational authority until the European adapters are implemented and their tests pass.
 >
 > **Speed/pre-occupant extension.** Section 10 provides the operational Speed runbook, including optional 48/64-way concurrency and the input-map/control pilots required before occupant injection.
+
+> **Citation audit (v1.2, closed 2026-08-23).** Nine numeric claims attributed to *Iseri et al. (2025)* across this document and the MVP failed source verification and were corrected under [`debugs/PLAN_citation-audit-fixes-2026-08-23.md`](debugs/PLAN_citation-audit-fixes-2026-08-23.md) (`CLOSED`). In this document specifically:
+> - **§1** — "277 buildings" corrected to **593**; the invented "top-floor 15–25%" replaced by the sourced **+148.8%**; the corner-unit "25–40%" withdrawn as `UNSOURCED` with no substitute number invented.
+> - **§4.3** — the Ankara fallback rate "8.3% (25/277)" is `UNSOURCED`; the European rate must be measured by `GEO-04` and `GEO-10`, not inherited.
+> - **§7.1** — the `reconstruct_eui` snippet is marked `TARGET API`; that function does not exist in OpenUBEM `0.1.0`. The real function is `reconstruct_frame`.
+> - **§7.4** — the IOD figures are real but come from the 2026-08-22 re-analysis, and are V1-versus-V4 iterations rather than a direct building-level/dwelling-level pair.
+> Apply the same rule to any new figure added here: name its source file and line, or mark it `UNSOURCED`.
+
+> **Source-alignment pass (v1.3, 2026-08-23).** [MVP §11](MVP_european_locations.md#11-v13-source-alignment-addendum--facts-from-the-parent-step-8-authorities) now carries the tier-1 facts this runbook must execute against. Four of them change commands in this document and are marked in place with a `v1.3` note:
+> - **§2.1 / §9.3** — the 102-archetype parameter tables already exist (`outputs_step8/archetype_parameters_{es,uk,it}.csv`); the registry step reconciles them rather than re-deriving from the workbooks. The canonical file name is `tabula_archetypes_gb.json` (§9.3), not `_uk.json` (§2.1).
+> - **§2.1 / §4.1** — the example epoch `ES.04 = 1980–2006 "NBE-CT-79"` and the `map_construction_vintage` boundaries do not match the verified TABULA bands (`ES.04` = 1960–1979; `ES.05` = 1980–2006, labelled `CTE-79`). Use MVP Table 15.
+> - **§5.4** — the per-country ventilation rates 0.40 / 0.59 / 0.30 h⁻¹ are TABULA *national* rows; the campaign value is the EU row, 0.4 h⁻¹ for every archetype (MVP §11.2).
+> - **§9.5 / §9.8** — the weather windows are ruled (`es` 2009–2010, `uk` 2014–2015, `it` 2013–2014) but not acquired; zero-at-home diary days are an explicit schedule branch; the chaining rule (decision 14) blocks every `f>0` cell.
+>
+> **§12** adds the executor contract for sessions run on external LLM tooling (Codex GPT, Gemini Antigravity): what a slice is, what evidence it returns, what it may never do, and the first slice to execute.
 
 ---
 
@@ -38,7 +58,16 @@ This walkthrough provides an operational, step-by-step engineering guide for exe
 
 *Walkthrough Figure 1. Six execution phases from standards registration to evidence-backed acceptance. Reusable source: [`content/walkthrough_figure_1_execution_pipeline.mmd`](content/walkthrough_figure_1_execution_pipeline.mmd).*
 
-**Why dwelling-level zoning matters:** The Ankara KBEM study (*Iseri et al., 2025*; 6,458 dwelling units across 277 buildings) demonstrated that building-level aggregation suppresses $75.5\%$ of inter-dwelling energy variance (std dev drops from $63.61$ to $15.54\text{ kWh}/\text{m}^2\text{a}$) and underestimates peak thermal vulnerability by $3.2\times$. Corner units consume $25\text{--}40\%$ more heating energy than middle units; top-floor units have $15\text{--}25\%$ higher heating demand than mid-floor units. This variance is invisible to coarse building-level models and is the primary scientific justification for the procedural dwelling-subdivision approach in Phase 3.
+**Why dwelling-level zoning matters:** The Ankara KBEM study (*Iseri et al., 2025*; 6,458 dwelling units across **593 residential buildings** of 642 in the study area) shows that building-level aggregation suppresses $75.5\%$ of the inter-dwelling energy **standard deviation** (std dev drops from $63.61$ to $15.54\text{ kWh}/\text{m}^2\text{a}$) and underestimates extreme thermal vulnerability by $3.2\times$. Top-floor units require $213.20\text{ kWh}/\text{m}^2\text{a}$ against $85.70$ for mid-floor units — **$+148.8\%$**. A corner-unit heating penalty is expected on the same physical grounds but is `UNSOURCED`: no corner-versus-middle percentage exists in the paper or in the reference folders, so none is stated here. This dispersion is invisible to coarse building-level models and is the primary scientific justification for the procedural dwelling-subdivision approach in Phase 3.
+
+> [!NOTE]
+> **Citation rule.** The $63.61 / 15.54 / 75.5\% / 3.2\times / 213.20 / 85.70 / +148.8\%$ figures are
+> **not printed in the published paper**. They are computed in the 2026-08-22 re-analysis of the
+> paper's simulation data: `IMP_step8/outputs/simulation_results_analysis_report.md`, lines 24–32,
+> derived from `IMP_step8/resources/AllV{1,2,3,4}_updated2023June.csv`. Cite that report, not
+> *Iseri et al. (2025)* alone. Only the sample description (6,458 units, 593 buildings of 642) comes
+> from the paper itself. Note also that $75.5\%$ is a standard-deviation ratio; the same data
+> expressed as variance give $\approx 94\%$.
 
 ---
 
@@ -53,6 +82,8 @@ European building envelopes are parameterized against the **TABULA / EPISCOPE** 
 - `tabula_archetypes_fr.json` (France physical-model registry: count remains `NOT_AUDITED`; not part of the 102-record occupant registry)
 
 The first three files support the frozen ES/GB/IT occupant campaign. The French file is a current physical-pipeline deliverable: it must be generated from pinned French TABULA/EPISCOPE sources, audited independently, and used for controlled baseline simulations before any France occupant work begins.
+
+> **v1.3 note.** (1) The canonical GB file name is `tabula_archetypes_gb.json` (§9.3 governs; `_uk.json` above is the v1.0 wording). (2) The epoch counts "6 / 8 / 8" are correct, but the epochs are not re-typed from memory: they are the 22 verbatim TABULA bands in [MVP Table 15](MVP_european_locations.md#114-the-22-construction-year-bands-verbatim). (3) The example entry below is illustrative and its `"epoch_code": "ES.04"` with `"year_range": [1980, 2006]` and "NBE-CT-79 Era" does **not** match the file: `ES.04` is 1960–1979 and `ES.05` is 1980–2006, whose workbook label is `CTE-79` (`NBE-CT-79` appears nowhere in the workbook). (4) The example's `"infiltration_ach": 0.40`, `"capacitance_wh_m2k": 50.0` and `"boiler_efficiency": 0.88` are not TABULA values for this row; the campaign values are `n_air_use = 0.4`, `c_m = 45` from the `EU.MUH` boundary-condition row (MVP §11.2), and the boiler efficiency is an `EU-05` assumption to be declared. (5) The upstream source for all three ES/GB/IT files is the parent's existing `outputs_step8/archetype_parameters_{es,uk,it}.csv` — see §9.3 reconciliation block and MVP Table 14 for the column crosswalk.
 
 **TABULA Source Artefact Checksums** (for reproducibility):
 - `tabula-values.xlsx` (4.0 MB): MD5 `7347b2cae3c4d9f5ce78221e9d5fb832`
@@ -239,6 +270,8 @@ def map_construction_vintage(year_built: int) -> str:
         return "ES.06"  # CTE-2013/2019 Standard
 ```
 
+> **v1.3 note.** `get_grid_division_counts` is verbatim from `IMP_step8/outputs/kbem_ankara_pipeline.py` (derived from Grasshopper components idx 1938 and 4188). `map_construction_vintage` is **not**: the real function in that file returns the Turkish bins `1960 / 1980 / 2000` (boundaries `<1980`, `1980–1999`, `≥2000`; post-TS 825), and the `ES.xx` version above is an illustrative adaptation whose boundaries contradict the verified TABULA bands (`ES.03` = 1937–1959, `ES.04` = 1960–1979, `ES.05` = 1980–2006, `ES.06` ≥ 2007). `EU-02` implements [MVP Table 15](MVP_european_locations.md#114-the-22-construction-year-bands-verbatim) for all 22 bands and tests every boundary year (e.g. 1900/1901, 1959/1960, 1979/1980, 2006/2007 for Spain); do not copy the snippet above into production code.
+
 ### 4.2 Applying Procedural Layout Slicing (`openubem.geometry.layoutGenerator`)
 
 For multi-family typologies (`MFH`, `AB`), `openubem.geometry.layoutGenerator` slices the floor plate into discrete dwelling units and carves out the central circulation core.
@@ -289,7 +322,7 @@ When the target grid fails (degenerate or narrow footprint), the layout generato
 2. Fall back to next smaller grid ($2\times 2 \to 2\times 1$)
 3. Fall back to $1\times 1$ (full floor plate as single zone)
 
-Every fallback records an explicit reason token. From the Ankara validation dataset, 8.3% of buildings (25/277) required fallback, primarily due to narrow footprints ($<8\text{ m}$ width) or highly irregular shapes.
+Every fallback records an explicit reason token. The fallback *causes* — narrow footprints ($<8\text{ m}$ width) and highly irregular shapes — are the operative engineering rule. The previously quoted Ankara fallback rate of "8.3% of buildings (25/277)" is `UNSOURCED`: it appears in neither the published paper nor any document under `IMP_step8/outputs/`, `DeepResearch/`, `resources/`, or `extracted_scripts/` (verified 2026-08-23; see MVP §4.7). Do not quote it as evidence. The European fallback rate must be measured by `GEO-04` and `GEO-10`, not inherited.
 
 #### Ground-Contact Modeling
 The Ankara pipeline tested `GroundDomain:Slab` but abandoned it for `Ground:FcfactorMethod` due to stability issues. The European campaign ground-contact method must be selected, documented, and applied consistently across all archetypes.
@@ -349,6 +382,8 @@ European total solar energy transmittance ($g_{\text{gl}}$ per EN 410 / ISO 9050
 ### 5.4 Natural Ventilation & Infiltration Assumptions
 
 The European campaign maintains a **closed-window assumption** with continuous background infiltration per TABULA methodology. Natural ventilation window opening is not modeled. This is consistent with the Ankara validation study (*Iseri et al., 2025*) and ensures that the only experimental variable is the occupancy-driven internal gain schedule. Ventilation rates are assigned per country: ES $0.40\text{ ACH}$, GB $0.59\text{ ACH}$, IT $0.30\text{ ACH}$ (see EN 16798-1 Table B.4 equivalence in MVP Section 2.2.1).
+
+> **v1.3 note — superseded value.** The three per-country rates are TABULA's *national* boundary-condition rows (`ES.SUH`, `GB.Gen`, `IT.SUH`). All 102 campaign archetypes point at the **EU** rows (`EU.SUH`/`EU.MUH`), whose `n_air_use` is $0.4\text{ h}^{-1}$ in every fold, and the parent ruling keeps the EU set precisely because the national set's factor-two air-change spread is country-correlated and confounded with the held-out-fold signal ([MVP §11.2](MVP_european_locations.md#112-the-eu-boundary-condition-set-is-the-campaign-set)). `EU-05` assigns $0.4\text{ h}^{-1}$ to every dwelling zone; the national values may be run only as a separately declared sensitivity.
 
 ---
 
@@ -427,6 +462,10 @@ sbatch --array=1-510 -c 1 --mem=4G --wrap="bash -lc 'python -m openubem.simulati
 Once EnergyPlus completes, OpenUBEM extracts the 4 simulated physics end-uses and reconstructs the whole-building EUI using national TABULA Table 4 end-use splits:
 
 ```python
+# TARGET API — not runnable in OpenUBEM 0.1.0.
+# `reconstruct_eui` does not exist in the repository (verified 2026-08-23; MVP §9.2).
+# The current function is `openubem.results.service_loads.reconstruct_frame`, and
+# reconstruction is disabled by default because Phase E physically models five service loads.
 from openubem.results.service_loads import reconstruct_eui
 
 # Simulated results from EnergyPlus SQL / CSV output
@@ -488,7 +527,7 @@ Where cooling performance is relevant (particularly for UK stock), overheating i
 - *Criterion A*: Living/bedrooms $\le 3\%$ of occupied hours exceeding $\Delta T \ge 1\text{ K}$ operative temperature above comfort limit.
 - *Criterion B*: Bedrooms $\le 32\text{ hours}$ exceeding $26^\circ\text{C}$ between 22:00–07:00.
 
-The Ankara validation study reported $IOD$ peaks up to $0.817^\circ\text{C}\cdot\text{h}/\text{a}$ at dwelling level versus $0.565$ at building level, confirming that zone-level resolution captures $44.6\%$ higher peak overheating exposure.
+The 2026-08-22 re-analysis of the Ankara simulation data reports a maximum $IOD$ of $0.817^\circ\text{C}\cdot\text{h}/\text{a}$ in the zone-level iteration `V4` versus $0.565$ in the coarsest iteration `V1` — $+44.6\%$ peak overheating exposure (`IMP_step8/outputs/simulation_results_analysis_report.md:60`). These are V1-versus-V4 modelling iterations, not a direct building-level/dwelling-level pair, and the values are not printed in the published paper; cite the re-analysis report.
 
 ### 7.5 Intermittent Heating Factor Preservation
 
@@ -575,6 +614,35 @@ FR physical count = independently audited; excluded from total=102
 
 The sample JSON in Section 2.1 is illustrative. Values must come from the pinned workbooks/source cells; do not copy the example into production data.
 
+#### 9.3.1 Reconcile against the parent tables first (v1.3)
+
+The primary input is not the workbook; it is the parent's existing, provenance-audited table set ([MVP §11.3](MVP_european_locations.md#113-the-parameter-tables-already-exist-eu-01-consumes-them)):
+
+```text
+C:\Users\o_iseri\Desktop\GSSCanada\GSSCanada-main\4J_docs_occ\Step8_docs\outputs_step8\
+├── archetype_parameters_es.csv      # 24 data rows + 3 trailing '#' comment lines, 44 columns
+├── archetype_parameters_uk.csv      # 36 data rows + 3 trailing '#' comment lines
+├── archetype_parameters_it.csv      # 42 data rows + 3 trailing '#' comment lines
+├── archetype_parameter_provenance.md
+└── raw/tabula-values.xlsx, raw/tabula-calculator.xlsx   # pinned workbooks
+```
+
+Read them with `comment="#"` (or skip lines starting with `#`); otherwise the row counts read 27 / 39 / 45. Then assert, before writing any JSON:
+
+```text
+rows(es, uk, it)                         == (24, 36, 42)
+set(Code_BoundaryCond)                   == {"EU.SUH", "EU.MUH"}        # refuse any other pointer
+Number_BuildingVariant                   == 1 on every row                # existing state only
+Code_BuildingVariant.str.endswith(".001")       on every row                # parent existing-state filter; `SyAv.002.001`/`.005.001` are valid
+set(Code_ConstructionYearClass)          == the 6 / 8 / 8 codes of MVP Table 15
+phi_int                                  == 3 on every row
+Code_ClimateRegion                       == {"ES.ME"}, {"GB.Temperate"}, {"IT.MidClim"} per file
+all GB Code_Building values start with "GB.ENG."                          # England-only limitation
+"ES.TestRegion" appears in no row                                         # the 4 unclassified rows are absent
+```
+
+Record the parent MD5s as found (`tabula-values.xlsx` `7347b2cae3c4d9f5ce78221e9d5fb832`; `tabula-calculator.xlsx` `c99ddc9ffcb6dc0ae7391273d9619e37`) and compute SHA-256 of the pinned copies in `raw/` for the OpenUBEM record. Join `n_air_use`, `c_m`, `theta_i`, `F_red_htr1/4` from `Tab.BoundaryCond` on `Code_BoundaryCond` (values in [MVP Table 13](MVP_european_locations.md#112-the-eu-boundary-condition-set-is-the-campaign-set)); the table does not carry them as columns. `g_gl` is also absent and comes from `Tab.U.Class.Window` or is declared an assumption. The *independent* check of the 24/36/42 counts is re-running the parent builder (`python tools/4thJ_step8_tabula.py Step8_docs/outputs_step8`, from the GSSCanada root — read-only with respect to OpenUBEM) and diffing the CSVs; it is not the primary path. Do not collapse the GB parallel parameterisations or the IT composite codes: which row represents a cell is parent open decision §6.4 and must surface as an explicit error in `EU-02` ([MVP §11.5](MVP_european_locations.md#115-the-three-folds-do-not-share-one-archetype-structure--an-open-parent-decision)).
+
 ### 9.4 Use the Existing Acquisition and Imputation APIs Correctly
 
 The current acquisition entry point is `ingest_buildings`, not `fetch_osm_buildings`:
@@ -625,6 +693,8 @@ The current `epw_manager.fetch_epw` resolves station-based EPW files, but the St
 6. ensure every `f` level within a fold references the exact same weather checksum.
 
 Do not use the current nearest-station TMY download as a substitute merely to unblock a production result. It may be used only for a clearly labelled geometry/IDF smoke test.
+
+> **v1.3 — what is ruled and what is owed** ([MVP §11.6](MVP_european_locations.md#116-weather-is-ruled-not-acquired)). Ruled 2026-08-21: each fold runs on the actual meteorological year of its own fieldwork window — `es` **2009–2010**, `uk` **2014–2015**, `it` **2013–2014**. Owed before any weather-driven number may be quoted: (1) the fieldwork calendars, pinning "survey year" to twelve definite months (proposed rule: the 12 consecutive months containing the most diaries in that fold, measured from the corpus's own dates); (2) an AMY source whose licence permits *publishing derived results*; (3) a station/location, because TABULA's tags (`ES.ME`, `GB.Temperate`/`ENG`, `IT.MidClim`) are not coordinates. Madrid / London / Bologna and the ERA5 route in the Step 8 implementation document are candidates, not rulings. Step 1 of the list above therefore reads: *confirm the three windows from the Step 7 corpus dates, and write `weather_registry.json` with `status: "RULED_NOT_ACQUIRED"` until all three items are on disk.* Q1/Q2 smoke runs on a TMY carry `weather_status: "SMOKE_TMY"` in their manifest and their EUIs are never reported as baselines.
 
 ### 9.6 Add European Geometry Without Replacing the Existing Generator
 
@@ -725,6 +795,10 @@ Do not use `Schedule_Type_Limits_Name="Fractional"` for a file containing `phi_i
 
 Also verify that legacy DOE occupancy/equipment schedules are not simultaneously applying a second temporal modulation to the same experimental gain.
 
+> **v1.3 — two additions to the sequence** ([MVP §11.7](MVP_european_locations.md#117-diary-derived-facts-the-schedule-adapter-must-handle)).
+> - **Zero-at-home days are an explicit branch.** 1,320 diaries (1.802 %; `uk` 2.927 %, `es` 1.641 %, `it` 1.417 %) have zero at-home minutes. Step 2's `mean(g) > 0` check applies to the **annual** series after chaining; per day, `g = 0` is valid and yields $\phi_{\text{int}}(t) = (1-f)\cdot 3.0$ at every hour of that day. The adapter writes the count of zero-presence days per dwelling into the cell manifest (`zero_presence_days`) so the fold difference stays visible.
+> - **The chaining rule is a blocker, not a field.** `chaining_rule` in the presence-series record must name a ruled Step 7 convention (open decision 14). Until it does, every `f>0` emission is `BLOCKED`; the `f=0` path (constant series, Q1–Q3, FR-B) does not depend on it and proceeds. If the Step 7 chaining-sensitivity experiment reports more than 25 % spread on peak demand, record that the campaign partly measures the convention — the G8 gates cannot separate the two.
+
 ### 9.9 Build the 510-Row Campaign Table
 
 Generate the campaign table before any simulation:
@@ -814,6 +888,8 @@ Replace the fixed `[x] PASS` labels in Section 7.2 with generated statuses. The 
 10. run the null mutation and confirm that none fall.
 
 The generated gate report must include `status ∈ {PASS, FAIL, BLOCKED, NOT_RUN}`, evidence paths, observed values, thresholds, and failure reasons. `READY`, `implemented`, or a prose checklist is not a substitute for `PASS`.
+
+> **v1.3 note.** Steps 9 and 10 run the twelve perturbations of [MVP Table 17](MVP_european_locations.md#118-full-perturbation-matrix-and-vacuity-guards-for-eu-09) in that order, with the null perturbation last, and the coverage cross-tab (perturbation × gate → fell / stayed clean) is itself a retained artefact (`validation/mutation_coverage.parquet` in §9.15). The seven vacuity guards of MVP Table 18 are asserted before step 1, because a scorer that read too few cells (V8.a) or a second copy of the bands (V8.c) makes every later step vacuous. The mutation for G8.11 is the pre-9.4 meter name `Gas:Facility`; with the pinned EnergyPlus 23.1 the valid name is `NaturalGas:Facility`, and the accepted meter list is generated from that engine's `.mdd`, not copied from the 9.2-era Step 8 implementation document. Wherever G8.1–G8.4 appear in a report, print the parent's sentence: *"G8.1–G8.4 are reproducibility gates. They compare a cell against a re-run of itself. They are not a validation of simulated energy against measured energy, and no such validation is claimed anywhere in this paper."*
 
 ### 9.13 Minimum Test Matrix
 
@@ -1245,5 +1321,143 @@ For every material attempt, append one row containing UTC date, repository commi
 | 2026-08-23 | `e04f42a` + dirty-tree caveat | `T-DOC` | `LOCAL_PASS` | `git diff --check`; relative-link/SVG/CSV validation; `scripts/convert_docs_to_pdf.py`; headless SVG previews | Both PDFs regenerated; repaired figures visually inspected | Begin CP0 / EU-01–EU-02 local implementation slice |
 | 2026-08-23 | `e04f42a` + dirty-tree caveat | `T-DOC` | `LOCAL_PASS` | Final static validation; director prompt archived and updated | Markdown/source assets are authoritative; PDF output is optional | Begin CP0 / EU-01–EU-02 local implementation slice |
 | 2026-08-23 | `e04f42a` + dirty-tree caveat | `T-SELECT` | `DOCUMENTED` | Added `NS-01`–`NS-10`, reference four-panel asset, and future-session prompt rule | N1/N2 are real contiguous dense residential neighbourhoods, not disconnected samples | Implement candidate-neighbourhood metrics and deterministic residential filter |
+| 2026-08-23 | `fda5336` + dirty-tree caveat | `T-DOC` | `LOCAL_PASS` | Source-verification of every *Iseri et al. (2025)* numeric attribution against the paper PDF, `outputs/`, `DeepResearch/`, `resources/`; recomputation from `AllV{1,2,3,4}_updated2023June.csv`. Evidence: [`debugs/PLAN_citation-audit-fixes-2026-08-23.md`](debugs/PLAN_citation-audit-fixes-2026-08-23.md) | 9 attributions failed verification and were remediated; plan `CLOSED`, CP-1 and CP-2 satisfied; rulings Q1-C, Q2-A, Q3-B, Q4-A, Q5-A recorded | Begin CP0 / EU-01–EU-02 local implementation slice |
+| 2026-08-23 | `fda5336` + dirty-tree caveat | `T-DOC` | `DOCUMENTED` | Source-alignment pass v1.3: parent tier-1 authorities (`4thJ_08_bemSimulation.md`, `_val.md`, `outputs_step8/archetype_parameter_provenance.md`, `archetype_parameters_{es,uk,it}.csv` re-read: 24/36/42 rows, 44 columns, all `EU.SUH`/`EU.MUH`, `phi_int = 3`). Evidence: MVP §11 (Tables 13–19); this document §2.1, §4.1, §5.4, §9.3.1, §9.5, §9.8, §9.12 notes; §12 executor contract | EU boundary-condition set governs `c_m`/`n_air_use` (national values superseded in place); parent tables are the EU-01 input; 22 bands listed verbatim; weather ruled-not-acquired; chaining rule blocks `f>0`; perturbation matrix itemised | Dispatch slice `X-01` (§12.4) to an external executor and audit its evidence pack |
+| 2026-08-23 | `fda5336` + dirty-tree caveat | `T-DEC` | `DOCUMENTED` | `openpyxl` read of `Calc.Set.Building` cached values for the 102 archetype keys → [`debugs/docs/tabula_102_extra_columns_2026-08-23.csv`](debugs/docs/tabula_102_extra_columns_2026-08-23.csv); rulings written under user delegation → [`debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](debugs/docs/DECISIONS_parent-open-items-2026-08-23.md); briefs → [`DeepResearch/`](DeepResearch/README.md) | D-EU-01…07 RULED (box from areas + `n_Apartment`; mass-less U + `InternalMass` = `c_m`; `n_use + n_inf`; all 102 rows; four-end-use with TABULA `q_w_nd`; no cooling; `F_red_temp` as U multiplier); D-EU-05/08/10/11 OWED to DR08–DR11; D-EU-09 chaining BLOCKED upstream | Run DR08–DR11 in a deep-research tool; dispatch `X-01` |
+| 2026-08-23 | `fda5336` + dirty-tree caveat | `T-DEC` | `DOCUMENTED` | DR08–DR11 reports returned and audited against their briefs' acceptance tests; episcope.eu clause re-verified live (verbatim); Copernicus PDF URL stale but CDS states CC-BY → [`DeepResearch/README.md`](DeepResearch/README.md) §Acceptance Record | **All four reports ACCEPTED**; D-EU-05/08/10/11 **CLOSED** (ERA5 + Madrid/London/Bologna + six-gate EPW checklist; publication permitted with the IEE TABULA + EPISCOPE attribution; Lyon = fourth city, datasets/crosswalks/candidates pinned; France = 40 `FR.N` rows, 10 `FR.OPHM` excluded); D-EU-01/02/03/07 **VALIDATED** by DR11 (3 numeric fixtures adopted into X-04); **D-EU-09 sole remaining block**, `f>0` only — MVP §11.13 Table 21 | Dispatch `X-01` (prompt §19.3); `X-07`/`X-08` defined in §12.6 |
+| 2026-08-23T18:12:24Z | `fda5336` + dirty-tree caveat | `CP0 / EU-01` | `BLOCKED` | `pytest -q tests/test_eu_tabula_loader.py` → 1 passed, 23 errors; evidence: `openubem/outputs/eu_evidence/X-01/` | §9.3.1 requires every `Code_BuildingVariant` to end `.001.001`, but copied UK parent rows at lines 3/5/18/21/29/32 end `.002.001` or `.005.001` | Resolve the authority conflict before changing the invariant or parent fixture |
+
+| 2026-08-23T18:30:34Z | `fda5336` + dirty-tree caveat | `CP0 / EU-01 / X-01` | `LOCAL_PASS` | `.venv\\Scripts\\python.exe -m pytest -q tests\\test_eu_tabula_loader.py` -> 24 passed, 1 warning; attempted full suite evidence: `openubem/outputs/eu_evidence/X-01/` | Parent generator `tools/4thJ_step8_tabula.py:315` makes final `.001` the existing-state invariant; full suite stalled at 89% on unrelated Windows/joblib access violations in `tests/test_step3_orchestrator.py` | Begin X-02 registry generation with EU boundary-condition join |
+
+| 2026-08-23T18:36:03Z | `fda5336` + dirty-tree caveat | `EU-01 / X-02` | `LOCAL_PASS` | `.venv\\Scripts\\python.exe -m pytest -q tests\\test_eu_construction_sets.py` -> 6 passed; evidence: `openubem/outputs/eu_evidence/X-02/` | Generated 24 ES + 36 GB + 42 IT records with source-column parity, verified attribution, and byte-identical regeneration; direct workbook ventilation identity uses `h_room` | Begin X-03 construction-period mapping and boundary tests |
+
+| 2026-08-23T18:38:08Z | `fda5336` + dirty-tree caveat | `EU-02 / X-03` | `LOCAL_PASS` | `.venv\\Scripts\\python.exe -m pytest -q tests\\test_eu_construction_sets.py` -> 47 passed; evidence: `openubem/outputs/eu_evidence/X-03/` | `tabula_period` implements all 22 bands; resolver uses non-composite then `.Gen` precedence and explicitly refuses gaps/ambiguity | Begin X-04 single-surface and DR11 numeric physics fixtures |
+
+| 2026-08-23T18:40:50Z | `fda5336` + dirty-tree caveat | `EU-01 / X-08` | `LOCAL_PASS` | `.venv\\Scripts\\python.exe -m pytest -q tests\\test_eu_fr_registry.py tests\\test_eu_construction_sets.py tests\\test_eu_tabula_loader.py` -> 81 passed; evidence: `openubem/outputs/eu_evidence/X-08/` | Re-derived 40 `FR.N` records, excluded 10 `FR.OPHM` rows with reasons, and preserved the native `FR.N.MFH.08` anomaly | Resume X-04 local EnergyPlus physics fixtures; X-07 weather acquisition remains parallel |
+
+| 2026-08-23T19:20:00Z | `fda5336` + dirty-tree caveat | `EU-03 / X-04` | `BLOCKED` | `.venv\\Scripts\\python.exe -m pytest -q tests\\test_eu_physics_primitives.py tests\\test_eu_physics_energyplus.py` -> 5 passed, 1 strict xfailed; evidence: `openubem/outputs/eu_evidence/X-04/` | Saved-IDF D-EU-02 U/mass/b-factor arithmetic passes. EnergyPlus R5 gives the correct 10.000 C other-side temperature but 19.993496 W rather than DR11's literal 20.000 +/- 0.001 W because an inside film remains; R3/R7 are still absent. Decision record: `debugs/docs/DECISIONS_X-04_R5-engine-film-2026-08-23.md` | Await an accepted R5 numerical-fixture interpretation; then implement R3 and R7 |
+
+| 2026-08-23T19:25:00Z | `fda5336` + dirty-tree caveat | `EU-07 / X-07` | `BLOCKED` | Local dependency audit; evidence: `debugs/docs/DECISIONS_X-07-dependency-audit-2026-08-23.md` | `.venv` has no `cdsapi`, `pvlib`, or `xarray`, and `C:\\Users\\o_iseri\\.cdsapirc` is absent. ERA5 retrieval, licence-at-download capture, EPW conversion, and six-gate validation cannot be claimed. | Provide CDS credentials and packages; retain `RULED_NOT_PINNED` until the diary corpus is readable |
+
+| 2026-08-23T19:30:00Z | `fda5336` + dirty-tree caveat | `T-DOC / T-DOC-006` | `DOCUMENTED` | Evaluator packet: `debugs/docs/DECISION_REQUEST_X-04_X-07_2026-08-23.md` | Consolidates the exact X-04 R5 engine discrepancy and X-07 missing CDS/package dependencies without changing either slice's blocked status. | Await evaluator decision/action for X-04 and X-07 |
+
+| 2026-08-23T19:40:00Z | `fda5336` + dirty-tree caveat | `EU-03 / X-04` | `PARTIAL` | `.venv\\Scripts\\python.exe -m pytest -q tests\\test_eu_physics_primitives.py tests\\test_eu_physics_energyplus.py` -> 8 passed; evidence: `openubem/outputs/eu_evidence/X-04/targeted_pytest_after_r5_r7.log` | Evaluator accepted the R5 engine-aware tolerance. R5 and local EnergyPlus R7 pass; the R3 analytical time-constant reference passes, but the R3 dynamic EnergyPlus initialization fixture is still outstanding. | Implement and run the R3 dynamic EnergyPlus free-float fixture |
+
+| 2026-08-23T19:40:00Z | `fda5336` + dirty-tree caveat | `EU-07 / X-07` | `PARTIAL` | `.venv\\Scripts\\python.exe -m pip install cdsapi pvlib xarray`; evidence: `openubem/outputs/eu_evidence/X-07/dependency_installation.log` | Approved packages are installed (`cdsapi` 0.7.7, `pvlib` 0.15.2, `xarray` 2026.7.0). Live ERA5 acquisition remains blocked only by absent CDS credentials. | Configure project-owned CDS credentials, then fetch, convert, and validate ERA5 |
+
+| 2026-08-23T20:05:00Z | `fda5336` + dirty-tree caveat | `EU-03 / X-04` | `PARTIAL` | `.venv\\Scripts\\python.exe -m pytest -q tests\\test_eu_physics_primitives.py tests\\test_eu_physics_energyplus.py` -> 8 passed, 1 strict xfailed; evidence: `openubem/outputs/eu_evidence/X-04/targeted_pytest_r3_fixture.log` | R3 is now a local 10x10x3 m EnergyPlus release fixture with verified 20 C preconditioning and a 0 C boundary. It reports 19.998714 C at 14.0625 h, rather than DR11's 7.357589 C target; R5/R7 pass under the accepted R5 ruling. The R3 assertion remains a strict expected failure. | Request EnergyPlus-model reconciliation; continue independent X-05 work |
+
+| 2026-08-23T20:30:00Z | `fda5336` + dirty-tree caveat | `EU-04 / X-05` | `PARTIAL` | `.venv\\Scripts\\python.exe -m pytest -q tests\\test_eu_box_generator.py tests\\test_eu_construction_sets.py tests\\test_eu_fr_registry.py` -> 60 passed; evidence: `openubem/outputs/eu_evidence/X-05/targeted_pytest.log` | Four D-EU-01 S0 box plans conserve plate area, conditioned volume, and exposed-wall area. All 142 registry `h_Transmission` values read back exactly from cached source components; ventilation uses the governing `h_room` relation. Infeasible rectangle inputs fail explicitly. | Implement saved-IDF emission and integrate heating/air/`F_red_temp` in X-06 |
+
+| 2026-08-23T20:40:00Z | `fda5336` + dirty-tree caveat | `EU-05 / EU-07 / X-06` | `PARTIAL` | `.venv\\Scripts\\python.exe -m pytest -q tests\\test_eu_heating_controls.py tests\\test_eu_physics_primitives.py` -> 7 passed; evidence: `openubem/outputs/eu_evidence/X-06/targeted_pytest.log` | Saved-IDF controls emit 20 C heating-only IdealLoads, always-off cooling, all-convective 3 W/m2 gains, and `F_red_temp`-scaled constant ACH. | Emit S0 geometry/envelope surfaces into the same saved IDF and run the heating-only fixture |
+
+| 2026-08-23T20:45:00Z | `fda5336` + dirty-tree caveat | `T-DOC / T-DOC-007` | `DOCUMENTED` | Evaluator packet: `debugs/docs/ANALYSIS_REQUEST_X-04-R3_X-07-CDS_2026-08-23.md` | Separates the exact current R3 EnergyPlus fixture, its strict failure, its four resolution options, and the safe CDS credential action needed for live ERA5 acquisition. | Await evaluator response only for R3 formulation and CDS credential availability; continue independent work |
+
+| 2026-08-23T21:32:52Z | `fda5336` + dirty-tree caveat | `T-DOC / T-DOC-008` | `DOCUMENTED` | Fresh-session continuation prompt: `prompts/EXECUTOR_X-01_paste_into_codex.md`; director §19.3–§19.6 updated | The historical X-01-only executor prompt is replaced at the active path by an autonomous continuation handoff. It records completed slices, remaining X-05/X-06 work, and the R3/CDS constraints without pretending a later session runs in the background. | Resume saved-IDF S0 geometry/envelope emission and the heating-only fixture; append both logs after each material result |
+
+| 2026-08-23T22:08:25Z | `fda5336` + dirty-tree caveat | `EU-03 / T-VERIFY-009` | `LOCAL_PASS` | 9 physics tests passed in 2.92 s; resolved `tests\test_eu_*.py` -> 94 passed in 12.28 s; evidence: `openubem/outputs/eu_evidence/X-04/targeted_pytest_complete_reverified.log` | Independently confirms accepted X-04: analytical R3 is normative, the natural-convection EnergyPlus fixture proves physical decay, and R5/R7 pass. A repository-wide rerun hung at 10% on the known Windows/joblib process issue and is explicitly not claimed as complete. | Continue X-05/X-06 saved-IDF S0 envelope emission and heating-only integration; X-07 remains blocked on CDS credentials |
+| 2026-08-23T22:18:00Z | `fda5336` + dirty-tree caveat | `T-DOC / T-DOC-010` | `DOCUMENTED` | Table 9.7 status matrix and machine-readable CSV updated | Completed: EU-01/EU-02/EU-03. In progress: EU-04/EU-05 and EU-07 (blocked only on CDS credentials). Not started: EU-06/EU-08/EU-09/EU-10. | Continue EU-04/EU-05 saved-IDF integration; retain the EU-07 credential block |
+| 2026-08-23T22:25:00Z | `fda5336` + dirty-tree caveat | `T-DOC / T-DOC-011` | `DOCUMENTED` | Active executor and director continuation prompts synchronized | The fresh-session prompts now contain a superseding live snapshot and require their own update after every material result, together with both progress logs. | Continue EU-04/EU-05 equivalent-envelope saved-IDF validation; preserve EU-07 CDS credential block |
 
 *Walkthrough Table 4. Human-readable progress-log view. The CSV remains the machine-readable append-only record.*
+
+---
+
+## 12. Executor Contract for External LLM Sessions (Codex GPT / Gemini Antigravity)
+
+<!-- SEC:external-executor-contract-2026-08-23 -->
+
+From 2026-08-23 the implementation slices of this arc are executed by external LLM tooling (OpenAI Codex, Google Antigravity) working directly in `C:\Users\o_iseri\Desktop\OpenUBEM`, dispatched and audited by the director session. This section is the contract both sides hold to. It adds operating rules only; the scientific contract stays in the MVP.
+
+### 12.1 What a slice is
+
+A slice is one bounded unit of work that a fresh executor session can finish, test and report in one sitting without making a scientific decision:
+
+- it names **one** work package (`EU-01`…`EU-10`) or checkpoint step (`CP0`…`CP5`) and at most one sub-step of it;
+- it lists the exact files it may create or modify, and every other file is out of bounds;
+- it states **What / Why / How / How to test**, with acceptance assertions that are machine-checkable;
+- it ends at a stop point: the executor reports and waits; it does not start the next slice on its own.
+
+A slice that needs a decision the MVP does not already make is not a slice — it is a decision record request, and the executor returns it as such (§12.3, report item 7).
+
+### 12.2 Hard rules for every executor (non-negotiable)
+
+0. **Interpreter.** `python` is not on PATH on this workstation. Every command uses `.venv\Scripts\python.exe` (Python 3.14, `openubem 0.1.0`): `.venv\Scripts\python.exe -m pytest -q tests\test_eu_tabula_loader.py`.
+1. **Read before writing.** Read the slice text, then the MVP sections it cites (always §9.1 vocabulary, §9.3 frozen decisions, §11 source alignment), then the walkthrough sections it cites. Do not read the whole arc; do not browse the web unless the slice says so.
+2. **Documentation is read-only to you** except the progress-log row (§12.3 item 8). Never edit MVP §9.2, OVERVIEW/DESIGN docs, root `main.py`, or anything under `docs/docs_main/` or `docs/docs_step*/`.
+3. **No `.py` file under `docs/`, ever.** Code goes under `openubem/`, `scripts/`, `tests/`; figures go flat to `openubem/outputs/`.
+4. **The GSSCanada tree is read-only.** `C:\Users\o_iseri\Desktop\GSSCanada\…` is a source; copy what you need into the OpenUBEM tree with its checksum, never modify it in place.
+5. **No git state changes.** No `git add`, `commit`, `stash`, `restore`, `checkout`, `reset`, `clean`. Report `git status --short` and `git diff --stat`; the user handles git.
+6. **No cluster, no network.** No `ssh`, `scp`, `sbatch`, `srun`, no call to `speed.encs.concordia.ca`, no live download in a test. EnergyPlus may run **locally** only when the slice says so and only on the fixture it names.
+7. **Never invent a value.** A parameter with no source cell is written as `UNSOURCED` in the provenance record and raised in the report; it is never given a plausible literal. Never reintroduce any figure the citation audit withdrew (`277`, `1,444`, `87.3`, `32–215`, `15–25 %`, `25–40 %`, `8–15 %`, `>35 %`, `15–40 %`).
+8. **Never label anything `VERIFIED` or `PASS` without a produced artefact** (a test log, a file, a return code). `IMPLEMENTED_NOT_TESTED` is the honest status for code without a run.
+9. **Tests are new files** `tests/test_eu_*.py` / `tests/test_step8_*.py` (§9.13). Do not modify existing tests to make them pass. Run the named test file, then the full `pytest -q tests/`, and report both counts verbatim (the last recorded baseline is 1,927 passed / 55 skipped on 2026-08-21; re-measure, do not assume).
+10. **Every solved error is registered** in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` in the house format (exact symptom → cause → fix with `file:line` → source doc) before the slice is reported as done. Search that file first before debugging anything.
+11. **Stop on ambiguity.** If two authorities disagree and the MVP precedence (§9.1) does not settle it, stop, quote both passages with file and line, and report. Do not pick one.
+12. **No scope creep.** Do not refactor, rename, reformat or "improve" files outside the slice's list, even if they look wrong. Note them in the report instead.
+
+### 12.3 The evidence pack an executor returns
+
+Every slice report contains, in this order and nothing else:
+
+1. **Slice ID and status** — one of `DOCUMENTED`, `IMPLEMENTED_NOT_TESTED`, `LOCAL_PASS`, `BLOCKED`.
+2. **Files created / modified** — full paths, one per line, with `git diff --stat` output pasted.
+3. **Commands run** — verbatim, with working directory, in execution order.
+4. **Observed output** — the decisive lines only (test summary line, assertion values, return codes). No full logs; store them under `openubem/outputs/eu_evidence/<slice_id>/` and give the path.
+5. **Acceptance assertions** — each assertion from the slice, with the observed value and `PASS`/`FAIL`.
+6. **Deviations** — anything done differently from the slice text, with the reason.
+7. **Decisions needed** — anything that required a choice the MVP does not make, phrased as a question with the options seen. Empty is a valid answer.
+8. **Progress-log row** — the one row appended to Walkthrough Table 4 above **and** to `content/walkthrough_progress_log.csv` (same nine fields, same order, UTC timestamp, commit + `dirty` caveat).
+9. **Errors registered** — the bullet(s) added to `OpenUBEM_debug_References.md`, or "none".
+10. **Single recommended next action.**
+
+The director audits items 2–5 against the working tree before reading item 10. A report missing any item is returned for completion, not accepted.
+
+### 12.4 First slices to dispatch
+
+Slice identifiers are `X-nn` (external). Each is written so it can be pasted into a fresh executor session together with §12.2–12.3.
+
+#### X-01 — CP0 baseline capture and EU-01 reconciliation loader (no JSON written yet)
+
+- **What.** (a) Capture the repository baseline: `git rev-parse HEAD`, `git status --short`, `python -c "from importlib.metadata import version; print(version('openubem'))"`, `pytest -q tests/` — record all four outputs verbatim under `openubem/outputs/eu_evidence/X-01/`. (b) Write `openubem/data/construction/tabula_reconcile.py` exposing `load_parent_tables(step8_outputs_dir: Path) -> dict[str, pandas.DataFrame]` that reads the three parent CSVs with `#` comment lines skipped, and `assert_parent_invariants(tables) -> dict` that evaluates every assertion of §9.3.1 and returns the observed values. (c) Write `tests/test_eu_tabula_loader.py` with one test per §9.3.1 assertion, parametrised over the three folds, reading the parent tables **from a copied fixture** under `tests/fixtures/eu/step8_outputs/` (copy the three CSVs and `archetype_parameter_provenance.md`; record their SHA-256 in `tests/fixtures/eu/step8_outputs/SHA256SUMS`). Include one negative test: a fixture row whose `Code_BoundaryCond` is `ES.SUH` must make `assert_parent_invariants` raise.
+- **Why.** EU-01 consumes the parent tables (MVP §11.3). Before any OpenUBEM JSON exists, the loader must prove it reads exactly 24/36/42 rows and refuses every contaminant the parent already refuses.
+- **How.** Pandas `read_csv(path, comment="#")`. No network. No EnergyPlus. No changes to any existing module. Paths to the parent tree only in the fixture-copy step and in a docstring; the code takes a directory argument.
+- **How to test.** `pytest -q tests/test_eu_tabula_loader.py` then `pytest -q tests/`. Acceptance: every §9.3.1 assertion observed `PASS` on the fixture; the negative test observed to raise; full-suite count reported and compared with the recorded baseline; `git diff --stat` touches only the files named here plus the evidence directory.
+- **Stop point.** Report. Do not write `tabula_archetypes_*.json`; the JSON schema and the `c_m`/`n_air_use`/`F_red_htr` join (MVP Table 13–14) are slice `X-02`.
+
+#### X-02 — EU-01 registry generation with boundary-condition join (after X-01 is accepted)
+
+- **What.** Generate `openubem/data/construction/tabula_archetypes_{es,gb,it}.json` and `TABULA_PROVENANCE.md` from the reconciled tables, applying MVP Table 14 field by field; join `n_air_use_h_1`, `c_m_wh_m2k`, `f_red_htr1`, `f_red_htr4`, `theta_i_c` from a small checked-in `tabula_boundary_conditions_eu.json` holding only the two EU rows of MVP Table 13 with their source sheet and MD5; write every absent field (geometry assumptions) as `UNSOURCED` with a reason. Emit `exclusions.csv` listing the two parent exclusion rules with their counts (166; 4 named rows).
+- **What, added 2026-08-23 (evening) — extra columns from the pinned workbook.** The 44 carried columns lack eleven quantities the rulings D-EU-01/02/03/06/07 need. Read them with `openpyxl` (`read_only=True, data_only=True`) from `outputs_step8/raw/tabula-calculator.xlsx`, sheet `Calc.Set.Building`, for exactly the 102 `Code_BuildingVariant` keys: `n_Apartment`, `n_air_infiltration`, `g_gl_n_Window_1`, `g_gl_n_Window_2`, `b_Transmission_{Roof_1,Roof_2,Wall_1,Wall_2,Wall_3,Floor_1,Floor_2}`, `delta_U_ThermalBridging`, `F_red_temp`, `h_Transmission`, `h_Ventilation`, `n_Storey_effective_envelope`, `c_m`, `q_w_nd`. Write them into the JSON records under their MVP Table 14 names. Reference extraction to reproduce byte-for-byte on the numeric columns: [`debugs/docs/tabula_102_extra_columns_2026-08-23.csv`](debugs/docs/tabula_102_extra_columns_2026-08-23.csv). Write `TABULA_PROVENANCE.md` with a licence block reading `status: "UNVERIFIED"` (D-EU-08) — never a licence sentence without a quoted source.
+- **How to test.** `tests/test_eu_construction_sets.py`: counts 24/36/42; every record's `phi_int_w_m2 == 3.0`; every record's boundary pointer `EU.*`; `c_m_wh_m2k == 45` and `n_air_use_h_1 == 0.4` on every record; `n_air_infiltration_h_1 ∈ {0.05, 0.1, 0.2, 0.4}` with counts 2/37/29/34; `g_gl_window ∈ {0.67, 0.72, 0.75, 0.76, 0.85}` and `g_gl_n_Window_2 == 0` everywhere; `n_apartment == 1` on every SFH/TH record and the three non-integer GB `SyAv` AB values preserved unrounded with a `n_apartment_rounded` field (7, 14, 17); `0.34·(n_use+n_inf)·V_C/A_C_Ref` equals `h_ventilation_w_m2k` within 1 % on every record; `survey_fold`/`country_stock_code` pairs are exactly `es/ES`, `uk/GB`, `it/IT`; regeneration is byte-identical on a second run; the extracted numeric columns equal the reference CSV.
+- **Stop point.** Report; the France registry (`_fr.json`) is a separate slice after its source is pinned.
+
+#### X-03 — EU-02 construction-year band mapping (after X-02)
+
+- **What.** `openubem/semantic/construction_sets.py` gains `tabula_period(country_stock_code: str, year_built: int) -> str` implementing the 22 bands of MVP Table 15 exactly, and `tests/test_eu_construction_sets.py` gains a boundary test for every band edge (both sides of each boundary year) plus the multi-match / no-match error path for GB parallel parameterisations and IT composite codes (MVP §11.5) — an error, never a silent first match.
+- **Stop point.** Report. Neighbourhood selection (`NS-01`–`NS-10`) and the residential filter are `X-04`, and need the candidate-area density rule to be registered first (MVP §9.7.2).
+
+Each accepted slice closes with the director appending the walkthrough row the executor supplied, updating the director prompt's status box, and choosing the next slice. No slice authorises Speed submission.
+
+#### 12.5 Rulings the later slices execute against (added 2026-08-23, evening)
+
+The decisions that earlier blocked EU-03/EU-04/EU-05/EU-07/EU-10 were ruled under delegation on 2026-08-23 — [MVP §11.12, Table 20](MVP_european_locations.md#1112-rulings-under-delegation-2026-08-23-evening--the-open-items-of-table-19) and [`debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](debugs/docs/DECISIONS_parent-open-items-2026-08-23.md). An executor working on a slice beyond X-03 cites the ruling ID it implements (e.g. `D-EU-02 item 4` for the `b`-factor boundary condition) in its evidence pack, and reports any point where the ruling and the code's actual behaviour cannot be reconciled as a decision request, not as a workaround. Four items remain OWED to deep-research reports (`DeepResearch/DR08`–`DR11`); a slice must not consume a number from a report the director has not source-verified and marked accepted in `DeepResearch/README.md`. **Update 2026-08-23: all four reports were returned, audited and ACCEPTED the same day** (`DeepResearch/README.md` §Acceptance Record) — D-EU-05/08/10/11 are CLOSED (MVP §11.13, Table 21) and the acceptance caveats there bind the slices (e.g. DR10's neighbourhood counts are candidates only; the Copernicus licence text is copied at download time; DR09's France counts are re-derived from the pinned workbook). D-EU-09 (upstream chaining rule, `f>0` only) is the arc's sole remaining block.
+
+Slices that follow from the rulings, in order, after X-03:
+
+- **X-04** — EU-03 single-surface fixtures proving D-EU-02 arithmetic: (i) NoMass layer realises `U + ΔU` at read-back; (ii) `InternalMass` capacity equals `c_m·A` from the saved IDF; (iii) a one-surface `OtherSideCoefficients` model with coefficients 0.5/0.5 yields half the heat flow of the same surface exposed outdoors (design-day run, local EnergyPlus allowed). No archetype yet.
+- **X-05** — EU-04 box generator from TABULA areas (D-EU-01) for the four `S0` fixtures, with the `h_Transmission` and `h_Ventilation` read-back assertions of MVP §11.12, then `GEO-01`.
+- **X-06** — EU-05/EU-07 ideal-loads heating, constant air change (D-EU-03), `F_red_temp` multiplier (D-EU-07), no cooling, on the `S0` fixtures; `Q1` smoke list prepared (not submitted).
+
+#### 12.6 Slices unlocked by the DR08–DR11 closures (added 2026-08-23, after acceptance)
+
+The closures of MVP §11.13 change three things in the slice plan; nothing before X-04 moves.
+
+1. **X-02 amendment (licence).** `openubem/data/construction/TABULA_PROVENANCE.md` is written with the **verbatim** EPISCOPE third-party clause, URL `https://episcope.eu/communication/download/`, retrieval date 2026-08-23, and the DR09 §4 citation forms; the registry licence field is `status: "VERIFIED"` (supersedes the earlier `"UNVERIFIED"` placeholder instruction). Every artefact the registry generator writes (CSV/JSON headers, later IDFs) carries the attribution line `Source: IEE Projects TABULA + EPISCOPE (www.episcope.eu)`.
+2. **X-04 amendment (fixtures).** In addition to the three D-EU-02 arithmetic fixtures, X-04 implements the three DR11 §4 numeric fixtures with their exact pass criteria: **(R3)** 10×10×3 m NoMass box, H = 320 W/K, `InternalMass` C_m = 1.62·10⁷ J/K → free-fall from 20 °C against 0 °C must read **7.3576 °C ± 0.05** at t = τ = 14.0625 h; **(R5)** one-surface `OtherSideCoefficients` 0.5/0.5, U = 2, ΔT = 20 K → conduction **20.000 W ± 0.001** and outside face **10.000 °C ± 0.001**; **(R7)** two identical zones, one with U and `n_air` scaled by 0.85 → steady heating-power ratio **0.8500 ± 0.0001**. Local EnergyPlus, design-day/short runs; no archetype yet.
+3. **New slices after X-06**, dispatchable in either order (both pure execution, no open decision):
+
+- **X-07 — EU-07 weather acquisition and registry (D-EU-05 closure).** Fetch hourly ERA5 single-level data (`2t, 2d, sp, 10u, 10v, ssrd, fdir, tcc, tp`) for Madrid 2009–2010, London 2014–2015, Bologna 2013–2014; convert to EPW (`pvlib`, Perez/DISC decomposition; LST no DST, UTC+0 uk / UTC+1 es,it; all years non-leap → 8,760 rows); run the **six-gate checklist of DR08 §6** as automated asserts; save as `openubem/data/weather/{es_madrid_2009_2010,uk_london_2014_2015,it_bologna_2013_2014}.epw` with SHA-256; write `weather_registry.json` (window rows `status: "RULED_NOT_PINNED"`, station metadata, and the **licence text served by CDS at download time** — not DR08's quotation, whose PDF URL is stale). The 12-month pinning script over the Step 7 diary dates is part of this slice but may report `BLOCKED` if the corpus is not reachable from the executor's machine — then the registry keeps `RULED_NOT_PINNED` and says so.
+- **X-08 — EU-01 (FR) France registry (D-EU-11 closure).** From the pinned `tabula-calculator.xlsx` (MD5-checked first), extract the France existing-state rows, **assert** exactly 50 with `Number_BuildingVariant == 1`, of which 40 match `FR.N.(AB|MFH|SFH|TH).(01..10).Gen.ReEx.001.001` and 10 match `FR.OPHM.*` (excluded, with the exclusion reason recorded); write `tabula_archetypes_fr.json` with the 40 rows, boundary join `EU.SUH`/`EU.MUH`, same schema and attribution as the 102-row registry; extend `tabula_period()` with the FR bands (FR.07 ends 1999 — IWU admin patch); tests mirror X-02/X-03 (counts 10/10/10/10, the `FR.N.MFH.08` anomaly asserted literally, boundary-pointer set ⊂ {EU.SUH, EU.MUH}).
+
+Neighbourhood acquisition for N1/N2 (DR10's datasets and boundary layers, gates `NS-01`–`NS-10`) stays a later slice — it depends on the §9.7.2 candidate computation and is not needed for S0–S3/Q1.
