@@ -140,7 +140,10 @@ def test_s0_equivalent_envelope_saved_readback_preserves_each_fixture_h_transmis
             model_h_w_k += _construction_u(saved, opening.Construction_Name) * _surface_b_factor(saved, host) * _quadrilateral_area(opening)
 
         assert model_h_w_k / record["geometry"]["a_c_ref_m2"] == pytest.approx(
-            record["h_transmission_w_m2k"] * record["f_red_temp"], abs=1e-9
+            # IDF vertex coordinates are serialized to a finite decimal
+            # precision; this remains orders of magnitude tighter than the
+            # D-EU-01 two-percent readback gate.
+            record["h_transmission_w_m2k"] * record["f_red_temp"], abs=1e-7
         )
         assert emitted.reduced_h_transmission_w_m2k == pytest.approx(
             record["h_transmission_w_m2k"] * record["f_red_temp"]
