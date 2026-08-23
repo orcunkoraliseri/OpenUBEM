@@ -7,6 +7,11 @@
 - **GSSCanada Reference**: [`C:\Users\o_iseri\Desktop\GSSCanada\GSSCanada-main\4J_docs_occ\Step8_docs\IMP_step8\4thJ_08_bemSimulation_IMP.md`](file:///C:/Users/o_iseri/Desktop/GSSCanada/GSSCanada-main/4J_docs_occ/Step8_docs/IMP_step8/4thJ_08_bemSimulation_IMP.md)
 - **Scientific & Algorithmic Provenance**: *Iseri et al. (2025), Energy and Buildings 337, 115620*; `IMP_step8/outputs/floor_layout_generation_report.md`, `IMP_step8/outputs/kbem_ankara_pipeline.py`, `IMP_step8/extracted_scripts/custom_scripts_catalog.json`
 - **Core OpenUBEM Docs**: [`OpenUBEM_fundamentals.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_fundamentals.md), [`OpenUBEM_inputs_reference.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_inputs_reference.md), [`OpenUBEM_imputation_methods.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_imputation_methods.md), [`simulated_vs_reconstructed_methodology.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/simulated_vs_reconstructed_methodology.md), [`OpenUBEM_debug_References.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_debug_References.md)
+- **Reusable Figure/Table Assets**: [`content/`](content/README.md)
+
+> **Document role.** The MVP is the principal technical specification. This walkthrough is the execution layer: ordered tasks, commands, evidence requirements, stop conditions, and an append-only progress log. When scientific wording differs, update the MVP first and make this document point to that decision.
+>
+> **France scope.** France is included now in residential acquisition/filtering, archetype preparation, neighbourhood/layout construction, IDF/weather work, and controlled baseline physical simulations. France-specific occupant diaries and non-zero occupant-effect schedules remain a future task and must not be counted in the ES/GB/IT 102-archetype/510-run occupant campaign.
 
 > **Implementation-status notice (v1.1 review, 2026-08-22).** The original v1.0 walkthrough below is retained in full for provenance. Several snippets are proposed interfaces rather than runnable calls against OpenUBEM `0.1.0`. Use the code-audited procedure in **Section 9** as the operational authority until the European adapters are implemented and their tests pass.
 >
@@ -31,6 +36,10 @@ This walkthrough provides an operational, step-by-step engineering guide for exe
 +---------------------------------------------------------------------------------------------------+
 ```
 
+*Walkthrough Figure 1. Six execution phases from standards registration to evidence-backed acceptance. Reusable source: [`content/walkthrough_figure_1_execution_pipeline.mmd`](content/walkthrough_figure_1_execution_pipeline.mmd).*
+
+**Why dwelling-level zoning matters:** The Ankara KBEM study (*Iseri et al., 2025*; 6,458 dwelling units across 277 buildings) demonstrated that building-level aggregation suppresses $75.5\%$ of inter-dwelling energy variance (std dev drops from $63.61$ to $15.54\text{ kWh}/\text{m}^2\text{a}$) and underestimates peak thermal vulnerability by $3.2\times$. Corner units consume $25\text{--}40\%$ more heating energy than middle units; top-floor units have $15\text{--}25\%$ higher heating demand than mid-floor units. This variance is invisible to coarse building-level models and is the primary scientific justification for the procedural dwelling-subdivision approach in Phase 3.
+
 ---
 
 ## 2. Phase 1: Ingesting & Registering European Standards & Physics
@@ -41,6 +50,16 @@ European building envelopes are parameterized against the **TABULA / EPISCOPE** 
 - `tabula_archetypes_es.json` (Spain: 24 archetypes across 6 epochs)
 - `tabula_archetypes_uk.json` (United Kingdom: 36 archetypes across 8 epochs)
 - `tabula_archetypes_it.json` (Italy: 42 archetypes across 8 epochs)
+- `tabula_archetypes_fr.json` (France physical-model registry: count remains `NOT_AUDITED`; not part of the 102-record occupant registry)
+
+The first three files support the frozen ES/GB/IT occupant campaign. The French file is a current physical-pipeline deliverable: it must be generated from pinned French TABULA/EPISCOPE sources, audited independently, and used for controlled baseline simulations before any France occupant work begins.
+
+**TABULA Source Artefact Checksums** (for reproducibility):
+- `tabula-values.xlsx` (4.0 MB): MD5 `7347b2cae3c4d9f5ce78221e9d5fb832`
+- `tabula-calculator.xlsx` (34.4 MB): MD5 `c99ddc9ffcb6dc0ae7391273d9619e37`
+
+> [!IMPORTANT]
+> TABULA labels the English building stock as `GB`, but survey coverage is limited to **England only** — Scotland, Wales, and Northern Ireland have separate EPCs and building regulations. Use `gb` for the TABULA stock code and retain a separate `uk` survey-fold field in all archetype records.
 
 #### Example Construction Table Entry (`openubem/data/construction/tabula_archetypes_es.json`):
 ```json
@@ -77,7 +96,10 @@ European building envelopes are parameterized against the **TABULA / EPISCOPE** 
 
 ### 2.2 Sizing Opaque Insulation Dynamically (`openubem.idf.opaque_assembly`)
 
-OpenUBEM sizes the insulation thickness ($d_{\text{ins}}$) parametrically so that the composite opaque assembly matches the exact statutory TABULA $U$-value:
+OpenUBEM sizes the insulation thickness ($d_{\text{ins}}$) parametrically so that the composite opaque assembly matches the exact statutory TABULA $U$-value. Representative wall $U$-value ranges by epoch (from TABULA / DR06):
+- **Spain:** Pre-1979 $U_{\text{wall}} \approx 1.4\text{--}1.8$; CTE 2006 $\approx 0.66\text{--}0.95$; CTE 2013 $\approx 0.38\text{--}0.52\text{ W}/(\text{m}^2\text{K})$
+- **UK:** Pre-1918 solid brick $\approx 2.1$; Post-1990 $\approx 0.45$; Part L 2021 $\approx 0.18\text{ W}/(\text{m}^2\text{K})$
+- **Italy:** Pre-1975 $\approx 1.2\text{--}1.9$; Legge 10/1991 $\approx 0.50$; DM 2015 $\approx 0.26\text{--}0.34\text{ W}/(\text{m}^2\text{K})$
 
 ```python
 # Sizing calculation in openubem/idf/opaque_assembly.py
@@ -139,6 +161,9 @@ def inject_european_internal_mass(idf, zone_name: str, floor_area_m2: float, cou
         Surface_Area=mass_surface_area,
     )
 ```
+
+> [!NOTE]
+> EN ISO 52016-1 Table B.14 defines five standard thermal mass classes: Very Light ($80\text{ kJ}/\text{m}^2\text{K}$ / $14\text{ Wh}$), Light ($110 / 28$), Medium ($165 / 45$), Heavy ($260 / 78\text{--}87$), Very Heavy ($370 / 105\text{ Wh}/\text{m}^2\text{K}$). The country-specific values in the `capacitance_map` above are project mapping decisions from these five classes, not exact Table B.14 entries. Their provenance must be documented alongside the archetype parameters.
 
 ---
 
@@ -252,6 +277,37 @@ def verify_habitability(dwelling_poly: Polygon, building_footprint: Polygon) -> 
     return True
 ```
 
+> [!NOTE]
+> The $2.50\text{ m}$ threshold originates from IRC Section R303 and Turkish Zoning Law. It is treated as a declared project assumption; its jurisdictional basis must be confirmed for each European stock before the full campaign.
+
+#### Corridor Width Sizing
+For I-shape linear gallery layouts ($L/W \ge 2.0$), the central double-loaded circulation corridor spine width is proportional to building depth, typically $w = 1.20\text{--}1.80\text{ m}$.
+
+#### Geometry Fallback Hierarchy
+When the target grid fails (degenerate or narrow footprint), the layout generator applies a deterministic cascade:
+1. Attempt the assigned grid ($2\times 2$, $3\times 2$, etc.)
+2. Fall back to next smaller grid ($2\times 2 \to 2\times 1$)
+3. Fall back to $1\times 1$ (full floor plate as single zone)
+
+Every fallback records an explicit reason token. From the Ankara validation dataset, 8.3% of buildings (25/277) required fallback, primarily due to narrow footprints ($<8\text{ m}$ width) or highly irregular shapes.
+
+#### Ground-Contact Modeling
+The Ankara pipeline tested `GroundDomain:Slab` but abandoned it for `Ground:FcfactorMethod` due to stability issues. The European campaign ground-contact method must be selected, documented, and applied consistently across all archetypes.
+
+### 4.4 Verifying the Layout Method with OpenUBEM and Grasshopper
+
+Run the following tasks before accepting the procedural layout method:
+
+1. Export a pinned golden set containing a rectangle, rotated rectangle, L-shape, narrow footprint, courtyard footprint, MFH stack, and AB stack in a projected CRS.
+2. Process the exact same footprints and requested dwelling counts through Grasshopper and `generate_layout`.
+3. Normalize both outputs to GeoJSON or WKT; ignore object order but preserve stable building/floor/zone IDs.
+4. Compare dwelling count, circulation count, polygon validity, union area, overlap/gap area, exterior-facade contact, and adjacency.
+5. Extrude the clean outputs, create the IDF, reopen it from disk, and verify reciprocal interzone surfaces and zone assignments.
+6. Mutate one clean fixture at a time to create an overlap, gap, windowless dwelling, unpaired wall, or invalid fallback; record that the named gate fails.
+7. Retain the Grasshopper definition/version, input/output files, OpenUBEM command, normalized comparison table, and preview images.
+
+Use the full `GEO-01`–`GEO-10` acceptance matrix in [MVP Section 4.8](MVP_european_locations.md#48-verification-protocol-and-grasshopper-parity-tasks) and its machine-readable copy at [`content/table_4_8_geometry_verification_matrix.csv`](content/table_4_8_geometry_verification_matrix.csv). Do not mark parity `PASS` from a visual overlay alone.
+
 ---
 
 ## 5. Phase 4: Watertight EnergyPlus IDF Assembly
@@ -279,9 +335,20 @@ print("Watertight multi-zone EnergyPlus IDF successfully assembled.")
 ### 5.2 Hydronic Radiator & Unconditioned Stairwell Zone Setup
 
 The IDF builder configures:
-1. **Dwelling Units**: Conditioned living zones with hydronic radiator heating (`ZoneHVAC:IdealLoadsAirSystem` linked to hot-water boiler curves, $20.0^\circ\text{C}$ heating setpoint).
-2. **Staircase / Corridor Core**: **Unconditioned floating thermal zone** (`Heating Setpoint = None`, `Cooling Setpoint = None`).
-3. **Inter-Zone Party Walls**: Boundary condition `Surface` pointing to adjacent unit / stair zone names.
+1. **Dwelling Units**: Conditioned living zones with hydronic radiator heating (`ZoneHVAC:IdealLoadsAirSystem` linked to hot-water boiler curves, $20.0^\circ\text{C}$ heating setpoint, $26.0^\circ\text{C}$ cooling setpoint where applicable).
+2. **Staircase / Corridor Core**: **Unconditioned floating thermal zone** (`Heating Setpoint = None`, `Cooling Setpoint = None`). No `People`, dwelling equipment, or active thermostat objects are assigned to the circulation core unless explicitly justified.
+3. **Inter-Zone Party Walls**: Boundary condition `Surface` pointing to adjacent unit / stair zone names with matched reciprocal vertices.
+
+> [!IMPORTANT]
+> **HVAC Plant Modeling Decision (DR07):** Resolving full explicit EnergyPlus hydronic plant loops (boilers, pumps, valves, distribution piping) across 510 multi-zone models introduces severe numerical convergence failures. The campaign standardizes on `ZoneHVAC:IdealLoadsAirSystem` post-processed with natural gas condensing boiler seasonal efficiency curves ($\eta_{\text{seasonal}} = 0.90$, range $0.88\text{--}0.94$), which preserves identical envelope heat balance while achieving 100% convergence.
+
+### 5.3 Glazing Parameterization Note
+
+European total solar energy transmittance ($g_{\text{gl}}$ per EN 410 / ISO 9050) is mapped to EnergyPlus `WindowMaterial:SimpleGlazingSystem` as $\text{SHGC} = g_{\text{gl}}$. The conversion is valid within $\pm 0.02$ for standard residential glazing. Typical ranges: standard double clear $g_{\text{gl}} = 0.67\text{--}0.75$; low-emissivity $g_{\text{gl}} = 0.50\text{--}0.60$.
+
+### 5.4 Natural Ventilation & Infiltration Assumptions
+
+The European campaign maintains a **closed-window assumption** with continuous background infiltration per TABULA methodology. Natural ventilation window opening is not modeled. This is consistent with the Ankara validation study (*Iseri et al., 2025*) and ensures that the only experimental variable is the occupancy-driven internal gain schedule. Ventilation rates are assigned per country: ES $0.40\text{ ACH}$, GB $0.59\text{ ACH}$, IT $0.30\text{ ACH}$ (see EN 16798-1 Table B.4 equivalence in MVP Section 2.2.1).
 
 ---
 
@@ -391,24 +458,41 @@ print(f" - Parasitics Share:           {breakdown['parasitics_eui']:.2f} kWh/m²
 
 Every completed simulation cell must satisfy the full validation gate suite before acceptance into the campaign dossier:
 
-```
-+-------------------------------------------------------------------------------------------------------------+
-|                                GATE VERIFICATION AUDIT CHECKLIST                                            |
-+----------+-------------------------------------------------------------+-------------------+----------------+
-| Gate ID  | Check Description                                           | Pass Condition    | Status         |
-+----------+-------------------------------------------------------------+-------------------+----------------+
-| G8.0     | Uninjected control (f=0.00) completed prior to f>0 runs     | Verified batch ID | [x] PASS       |
-| G8.8     | Scenario differentiation across f in {0.00, 0.15, 0.30, ...}| Distinct SHA-256  | [x] PASS       |
-| G8.9     | Cache invalidation on schedule modification                 | Manifest MD5 diff | [x] PASS       |
-| G8.10    | Sum(EndUses) matches Facility Meter within +/- 0.5%         | Residual < 0.1%   | [x] PASS       |
-| G8.11    | Output meter dictionary contains only valid EnergyPlus keys | Regex match 100%  | [x] PASS       |
-| G8.12    | Ingested CSV MD5 equals saved IDF Schedule:File target      | MD5 exact match   | [x] PASS       |
-| G8.13    | Schedule:File sets Interpolate to Timestep = No             | Regex assertion   | [x] PASS       |
-| G8.14    | Immutable manifest.json written with platform & build hashes| Schema validated  | [x] PASS       |
-| G8.15    | Zero Fatal/Severe errors; all warnings triaged              | Debug registry ok | [x] PASS       |
-| G8.16    | Demographic schedule source matches held-out LOCO fold      | Fold verified     | [x] PASS       |
-+----------+-------------------------------------------------------------+-------------------+----------------+
-```
+| Gate | Task | Required evidence | Status before execution |
+|---|---|---|---|
+| G8.0 | Audit `f=0` controls before release of `f>0` | Generated control report | `NOT_RUN` |
+| G8.8 | Compare scenario result hashes and values | Scenario comparison report | `NOT_RUN` |
+| G8.9 | Mutate one dependency and confirm rerun | Cache mutation report | `NOT_RUN` |
+| G8.10 | Reconcile selected total and components | Meter-balance report | `NOT_RUN` |
+| G8.11 | Validate required meter names | Parsed `.mdd` and SQL evidence | `NOT_RUN` |
+| G8.12 | Reopen IDF and verify schedule path/checksum | Saved-artifact audit | `NOT_RUN` |
+| G8.13 | Verify interpolation setting | Saved-IDF audit | `NOT_RUN` |
+| G8.14 | Validate manifest against measured files | Manifest schema report | `NOT_RUN` |
+| G8.15 | Classify all warnings/errors | Warning taxonomy report | `NOT_RUN` |
+| G8.16 | Join schedule provenance to held-out fold | Fold audit report | `NOT_RUN` |
+
+*Walkthrough Table 1. Gate-execution checklist. Status changes only from generated evidence. Machine-readable copy: [`content/walkthrough_table_7_2_gate_checklist.csv`](content/walkthrough_table_7_2_gate_checklist.csv).*
+
+### 7.3 Negative Control Diagnostic Thresholds
+
+Before accepting any European simulation results, verify diagnostic plausibility:
+- **Reject** if $f=0.00$ uninjected controls produce heating EUI deviating by $>50\%$ from published TABULA national brochure benchmarks ($Q_H \approx 80\text{--}180\text{ kWh}/\text{m}^2\text{a}$).
+- **Reject** if adapted OpenUBEM median EUI at $f=0.00$ differs from TABULA national baseline by $>25\%$.
+- **Reject** if pre-1945 uninsulated Spanish/Italian archetypes at $f=0.00$ yield space heating $< 50\text{ kWh}/\text{m}^2\text{a}$.
+
+These are diagnostic flags applied during Q1–Q2 qualification (Section 10), not calibration targets. The pipeline must never alter a TABULA parameter to make a pilot EUI appear more plausible.
+
+### 7.4 Overheating Assessment (CIBSE TM59 / EN 16798-1)
+
+Where cooling performance is relevant (particularly for UK stock), overheating is assessed using the adaptive comfort model (EN 16798-1 Section 6.2, Annex A) and cumulative Indoor Overheating Degree ($IOD$). UK-specific compliance requires CIBSE TM59 (2017):
+- *Criterion A*: Living/bedrooms $\le 3\%$ of occupied hours exceeding $\Delta T \ge 1\text{ K}$ operative temperature above comfort limit.
+- *Criterion B*: Bedrooms $\le 32\text{ hours}$ exceeding $26^\circ\text{C}$ between 22:00–07:00.
+
+The Ankara validation study reported $IOD$ peaks up to $0.817^\circ\text{C}\cdot\text{h}/\text{a}$ at dwelling level versus $0.565$ at building level, confirming that zone-level resolution captures $44.6\%$ higher peak overheating exposure.
+
+### 7.5 Intermittent Heating Factor Preservation
+
+TABULA intermittent heating reduction factors ($F_{\text{red,htr}} \in \{0.80, 0.85, 0.90, 0.95\}$) are applied as scalar transmission multipliers on $UA$, not as thermostat night-setback schedules. This prevents confounding between heating control patterns and the LLM-generated stochastic occupancy signal (Pre-Registered Ruling `D-S8-2`).
 
 ---
 
@@ -416,26 +500,14 @@ Every completed simulation cell must satisfy the full validation gate suite befo
 
 If an EnergyPlus simulation fails or emits warnings, match the error pattern against [`OpenUBEM_debug_References.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_debug_References.md):
 
-```
-+---------------------------------------------------------------------------------------------------------+
-|                                    COMMON ENERGYPLUS ERROR TRIAGE                                       |
-+------------------------------------+------------------------------------+-------------------------------+
-| Observed Error Pattern             | Physical / Computational Cause     | OpenUBEM Resolution Protocol  |
-+------------------------------------+------------------------------------+-------------------------------+
-| Severe: CTF calculation failed     | Opaque wall thermal resistance x   | Engage capped MATERIAL layer  |
-| (roots outside unit circle)        | capacitance exceeds CTF stability  | + MATERIAL:NOMASS residual    |
-|                                    | limit (R*C too high in thick mass) | via idf.opaque_assembly       |
-+------------------------------------+------------------------------------+-------------------------------+
-| Severe: Intersecting surface or    | Procedural slicing produced a      | Run shapely.make_valid and    |
-| degenerate non-convex polygon      | self-intersecting polygon loop     | enforce MIN_CELL_WIDTH_M=1.0m |
-+------------------------------------+------------------------------------+-------------------------------+
-| Severe: Unmatched interzone surface| Interior party wall has no partner | Ensure symmetrical add_block  |
-| boundary condition                 | in adjacent dwelling zone          | surface pairing in builder.py |
-+------------------------------------+------------------------------------+-------------------------------+
-| Warning: Temperature out of bounds | Missing internal mass in zone with | Inject explicit InternalMass  |
-| in small conditioned zone          | high solar gain & low air volume   | (c_m = 45 Wh/m²·K) per §2.3   |
-+------------------------------------+------------------------------------+-------------------------------+
-```
+| Observed pattern | Probable cause | Required action |
+|---|---|---|
+| CTF calculation failed | Unstable resistance-capacitance layer combination | Apply registered CTF-safe construction path and rerun the targeted fixture |
+| Intersecting or degenerate surface | Invalid procedural polygon | Repair or reject geometry and retain original failure evidence |
+| Unmatched interzone surface | Missing reciprocal party-wall face | Rebuild pairing and verify both saved-IDF faces |
+| Temperature out of bounds | Potential mass, load, geometry, or control defect | Classify the cause; never accept from a raw warning count alone |
+
+*Walkthrough Table 2. Initial EnergyPlus error-triage routes. Machine-readable copy: [`content/walkthrough_table_8_1_error_triage.csv`](content/walkthrough_table_8_1_error_triage.csv).*
 
 ---
 
@@ -481,10 +553,13 @@ The three JSON files shown in Section 2 do not yet exist. Implement a determinis
 openubem/data/construction/tabula_archetypes_es.json
 openubem/data/construction/tabula_archetypes_gb.json
 openubem/data/construction/tabula_archetypes_it.json
+openubem/data/construction/tabula_archetypes_fr.json
 openubem/data/construction/TABULA_PROVENANCE.md
 ```
 
 Use `gb` for the TABULA stock code and retain a separate `uk` survey-fold field. The generator must emit an exclusions table for refurbishment variants, unclassified records, and any dropped row.
+
+Generate and audit the French physical registry in the same command family, but keep its count and manifest separate. France participates in building/neighbourhood preparation and controlled baseline simulations now; do not create `survey_fold=fr`, France diary assignments, or France `f>0` cells until the future occupant branch is explicitly activated.
 
 Before proceeding, assert:
 
@@ -495,6 +570,7 @@ IT count = 42
 total    = 102
 construction-period bands = 22
 phi_int_w_m2 = 3.0 for every campaign archetype
+FR physical count = independently audited; excluded from total=102
 ```
 
 The sample JSON in Section 2.1 is illustrative. Values must come from the pinned workbooks/source cells; do not copy the example into production data.
@@ -578,6 +654,17 @@ gap_area_m2, fallback_reason
 ```
 
 Reject or explicitly fall back when area error exceeds 1%, a dwelling lacks facade contact, an interzone face lacks a reciprocal partner, or the result is not one zone per dwelling. Treat the `2.50 m` facade-contact threshold as a declared project assumption until its jurisdictional basis is confirmed for each stock.
+
+Before processing a complete neighbourhood, execute the residential-only sample ladder:
+
+1. `S0`: four synthetic fixtures—one each for SFH, TH, MFH, and AB—with geometry and saved-IDF checks;
+2. `S1`: 12 observed residential buildings covering simple and irregular footprints, using short design-day simulations;
+3. `S2`: 32 observed residential buildings spanning old/new and high/low data completeness, using short-period simulations;
+4. `S3`: 96 observed residential buildings balanced across available ES/GB/IT/FR physical strata, using annual controlled baselines;
+5. `N1`: only after S0–S3 pass, select one real contiguous dense residential neighbourhood containing 500–600 residential buildings after filtering;
+6. `N2`: optionally select/extend a contiguous dense residential neighbourhood to as many as 1,000 residential buildings after N1 resource and evidence review.
+
+At the source-inventory boundary, write `excluded_buildings.parquet` with the stable ID and exclusion reason for every non-residential or unresolved-use footprint. Assert that none of those IDs appears in the layout, IDF, or simulation manifests.
 
 ### 9.7 Extend the Existing IDF Builder
 
@@ -736,6 +823,9 @@ Add dedicated tests rather than overloading the North American validation suite:
 tests/test_eu_tabula_loader.py
 tests/test_eu_construction_sets.py
 tests/test_eu_dwelling_layout.py
+tests/test_eu_dwelling_layout_grasshopper_parity.py
+tests/test_eu_residential_filter.py
+tests/test_eu_sample_group_ladder.py
 tests/test_eu_internal_mass.py
 tests/test_eu_hvac.py
 tests/test_step8_schedule_file.py
@@ -746,7 +836,7 @@ tests/test_step8_gates.py
 tests/test_step8_gate_mutations.py
 ```
 
-The smoke matrix must contain each country stock, each residential type, at least one historic and one modern band, simple and non-convex footprints, all five `f` values, and the actual selected weather files. Include negative tests for zero-mean/NaN schedules, wrong folds, missing manifests, duplicate cell IDs, schedule reassignment, `Interpolate=Yes`, invalid meter names, altered weather, and double-counted EUI.
+The physical smoke matrix must contain ES, GB, IT, and FR; each residential type; at least one historic and one modern band; simple and non-convex footprints; and the selected baseline weather files. The occupant-schedule matrix contains ES/GB/IT only until the France occupant branch is activated. Include negative tests for non-residential leakage into the registry, Grasshopper/OpenUBEM parity drift, zero-mean/NaN schedules, wrong folds, missing manifests, duplicate cell IDs, schedule reassignment, `Interpolate=Yes`, invalid meter names, altered weather, and double-counted EUI.
 
 ### 9.14 Operational Stop Conditions
 
@@ -833,7 +923,22 @@ These are read-only scheduler checks. Submit all compute through `sbatch`; never
 
 ### 10.2 Create the Pre-Occupant Audit Figure
 
-Before IDF generation, produce a four-panel map matching the analytical intent of `IMP_step8/resources/Screenshot_3.png`:
+First select neighbourhood candidates using the same OpenUBEM location inputs used for U.S. fleets: address, coordinate, bounding box, or a pre-downloaded OSM XML extract. For each candidate, persist the boundary and calculate total footprints, residential buildings after filtering, excluded/unknown uses, residential buildings/km², and a dwelling or residential-floor-area density proxy.
+
+Select one real contiguous, dense, residential-dominant neighbourhood per study location. Register the density rule before looking at energy results—for example, a city-specific upper density quantile plus the required post-filter building count. Do not assemble `N1`/`N2` by sampling disconnected buildings across a city, and do not trim a natural boundary merely to force exactly 500, 600, or 1,000 records.
+
+Create these selection artefacts before IDF generation:
+
+```text
+candidate_neighbourhoods.gpkg
+candidate_neighbourhood_metrics.csv
+selected_neighbourhood_boundary.gpkg
+neighbourhood_selection_decision.md
+residential_buildings.parquet
+excluded_buildings.parquet
+```
+
+Then produce a four-panel map matching the analytical intent of [`content/reference_dense_neighbourhood_4panel_audit.png`](content/reference_dense_neighbourhood_4panel_audit.png):
 
 ```text
 panel_a_construction_period.png
@@ -861,19 +966,34 @@ mapped feature count = source feature count
 sum(category counts) = mapped feature count
 missing values appear as an explicit category
 no spatial join creates or drops duplicate building_id values
+panel building_id set = selected-neighbourhood source building_id set
+panel boundary checksum = selected boundary checksum
 ```
 
 Use observed and imputed values as separate layers or visual encodings. Do not color an imputed construction material as if it were observed without exposing its provenance.
 
+All four panels describe the **same selected neighbourhood**. Panel (c) keeps non-residential/unknown footprints visible as excluded context, while the other panels and all simulation manifests reconcile to the residential registry. Apply the full `NS-01`–`NS-10` selection gates in [MVP Section 9.7.2](MVP_european_locations.md#972-real-dense-residential-neighbourhood-selection).
+
+Keep non-residential and unresolved-use footprints in the audit source so exclusions remain visible, but render them as grey/hatched context and write their IDs to `excluded_buildings.parquet`. The residential modelling registry must satisfy:
+
+```python
+assert set(excluded["building_id"]).isdisjoint(layout_manifest["building_id"])
+assert set(excluded["building_id"]).isdisjoint(idf_manifest["building_id"])
+assert set(excluded["building_id"]).isdisjoint(simulation_manifest["building_id"])
+```
+
+Use the neighbourhood concept in [`content/figure_neighbourhood_residential_typologies.png`](content/figure_neighbourhood_residential_typologies.png) only to communicate target scale and morphology. It is illustrative and cannot replace the measured four-panel input audit.
+
 ### 10.3 Build the Qualification Cases
 
-Create four immutable lists:
+Create five immutable lists:
 
 ```text
-q1_smoke_cells.tsv       # 3 cells: one ES, one GB, one IT
-q2_pilot_cells.tsv       # 24 cells: 3 × 4 typologies × 2 age extremes
+q1_smoke_cells.tsv       # 4 cells: one ES, one GB, one IT, one FR physical baseline
+q2_pilot_cells.tsv       # target 32 cells: 4 × 4 typologies × 2 age extremes
 q3_control_cells.tsv     # 102 cells, f=0 only
 q4_injected_cells.tsv    # 408 cells, f=0.15/0.30/0.50/1.00
+fr_baseline_cells.tsv    # one controlled baseline per accepted FR physical archetype
 ```
 
 Each TSV row must provide, by explicit path rather than directory inference:
@@ -885,16 +1005,18 @@ cell_id<TAB>idf_path<TAB>epw_path<TAB>gain_csv_path<TAB>manifest_path
 Validate the lists before upload:
 
 ```python
-assert len(q1) == 3
-assert len(q2) == 24
+assert len(q1) == 4
+assert len(q2) == 32
 assert len(q3) == 102
 assert len(q4) == 408
+assert fr_baseline["country_stock_code"].eq("fr").all()
+assert fr_baseline["sensitivity_f"].eq(0.0).all()
 assert q3["sensitivity_f"].eq(0.0).all()
 assert set(q4["sensitivity_f"]) == {0.15, 0.30, 0.50, 1.00}
 assert not campaign["cell_id"].duplicated().any()
 ```
 
-Q1–Q3 use a constant `3.0 W/m²` gain emitted through the final Step 8 `Schedule:File` adapter. They do not ingest a stochastic occupant diary. This proves the simulation pipeline before demographic information can influence results.
+Q1–Q3 and the separate France baseline use a constant `3.0 W/m²` gain emitted through the final Step 8 `Schedule:File` adapter. They do not ingest a stochastic occupant diary. Q4 is ES/GB/IT only until the future France occupant branch is accepted.
 
 ### 10.4 Prepare the Speed Directory
 
@@ -972,23 +1094,23 @@ This is a target Step 8 template and must receive a shellcheck/smoke review befo
 
 ### 10.6 Run Q1 and Q2 Before the Full Control
 
-Submit the three-cell smoke test:
+Submit the four-country physical smoke test:
 
 ```bash
 Q1_JOB=$(sbatch --parsable \
   --account="$SPEED_ACCOUNT" \
-  --array=1-3%3 \
+  --array=1-4%4 \
   --export=ALL,STEP8_REMOTE="$STEP8_REMOTE",CELL_LIST="$STEP8_REMOTE/config/q1_smoke_cells.tsv" \
   "$STEP8_REMOTE/bin/step8_cell.sbatch")
 echo "$Q1_JOB"
 ```
 
-After harvest, require 3/3 success, zero severe/fatal errors, meter availability, and correct checksums. Then submit the 24-cell stratified pilot:
+After harvest, require 4/4 success, zero severe/fatal errors, meter availability, and correct checksums. Then submit the target 32-cell stratified physical pilot:
 
 ```bash
 Q2_JOB=$(sbatch --parsable \
   --account="$SPEED_ACCOUNT" \
-  --array=1-24%16 \
+  --array=1-32%16 \
   --export=ALL,STEP8_REMOTE="$STEP8_REMOTE",CELL_LIST="$STEP8_REMOTE/config/q2_pilot_cells.tsv" \
   "$STEP8_REMOTE/bin/step8_cell.sbatch")
 echo "$Q2_JOB"
@@ -1077,12 +1199,13 @@ The `f>0` occupant campaign is authorized only when all boxes are backed by gene
 
 ```text
 [ ] Four-panel input-audit map and exact category counts reviewed
-[ ] Q1: 3/3 successful, zero severe/fatal
+[ ] Q1: 4/4 ES/GB/IT/FR physical smoke cases successful, zero severe/fatal
 [ ] Q1 repeated cell passes reproducibility gates
-[ ] Q2: 24/24 successful or exclusions explicitly approved
+[ ] Q2: target 32/32 physical cases successful or exclusions explicitly approved
 [ ] Geometry, envelope, HVAC, weather, and service-load mode validated
 [ ] Constant 3.0 W/m² baseline verified from saved IDFs
 [ ] Q3: 102/102 controls harvested and independently recounted
+[ ] FR baseline manifest is complete and kept separate from the 510-case occupant denominator
 [ ] G8.0 and meter/schedule/manifest checks pass
 [ ] Mutation tests demonstrate the relevant gates failing
 [ ] Q3 audit job exits zero and unlocks Q4
@@ -1090,3 +1213,37 @@ The `f>0` occupant campaign is authorized only when all boxes are backed by gene
 ```
 
 If any item is missing, keep Q4 **BLOCKED**. Faster cluster execution must never shorten the scientific validation sequence.
+
+---
+
+## 11. Task Ledger and Progress Log
+
+This section is the operational index. Detailed scientific requirements remain in the MVP; implementation sessions update the status and append a dated evidence row here.
+
+| Task group | Scope | Initial status | Required promotion evidence |
+|---|---|---|---|
+| `T-DOC` | MVP/walkthrough roles, captions, reusable assets | `LOCAL_PASS` | Link, caption, and source-asset render checks |
+| `T-FR-PHYS` | French residential registry, layouts, IDFs, weather, baseline simulations | `NOT_RUN` | Audited registry and FR-B evidence bundle |
+| `T-FR-OCC` | French held-out diaries and occupant-effect sweep | `BLOCKED` / future scope | Approved diary/fold/weather contract |
+| `T-FILTER` | Residential-only registry and explicit non-residential exclusions | `NOT_RUN` | Exclusion audit and manifest-disjointness tests |
+| `T-SELECT` | Real contiguous dense residential neighbourhood selection and four-panel audit | `NOT_RUN` | `NS-01`–`NS-10`, boundary, candidate ranking, and reconciled panels |
+| `T-GEO` | `GEO-01`–`GEO-10`, including Grasshopper parity | `NOT_RUN` | Generated comparison and mutation reports |
+| `T-S0-S3` | 4/12/32/96-building sample groups | `NOT_RUN` | Per-stage case accounting and resource report |
+| `T-N1` | One selected contiguous dense residential neighbourhood with 500–600 residential buildings | `NOT_RUN` | S0–S3, `T-SELECT`, and audited N1 manifest |
+| `T-N2` | Optional contiguous dense residential neighbourhood scale-up to 1,000 buildings | `NOT_RUN` | N1 evidence and explicit capacity approval |
+| `T-Q1-Q4` | Four-country physical smoke and ES/GB/IT occupant campaign | `NOT_RUN` | Stage-specific retained evidence |
+
+*Walkthrough Table 3. Living task ledger. `BLOCKED` on `T-FR-OCC` describes the intentionally deferred occupant-input dependency; it does not block French physical-model work. The append-only CSV schema is [`content/walkthrough_progress_log.csv`](content/walkthrough_progress_log.csv).*
+
+### 11.1 Append-Only Progress-Log Rules
+
+For every material attempt, append one row containing UTC date, repository commit, work package/task ID, status, exact command, evidence path, decision or blocker, and one next action. Use only `DOCUMENTED`, `IMPLEMENTED_NOT_TESTED`, `LOCAL_PASS`, `SPEED_SUBMITTED`, `SPEED_COMPLETE_UNAUDITED`, `ACCEPTED`, `NOT_RUN`, or `BLOCKED`. Never overwrite a failed attempt with a later pass; append the correction as a new row.
+
+| Date | Commit | Task | Status | Command / evidence | Decision or blocker | Next action |
+|---|---|---|---|---|---|---|
+| 2026-08-23 | `e04f42a` + dirty-tree caveat | `T-DOC` | `IMPLEMENTED_NOT_TESTED` | Updated active Markdown and `content/` assets | PDF/link/caption verification pending | Run documentation validation and record outcome |
+| 2026-08-23 | `e04f42a` + dirty-tree caveat | `T-DOC` | `LOCAL_PASS` | `git diff --check`; relative-link/SVG/CSV validation; `scripts/convert_docs_to_pdf.py`; headless SVG previews | Both PDFs regenerated; repaired figures visually inspected | Begin CP0 / EU-01–EU-02 local implementation slice |
+| 2026-08-23 | `e04f42a` + dirty-tree caveat | `T-DOC` | `LOCAL_PASS` | Final static validation; director prompt archived and updated | Markdown/source assets are authoritative; PDF output is optional | Begin CP0 / EU-01–EU-02 local implementation slice |
+| 2026-08-23 | `e04f42a` + dirty-tree caveat | `T-SELECT` | `DOCUMENTED` | Added `NS-01`–`NS-10`, reference four-panel asset, and future-session prompt rule | N1/N2 are real contiguous dense residential neighbourhoods, not disconnected samples | Implement candidate-neighbourhood metrics and deterministic residential filter |
+
+*Walkthrough Table 4. Human-readable progress-log view. The CSV remains the machine-readable append-only record.*

@@ -51,8 +51,6 @@ The ES/GB/IT occupant design requires **510 annual simulations per weather speci
 
 The campaign is not complete merely because EnergyPlus returns zero. It is complete only when inputs, assignments, outputs, accounting, comparisons, and failure-detection gates are supported by retained evidence.
 
-Neighbourhood-scale `N1`/`N2` work uses one real contiguous dense residential neighbourhood per selected study location, acquired through OpenUBEM's established address, coordinate, bounding-box, or OSM-XML inputs. The 500–600 and optional 1,000 counts refer to residential buildings remaining inside the declared boundary after filtering, not a disconnected citywide sample.
-
 ---
 
 ## 2. Authority and source precedence
@@ -150,7 +148,6 @@ Do not reopen these decisions without a documented reason and explicit approval:
 9. Use actual weather aligned with each diary fieldwork period for occupant comparisons. France baseline weather must have a separate documented source/window; no France occupant alignment is implied until that branch opens.
 10. Retain the TABULA heating-intermittency scalar. Do not introduce an additional thermostat night setback that double-counts intermittency.
 11. Only residential buildings enter layout, IDF, and simulation manifests. Retain non-residential/unknown footprints in the audit source with explicit exclusion reasons.
-12. `N1` and `N2` are real contiguous dense residential neighbourhoods. Preserve the selected natural/declared boundary, use it for every audit panel, and never trim or assemble disconnected buildings merely to force an exact count.
 
 Any proposed change to these decisions needs a short decision record containing the old rule, proposed rule, evidence, expected effect, and approval status.
 
@@ -168,7 +165,6 @@ These are genuine design obligations, not details to fill with convenient defaul
 - the precise actual-weather 12-month window, station/location, source, license, missing-data policy, and checksum;
 - whether service loads are physically modeled or reconstructed after simulation;
 - dwelling allocation and sampling rules where a building/archetype contains multiple dwellings;
-- candidate-neighbourhood set, city-specific density metric/rule, selected boundary provenance, and rejected-candidate reasons;
 - schedule column semantics, timestep, leap-day/DST treatment, and the object-level assignment of each column;
 - gain-object radiant, latent, and lost fractions;
 - any use of a separately conditioned or unconditioned common core.
@@ -182,13 +178,13 @@ Resolve these through explicit, reviewable artifacts. Never bury them as literal
 Keep work divided into independently reviewable packages:
 
 - **EU-01 — TABULA loader:** acquire licensed/source-controlled ES/GB/IT/FR records; preserve the 102-record occupant registry and a separate France physical registry; validate country, period, typology, units, completeness, and provenance.
-- **EU-02 — Semantic crosswalk and neighbourhood selection:** map source terminology to stable OpenUBEM fields, rank candidate dense residential neighbourhoods, preserve the selected boundary, exclude non-residential/unknown uses explicitly, and expose unknown/unmapped required values as errors.
+- **EU-02 — Semantic crosswalk:** map source terminology to stable OpenUBEM fields, exclude non-residential/unknown uses explicitly, and expose unknown/unmapped required values as errors.
 - **EU-03 — Envelope and internal mass:** generate constructions from explicit assemblies and prove achieved properties by IDF readback and EnergyPlus outputs.
 - **EU-04 — Dwelling/core geometry:** create deterministic, valid geometry and zoning with area/volume reconciliation; complete `GEO-01`–`GEO-10`, including normalized Grasshopper/OpenUBEM parity and mutations.
 - **EU-05 — HVAC and intermittency:** implement country/archetype systems and TABULA intermittency without duplicate setback logic.
 - **EU-06 — Occupant schedules:** write, assign, and validate external `Schedule:File` objects, including the controlled baseline path used by France; do not create France non-zero schedules before `FR-OCC-FUTURE` is approved.
 - **EU-07 — Weather:** produce the ES/GB/IT fold-to-weather manifest and separate France baseline-weather record; retrieve/prepare EPWs and verify location/year/checksums.
-- **EU-08 — Campaign and SLURM:** define deterministic per-neighbourhood residential-only manifests, one-case runner, S0–S3 sample groups, `NS-01`–`NS-10` selection evidence, separate France baselines, resumable arrays, dependencies, harvesting, and failure accounting.
+- **EU-08 — Campaign and SLURM:** define deterministic residential-only manifests, one-case runner, S0–S3 sample groups, separate France baselines, resumable arrays, dependencies, harvesting, and failure accounting.
 - **EU-09 — Gates and mutation tests:** implement G8.0–G8.16, V8.a–V8.g, and negative controls that prove gates fail when inputs are corrupted.
 - **EU-10 — Results and dossier:** reconcile meters, calculate occupant effects, report uncertainty and failures, and package a reproducible evidence bundle.
 
@@ -264,7 +260,7 @@ The pipeline must be tested before occupant information is introduced at campaig
 
 Run unit and integration tests for data mapping, residential filtering, geometry, constructions, schedules, weather manifests, case manifests, parsing, and gates. Include deliberately broken fixtures and `GEO-01`–`GEO-10` Grasshopper/OpenUBEM parity tests.
 
-Before neighbourhood scale, complete the sample ladder: `S0` four synthetic typologies, `S1` 12 observed buildings, `S2` 32 observed buildings, and `S3` 96 observed buildings. Then select `N1` as one real contiguous dense residential neighbourhood with 500–600 post-filter residential buildings; `N2` may extend to 1,000 only after N1. Promote only with complete per-building accounting and measured resource evidence.
+Before neighbourhood scale, complete the sample ladder: `S0` four synthetic typologies, `S1` 12 observed buildings, `S2` 32 observed buildings, and `S3` 96 observed buildings. Promote only with complete per-building accounting and measured resource evidence.
 
 ### Q1 — Four-country physical smoke test
 
@@ -296,14 +292,14 @@ Use scheduler dependencies so that Q4 cannot start merely because Q3's array end
 
 ## 10. Required input-audit maps
 
-Before introducing occupant schedules at production scale, compare and select candidate neighbourhoods under `NS-01`–`NS-10`, then generate tables and spatial/categorical plots analogous to the Step 8 four-panel resource image. At minimum audit:
+Before introducing occupant schedules at production scale, generate tables and, where useful, spatial or categorical plots analogous to the Step 8 resource image. At minimum audit:
 
 1. construction period;
 2. EPC/EKB availability or the European equivalent, with missingness explicit;
 3. building function and residential typology;
 4. construction material or construction-set classification.
 
-The four panels are four thematic views of the same selected neighbourhood—not four locations. They must share the boundary checksum, footprint geometry, and stable building-ID set. The point is not visual decoration: the maps/tables must demonstrate that the source-to-model crosswalk covers the simulated residential population and that missingness, fallbacks, and exclusions are visible before simulation. Non-residential and unresolved-use footprints remain visible as grey/hatched excluded context but must be absent from layout, IDF, and simulation manifests.
+The point is not visual decoration. The maps/tables must demonstrate that the source-to-model crosswalk covers the simulated residential population and that missingness, fallbacks, and exclusions are visible before simulation. Non-residential and unresolved-use footprints remain visible as grey/hatched excluded context but must be absent from layout, IDF, and simulation manifests.
 
 For non-spatial archetype campaigns, use equivalent archetype matrices or heatmaps. Preserve the underlying machine-readable audit table and its generation command. Store reusable sources for every figure/table under `docs/docs_ACTIVE/europeanLocations/content/` and give every document figure/table a descriptive caption.
 
@@ -453,7 +449,6 @@ The European-locations arc is done only when all of the following are true:
 
 - all 102 ES/GB/IT occupant archetypes and the separate France physical archetype registry are sourced, semantically mapped, and provenance-audited;
 - non-residential and unresolved-use footprints are explicitly excluded and proven absent from layout, IDF, and simulation manifests;
-- each N1/N2 site is a real contiguous dense residential neighbourhood accepted under `NS-01`–`NS-10`, with a versioned boundary and candidate-selection record;
 - geometry, envelope, internal mass, HVAC, and weather decisions are explicit and tested;
 - `GEO-01`–`GEO-10`, Grasshopper/OpenUBEM parity, and the S0–S3 residential sample ladder have observed outcomes;
 - the external occupant schedule path, including `f=0`, is independently verified;
@@ -486,6 +481,6 @@ Then list only the evidence, decisions, or authorization needed for that action.
 
 ## 17. Immediate next action at this handoff
 
-Unless newer repository evidence changes the state, begin with **CP0 / EU-01–EU-02**: re-check the code/test/resource baseline, then implement the smallest local slice that defines the four-country physical registry contract, residential-only filter, and candidate-neighbourhood selection schema with explicit non-residential exclusions. Use tiny deterministic fixtures before S0, do not fabricate the unaudited France production count, and do not choose a production neighbourhood before its density rule is registered.
+Unless newer repository evidence changes the state, begin with **CP0 / EU-01–EU-02**: re-check the code/test/resource baseline, then implement the smallest local slice that defines the four-country physical registry contract and residential-only filter with explicit non-residential exclusions. Use tiny deterministic fixtures before S0 and do not fabricate the unaudited France production count.
 
 Do not submit Speed work during this initial audit. The planning documents and this prompt establish how to run the campaign safely; they do not grant submission authority.
