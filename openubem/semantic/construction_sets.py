@@ -62,6 +62,102 @@ def _load_table(json_name: str) -> dict:
     return json.loads((pkg / json_name).read_text(encoding="utf-8"))
 
 
+# TABULA construction-year classes, verbatim from MVP Table 15.
+_TABULA_PERIODS: dict[str, tuple[tuple[int, int, str], ...]] = {
+    "ES": (
+        (0, 1900, "ES.01"), (1901, 1936, "ES.02"), (1937, 1959, "ES.03"),
+        (1960, 1979, "ES.04"), (1980, 2006, "ES.05"), (2007, 9999, "ES.06"),
+    ),
+    "GB": (
+        (0, 1918, "GB.01"), (1919, 1944, "GB.02"), (1945, 1964, "GB.03"),
+        (1965, 1980, "GB.04"), (1981, 1990, "GB.05"), (1991, 2003, "GB.06"),
+        (2004, 2009, "GB.07"), (2010, 9999, "GB.08"),
+    ),
+    "IT": (
+        (0, 1900, "IT.01"), (1901, 1920, "IT.02"), (1921, 1945, "IT.03"),
+        (1946, 1960, "IT.04"), (1961, 1975, "IT.05"), (1976, 1990, "IT.06"),
+        (1991, 2005, "IT.07"), (2006, 9999, "IT.08"),
+    ),
+    "FR": (
+        (0, 1914, "FR.01"), (1915, 1948, "FR.02"), (1949, 1967, "FR.03"),
+        (1968, 1974, "FR.04"), (1975, 1981, "FR.05"), (1982, 1989, "FR.06"),
+        (1990, 1999, "FR.07"), (2000, 2005, "FR.08"), (2006, 2012, "FR.09"),
+        (2013, 9999, "FR.10"),
+    ),
+}
+
+
+def tabula_period(country_stock_code: str, year_built: int) -> str:
+    """Return the TABULA construction-year class for a source country and year.
+
+    This maps only the country/year axis. It intentionally does not select an
+    archetype row, because the GB and IT source structures contain parallel and
+    composite parameterisations that require explicit ambiguity handling.
+    """
+    country = country_stock_code.upper()
+    if country not in _TABULA_PERIODS:
+        raise ValueError(f"Unsupported TABULA country stock code: {country_stock_code}")
+    if isinstance(year_built, bool) or not isinstance(year_built, (int, np.integer)):
+        raise ValueError(f"year_built must be an integer TABULA year, got {year_built!r}")
+    for first_year, last_year, code in _TABULA_PERIODS[country]:
+        if first_year <= year_built <= last_year:
+            return code
+    raise ValueError(f"No TABULA construction period for {country} year {year_built}")
+
+
+def _source_code_contains_period(source_building_code: str, period: str) -> bool:
+    target = period.split(".")[-1]
+    period_token = source_building_code.split(".")[3]
+    if "-" not in period_token:
+        return period_token == target
+    start, end = (int(value) for value in period_token.split("-"))
+    return start <= int(target) <= end
+
+
+def select_tabula_archetype(
+    records: list[dict], country_stock_code: str, building_type: str, year_built: int
+) -> dict:
+    """Select exactly one source row or fail explicitly on a gap/ambiguity.
+
+    Composite source type and period codes contain their individual members.
+    This helper is deliberately strict: it never substitutes the first row.
+    """
+    country = country_stock_code.upper()
+    period = tabula_period(country, year_built)
+    target_type = building_type.upper()
+    matches = []
+    for record in records:
+        if record["country_stock_code"] != country:
+            continue
+        source_type = record["source_building_type_code"].split(".")[2].split("-")
+        if target_type not in source_type:
+            continue
+        if _source_code_contains_period(record["source_building_code"], period):
+            matches.append(record)
+    non_composite = [
+        record
+        for record in matches
+        if "-" not in record["source_building_type_code"].split(".")[2]
+        and "-" not in record["source_building_code"].split(".")[3]
+    ]
+    if non_composite:
+        matches = non_composite
+    generated = [record for record in matches if ".Gen." in record["source_building_code"]]
+    if len(generated) == 1:
+        matches = generated
+    if not matches:
+        raise ValueError(
+            f"ARCHETYPE_NO_MATCH: country={country}, building_type={target_type}, period={period}"
+        )
+    if len(matches) > 1:
+        ids = sorted(record["archetype_id"] for record in matches)
+        raise ValueError(
+            f"ARCHETYPE_AMBIGUOUS: country={country}, building_type={target_type}, "
+            f"period={period}, candidates={ids}"
+        )
+    return matches[0]
+
+
 _ASHRAE_TABLE: dict | None = None
 
 

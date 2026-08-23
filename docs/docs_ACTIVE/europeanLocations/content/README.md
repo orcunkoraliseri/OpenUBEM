@@ -2,6 +2,9 @@
 
 This directory is the reusable source-of-truth for figures and tables cited by the European-locations MVP and walkthrough. A rendered figure must never be treated as simulation evidence unless its caption names the measured dataset and evidence path.
 
+> [!NOTE]
+> **Asset storage exception (Ruling 2026-08-23 Q3-B)**: This directory holds authored document assets (design diagrams, illustrative figures, reference schema, test specifications). Generated pipeline figure outputs from simulation runs must continue to be written flat to `openubem/outputs/`.
+
 | Asset ID | File | Caption / purpose | Status |
 |---|---|---|---|
 | Figure 1 | `figure_1_1_integration_pipeline.mmd` | OpenUBEM–GSSCanada integration and validation flow | Design source |
