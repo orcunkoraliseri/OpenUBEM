@@ -12,6 +12,7 @@ SHADING:SITE:DETAILED. With a real EnergyPlus 23.1 IDD the object type may diffe
 """
 import logging
 import math
+from dataclasses import dataclass
 from itertools import groupby
 
 from geomeppy import IDF as GeomIDF
@@ -22,6 +23,72 @@ try:
     from geomeppy.utilities import NotARectangleError
 except ImportError:
     NotARectangleError = None  # geomeppy >= 0.12 may not expose this symbol
+
+
+@dataclass(frozen=True)
+class ReciprocalInterzoneWallAudit:
+    """Saved-IDF GEO-06 audit result for party-wall surface reciprocity."""
+
+    party_face_count: int
+    reciprocal_pair_count: int
+    failures: tuple[str, ...]
+
+    @property
+    def passed(self) -> bool:
+        return not self.failures
+
+
+def audit_reciprocal_interzone_wall_surfaces(idf: GeomIDF) -> ReciprocalInterzoneWallAudit:
+    """Verify every saved-IDF interzone wall has exactly one reciprocal mate.
+
+    The check deliberately uses only serialized ``BuildingSurface:Detailed``
+    fields exposed after an IDF is reopened.  It rejects a missing mate, a
+    non-reciprocal reference, a same-zone wall, or a geometrically unequal
+    partner.  Horizontal floor/ceiling pairs are outside this party-wall gate.
+    """
+    surfaces = tuple(idf.idfobjects["BUILDINGSURFACE:DETAILED"])
+    by_name = {str(surface.Name).upper(): surface for surface in surfaces}
+    party_faces = tuple(
+        surface
+        for surface in surfaces
+        if str(surface.Surface_Type).upper() == "WALL"
+        and str(surface.Outside_Boundary_Condition).upper() == "SURFACE"
+    )
+    failures: list[str] = []
+    pairs: set[tuple[str, str]] = set()
+
+    def vertex_set(surface) -> frozenset[tuple[float, float, float]]:
+        return frozenset(
+            tuple(round(float(value), 6) for value in point)
+            for point in surface.coords
+        )
+
+    for surface in party_faces:
+        source_name = str(surface.Name).upper()
+        partner_name = str(surface.Outside_Boundary_Condition_Object or "").upper()
+        partner = by_name.get(partner_name)
+        if partner is None:
+            failures.append(f"MISSING_RECIPROCAL_SURFACE:{surface.Name}")
+            continue
+        if str(partner.Surface_Type).upper() != "WALL":
+            failures.append(f"RECIPROCAL_SURFACE_TYPE:{surface.Name}")
+            continue
+        if str(partner.Zone_Name).upper() == str(surface.Zone_Name).upper():
+            failures.append(f"RECIPROCAL_SAME_ZONE:{surface.Name}")
+        if (
+            str(partner.Outside_Boundary_Condition).upper() != "SURFACE"
+            or str(partner.Outside_Boundary_Condition_Object or "").upper() != source_name
+        ):
+            failures.append(f"RECIPROCAL_REFERENCE_MISMATCH:{surface.Name}")
+        if vertex_set(surface) != vertex_set(partner):
+            failures.append(f"RECIPROCAL_VERTEX_MISMATCH:{surface.Name}")
+        pairs.add(tuple(sorted((source_name, partner_name))))
+
+    return ReciprocalInterzoneWallAudit(
+        party_face_count=len(party_faces),
+        reciprocal_pair_count=len(pairs),
+        failures=tuple(failures),
+    )
 
 
 def _get_floor_idx(zone_name: str) -> int | None:

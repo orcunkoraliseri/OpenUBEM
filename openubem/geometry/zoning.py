@@ -8,6 +8,47 @@ from openubem.geometry import layoutGenerator, layout_assigner
 logger = logging.getLogger("openubem.geometry")
 
 _ONE_PER_FLOOR = {"MidriseApartment", "HighriseApartment", "TallBuilding", "SuperTallBuilding"}
+ENERGYPLUS_IDD_VERTEX_BUDGET = 120
+
+
+def bounded_energyplus_footprint(
+    footprint_poly: shapely.Polygon,
+    *,
+    vertex_budget: int = ENERGYPLUS_IDD_VERTEX_BUDGET,
+) -> tuple[shapely.Polygon, dict[str, float | int | bool]]:
+    """Simplify only over-budget exterior rings and return error provenance."""
+    if footprint_poly.geom_type != "Polygon":
+        raise ValueError("bounded_energyplus_footprint requires a Polygon")
+    original_vertices = max(0, len(footprint_poly.exterior.coords) - 1)
+    metadata: dict[str, float | int | bool] = {
+        "geometry_simplified_for_energyplus": False,
+        "geometry_original_vertex_count": original_vertices,
+        "geometry_simplified_vertex_count": original_vertices,
+        "geometry_simplification_delta_area_m2": 0.0,
+        "geometry_simplification_hausdorff_m": 0.0,
+    }
+    if original_vertices <= vertex_budget:
+        return footprint_poly, metadata
+    minx, miny, maxx, maxy = footprint_poly.bounds
+    low, high = 0.0, max(maxx - minx, maxy - miny)
+    candidate = None
+    for _ in range(60):
+        tolerance = (low + high) / 2.0
+        probe = footprint_poly.simplify(tolerance, preserve_topology=True)
+        count = len(probe.exterior.coords) - 1 if probe.geom_type == "Polygon" else vertex_budget + 1
+        if probe.geom_type == "Polygon" and probe.is_valid and not probe.is_empty and count <= vertex_budget:
+            candidate, high = probe, tolerance
+        else:
+            low = tolerance
+    if candidate is None:
+        raise ValueError("Unable to simplify footprint within EnergyPlus vertex budget")
+    metadata.update({
+        "geometry_simplified_for_energyplus": True,
+        "geometry_simplified_vertex_count": len(candidate.exterior.coords) - 1,
+        "geometry_simplification_delta_area_m2": abs(float(candidate.area) - float(footprint_poly.area)),
+        "geometry_simplification_hausdorff_m": float(candidate.hausdorff_distance(footprint_poly)),
+    })
+    return candidate, metadata
 
 
 def decide_zoning_strategy(
@@ -51,10 +92,17 @@ def build_zones(
     floor_to_floor_m: float = 3.5,
     perimeter_depth_m: float = 4.57,
 ) -> list[dict]:
+    footprint_poly, geometry_metadata = bounded_energyplus_footprint(footprint_poly)
+
+    def annotate(zones: list[dict]) -> list[dict]:
+        for zone in zones:
+            zone.update(geometry_metadata)
+        return zones
+
     coords = list(footprint_poly.exterior.coords)[:-1]
 
     if strategy == "single_zone":
-        return [
+        return annotate([
             {
                 "name": f"{osm_id}_F0_whole",
                 "floor_polygon": footprint_poly,
@@ -66,10 +114,10 @@ def build_zones(
                 "num_floors": num_floors,
                 "floor_area_m2": footprint_poly.area * num_floors,
             }
-        ]
+        ])
 
     if strategy == "one_zone_per_floor":
-        return [
+        return annotate([
             {
                 "name": f"{osm_id}_F{i}_whole",
                 "floor_polygon": footprint_poly,
@@ -80,7 +128,7 @@ def build_zones(
                 "archetype_id": archetype_id,
             }
             for i in range(num_floors)
-        ]
+        ])
 
     if strategy == "room_layout":
         zones = layoutGenerator.generate_layout(
@@ -125,7 +173,7 @@ def build_zones(
             )
         # R7: pass full footprint to geomeppy's native core/perim zoning.
         # extrude_geometry detects this placeholder and calls add_block(zoning="core/perim").
-        return [{
+        return annotate([{
             "name": f"{osm_id}_perimgroup",
             "mode": "core/perim",
             "floor_polygon": footprint_poly,
@@ -134,7 +182,7 @@ def build_zones(
             "height_m": floor_to_floor_m,
             "perim_depth_m": perimeter_depth_m,
             "archetype_id": archetype_id,
-        }]
+        }])
 
     if strategy == "layout_assign":
         assigned_layout = layout_assigner.assign_baseline_layout(
@@ -142,4 +190,4 @@ def build_zones(
         )
         return [assigned_layout]
 
-    return build_zones(osm_id, footprint_poly, archetype_id, num_floors, "single_zone", floor_to_floor_m, perimeter_depth_m)
+    return annotate(build_zones(osm_id, footprint_poly, archetype_id, num_floors, "single_zone", floor_to_floor_m, perimeter_depth_m))
