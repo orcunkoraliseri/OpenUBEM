@@ -132,6 +132,19 @@
   *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-41-38_failure-causes.md;
   docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open61-census-open03-storeys-2026-08-20.md)*
 
+- **`** Fatal ** Errors occurred on processing input file` from `energyplus.exe` on an extruded real
+  footprint, with no preceding Severe that names a geometry object** — the footprint's exterior ring
+  carries more vertices than a `BuildingSurface:Detailed` can hold. Measured on
+  `BATIMENT0000000240877527_part0` (Lyon BD TOPO, AB, 5 storeys): 173 exterior vertices against the
+  IDD's ~120-vertex field limit, so E+ fails during input processing rather than during simulation.
+  Nothing upstream simplifies the ring: `build_zones(..., strategy="one_zone_per_floor")` uses
+  `exterior.coords` verbatim, so any dense historic parcel can hit this. Fix: none applied — found
+  inside the EU-04 `S1` measurement task and recorded fail-closed as `EPLUS_FATAL`, a named refusal,
+  never an energy result. Candidate remedy for a later, explicitly scoped item: a vertex-budget
+  simplification (`shapely.simplify` with an area-preserving tolerance) before extrusion, with the
+  simplification error recorded per building. *(docs/docs_ACTIVE/europeanLocations/prompts/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md;
+  openubem/outputs/eu_evidence/EU-04/s1_smoke_manifest.csv)*
+
 ## 2. Thermal runaway & envelope thermal mass
 
 - **`CalcHeatBalanceOutsideSurf` / `Temperature (high|low) out of bounds` isolated to the top/roof zone, after
@@ -338,6 +351,20 @@
   sliver defect. LargeOffice and Primary/SecondarySchool have **no geometry engine at all** (T13b/T13c).
   *(docs/docs_TODO/layoutgenerator/PLAN_layoutgenerator_implementation.md:183-195)*
 
+- **[OPEN] `generate_european_dwelling_layout` returns `FALLBACK_PENDING_LAYOUT / PARTITION_AUDIT_FAILED`
+  with `partition_audit.failures = ('AREA_GAP', 'OUTSIDE_FOOTPRINT')` at an `area_error_fraction` of
+  5.09e-12** - the emitted partition is exact; the audit fails on float noise. Cause: the generator rotates
+  the footprint about the literal coordinate origin (`openubem/geometry/european_residential.py:504`,
+  `affinity.rotate(..., origin=(0.0, 0.0))`) while `audit_european_floor_partition` compares against an
+  **absolute** `topology_tolerance_m2=1e-8` (`openubem/geometry/european_residential.py:643`). The noise
+  therefore scales with distance from (0,0): the same building emits a clean layout in EPSG:32631
+  (~642000, 5070000) and fails in EPSG:2154 (~852000, 6519000). Layout success is CRS-dependent, so a
+  census run in Lambert-93 would report near-zero emitted layouts for the same corpus. Not fixed - found
+  inside a measurement task (EU-04 `S1-EXEC-01` CP-1, 2026-08-25) and recorded rather than remedied;
+  candidate fix is rotation about the footprint centroid and/or a footprint-area-relative topology
+  tolerance. Workaround in force: S1 runs in the manifest's native `EPSG:32631`.
+  *(docs/docs_ACTIVE/europeanLocations/prompts/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md:115)*
+
 ## 6. Classification & archetype assignment
 
 - **DOE/PNNL prototypes misclassify into the wrong archetype** (511 m² SmallOffice → Medium; 4,982 m²
@@ -472,6 +499,81 @@
   use of `_draw_pairs`. Both modules are orphaned (OPEN-17: `ml`/`draw` are intentionally not in
   `IMPUTE_ENABLED_TIERS`); not fixed here — no tier is promoted or wired by this measurement.
   *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-17_tier-census.md)*
+- **`HTTP Error 429: Too Many Requests` / `HTTP Error 504: Gateway Timeout` from
+  `https://overpass-api.de/api/interpreter` during city-scale building extracts** — the public Overpass
+  instance grants only ~2 concurrent slots per IP and drops large `area(...)`/`out geom` queries under
+  load; two extract jobs running in parallel produced 429 and district-sized queries produced 504.
+  Fix: serialise the extracts (one job at a time), retry with increasing backoff (20/40/60 s) and skip
+  outputs that already exist, then re-run only the failed units. Mirrors are not a reliable fallback —
+  `overpass.kumi.systems` returned `HTTP Error 502: Bad Gateway` and `overpass.private.coffee` timed
+  out for the same query the main endpoint later served. All twelve EU-02 extracts completed this way.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4)*
+- **Building counts silently wrong when a WGS84 bbox is passed to `ingest_buildings` in GeoJSON order** —
+  `openubem/acquisition/osm_fetcher.py:43` forwards `bbox` to `osmnx.features.features_from_bbox`, whose
+  signature in the pinned osmnx 1.9.3 is `(north, south, east, west)`, while GeoJSON/`shapely.bounds`
+  order is `(west, south, east, north)`. Passing the GeoJSON order produces an empty or nonsensical
+  extract rather than an error. Fix: convert explicitly at the call site — the DESIGN order is
+  `(n, s, e, w)`, as `osm_fetcher.py:82` already documents for the warning payload.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.5)*
+- **A residential filter over OSM tags returns almost nothing in Italian and French cities** — the
+  `building=yes` share measured 2026-08-24 is 65.5 % in a dense Bologna area statistica and 61.1 % over
+  the whole Lyon commune (cadastre imports set no use tag), versus 1.5–27 % in Madrid barrios. Any
+  count from `openubem/data/osm_to_use_class.json` alone is therefore a *tagging* measurement, not a
+  stock measurement, and a density ranking built on it partly ranks mapping completeness (Islington's
+  Barnsbury ward: 83.8 % unknown, 43rd of 58 on residential/km²). Fix: for IT/FR join a non-OSM
+  classifier before applying any residential gate. **Resolved and measured 2026-08-24:** ISTAT 2011
+  section variables `E3`/`E1` for Italy (60 of 71 screened Bologna units then pass the 0.60 dominance
+  gate, against 2 on OSM; in the selected unit OSM sees 31 residential buildings and ISTAT 1,010), and
+  IGN BD TOPO® V3 `batiment.usage_1/usage_2` via `data.geopf.fr/wfs/ows` for France (11 of 36 Lyon
+  quartiers then pass, against 0). Both also carry the attributes OSM lacks — dwellings, storeys,
+  height, construction date, wall material.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §6)*
+- **`data.geopf.fr` WFS `GetFeature` returns `"features": []` with HTTP 200 and no error message** — the
+  IGN Géoplateforme WFS 2.0 rejects the WFS-standard `BBOX=<lat>,<lon>,<lat>,<lon>,EPSG:4326` axis order
+  silently and yields an empty, entirely plausible-looking FeatureCollection. Fix: give the bbox as
+  `BBOX=<west>,<south>,<east>,<north>,CRS:84` (lon,lat); the same request then returns
+  `numberMatched="107347"` over the Lyon commune. Add `SORTBY=cleabs` before paging with `STARTINDEX`,
+  or pages silently overlap.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.2)*
+- **ISTAT 2011 section breakdowns do not sum to the residential-building total (`E4+E5+E6 = 1,140` vs
+  `E3 = 1,010`)** — the `dati-cpa_2011` archive ships no data dictionary, and the intuitive reading
+  (`E4` = first construction-material class) is off by one: `E4` is *edifici utilizzati ad uso non
+  residenziale*, so material is `E5..E7`, period `E8..E16`, storeys `E17..E20`, dwelling units
+  `E21..E26`, state of repair `E28..E31`. Fix: never assume the positions — verify with the five
+  identities that must each equal `E3`, plus `E2 − E3 = E4`, over the whole comune before use.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §0 item 5)*
+- **Joining ISTAT census variables to a municipal section layer matches zero rows** — ISTAT's `SEZ2011`
+  is the 12-digit national code (`370060000001`) while a comune's own published layer carries the local
+  section number (`sez2011 = 1`). Fix: join on `int(NSEZ) == int(sez2011)` inside the comune, not on the
+  full code; a silent zero-match here produces a complete, all-zero ranking table rather than an error.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.3)*
+- **Opendatasoft Explore v2.1 `group_by` returns `{"total_count": N, "results": []}`** — the aggregation
+  is only emitted when `limit > 0`; with `limit=0` the endpoint answers with the row count and an empty
+  result list, which reads as "no distinct values". A companion trap: aliasing the grouped field in
+  `select` (`select=descrizion as v&group_by=descrizion as v`) returns **HTTP 400 Bad Request**. Fix:
+  `?group_by=<field>&select=count(*) as n&limit=30&order_by=n desc`, no alias on the grouped field.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.4)*
+- **`HTTP Error 403: Forbidden` from `data.ademe.fr/data-fair/api/v1/datasets/<slug>/lines`** — the
+  human-readable slug (`dpe03existant`) is accepted by the catalogue endpoint but not by `lines`. Fix:
+  resolve the numeric dataset id from `/datasets?q=dpe&select=id,title,count` and call
+  `/datasets/meg-83tjwtg8dyz4vv7h1dqe/lines?size=0&bbox=<w>,<s>,<e>,<n>`.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.5)*
+- **`URLError [SSL: CERTIFICATE_VERIFY_FAILED] self-signed certificate in certificate chain` against
+  `servizigis.regione.emilia-romagna.it` / `geoportale.regione.emilia-romagna.it`** — the Emilia-Romagna
+  geoportal serves its WFS behind a CA that is not in the Python trust store. Fix: do **not** disable
+  verification for a data source of record; substitute an equivalent authority — here the Comune di
+  Bologna Opendatasoft portal (`c_a944ctc_edifici_pl`) plus ISTAT, both of which cover the same need.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.7)*
+- **A selected site's `unit_code` names a different unit than the geometry and counts on the same row** — in
+  `eu02_site_measurements_v2.{csv,json}` the Lyon site carried `unit_code = 8075`, which resolves to
+  *Quartier Saxe Roosevelt*, while every measured field on that row (0.3753 km², 868 buildings, 544
+  residential, 1,449.6 per km², 6,387 dwellings) belongs to quartier `7016`, *Haut et Cœur des Pentes*. The
+  name and the numbers were taken from the selected row of the ranking frame and the identifier from a
+  different one; because no arithmetic depends on the code, every sum, share and checksum still verified and
+  the error survived the whole review. Fix: derive the identifier from the same row as the measurement, and
+  before writing a site packet assert that `(unit_id, unit_name, area_km2, residential)` all agree with the
+  candidate ranking file the site was chosen from. Corrected to `7016` on 2026-08-24.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §8.1)*
 
 ## 8. Results parsing, EUI arithmetic & meters
 
@@ -923,6 +1025,16 @@
   stale `eplusout.sql` if EnergyPlus fails, silently parsing the previous run's results. Fix: delete the work dir
   explicitly before re-running a building, and treat leftover `.sql` files as a corpus to be inventoried rather than
   as cleanup that succeeded. *(scripts/analysis/open61_census_build_2026-08-20.py T03)*
+- **`ERROR: Could not find input data file: <dir>\<dir>\<name>.idf` from `energyplus.exe`, `returncode=1`,
+  no `eplusout.err` written at all** — the runner built its per-building temp directory from a **relative**
+  `Path` (`SMOKE_ERR_DIR / f"_tmp_{building_id}"`), then called `subprocess.run([..., "-d", str(tmp_root),
+  str(idf_path)], cwd=tmp_root, ...)`; `cwd=` only changes the child process's working directory, it does not
+  rebase relative path *arguments*, so `energyplus.exe` resolved the still-relative `idf_path` against the new
+  `cwd` a second time, looking for `tmp_root/tmp_root/<name>.idf`. Same root cause as the `run_ep_isolated()`
+  entry above (relative path + `cwd=` switch), different, louder symptom because here EnergyPlus itself reports
+  the exact missing path instead of silently producing no output. Fix: `.resolve()` the temp directory before
+  building the `.idf` path from it (`scripts/run_eu_s1_smoke.py:283`).
+  *(scripts/run_eu_s1_smoke.py, EU-04 S1 smoke, D-EU-04-H)*
 
 ## 14. Test suite: collection aborts, fixtures, benign noise
 
@@ -983,6 +1095,10 @@ Grep target for "which module can throw this, and what does it mean?"
   its 23-column schema/dtype/uniqueness contract. **`Exactly one of {location, bbox, osm_path} must be
   set`**. *(osm_fetcher.py:100,121,132,534-552)*
 - **`ValueError: fetch_overture: one of slice_path or endpoint must be given.`** *(overture_fetcher.py:52)*
+- **Comune di Bologna ODS CTC GeoJSON field aliases** — live exports observed on 2026-08-24 abbreviate
+  `altezza_gronda`, `quota_gronda`, and `quota_piede` to `altezza_gr`, `quota_gron`, and `quota_pied`.
+  `bologna_fetcher.py` accepts both explicit spellings; do not infer height from another field or derive
+  storeys when neither eaves-height spelling is present.
 
 ### `openubem/geometry`
 - **`ValueError: patch_envelope: row[...] is null/missing for archetype_id=...`** — requires Step-2 semantic
@@ -1323,6 +1439,27 @@ ID OPEN-61). Snapshot only — always re-read the register before acting.
   than 7.357589 C. It is retained as a strict expected failure pending reconciliation; see
   `openubem/outputs/eu_evidence/X-04/targeted_pytest_r3_fixture.log`.
 
+## European locations EU-10
+
+- **A retained EnergyPlus J-to-kWh series can sum to 8759.999999999998 rather than a literal 8760.0** — IEEE-754 accumulation of hourly converted values is expected, not an energy-accounting discrepancy. Fix: retain the strict closure tolerance in `openubem/results/european_campaign.py` and use approximate comparisons in `tests/test_eu_results_accounting.py`; do not round retained values before validation.
+
 ## European locations X-05
 
+- **EU-02 live Bologna `ValueError: Unlisted Bologna rifter typologia values`** — the live cadastral export used official spellings `Cabina ENEL`, `Mura storiche`, and `Stazione di rifornimento`, while the initial fail-closed rule carried their shorter aliases only. Fix: retain both explicit spellings as non-residential in `classify_bologna_rifter`, with a regression fixture; never default an unseen typology. **EU-02 GeoPackage readback:** Fiona places `geometry` first and represents nullable `Int64` fields as ordinary numeric columns. Validate the emitted `01_buildings_clean.schema.json` metadata on readback rather than treating that driver representation as an in-memory schema failure.
+
+- **The EU-02 Lyon selection record’s BD TOPO class counts do not add up** — it states 891 total, 23 annexes, then 544 residential + 278 unknown + 52 non-residential; those categories sum to 897 (or 874 after annex removal). The retained raw WFS query and pinned boundary reproduce 891 / 23 / 544 / 278 / **46** when `usage_1 OR usage_2 = Résidentiel` is applied as specified. Fix: preserve the measured 46 in `openubem/outputs/eu_evidence/X-10/fr_live_reconciliation.json`; do not alter the selected site or silently force the count to 52.
+
+- **A positional `Sizing:Zone` fixture was rejected before sizing began** — the original test fixture placed `No` and `NeutralSupplyAir` in fields whose EnergyPlus 23.1 schema expects numeric cooling-flow data and a heating-flow method, respectively. Fix: `tests/test_eu_hvac_sizing.py` constructs `Sizing:Zone` through named IDD fields, then requires a successful zone-sizing record and nonzero heating load. *(MVP §9.7 EU-05 acceptance evidence)*
+
 - **A weighted U-value cannot reconstruct TABULA's `h_Transmission` target** — component-specific boundary factors are embedded in the calculator's eleven `H_Transmission_*` terms. Preserve and sum those cached terms, divided by `A_C_Ref`, for the exact source readback; do not substitute a weighted-U approximation. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+
+- **`** Severe ** Duplicate name found for object of type "Schedule:Constant" named "EU_AlwaysOn_ES.ME.SFH.04.Gen.ReEx.001.001". Overwriting existing object.` (10 severes, fatal before simulation)** — `add_european_heating_controls` named every emitted object after the archetype alone, so a multi-dwelling building, whose dwellings share one archetype by construction, wrote one schedule/ventilation/gains/thermostat set per zone under the same names. Single-zone fixtures never exposed it. Fix: `openubem/idf/european_controls.py` names the per-zone objects after `zone_name`, emits the two archetype-independent constant availability schedules once per IDF, and raises `ValueError` when controls are requested twice for the same zone; `tests/test_eu_reciprocal_surface_audit.py` runs a three-dwelling generated layout through a real EnergyPlus design-day sizing run. *(MVP §9.7 EU-04/EU-05 acceptance evidence)*
+
+- **S0 windows made EnergyPlus abort with "Other side coefficients are not allowed with windows"** — the first equivalent-envelope emitter placed windows in wall hosts using `OtherSideCoefficients`; EnergyPlus permits fenestration only on an exterior/interzone parent. Fix: `openubem/idf/european_box.py` emits the S0's required `b=1` window/door hosts as `Outdoors` walls and preserves the same `U*A` loss; `tests/test_eu_box_generator.py` runs the SFH heating-only engine smoke test. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+
+- **S0 north/west windows failed the outward-normal check** — subsurface vertex order did not match its cardinal parent-wall winding. Fix: `openubem/idf/european_box.py` uses orientation-specific fenestration vertex sequences, validated by the EnergyPlus smoke run. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+
+- **The AB floor's displayed TABULA b did not reproduce cached H** — `b_Transmission_Floor_1 = 1` but its cached `H_Transmission_Floor_1` is not `U*A`. Fix: `openubem/idf/european_box.py:_component_values` derives the admissible effective b from the authoritative H component for saved-IDF realization while retaining the original display b in the registry. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+
+- **Every BD TOPO building is stamped `provenance_year_built = IGN_BDTOPO_MISSING` / `data_quality_flag = 'no_year'` although the source carries the year** — `openubem/acquisition/bdtopo_fetcher.py:94` parsed `date_d_apparition` with `pd.to_datetime(..., format="mixed", errors="coerce")`. Under pandas 3.0.3 that returned `NaT` for **every** BD TOPO value, because the source formats the field as a date with a bare zone suffix and no time part (`'1998-01-01Z'`, `'1820-01-01Z'`), and because pre-1677 values such as `'1580-01-01Z'` fall outside `datetime64[ns]`. `errors="coerce"` then discarded the failure silently. Measured on the live Lyon WFS query (bbox `45.774784, 45.768891, 4.837450, 4.823612`): **1,115 of 1,663** raw features carry a non-null `date_d_apparition`, yet the retained manifest `openubem/outputs/eu02/FR-LYO-HAUTCOEURPENTES/02_residential_manifest.gpkg` held **0 of 530** observed years. This was the live blocker on EU-04 `GEO-10`/S1–S3, and it was a parse defect, not a missing source. Fix: `openubem/acquisition/bdtopo_fetcher.py:82-93` extracts the leading 4-digit calendar year via `_parse_bdtopo_year` with 1000..current_year bounds without datetime round-tripping; regression-tested by `test_bdtopo_year_parse_recovers_real_date_shapes_and_pre_1677_years` and `test_bdtopo_retains_all_years_when_source_dates_present` in `tests/test_eu02_fetchers.py`. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISION_REQUEST_EU-04_GEO-08_GEO-10_2026-08-25.md)*
+

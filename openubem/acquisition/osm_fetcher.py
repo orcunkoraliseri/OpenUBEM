@@ -12,6 +12,15 @@ import pandas as pd
 import shapely
 from packaging.version import Version
 
+from openubem.acquisition.footprint_schema import (
+    SCHEMA_COLUMNS as _SHARED_SCHEMA_COLUMNS,
+    assign_provenance as _shared_assign_provenance,
+    build_quality_flag as _shared_build_quality_flag,
+    seven_step_clean as _shared_seven_step_clean,
+    serialize as _shared_serialize,
+    validate_schema as _shared_validate_schema,
+)
+
 assert Version("1.9") <= Version(ox.__version__) < Version("2.0"), (
     f"osmnx version out of pinned range [1.9, 2.0): {ox.__version__}"
 )
@@ -31,7 +40,26 @@ def ingest_buildings(
     tags: dict | None = None,
     retry_policy: "tenacity.Retrying | None" = None,
     output_dir: Path | None = None,
+    source: str = "osm",
+    source_options: dict | None = None,
 ) -> gpd.GeoDataFrame:
+    """Acquire primary footprints through the documented source dispatch.
+
+    The historical OSM arguments retain their exact behaviour.  The two EU-02
+    official adapters use the same frozen-schema tail and may be selected with
+    ``source='bdtopo'`` or ``source='bologna'`` and a bbox.
+    """
+    if source != "osm":
+        if bbox is None or any(value is not None for value in (location, osm_path)):
+            raise ValueError("Non-OSM sources require bbox only.")
+        options = source_options or {}
+        if source == "bdtopo":
+            from openubem.acquisition.bdtopo_fetcher import ingest_bdtopo
+            return ingest_bdtopo(bbox=bbox, output_dir=output_dir, **options)
+        if source == "bologna":
+            from openubem.acquisition.bologna_fetcher import ingest_bologna
+            return ingest_bologna(bbox=bbox, output_dir=output_dir, **options)
+        raise ValueError(f"Unsupported primary acquisition source: {source!r}")
     if tags is None:
         tags = {"building": True}
 
@@ -348,88 +376,13 @@ def _resolve_overlaps(gdf: gpd.GeoDataFrame, iou_threshold: float = 0.95) -> gpd
     return gdf.drop(index=list(drop_set))
 
 
-# ---------------------------------------------------------------------------
-# T07 — _seven_step_clean
-# ---------------------------------------------------------------------------
-
 def _seven_step_clean(gdf: gpd.GeoDataFrame) -> tuple["gpd.GeoDataFrame", list[str]]:
-    # Returns (cleaned_gdf, log_lines) so _serialize can write non-empty log content.
-    log_lines: list[str] = []
-
-    def _emit(payload: dict) -> None:
-        line = json.dumps(payload)
-        logger.info(line)
-        log_lines.append(line)
-
-    # Step 1: drop null/empty geometry
-    n_before = len(gdf)
-    gdf = gdf[gdf.geometry.notna() & ~gdf.geometry.is_empty].copy()
-    _emit({"event": "cleaner_step", "step": 1, "dropped": n_before - len(gdf), "remaining": len(gdf)})
-
-    # Step 2: keep only Polygon / MultiPolygon
-    n_before = len(gdf)
-    gdf = gdf[gdf.geom_type.isin(["Polygon", "MultiPolygon"])].copy()
-    _emit({"event": "cleaner_step", "step": 2, "dropped": n_before - len(gdf), "remaining": len(gdf)})
-
-    # Step 3: explode MultiPolygon → Polygon parts, re-key osm_id
-    n_before = len(gdf)
-    exploded_parts = []
-    for orig_idx, row in gdf.iterrows():
-        if row.geometry.geom_type == "MultiPolygon":
-            for k, part in enumerate(row.geometry.geoms):
-                new_row = row.copy()
-                new_row["osm_id"] = f"{row['osm_id']}_part{k}"
-                new_row["geometry"] = part
-                exploded_parts.append(new_row)
-        else:
-            exploded_parts.append(row)
-    if exploded_parts:
-        gdf = gpd.GeoDataFrame(exploded_parts, crs=gdf.crs)
-    gdf = gdf.reset_index(drop=True)
-
-    # iterrows+stack demotes typed columns to object; restore the dtypes _flatten_tags set.
-    if "levels" in gdf.columns:
-        gdf["levels"] = pd.to_numeric(gdf["levels"], errors="coerce").astype("Int64")
-    if "year_built" in gdf.columns:
-        gdf["year_built"] = pd.to_numeric(gdf["year_built"], errors="coerce").astype("Int64")
-    if "underground" in gdf.columns:
-        gdf["underground"] = (
-            pd.to_numeric(gdf["underground"], errors="coerce").fillna(0).astype("Int64")
-        )
-    if "height_m" in gdf.columns:
-        gdf["height_m"] = pd.to_numeric(gdf["height_m"], errors="coerce").astype(float)
-    if "roof_height_m" in gdf.columns:
-        gdf["roof_height_m"] = pd.to_numeric(gdf["roof_height_m"], errors="coerce").astype(float)
-    delta = len(gdf) - n_before
-    _emit({"event": "cleaner_step", "step": 3, "added": max(delta, 0), "dropped": max(-delta, 0), "remaining": len(gdf)})
-
-    # Step 4: buffer(0) repair
-    gdf.geometry = gdf.geometry.buffer(0)
-    n_before = len(gdf)
-    gdf = gdf[gdf.geom_type == "Polygon"].copy()
-    _emit({"event": "cleaner_step", "step": 4, "dropped": n_before - len(gdf), "remaining": len(gdf)})
-
-    # Step 4b: validity re-filter
-    n_before = len(gdf)
-    gdf = gdf[gdf.geometry.is_valid].copy()
-    _emit({"event": "cleaner_step", "step": "4b", "dropped": n_before - len(gdf), "remaining": len(gdf)})
-
-    # Step 5: area / perimeter
-    gdf["footprint_area_m2"] = gdf.geometry.area
-    gdf["perimeter_m"] = gdf.geometry.length
-    _emit({"event": "cleaner_step", "step": 5, "dropped": 0, "remaining": len(gdf)})
-
-    # Step 6: min-area filter
-    n_before = len(gdf)
-    gdf = gdf[gdf["footprint_area_m2"] >= 20.0].copy()
-    _emit({"event": "cleaner_step", "step": 6, "dropped": n_before - len(gdf), "remaining": len(gdf)})
-
-    # Step 7: overlap resolve
-    n_before = len(gdf)
-    gdf = _resolve_overlaps(gdf, iou_threshold=0.95)
-    _emit({"event": "cleaner_step", "step": 7, "dropped": n_before - len(gdf), "remaining": len(gdf)})
-
-    return gdf.reset_index(drop=True), log_lines
+    """OSM-compatible entry point for the shared geometry-cleaning tail."""
+    return _shared_seven_step_clean(
+        gdf,
+        overlap_resolver=_resolve_overlaps,
+        log_sink=logger.info,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -437,119 +390,22 @@ def _seven_step_clean(gdf: gpd.GeoDataFrame) -> tuple["gpd.GeoDataFrame", list[s
 # ---------------------------------------------------------------------------
 
 def _assign_provenance(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    gdf = gdf.copy()
-
-    gdf["provenance_levels"] = gdf["levels"].apply(
-        lambda v: "OSM_MISSING" if pd.isna(v) else "OSM_OBSERVED"
-    )
-
-    def _prov_height(row):
-        if pd.isna(row["height_m"]) or (isinstance(row["height_m"], float) and math.isnan(row["height_m"])):
-            return "OSM_MISSING"
-        if row.get("_height_was_ft", False):
-            return "OSM_OBSERVED_FT"
-        return "OSM_OBSERVED"
-
-    gdf["provenance_height_m"] = gdf.apply(_prov_height, axis=1)
-
-    gdf["provenance_year_built"] = gdf["year_built"].apply(
-        lambda v: "OSM_MISSING" if pd.isna(v) else "OSM_OBSERVED"
-    )
-
-    def _prov_building_tag(v):
-        if v in ("yes", "", None):
-            return "OSM_GENERIC"
-        return "OSM_OBSERVED"
-
-    gdf["provenance_building_tag"] = gdf["building_tag"].apply(_prov_building_tag)
-
-    gdf["provenance_function_tag"] = gdf["function_tag"].apply(
-        lambda v: "OSM_MISSING" if (v == "" or pd.isna(v)) else "OSM_OBSERVED"
-    )
-
-    gdf["provenance_postcode"] = gdf["postcode"].apply(
-        lambda v: "OSM_MISSING" if (v is None or (isinstance(v, float) and math.isnan(v))) else "OSM_OBSERVED"
-    )
-
-    def _prov_geometry(row):
-        if row.get("_overlap_resolved", False):
-            return "OSM_OVERLAP_RESOLVED"
-        return "OSM_OBSERVED"
-
-    gdf["provenance_geometry"] = gdf.apply(_prov_geometry, axis=1)
-
-    # Drop temp columns
-    for col in ("_height_was_ft", "_overlap_resolved"):
-        if col in gdf.columns:
-            gdf = gdf.drop(columns=[col])
-
-    return gdf
+    return _shared_assign_provenance(gdf, source="OSM")
 
 
 def _build_quality_flag(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
-    gdf = gdf.copy()
-
-    def _flags(row):
-        tokens = []
-        if pd.isna(row["levels"]):
-            tokens.append("no_floors")
-        if pd.isna(row["height_m"]) or (isinstance(row["height_m"], float) and math.isnan(row["height_m"])):
-            tokens.append("no_height")
-        if row["building_tag"] in ("yes", "", None):
-            tokens.append("generic_tag")
-        if row["function_tag"] == "" and row["building_tag"] in ("yes", "", None):
-            tokens.append("no_function")
-        if row["provenance_geometry"] == "OSM_OVERLAP_RESOLVED":
-            tokens.append("overlap_resolved")
-        if row["provenance_height_m"] == "OSM_OBSERVED_FT":
-            tokens.append("height_only_ft")
-        if pd.isna(row["year_built"]):
-            tokens.append("no_year")
-        return ",".join(sorted(tokens))
-
-    gdf["data_quality_flag"] = gdf.apply(_flags, axis=1)
-    return gdf
+    return _shared_build_quality_flag(gdf, source="OSM")
 
 
 # ---------------------------------------------------------------------------
 # T10 — _validate_schema
 # ---------------------------------------------------------------------------
 
-_SCHEMA_COLUMNS = [
-    "geometry", "osm_id", "crs_utm",
-    "building_tag", "function_tag", "levels", "height_m", "year_built",
-    "postcode", "underground", "roof_shape", "roof_height_m",
-    "footprint_area_m2", "perimeter_m",
-    "surplus_tags",
-    "provenance_levels", "provenance_height_m", "provenance_year_built",
-    "provenance_building_tag", "provenance_function_tag", "provenance_postcode",
-    "provenance_geometry",
-    "data_quality_flag",
-]
+_SCHEMA_COLUMNS = _SHARED_SCHEMA_COLUMNS
 
 
 def _validate_schema(gdf: gpd.GeoDataFrame) -> None:
-    cols = list(gdf.columns)
-    if len(cols) != 23:
-        raise ValueError(f"Schema error: expected 23 columns, got {len(cols)}. Columns: {cols}")
-    if cols != _SCHEMA_COLUMNS:
-        mismatches = [(i, a, b) for i, (a, b) in enumerate(zip(cols, _SCHEMA_COLUMNS)) if a != b]
-        extra = set(cols) - set(_SCHEMA_COLUMNS)
-        missing = set(_SCHEMA_COLUMNS) - set(cols)
-        raise ValueError(
-            f"Schema error: column order mismatch. Mismatches: {mismatches}. "
-            f"Extra: {extra}. Missing: {missing}."
-        )
-    for col in ("levels", "year_built", "underground"):
-        if str(gdf[col].dtype) != "Int64":
-            raise ValueError(f"Schema error: column '{col}' must be Int64, got {gdf[col].dtype}.")
-    for col in ("height_m", "roof_height_m", "footprint_area_m2", "perimeter_m"):
-        if gdf[col].dtype != "float64":
-            raise ValueError(f"Schema error: column '{col}' must be float64, got {gdf[col].dtype}.")
-    if not hasattr(gdf["geometry"].dtype, "name") or "geom" not in str(gdf["geometry"].dtype).lower():
-        raise ValueError(f"Schema error: 'geometry' must be geometry dtype, got {gdf['geometry'].dtype}.")
-    if not gdf["osm_id"].is_unique:
-        raise ValueError("Schema error: 'osm_id' column is not unique.")
+    _shared_validate_schema(gdf)
 
 
 # ---------------------------------------------------------------------------
@@ -561,37 +417,4 @@ def _serialize(
     output_dir: Path,
     log_lines: list[str] | None = None,
 ) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    # Write collected per-step log lines directly so the file is never 0 bytes (D4/W1.3).
-    log_path = output_dir / "01_buildings_clean.log"
-    lines = list(log_lines) if log_lines else []
-    lines.append(json.dumps({"event": "serialize_complete", "n_rows": len(gdf)}))
-    log_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-
-    gdf.to_file(output_dir / "01_buildings_clean.gpkg", layer="buildings", driver="GPKG")
-
-    schema = []
-    provenance_roles = {
-        "geometry": "geometry", "osm_id": "identity", "crs_utm": "identity",
-        "building_tag": "raw_tag", "function_tag": "raw_tag", "levels": "raw_tag",
-        "height_m": "raw_tag", "year_built": "raw_tag", "postcode": "raw_tag",
-        "underground": "raw_tag", "roof_shape": "raw_tag", "roof_height_m": "raw_tag",
-        "footprint_area_m2": "computed", "perimeter_m": "computed",
-        "surplus_tags": "surplus",
-        "provenance_levels": "provenance", "provenance_height_m": "provenance",
-        "provenance_year_built": "provenance", "provenance_building_tag": "provenance",
-        "provenance_function_tag": "provenance", "provenance_postcode": "provenance",
-        "provenance_geometry": "provenance",
-        "data_quality_flag": "quality",
-    }
-    for col in _SCHEMA_COLUMNS:
-        schema.append({
-            "name": col,
-            "dtype": str(gdf[col].dtype),
-            "provenance_role": provenance_roles[col],
-        })
-    import json as _json
-    (output_dir / "01_buildings_clean.schema.json").write_text(
-        _json.dumps(schema, indent=2), encoding="utf-8"
-    )
+    _shared_serialize(gdf, output_dir, log_lines=log_lines)

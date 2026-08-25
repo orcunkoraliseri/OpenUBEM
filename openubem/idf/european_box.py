@@ -102,18 +102,23 @@ def _add_surface(
     zone_name: str,
     vertices: list[tuple[float, float, float]],
     boundary_object: str,
+    outside_boundary_condition: str = "OtherSideCoefficients",
 ) -> Any:
+    fields: dict[str, object] = {
+        "Name": name,
+        "Surface_Type": surface_type,
+        "Construction_Name": construction,
+        "Zone_Name": zone_name,
+        "Outside_Boundary_Condition": outside_boundary_condition,
+        "Sun_Exposure": "NoSun",
+        "Wind_Exposure": "NoWind",
+        "View_Factor_to_Ground": 0.5,
+    }
+    if outside_boundary_condition == "OtherSideCoefficients":
+        fields["Outside_Boundary_Condition_Object"] = boundary_object
     surface = idf.newidfobject(
         "BUILDINGSURFACE:DETAILED",
-        Name=name,
-        Surface_Type=surface_type,
-        Construction_Name=construction,
-        Zone_Name=zone_name,
-        Outside_Boundary_Condition="OtherSideCoefficients",
-        Outside_Boundary_Condition_Object=boundary_object,
-        Sun_Exposure="NoSun",
-        Wind_Exposure="NoWind",
-        View_Factor_to_Ground=0.5,
+        **fields,
     )
     _set_vertices(surface, vertices)
     return surface
@@ -134,18 +139,38 @@ def _add_glazing_construction(idf: Any, name: str, u_value_w_m2k: float, shgc: f
 
 
 def _component_values(record: Mapping[str, object], category: str) -> list[tuple[int, float, float, float]]:
-    """Return (index, area, U, b) for populated TABULA opaque components."""
+    """Return (index, area, U, coefficient-calibrated b) for opaque terms.
+
+    The calculator exposes both a display ``b_Transmission_*`` field and an
+    authoritative component ``H_Transmission_*`` result.  They normally
+    agree as ``H = U*b*A``.  A small number of rows (including the AB S0
+    fixture's floor) do not.  The saved-IDF acceptance target is the latter,
+    so derive the effective b from that audited H term whenever necessary.
+    The original display b remains intact in the registry for provenance.
+    """
     geometry = record["geometry"]
     u_values = record["u_components_w_m2k"]
     factors = record["transmission_b_factors"]
-    assert isinstance(geometry, Mapping) and isinstance(u_values, Mapping) and isinstance(factors, Mapping)
+    h_components = record["h_transmission_components_w_k"]
+    assert (
+        isinstance(geometry, Mapping)
+        and isinstance(u_values, Mapping)
+        and isinstance(factors, Mapping)
+        and isinstance(h_components, Mapping)
+    )
     areas = geometry[f"a_{category}_components_m2"]
     u_list = u_values[category]
     result = []
     for index, area in enumerate(areas, start=1):
         area_value = float(area)
         if area_value > 0:
-            result.append((index, area_value, float(u_list[index - 1]), float(factors[f"{category}_{index}"])))
+            u_value = float(u_list[index - 1])
+            source_b = float(factors[f"{category}_{index}"])
+            source_h = float(h_components[f"{category}_{index}"])
+            effective_b = source_h / (u_value * area_value) if u_value > 0 else source_b
+            if not 0.0 <= effective_b <= 1.0 + 1e-9:
+                raise ValueError(f"TABULA {category}_{index} H term cannot be represented by U*b*A")
+            result.append((index, area_value, u_value, min(1.0, effective_b)))
     return result
 
 
@@ -173,8 +198,19 @@ def add_s0_equivalent_envelope(idf: Any, record: Mapping[str, object], zone_name
     zone = idf.getobject("ZONE", zone_name)
     if zone is None:
         zone = idf.newidfobject("ZONE", Name=zone_name)
-    zone.Volume = float(geometry["v_c_m3"])
-    zone.Floor_Area = float(geometry["a_c_ref_m2"])
+    reference_area = float(geometry["a_c_ref_m2"])
+    reference_volume = float(geometry["v_c_m3"])
+    reference_storeys = float(geometry["n_storey"])
+    if min(reference_area, reference_volume, reference_storeys) <= 0:
+        raise ValueError("TABULA S0 reference area, volume, and storey count must be positive")
+    # The equivalent envelope has one thermal zone, so the IDF must retain a
+    # readback identity for the source's storey count.  This derived height is
+    # that zone's equivalent per-storey height: V / (A / n).  Together with
+    # the explicit Area and Volume fields it lets V8.d derive all three
+    # quantities from the saved IDF, without consulting this builder's plan.
+    zone.Ceiling_Height = reference_volume / (reference_area * reference_storeys)
+    zone.Volume = reference_volume
+    zone.Floor_Area = reference_area
 
     names: list[str] = []
     windows: list[str] = []
@@ -227,6 +263,8 @@ def add_s0_equivalent_envelope(idf: Any, record: Mapping[str, object], zone_name
     # the net opaque area remains exactly the workbook's A_Wall_1.
     if wall_one is not None:
         _, wall_area, wall_u, wall_b = wall_one
+        if opening_total and not math.isclose(wall_b, 1.0, abs_tol=1e-9):
+            raise ValueError("S0 openings require an exterior (b=1) Wall_1 host")
         allocated = 0.0
         for ordinal, (orientation, opening_area, opening_type) in enumerate(openings, start=1):
             opaque_area = wall_area * opening_area / opening_total
@@ -239,6 +277,11 @@ def add_s0_equivalent_envelope(idf: Any, record: Mapping[str, object], zone_name
             _add_surface(
                 idf, name=host_name, surface_type="Wall", construction=construction,
                 zone_name=zone_name, vertices=host_vertices, boundary_object=boundary,
+                # EnergyPlus forbids a fenestration whose parent uses
+                # OtherSideCoefficients.  S0 fixtures expose only b=1 wall
+                # hosts, so ``Outdoors`` preserves the same U*A loss and
+                # yields a runnable window surface.
+                outside_boundary_condition="Outdoors",
             )
             names.append(host_name)
             source_area += opaque_area
@@ -255,11 +298,19 @@ def add_s0_equivalent_envelope(idf: Any, record: Mapping[str, object], zone_name
             side = math.sqrt(opening_area)
             host_side = math.sqrt(opaque_area + opening_area)
             inset = (host_side - side) / 2.0
-            if orientation in {"east", "west"}:
+            if orientation == "east":
                 x = offset
                 y0 = inset
                 vertices = [(x, y0, inset), (x, y0 + side, inset), (x, y0 + side, inset + side), (x, y0, inset + side)]
-            else:
+            elif orientation == "west":
+                x = offset
+                y0 = inset
+                vertices = [(x, y0 + side, inset), (x, y0, inset), (x, y0, inset + side), (x, y0 + side, inset + side)]
+            elif orientation == "north":
+                y = offset
+                x0 = inset
+                vertices = [(x0, y, inset), (x0 + side, y, inset), (x0 + side, y, inset + side), (x0, y, inset + side)]
+            else:  # south
                 y = offset
                 x0 = inset
                 vertices = [(x0 + side, y, inset), (x0, y, inset), (x0, y, inset + side), (x0 + side, y, inset + side)]

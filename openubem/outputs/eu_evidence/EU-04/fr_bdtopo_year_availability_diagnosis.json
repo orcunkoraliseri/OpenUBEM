@@ -1,0 +1,57 @@
+{
+  "evidence_scope": "fr_bdtopo_year_and_dwelling_availability_diagnosis_only",
+  "measured_at_utc": "2026-08-25T16:56:39.494894+00:00",
+  "ruling": "D-EU-04-E option E1 (owner-authorized live IGN WFS fetch)",
+  "live_probe": {
+    "endpoint": "https://data.geopf.fr/wfs/ows",
+    "layer": "BDTOPO_V3:batiment",
+    "bbox_openubem_order": [
+      45.774784,
+      45.768891,
+      4.83745,
+      4.823612
+    ],
+    "raw_features": 1663,
+    "date_d_apparition_non_null": 1115,
+    "nombre_de_logements_non_null": 1176,
+    "date_d_apparition_samples": [
+      "1998-01-01Z",
+      "1820-01-01Z",
+      "1580-01-01Z",
+      "1800-01-01Z",
+      "1890-01-01Z"
+    ]
+  },
+  "retained_manifest": {
+    "path": "openubem/outputs/eu02/FR-LYO-HAUTCOEURPENTES/02_residential_manifest.gpkg",
+    "residential_rows": 530,
+    "year_built_non_null": 0,
+    "provenance_year_built": "IGN_BDTOPO_MISSING on every row",
+    "data_quality_flag": "no_year on every row",
+    "nombre_de_logements_present_in_surplus_tags": 530,
+    "nombre_de_logements_gt_zero": 529,
+    "dwelling_count_median": 10.0,
+    "dwelling_count_mean": 12.045368620037808,
+    "dwelling_count_max": 83.0
+  },
+  "defect": {
+    "location": "openubem/acquisition/bdtopo_fetcher.py:94",
+    "expression": "pd.to_datetime(raw[\"date_d_apparition\"], format=\"mixed\", errors=\"coerce\").dt.year",
+    "pandas_version": "3.0.3",
+    "reproduction": "pd.to_datetime(pd.Series([\"1998-01-01Z\",\"1820-01-01Z\",\"1580-01-01Z\"]), format=\"mixed\", errors=\"coerce\") -> [NaT, NaT, NaT]",
+    "causes": [
+      "source formats the field as a date with a bare zone suffix and no time part",
+      "pre-1677 values fall outside datetime64[ns]",
+      "errors=coerce discards both failures silently"
+    ],
+    "status": "OPEN - not fixed in this diagnosis pass"
+  },
+  "consequence": "EU-04 GEO-10/S1-S3 is blocked by a parse defect, not by a missing data source; France already holds 529 observed dwelling counts on disk and the source holds the years.",
+  "not_claimed": [
+    "no fix applied",
+    "no manifest rebuilt",
+    "no building promoted to layout-ready",
+    "no S1 sample group formed",
+    "GEO-08 untouched"
+  ]
+}
