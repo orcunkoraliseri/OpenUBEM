@@ -88,6 +88,9 @@ def main() -> None:
         "vertex_budget_threshold_approx": 120,
         "rows_over_vertex_budget": int(result.exceeds_energyplus_idd_vertex_budget_approx_120.sum()),
         "max_exterior_vertex_count": int(result.exterior_vertex_count.max()),
+        "rows_simplified_for_energyplus": int(result.geometry_simplified_for_energyplus.sum()),
+        "max_simplification_delta_area_m2": float(result.geometry_simplification_delta_area_m2.max()),
+        "max_simplification_hausdorff_m": float(result.geometry_simplification_hausdorff_m.max()),
         "interpretation": "Post-ruling G1+V1 audit. Native and centroid-translated layout statuses must agree; V1 simplification is measured with per-footprint area and Hausdorff error. No manifest was changed and no EnergyPlus run was made.",
     }
     (OUT / "s2_geometry_limits_diagnostic_summary.json").write_text(
