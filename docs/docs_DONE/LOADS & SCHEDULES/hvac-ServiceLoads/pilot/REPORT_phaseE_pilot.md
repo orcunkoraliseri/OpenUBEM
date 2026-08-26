@@ -3,7 +3,7 @@
 - **Date:** 2026-06-26
 - **Cell:** la_urban  (34.0584°N, −118.3040°W) r=500 m
 - **Phase-E baseline:** archetype HVAC (central VAV / PSZ / FCU / WLHP) + physical DHW + cooking + refrigeration; reconstruction DISABLED (T15 D8).
-- **Plan:** `docs/docs_ACTIVE/hvac-ServiceLoads/PLAN_phaseE_full_realism.md` T16 / CP-D
+- **Plan:** `docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/implementation/PLAN_phaseE_full_realism.md` T16 / CP-D
 - **Status:** STOP-AND-REPORT (CP-D hard gate) — awaiting manager Go/No-Go on fan-out.
 
 ---

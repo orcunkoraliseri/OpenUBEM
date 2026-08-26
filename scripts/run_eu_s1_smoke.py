@@ -29,6 +29,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
+from shapely.geometry.polygon import orient
 
 from openubem.config import ENERGYPLUS_IDD_PATH, ENERGYPLUS_PATH
 from openubem.geometry.european_residential import (
@@ -38,6 +39,7 @@ from openubem.geometry.european_residential import (
 )
 from openubem.geometry.zoning import build_zones
 from openubem.idf.european_controls import add_european_heating_controls
+from openubem.idf.builder import write_zone_volumes
 from openubem.idf.surfaces import audit_reciprocal_interzone_wall_surfaces, extrude_geometry
 
 MANIFEST_PATH = Path("openubem/outputs/eu02/FR-LYO-HAUTCOEURPENTES/02_residential_manifest.gpkg")
@@ -48,6 +50,7 @@ MANIFEST_CSV_PATH = EVIDENCE_DIR / "s1_smoke_manifest.csv"
 PROJECTED_CRS = "EPSG:32631"
 FLOOR_TO_FLOOR_M = 3.0
 FLOOR_TO_FLOOR_NOTE = "floor_to_floor_m=3.0 pinned geometry-smoke constant, not a physical claim about Lyon"
+ZONE_WINDING_SIGN = 1.0
 
 IDF_HEADER = """Version,23.1;
 Timestep,4;
@@ -241,6 +244,14 @@ def run_t01(dry_run: bool) -> list[dict[str, object]]:
     return results
 
 
+def _orient_zone_footprints(zones: list[dict[str, object]], *, sign: float = 1.0) -> None:
+    """Normalise each zone's floor_polygon winding in place (fixes GetVertices upside-down warning)."""
+    for zone in zones:
+        oriented = orient(zone["floor_polygon"], sign=sign)
+        zone["floor_polygon"] = oriented
+        zone["coords_m"] = list(oriented.exterior.coords)[:-1]
+
+
 def run_t02(rows: list[dict[str, object]]) -> None:
     from geomeppy import IDF
 
@@ -288,7 +299,9 @@ def run_t02(rows: list[dict[str, object]]) -> None:
             idf_path = tmp_root / f"{building_id}.idf"
             idf_path.write_text(IDF_HEADER, encoding="utf-8")
             idf = IDF(str(idf_path))
+            _orient_zone_footprints(zones, sign=ZONE_WINDING_SIGN)
             extrude_geometry(idf, zones, [])
+            write_zone_volumes(idf, zones)
             _add_smoke_construction(idf)
             for zone in zones:
                 idf.newidfobject(

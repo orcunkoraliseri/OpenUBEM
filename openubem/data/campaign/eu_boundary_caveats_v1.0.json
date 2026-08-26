@@ -1,0 +1,149 @@
+{
+  "schema_version": "eu-boundary-caveats/1.0",
+  "source_of_truth": "docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md section 12.10, Table 26",
+  "rule": "A caveat may be added at CP-C; none may be removed. No caveat is satisfied by being written down.",
+  "n_caveats": 22,
+  "caveats": [
+    {
+      "id": "C-01",
+      "caveat": "Heating is the only simulated end use. No Output:Variable was requested for cooling, lighting or equipment in any S2 IDF.",
+      "measured_extent": "1 of 4 end uses",
+      "must_not_conclude": "That cooling, lighting or equipment demand is zero. Absence of a requested output is not a measured zero."
+    },
+    {
+      "id": "C-02",
+      "caveat": "No DHW reconstruction was applied. The ruled four_end_use_tabula_dhw mode requires all four simulated end uses as a precondition.",
+      "measured_extent": "Not applied",
+      "must_not_conclude": "That the reported EUI is a total EUI, or that it is ruled-compliant in the four-end-use sense."
+    },
+    {
+      "id": "C-03",
+      "caveat": "26 of 31 results are geometry-limited. Only 5 buildings emitted a real dwelling layout; 26 fell back to a one-zone-per-floor massing box (FINDING EU-S2-01).",
+      "measured_extent": "5 pool to 85.09223 kWh/m2; 26 pool to 27.749411 kWh/m2",
+      "must_not_conclude": "That the pooled 31.2144 kWh/m2 describes dwelling-partitioned buildings. It is dominated by massing boxes, which hold 18625.7583 of the 19823.6173 m2.",
+      "amendment": "Amended 2026-08-26 after D-EU-17. The figures in this entry are from the SUPERSEDED s2_campaign/ bundle: 31.2144 kWh/m2 pooled, 85.09223 for the 5 dwelling-layout buildings and 27.749411 for the 26 fallback boxes are ALL WITHDRAWN and must not be quoted. On the authoritative s2_campaign_v3/ bundle the pooled figure is 60.7087 kWh/m2, DWELLING_LAYOUT_EMITTED pools to 101.9353 and FALLBACK_PENDING_LAYOUT to 58.0573. THE CAVEAT ITSELF IS UNCHANGED AND STILL BINDS: 26 of 31 results are geometry-limited, the massing boxes still hold 18625.7583 of the 19823.6173 m2, and the pooled figure is still dominated by them. Only the digits moved; the limitation did not."
+    },
+    {
+      "id": "C-04",
+      "caveat": "The two geometry outcomes differ in vertical extent as well as partition fidelity. The dwelling path models one floor plate; the fallback path models every observed storey.",
+      "measured_extent": "Structural",
+      "must_not_conclude": "That the 85.09 and 27.75 figures are comparable, or that their difference measures partition fidelity alone."
+    },
+    {
+      "id": "C-05",
+      "caveat": "Mapping readiness does not predict layout success. All 31 buildings were selected MAPPED_LAYOUT_READY with HIGH_MAPPING_INPUT_COMPLETENESS; 26 still fell back.",
+      "measured_extent": "5 of 31 succeeded",
+      "must_not_conclude": "That a readiness flag can be used to forecast layout yield anywhere in the corpus."
+    },
+    {
+      "id": "C-06",
+      "caveat": "Dwelling-layout success is CRS-dependent. generate_european_dwelling_layout rotates about the literal coordinate origin while audit_european_floor_partition compares against an absolute tolerance, so error scales with distance from (0,0).",
+      "measured_extent": "Remedied for EPSG:32631 and this corpus only",
+      "must_not_conclude": "That the geometry path is fixed. It is remedied for this corpus, not repaired in general."
+    },
+    {
+      "id": "C-07",
+      "caveat": "The weather carries a ruled exception. fr_lyon_bron_2023_era5.epw, SHA-256 2cf15311b9c6d1124f856d80e6deed5e4a7d6f48389681305b90b6dbee88cc2c, registry status RULED_PINNED_EXCEPTION.",
+      "measured_extent": "11 of 12 months within 10 percent of the PVGIS/JRC same-coordinate benchmark; November 13.8 percent; annual 3.2 percent",
+      "must_not_conclude": "That the weather passed all six DR08 gates cleanly. It passed on an owner ruling with a named November deviation."
+    },
+    {
+      "id": "C-08",
+      "caveat": "G8.15 is a genuine FAIL. No approved_warning_kinds list has ever been ruled for this arc, so warning triage ran against an empty approval set.",
+      "measured_extent": "31 of 31 buildings carry at least one untriaged warning kind, from 6 distinct kinds; severe 0/31, fatal 0/31",
+      "must_not_conclude": "That the models emit dangerous warnings. This is an untriaged-review failure, not a physics or geometry failure.",
+      "amendment": "Amended twice on 2026-08-26. First: the warning triage was performed under the Q3 ruling and TWO of the six observed kinds were not benign (C-20, FINDING EU-S2-07), so G8.15 remained FAIL for a measured reason rather than for an absent approval list. Then RESOLVED: the approval list exists at openubem/data/campaign/eu_approved_warning_kinds_v1.0.json with FOUR approved kinds and the two non-benign kinds recorded as REFUSED; the defect behind those two was repaired rather than approved, and on the authoritative run s2_campaign_v3/ G8.15 reads PASS 31/31 with zero untriaged kinds. The S2 gate summary moves from 2 PASS / 1 FAIL / 14 VACUOUS to 3 PASS / 0 FAIL / 14 VACUOUS. The gate was passed, not bought: the two refused kinds are ABSENT from the error files, not present-and-approved."
+    },
+    {
+      "id": "C-09",
+      "caveat": "14 of 17 gates are VACUOUS. Each names the population that was empty: no comparison series, no Output:Meter requests, no non-zero f level, no held-out fold.",
+      "measured_extent": "14 of 17",
+      "must_not_conclude": "That the pipeline was validated by 17 gates. Three gates were actually exercised. Vacuous is not a soft pass."
+    },
+    {
+      "id": "C-10",
+      "caveat": "G8.13's PASS is a restatement, not a re-run. The scorer read Schedule:File field 6 instead of field 7; ruling D-EU-13 corrected it.",
+      "measured_extent": "103 of 103 objects carry field 7 = No, verified outside the gate code",
+      "must_not_conclude": "That anything in the campaign was re-simulated to obtain the PASS. Nothing was. The artefacts were always conformant."
+    },
+    {
+      "id": "C-11",
+      "caveat": "X-04 R3 is a bounded-continuity check, not an analytic match. The distributed CTF/TARP engine does not reduce to the lumped one-node exponential.",
+      "measured_extent": "3.6036 C measured versus 7.357589 C analytic at the same elapsed time",
+      "must_not_conclude": "That the DR11 section 4 analytic target was reproduced by the engine. It was reproduced by the pinned functions; the engine is a different model."
+    },
+    {
+      "id": "C-12",
+      "caveat": "The cell_id grammar deviates from the illustration in section 9.6, which is permissive (should ... for example). S2 ids carry a fifth building_id segment because the 31 buildings share only 14 distinct archetypes.",
+      "measured_extent": "31 unique ids",
+      "must_not_conclude": "That cell_id is a complete provenance key. It is an index key; weather identity lives in epw_path, weather_id and weather_sha256."
+    },
+    {
+      "id": "C-13",
+      "caveat": "f = 0 only. Every emitted cell ends __f000. The four non-zero sensitivity levels were never run and are GSSCanada-owned.",
+      "measured_extent": "1 of 5 levels",
+      "must_not_conclude": "That any sensitivity behaviour has been observed. None has."
+    },
+    {
+      "id": "C-14",
+      "caveat": "The denominator is modelled zone floor area, the sum of every EnergyPlus zone floor polygon actually simulated, not a surveyed gross floor area.",
+      "measured_extent": "19823.6173 m2 over 31 buildings",
+      "must_not_conclude": "That the EUI is comparable to a figure published against surveyed gross floor area."
+    },
+    {
+      "id": "C-15",
+      "caveat": "One quarter, one weather year, n = 31. FR-LYO-HAUTCOEURPENTES, 2023.",
+      "measured_extent": "n = 31",
+      "must_not_conclude": "That any value here is a fleet figure. It is not."
+    },
+    {
+      "id": "C-16",
+      "caveat": "Any fold left RULED_NOT_PINNED at freeze time is carried as an open weather dependency, with epw_path unresolved rather than substituted.",
+      "measured_extent": "Resolved at CP-C",
+      "must_not_conclude": "That the specification is executable for that fold. It is specified but not runnable until its weather pins."
+    },
+    {
+      "id": "C-17",
+      "caveat": "No fold outside France can be tied to a single weather year (FINDING EU-S2-03). diary_window is None and diary_window_status is RULED_NOT_PINNED for es, uk and it, while each ERA5 window spans two calendar years and an EPW is one year.",
+      "measured_extent": "3 of 4 folds; es 2009-2010, uk 2014-2015, it 2013-2014",
+      "must_not_conclude": "That a fold whose archives are complete and whose six DR08 gates pass is therefore pinned. Year selection is a diary question and the diary is GSSCanada-owned; the converter refuses to default it."
+    },
+    {
+      "id": "C-18",
+      "caveat": "DR08 gate 5 has no benchmark data for ES/GB/IT (FINDING EU-S2-04). The gate compares monthly GHI against a local reference file, deliberately, because live fetches are forbidden and would make the verdict unreproducible. Six such files are needed (three folds x two candidate years) and none exists. The France benchmark existed only as a markdown table until it was materialised on 2026-08-26.",
+      "measured_extent": "7 of 7 required fold-year benchmarks now exist (fr 2023 transcribed; es 2009/2010, uk 2014/2015, it 2013/2014 acquired 2026-08-26)",
+      "must_not_conclude": "That any fold outside France therefore promotes. The benchmark is one of gate 5 two inputs; the EPW is the other, and no fold outside France has a ruled weather year (C-17).",
+      "resolution": "Resolved 2026-08-26. scripts/acquire_pvgis_monthly_ghi_benchmarks.py acquired the six missing fold-year files directly from PVGIS MRcalc v5_3 at the registry coordinates, verbatim and unrounded, each carrying its own endpoint and retrieval date. The script refuses to re-query the France file, whose numbers the RULED_PINNED_EXCEPTION was granted against. The caveat is retained, not removed: it records that a data dependency of gate 5 was discovered only when the gate was built, and that no gate-5 verdict predating 2026-08-26 for es, uk or it can exist."
+    },
+    {
+      "id": "C-19",
+      "caveat": "The evidence bundle and this specification share no fold (FINDING EU-S2-05). CAMPAIGN_FOLDS is (es, uk, it) and the 510 cells are es 120 / uk 180 / it 210. Everything actually simulated in this arc - the 31 buildings, 618782.3181 kWh, 19823.6173 m2, 31.2144 kWh/m2, the S2 gate report and the one weather file that ever passed six gates - is fold fr, FR-LYO-HAUTCOEURPENTES 2023, which is not a campaign fold.",
+      "measured_extent": "0 of 510 campaign cells were simulated; 0 of 510 carry a pinned weather file",
+      "must_not_conclude": "That the campaign specification was validated on 31 real buildings, or that the pinned France weather lends its RULED_PINNED_EXCEPTION status to any campaign cell. It does not. The S2 bundle shows the pipeline runs end to end; the specification fixes the boundary Step 8 consumes. They answer different questions.",
+      "amendment": "Figures restated 2026-08-26 under D-EU-17 (a). The S2 heating figures quoted above - 618782.3181 kWh and 31.2144 kWh/m2 - are WITHDRAWN: they were computed with every zone volume substituted at 10.0 m3 (C-20). The repaired run (openubem/outputs/eu_evidence/EU-04/s2_campaign_v2/) gives 1364091.4373 kWh and 68.8114 kWh/m2 over the SAME 19823.6173 m2, a 2.20x increase. The denominator did not move, which is itself the evidence that the modelled floor area was sound and only the third dimension was not. Nothing else in this caveat changes: the evidence fold is still fr and still shares no fold, no building and no weather file with the 510 campaign cells."
+    },
+    {
+      "id": "C-20",
+      "caveat": "Every simulated zone ran with a 10.0 m3 volume (FINDING EU-S2-07). EnergyPlus calculated a NEGATIVE zone volume in 103 of 103 zones across 31 of 31 buildings and substituted a fixed 10.0 m3. Ventilation is ZoneVentilation:DesignFlowRate with calculation method AirChanges/Hour at 0.567 ACH, and EnergyPlus derives the flow as ACH x zone volume / 3600, so the ventilation heat loss scales directly with the substituted volume. ROOT CAUSE, named in the codebase's own words at openubem/idf/builder.py:217-234 (OPEN-56): geomeppy's by_storey/WHOLE extrusion path uses raw, unoriented footprint coordinates, so floor normals point the wrong way and the divergence-theorem volume comes out negative. The main pipeline has been immune since OPEN-56 because BuildingIDF calls _write_zone_volumes after extrusion; the two EU runner scripts never did. This is an EU-path defect, not a fleet-wide one.",
+      "measured_extent": "103 of 103 zones in 31 of 31 buildings, measured from eplusout.eio. Volume simulated 10.0 m3 in every zone without exception; total air volume simulated 1030.0 m3. EnergyPlus's own reported Ceiling Height is 3.00 m in every zone and total reported Floor Area is 19823.64 m2, so the true air volume is 59470.92 m3 and the UNDERSTATEMENT IS 57.74x AGGREGATE, 8.23x to 122.52x per zone (median 46.78x). SUPERSEDED FIGURE: an earlier reading of 19.2x took the magnitude of the negative calculated volume as the true volume; that magnitude is floor area x 1 m, an artifact of the divergence sum under a flipped floor normal, and not evidence that the zones are 1 m tall. The zones are 3 m tall and the error is three times larger than first stated.",
+      "must_not_conclude": "That 31.2144 kWh/m2 is a heating demand for these buildings. It was computed with the ventilation heat loss understated 57.74x. The sign of the error is known - the true figure is materially higher - so the number must not be quoted at all, not with a caveat and not with an uncertainty band.",
+      "ruling": "D-EU-17 ruled 2026-08-26, option (a): repair, re-run, restate. 31.2144 kWh/m2 is WITHDRAWN and preserved as superseded. The repair writes Zone.Volume explicitly as floor area x storey height rather than leaving it to EnergyPlus's calculation - the same remedy OPEN-56 applied to the main pipeline - and G8.15 is re-scored on the repaired outputs. This caveat is retained, not removed: it records that an EU-specific runner bypassed a fix the shared builder already carried, and that no S2 heating figure predating the repair can be quoted.",
+      "resolution": "RESOLVED 2026-08-26 under D-EU-17 (a), in two repairs. Repair 1 (s2_campaign_v2/): write_zone_volumes after extrude_geometry in both EU runners - 0 of 103 zones left at 10.0 m3, total 59470.94 m3 against 59470.92 m3 predicted before the run. Repair 2 (s2_campaign_v3/): the footprint winding itself oriented counter-clockwise, which removed the GetVertices warning repair 1 had left behind. s2_campaign_v3/ is the authoritative bundle: G8.15 PASS 31/31 with zero untriaged kinds, 0 return codes non-zero, 0 severe, 0 fatal. FINAL RESTATEMENT: 31.2144 kWh/m2 WITHDRAWN -> 60.7087 kWh/m2 (1203465.4667 kWh) on the same 19823.6173 m2. The caveat is retained, not removed: it records that an EU-specific runner bypassed a fix the shared builder already carried, that no S2 heating figure predating 2026-08-26 can be quoted, and that the intermediate 68.8114 kWh/m2 from repair 1 is itself superseded.",
+      "successor_finding": "C-21 (FINDING EU-S2-08) - the winding carried an 11.8% energy error of its own, independent of the volume."
+    },
+    {
+      "id": "C-21",
+      "caveat": "Vertex order alone is worth 11.8% of heating demand (FINDING EU-S2-08). Repairing the zone volume explicitly (C-20 repair 1) left the underlying reversed floor winding in place. Orienting the footprints counter-clockwise afterwards changed total heating from 1364091.4373 kWh to 1203465.4667 kWh - a 11.8% drop - while EnergyPlus's own reported total zone floor area (19823.64 m2), total zone volume (59470.94 m3), exterior gross wall area (16582.10 m2) and heat-transfer surface count (1681) were byte-identical between the two runs. The vertex SETS are identical; only their ORDER differs. Reversing a ring reverses the outward normal, which is what tells EnergyPlus which face is outdoors; areas and volumes are orientation-blind, convection coefficients and longwave sky exchange are not.",
+      "measured_extent": "31 of 31 buildings, 103 of 103 zones. -11.8% on the aggregate; the effect sits entirely ON TOP of the 57.74x volume error, since the volumes were already repaired when it was measured. Blast radius measured, not assumed: 41 non-EU EnergyPlus runs under openubem/outputs/ were checked for 'Floor is upside down' and 'Indicated Zone Volume' - 0 occurrences of either - so the adopted fleet baseline is not implicated. That is a measurement over 41 runs, not a proof over every configuration.",
+      "must_not_conclude": "That fixing a 10.0 m3 substitution by writing the volume explicitly makes a model correct. It repairs the consequence and removes the warning that would have revealed the cause. Nor that an area-based or volume-based geometry check can detect this class of defect: every such quantity was identical across the two runs. Only the warning text and the energy result differed."
+    },
+    {
+      "id": "C-22",
+      "caveat": "Gate-5 winter exceptions for uk and it are PRE-AUTHORISED, not individually ruled (D-EU-18, ruled 2026-08-26 option (a)). Every fold-year gated so far - fr 2023, es 2009, es 2010 - failed DR08 gate 5 on exactly one winter month (FINDING EU-S2-06), because the gate is a RELATIVE test at a fixed 10 percent and ERA5's known winter cloud bias against PVGIS SARAH is largest in relative terms precisely where absolute irradiance is smallest. Rather than ask the owner the same question four more times, seven quantitative bounds were fixed BEFORE the London and Bologna archives finished downloading, and a uk or it fold-year meeting all seven is promoted with PASS_WITH_DOCUMENTED_EXCEPTION and no further ruling.",
+      "measured_extent": "The seven bounds: gates 1,2,3,4,6 all PASS; at most 2 offending months in the year; every offending month's benchmark total below 80 kWh/m2; every offending month's relative delta at most 20 percent; every offending month's absolute gap at most 15 kWh/m2; annual delta at most 5 percent; the exact month list, each delta, each gap and the annual delta written into weather_registry.json. Worst value across the three already-approved fold-years: 1 month, 53.69 kWh/m2 benchmark, 14.13 percent, 8.93 kWh/m2, 3.23 percent annual - so every bound carries headroom over evidence the owner had already accepted on its own merits. Breaching ANY single bound grants nothing and escalates that fold-year as its own decision request.",
+      "must_not_conclude": "That a uk or it EPW passed all six DR08 gates cleanly. It passed with named excepted months under a pre-registered rule. Nor that the 10 percent tolerance was widened - it was not; only the decision procedure for granting a documented exception was pre-committed. Nor that fr or es are covered: the mechanism refuses every fold other than uk and it BY NAME, and the fr and es exceptions remain the individually ruled ones of D-EU-07 and D-EU-15.",
+      "ruling": "D-EU-18",
+      "source_doc": "docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISION_REQUEST_EU-18_gate5_pre_authorisation_2026-08-26.md"
+    }
+  ]
+}

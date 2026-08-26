@@ -214,7 +214,7 @@ def normalized_space_loads(
     return out
 
 
-def _write_zone_volumes(idf: GeomIDF, zones: list[dict]) -> None:
+def write_zone_volumes(idf: GeomIDF, zones: list[dict]) -> None:
     """OPEN-56: write Zone.Volume explicitly as floor_area x ceiling_height for every
     extruded zone, instead of leaving it to EnergyPlus's own "Indicated Zone Volume"
     calculation. That calculation goes negative for WHOLE (one_zone_per_floor/single_zone)
@@ -250,6 +250,9 @@ def _write_zone_volumes(idf: GeomIDF, zones: list[dict]) -> None:
         if not floor_area or floor_area <= 0 or not ceiling_height or ceiling_height <= 0:
             continue
         zone_bunch.Volume = floor_area * ceiling_height
+
+
+_write_zone_volumes = write_zone_volumes
 
 
 class BuildingIDF:
@@ -657,7 +660,7 @@ class BuildingIDF:
             }
 
         # OPEN-56: write Zone.Volume explicitly, ending the 10 m3 stub (fact 2).
-        _write_zone_volumes(self.idf, extruded_zones)
+        write_zone_volumes(self.idf, extruded_zones)
 
         # 3F: constructions (needs extruded surfaces for set_wwr)
         self.assign_constructions()

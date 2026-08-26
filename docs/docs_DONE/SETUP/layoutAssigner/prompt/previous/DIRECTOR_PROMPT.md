@@ -18,8 +18,8 @@ You are the **director/manager** of the **LayoutAssigner arc** for OpenUBEM. Fol
 ## 1. Read first (in this order)
 
 1. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/implementation_plan.md` — **v2.1, the binding contract.** §0 live checklist, §1 executor hard rules, §3 manager-verified facts, §5 tasks T01–T12, §6 checkpoints, §7 open questions **with manager defaults you must apply**, §8 progress log, §9 error log.
-2. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/walkthrough.md` — strategy + audit snapshot (not a tracking surface).
-3. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/OpenUBEM_results_LayoutAssigner.md` — results shell; `*pending*` EUI cells are filled at T12.
+2. `docs/docs_DONE/SETUP/layoutAssigner/DONE/walkthrough.md` — strategy + audit snapshot (not a tracking surface).
+3. `docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md` — results shell; `*pending*` EUI cells are filled at T12.
 
 Do **not** re-derive plan §3 facts (zone counts, E+ 22.1 finding, vocab misalignment) — they were measured 2026-07-22 and are the source of truth.
 
@@ -79,7 +79,7 @@ Anything missing → dispatch a fix employee before greenlighting the next range
 
 ## 6. Final completion report (last action before going idle)
 
-Write `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/COMPLETION_REPORT.md` (English) containing: per-task outcome table (T01–T12 incl. deferred T11), checkpoint verdicts, LIVE_SMOKE-LA result, §9 error summary (closed vs OPEN-BLOCKED), what remains for a future arc (T11 envelope patching, full 12-cell cluster comparison), and exact pytest totals. Then:
+Write `docs/docs_DONE/SETUP/layoutAssigner/DONE/COMPLETION_REPORT.md` (English) containing: per-task outcome table (T01–T12 incl. deferred T11), checkpoint verdicts, LIVE_SMOKE-LA result, §9 error summary (closed vs OPEN-BLOCKED), what remains for a future arc (T11 envelope patching, full 12-cell cluster comparison), and exact pytest totals. Then:
 - Update `docs/PROJECT_CHECKLIST.md` (Arc L entry → completed status or honest partial status).
 - Update memory `C:\Users\o_iseri\.claude\projects\C--Users-o-iseri-Desktop-OpenUBEM\memory\project_layout_assigner_arc.md` (+ `MEMORY.md` index hook if it changed).
 - Leave a short final message summarizing: done/not-done, where the report is, any OPEN-BLOCKED items. In French (the user converses in French; the report itself stays English).

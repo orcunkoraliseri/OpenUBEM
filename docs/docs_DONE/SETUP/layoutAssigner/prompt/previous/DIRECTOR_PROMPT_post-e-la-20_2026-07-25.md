@@ -25,9 +25,9 @@ You are the **director/manager** of the **post-E-LA-20 arc** for OpenUBEM's `lay
 ## 1. Read first (in this order)
 
 1. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/e-la-20/PLAN_e-la-20_multilayer-fix.md` — **§0 checklist, §4-quinquies (the shipped rule), §5 facts, all of §8 including every AUDIT block, and §9 (error log).** The CP-C AUDIT is the authoritative statement of what is closed and what is not.
-2. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/e-la-20/COMPLETION_REPORT_e-la-20-multilayer-fix.md` — the synthesis, including §7 "What was NOT verified" and §8 "Coverage split". Read those two sections especially carefully; they define this arc's starting ignorance.
+2. `docs/docs_DONE/SETUP/layoutAssigner/DONE/e-la-20/COMPLETION_REPORT_e-la-20-multilayer-fix.md` — the synthesis, including §7 "What was NOT verified" and §8 "Coverage split". Read those two sections especially carefully; they define this arc's starting ignorance.
 3. `openubem/idf/opaque_assembly.py` — what actually shipped. Short.
-4. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/structural-fixes/PLAN_structural-fixes_implementation.md` — the **E-LA-14 / E-LA-16 / E-LA-18 / E-LA-19** entries (the warmup-convergence lineage) and the **CP-E** entry, which is the standing production-readiness verdict this arc exists to revisit. **Frozen — read, never edit.**
+4. `docs/docs_DONE/SETUP/layoutAssigner/DONE/structural-fixes/PLAN_structural-fixes_implementation.md` — the **E-LA-14 / E-LA-16 / E-LA-18 / E-LA-19** entries (the warmup-convergence lineage) and the **CP-E** entry, which is the standing production-readiness verdict this arc exists to revisit. **Frozen — read, never edit.**
 5. `docs/PROJECT_CHECKLIST.md` — Arc L block, the user's monitoring surface. Keep it current.
 
 ## 2. State at handoff (2026-07-25)

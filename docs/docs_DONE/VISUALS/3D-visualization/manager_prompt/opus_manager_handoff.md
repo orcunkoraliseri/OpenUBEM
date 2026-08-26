@@ -213,7 +213,7 @@ Do NOT edit any code under openubem/ or tests/. Do NOT rebuild viewer.js. Do NOT
 4. If any cell is `MISSING_IDFS`: have Sonnet restore from `<cell>_step3_idfs_archive.zip` and re-run just that cell.
 
 ## 7. Doc debt — still owed (the killed executor never wrote these)
-Append **§8 progress-log entries for T23–T27** to `docs/docs_ACTIVE/3D/PLAN_3dviz_implementation.md` (standard format: Artifacts / Deviations / Test status / Notes). Facts to use (verify against the files, do not invent):
+Append **§8 progress-log entries for T23–T27** to `docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md` (standard format: Artifacts / Deviations / Test status / Notes). Facts to use (verify against the files, do not invent):
 - **Deviation to record (T23):** `_blocks_to_features` does `unary_union(lines)` noding before `polygonize` — documented in `context_features.py`. Rationale: `polygonize` only splits linework at shared endpoints, so un-noded roads crossing mid-span would not enclose cells.
 - **Test status:** 64 Python + 46 Node green.
 - **T27 (regen ride-along):** record the driver double-launch + no-fetch-cap failure and the capped-driver fix, and the final 12-cell `phaseG_summary.json` outcome.

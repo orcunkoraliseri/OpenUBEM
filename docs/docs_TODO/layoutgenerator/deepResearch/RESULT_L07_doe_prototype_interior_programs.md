@@ -131,7 +131,7 @@ For archetypes where no direct DOE prototype exists, layout templates are synthe
 
 ### 4. Load Conservation and Physical Correctness
 
-Reproducing these templates allows [load_schedule_conservation_and_interior_surfaces_prompt.md](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_ACTIVE/simulation-Resolution/layoutgenerator/deepResearch/L11_load_schedule_conservation_and_interior_surfaces_prompt.md) (`L11`) to conserve total building loads exactly. By distributing space-type intensities (W/m² and people/m²) according to the generated zone area fractions:
+Reproducing these templates allows [load_schedule_conservation_and_interior_surfaces_prompt.md](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_TODO/layoutgenerator/deepResearch/L11_load_schedule_conservation_and_interior_surfaces_prompt.md) (`L11`) to conserve total building loads exactly. By distributing space-type intensities (W/m² and people/m²) according to the generated zone area fractions:
 
 \[P_{\text{total}} = \sum \left( \text{Intensity}_{\text{space\_type}} \times A_{\text{zone\_generated}} \right)\]
 

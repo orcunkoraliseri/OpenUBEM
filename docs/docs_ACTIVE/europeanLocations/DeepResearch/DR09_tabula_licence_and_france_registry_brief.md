@@ -1,6 +1,6 @@
 # DR09 — Brief: TABULA/EPISCOPE Licence Terms and the France Residential Typology Subset
 
-- **Serves decisions**: D-EU-08 (licence) and D-EU-11 (France physical registry) in [`../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md)
+- **Serves decisions**: D-EU-08 (licence) and D-EU-11 (France physical registry) in [`../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md)
 - **Report to be saved as**: `DR09_tabula_licence_and_france_registry.md`
 - **Date of brief**: 2026-08-23
 

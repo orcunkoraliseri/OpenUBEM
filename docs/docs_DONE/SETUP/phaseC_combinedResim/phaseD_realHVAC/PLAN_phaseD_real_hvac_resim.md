@@ -177,7 +177,7 @@ Data: `RESULT_phaseD_reconstructed_validation.md` (T13/T14). Audited: recon ≥ 
 | H4 | Cluster runs ExpandObjects as a **separate** binary before `energyplus` (no `-x`; `-x` symlink-crashes on the cluster). PTAC templates therefore expand correctly on the cluster. Local runner uses `-x` (inline ExpandObjects). | `scripts/cluster/submit_fleet.sbatch:41–51`; `openubem/simulation/runner.py:49` |
 | H5 | Top-level resim driver `run_cell(cell_name, output_subdir)`; full Step1–5 incl. ship/submit/poll/fetch/verify/aggregate; CLI `py -3 scripts/validation/v12_cell_pipeline.py <cell> --output-subdir phaseD`. Stale IDFs cleared → fresh regen. | `scripts/validation/v12_cell_pipeline.py:885,1005,919–929` |
 | H6 | Resume tool re-enters post-submit without re-shipping/duplicating the array (idempotency gate = existing `03_idf_manifest.parquet`). | `scripts/cluster/resume_phasec_cell.py:34,50–54` |
-| H7 | 12 cells + per-cell configs (lat/lon/radius/state/epsg); Phase-C = 8,152 buildings, 100% E+ 23.1 success. | `scripts/validation/v12_cell_pipeline.py:43–104`; `docs/docs_DONE/pahseC_resumeManager.md` |
+| H7 | 12 cells + per-cell configs (lat/lon/radius/state/epsg); Phase-C = 8,152 buildings, 100% E+ 23.1 success. | `scripts/validation/v12_cell_pipeline.py:43–104`; `docs/docs_DONE/GENERAL/Resume_Prompts/pahseC_resumeManager.md` |
 | H8 | Tests pinning IdealLoads (must change): `test_hvac.py` 4 tests; `test_idf_builder.py:456` (HVAC object key), `:327` (THERMOSTAT count==2); IDF-validity `test_step3_orchestrator.py:47,87`. | as cited |
 | H9 | DOE/90.1 prototypes are git-tracked and restorable (`git checkout -- "docs/validations/Level 2 DOE round-trip/00.BaselineBuildings_NUs/"`); cover ~18 archetype families incl. full DX HVAC + curves. | `git ls-files` (this session) |
 | H10 | Archetype registry = 30 entries; `doe_prototype_loads.json` has loads for 17, **no COP/HVAC** anywhere in repo data. | `openubem/data/openstudio_archetypes.json`; `openubem/data/loads/doe_prototype_loads.json` |
@@ -230,7 +230,7 @@ Data: `RESULT_phaseD_reconstructed_validation.md` (T13/T14). Audited: recon ≥ 
 | V2 | `build_city_table(reconstructed)` → per-city×segment delta table, success rows only. `load_all_cells()`+`CELL_TO_BASE` are **hardcoded to the phaseC tree** (split across two base dirs). | `scripts/v19_rescore.py:75–162` |
 | V3 | Basis transform lives only in `apply_basis_to_frame(df,cooling_cop,heating_factor,lighting_scale,equipment_scale)`; identity=(1,1,1,1). Main `v19_rescore.py` never calls it (scores raw). | `scripts/validation/v19_basis_diagnostic.py:42–68` |
 | V4 | National gates: `compute_validation_gates(results_gdf, reference_path|table)` → NMBE / CV(RMSE) / KS_D / R² + pass flags (thresholds CV 30, NMBE 10, R² 0.6, KS 0.10). Region refs `inputs/reports/cbecs_2018_{region}_eui.csv`; `_CITY_REGION`: NYC→middle_atlantic, LA→pacific, Austin→west_south_central. | `openubem/results/__init__.py:209–330`; `scripts/validation/v19_national_cbecs_rescore.py:56–61` |
-| V5 | Phase-C scalar-basis best for the side-by-side: `docs/docs_ACTIVE/phaseC_combinedResim/v19_validation/RESULT_basis_diagnostic.md` (city) + `RESULT_national_cbecs_rescore_reconstructed.md` + `RESULT_national_cbecs_rescore.md` (national). | as cited |
+| V5 | Phase-C scalar-basis best for the side-by-side: `docs/docs_DONE/SETUP/phaseC_combinedResim/v19_validation/RESULT_basis_diagnostic.md` (city) + `RESULT_national_cbecs_rescore_reconstructed.md` + `RESULT_national_cbecs_rescore.md` (national). | as cited |
 | V6 | Phase-D results: `docs/validations/overAll/results/phaseD/<cell>/05_results.gpkg`, 12 cells; `total_eui_kwh_m2` EXCLUDES fans (`fans_eui_kwh_m2` separate). | CP-4 (§3.4) |
 
 **Architecture decisions (pre-decided — do not re-debate):**
@@ -260,7 +260,7 @@ CP-5 GO + user chose "re-combine + re-score." Re-apply the existing V16 service-
 | W2 | Table-4 fractions + `archetype_map` (24 ids→11 keys); each entry has explicit `vent_fans`. | `openubem/data/service_loads/enduse_fractions_table4.json` |
 | W3 | **Phase-D `total_eui_kwh_m2 = cooling+heating+lighting+equipment` EXACTLY (verified residual 0.0000), fans EXCLUDED** — same scope as the Phase-C total the reconstruction was built for → `reconstruct_frame` applies UNMODIFIED, **no fans double-count**. | this session (empirical) |
 | W4 | Food-service: `FullServiceRestaurant`/`QuickServiceRestaurant`→`full_service_restaurant` key (67% non-modeled → ~×3 uplift); `SuperMarket`→`supermarket` (refrig 0.50). V16 reports food uncapped (QSR R5 plausibility-band artifact amplified). | `scripts/reconstruct_service_loads.py:49`; json:125–151 |
-| W5 | Phase-C reconstructed baseline for side-by-side: `RESULT_national_cbecs_rescore_reconstructed.md`; V16 memo `docs/docs_VALIDATION/overAll/V16_service_loads_reconstruction.md`. | as cited |
+| W5 | Phase-C reconstructed baseline for side-by-side: `RESULT_national_cbecs_rescore_reconstructed.md`; V16 memo `docs/docs_VALIDATION/step1/overAll/V16_service_loads_reconstruction.md`. | as cited |
 
 **Architecture decisions (pre-decided — do not re-debate):**
 - **R1. Use the SHIPPED `reconstruct_frame()` UNMODIFIED.** Phase-D total excludes fans (W3) → no `_RECON_KEYS` edit, no double-count. Do NOT modify `openubem/results/service_loads.py` or `enduse_fractions_table4.json` (committed, do-not-edit).
@@ -321,7 +321,7 @@ T18 mechanics (manager-pinned 2026-06-26 — execute, do not re-debate):
 - **T18-A — Env override (S6).** Apply the one-line `_BASE_D` env-gate from S6 to `phaseD_city_rescore.py:22` only. No other code changes.
 - **T18-B — Run both trees, capture stdout.** For each of the 3 drivers (`phaseD_city_rescore`, `phaseD_national_cbecs_rescore`, `phaseD_reconstruct_rescore`) run ONCE with `OPENUBEM_PHASED_SUBDIR=phaseD` (adopted baseline) and ONCE with `=phaseD2` (setback fix). Six runs total. Both trees have all 12 gpkgs present; expect identical row counts (≈8,160 success). Run from repo root as modules so the package imports resolve.
 - **T18-C — Headline NYC office heating delta.** From the loaded frames, compute the NYC Office (SmallOffice/MediumOffice/LargeOffice) **median heating_eui_kwh_m2** under phaseD vs phaseD2 and the absolute + % change. This is the direct readout of whether the evening-setback fix lowered office heating (REPORT Limitation #1). Quote the nyc_centre per-cell heating headline too (phaseD vs phaseD2) since the canary already showed 28.19 under the fix.
-- **T18-D — Memo.** Write `docs/docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/RESULT_phaseD2_setback_rescore.md` (DATA ONLY, no interpretation prose): (1) city-anchor table phaseD vs phaseD2 vs `CITY_ANCHORS` (6 anchors, both fans-in/out), (2) national CBECS gates per region (NMBE/CV(RMSE)/KS_D + pass flags) phaseD vs phaseD2, (3) the NYC-office heating delta from T18-C, (4) reconstruct-rescore city+national phaseD vs phaseD2. Adopted `phaseD` tree is NOT modified; no resim. *Manager renders the CP-8 verdict from this memo.*
+- **T18-D — Memo.** Write `docs/docs_DONE/SETUP/phaseC_combinedResim/phaseD_realHVAC/RESULT_phaseD2_setback_rescore.md` (DATA ONLY, no interpretation prose): (1) city-anchor table phaseD vs phaseD2 vs `CITY_ANCHORS` (6 anchors, both fans-in/out), (2) national CBECS gates per region (NMBE/CV(RMSE)/KS_D + pass flags) phaseD vs phaseD2, (3) the NYC-office heating delta from T18-C, (4) reconstruct-rescore city+national phaseD vs phaseD2. Adopted `phaseD` tree is NOT modified; no resim. *Manager renders the CP-8 verdict from this memo.*
 
 **CP-8 — after T18.** Manager verdict: did the setback fix improve NYC office without harming other cities/segments? Adopt `phaseD2` as the new baseline (supersede `phaseD`) or keep `phaseD`? STOP.
 
@@ -458,7 +458,7 @@ _(Sonnet appends one entry per completed task: `#### TXX — <title> — complet
 - Notes: `eui_kwh_m2` alias set inside `score_city_region` per `compute_validation_gates` contract (reads `eui_kwh_m2` column). Both fans variants run; gate values nearly identical (fans add ~0.5–0.6 kWh/m² to median, negligible on distribution gates).
 
 #### T12 — Findings memo — completed 2026-06-25
-- Artifacts: `docs/docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/RESULT_phaseD_validation.md` (NEW).
+- Artifacts: `docs/docs_DONE/SETUP/phaseC_combinedResim/phaseD_realHVAC/RESULT_phaseD_validation.md` (NEW).
 - Deviations: none. Data-only per task spec; no interpretation prose. Phase-C baseline transcribed verbatim from RESULT_basis_diagnostic.md (city) and RESULT_national_cbecs_rescore.md (national identity row).
 - Test status: file exists, all four tables non-empty, both Phase-C and Phase-D columns present. Note on comparison basis: Phase-C city table uses `total_eui_reconstructed_kwh_m2` (post-service-load reconstruction); Phase-D uses raw metered `total_eui_kwh_m2`. Difference in basis is logged in the memo for CP-5 adjudication.
 - Notes: STOPPING at CP-5 per plan. Manager to write CP-5 verdict (go/no-go Phase-D as new baseline).
@@ -475,7 +475,7 @@ _(Sonnet appends one entry per completed task: `#### TXX — <title> — complet
 - Notes: fans cross-check confirms metered/recon ratio ∈ [0.016, 0.064] across all 18 archetypes — PTAC cycling fans are 2–6% of the reconstruction's vent_fans estimate (R2 rationale upheld). `build_city_table` already excludes OpenUBEMUnknown from Overall (R6 satisfied). R5 food-service separation implemented via a second `build_city_table` call on the filtered frame; named-segment rows (Office/Multifamily/Warehouse) are identical between the two tables because those segment definitions exclude food-service archetypes by construction.
 
 #### T14 — Findings memo (data only) — completed 2026-06-25
-- Artifacts: `docs/docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/RESULT_phaseD_reconstructed_validation.md` (NEW).
+- Artifacts: `docs/docs_DONE/SETUP/phaseC_combinedResim/phaseD_realHVAC/RESULT_phaseD_reconstructed_validation.md` (NEW).
 - Deviations: none. Data-only per task spec; no interpretation prose. Three-way side-by-side structured as: Phase-C recon best (basis_diagnostic best-global) | Phase-D raw (from RESULT_phaseD_validation.md) | Phase-D + recon (this task). Phase-C Multifamily and Warehouse city deltas were not reported in RESULT_basis_diagnostic.md (only 6-anchor table: Office + Overall per city); noted as n/a with source cited. CV(RMSE)/KS for Phase-C best-recon national taken from identity-reconstructed baseline (closest available in RESULT_national_cbecs_rescore_reconstructed.md) with caveat noted.
 - Test status: file exists, all tables non-empty, three-way columns joined. STOP at CP-6 per plan.
 - Notes: STOPPING at CP-6. Manager writes verdict on whether Phase-D + reconstruction closes the LA/Austin/MF cold gap.
@@ -665,7 +665,7 @@ Independently re-audited the executor's work (did not take the report on faith):
 #### T18 — Re-score phaseD2 + side-by-side — completed 2026-06-26
 - **Artifacts:**
   - `scripts/validation/phaseD_city_rescore.py` — ONE-LINE EDIT: `import os` added; `_BASE_D` now reads `os.environ.get("OPENUBEM_PHASED_SUBDIR", "phaseD")` (S6, T18-A). No other file touched.
-  - `docs/docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/RESULT_phaseD2_setback_rescore.md` (NEW — T18-D).
+  - `docs/docs_DONE/SETUP/phaseC_combinedResim/phaseD_realHVAC/RESULT_phaseD2_setback_rescore.md` (NEW — T18-D).
   - Scratchpad analysis: `t18c_nyc_office_heating.py` (ephemeral, NOT committed).
 - **Deviations:** none. S6 pinned a single env-gate in `phaseD_city_rescore.py` only; national and reconstruct drivers inherit unchanged. No CLI args added. No other source file touched. No DESIGN/OVERVIEW doc edited. No gpkgs modified.
 - **Test status:** 6 runs all completed clean. Both trees: 8,160 / 8,160 success rows, 12 cells.

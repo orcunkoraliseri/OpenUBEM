@@ -11,14 +11,19 @@ from dataclasses import asdict, dataclass
 import hashlib
 import json
 import os
+import subprocess
+import sys
+import tempfile
+import time
 from pathlib import Path
 from datetime import timezone, timedelta
-from typing import Mapping
+from typing import Mapping, Sequence
 
 import numpy as np
 import pandas as pd
 
 from openubem.microclimate.epw_hourly import read_epw_hourly
+from openubem.results.err_parse import has_fatal, iter_severe
 
 
 @dataclass(frozen=True)
@@ -214,3 +219,329 @@ def _check_solar_closure(hourly: pd.DataFrame, location_header: str) -> None:
     closure_error = np.abs(hourly["global_horizontal_wm2"].to_numpy() - predicted)
     if np.any(closure_error[daytime] > 5.0):
         raise ValueError("DR08 gate 4: daytime solar closure exceeds 5 W/m2")
+
+
+def evaluate_monthly_benchmark_gate(
+    epw_path: Path | str,
+    benchmark_path: Path | str,
+    *,
+    tolerance_pct: float,
+    approved_exception_months: Sequence[int] | None = None,
+) -> dict[str, object]:
+    """Run DR08 gate 5: EPW monthly GHI totals against a local monthly benchmark.
+
+    Ruled tolerance (DECISION_REQUEST_EU-07_Lyon_gate5_GHI_2026-08-26.md): the DR08 gate
+    requires ``|Delta GHI| <= 10%`` per month. This function takes the tolerance as an
+    explicit keyword argument rather than hardcoding it, so the caller states the ruled
+    value; it is never silently widened here.
+    """
+    benchmark_path = Path(benchmark_path)
+    if not benchmark_path.is_file():
+        raise ValueError(f"DR08 gate 5: benchmark file not found: {benchmark_path}")
+    try:
+        benchmark = json.loads(benchmark_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"DR08 gate 5: benchmark file is not valid JSON: {benchmark_path}") from exc
+
+    source = benchmark.get("source") if isinstance(benchmark, dict) else None
+    monthly_raw = benchmark.get("monthly_ghi_kwh_m2") if isinstance(benchmark, dict) else None
+    if not isinstance(source, str) or not source.strip():
+        raise ValueError("DR08 gate 5: benchmark JSON must carry a non-empty 'source' label")
+    if not isinstance(monthly_raw, list) or len(monthly_raw) != 12:
+        raise ValueError("DR08 gate 5: benchmark JSON must carry exactly 12 'monthly_ghi_kwh_m2' values")
+    try:
+        monthly_benchmark = [float(value) for value in monthly_raw]
+    except (TypeError, ValueError) as exc:
+        raise ValueError("DR08 gate 5: benchmark monthly GHI values must be numeric") from exc
+    if any(value <= 0 for value in monthly_benchmark):
+        raise ValueError("DR08 gate 5: benchmark monthly GHI values must be positive")
+
+    hourly = read_epw_hourly(epw_path)
+    monthly_epw_wh = hourly.groupby(hourly.index.month)["global_horizontal_wm2"].sum()
+
+    approved = set(approved_exception_months or [])
+    months: list[dict[str, object]] = []
+    offending_months: list[int] = []
+    for month in range(1, 13):
+        epw_kwh = float(monthly_epw_wh.loc[month]) / 1000.0
+        benchmark_kwh = monthly_benchmark[month - 1]
+        pct_difference = abs(epw_kwh - benchmark_kwh) / benchmark_kwh * 100.0
+        within_tolerance = pct_difference <= tolerance_pct
+        if not within_tolerance:
+            offending_months.append(month)
+        months.append({
+            "month": month,
+            "epw_ghi_kwh_m2": epw_kwh,
+            "benchmark_ghi_kwh_m2": benchmark_kwh,
+            "pct_difference": pct_difference,
+            "within_tolerance": within_tolerance,
+        })
+
+    if not offending_months:
+        verdict = "PASS"
+    elif approved and set(offending_months) == approved:
+        verdict = "PASS_WITH_DOCUMENTED_EXCEPTION"
+    else:
+        verdict = "FAIL"
+
+    return {
+        "verdict": verdict,
+        "tolerance_pct": tolerance_pct,
+        "benchmark_source": source,
+        "offending_months": offending_months,
+        "approved_exception_months": sorted(approved),
+        "monthly": months,
+    }
+
+
+DEU18_PREAUTHORISED_FOLDS = ("uk", "it")
+
+
+def evaluate_deu18_pre_authorisation(
+    gate5_result: dict,
+    *,
+    fold: str,
+    other_gate_verdicts: dict[str, str],
+) -> dict[str, object]:
+    """Evaluate ruling D-EU-18's seven bounds for a gate-5 pre-authorised exception.
+
+    All seven bounds must hold or nothing is granted. Bound 0 (fold pre-authorisation) is
+    checked first and short-circuits alone; every other bound is evaluated and every failing
+    reason is collected, never short-circuited after the first. ``annual_delta_pct`` is always
+    computed and returned, even on refusal.
+    """
+    monthly = gate5_result["monthly"]
+    total_epw = sum(float(row["epw_ghi_kwh_m2"]) for row in monthly)
+    total_benchmark = sum(float(row["benchmark_ghi_kwh_m2"]) for row in monthly)
+    annual_delta_pct = abs(total_epw - total_benchmark) / total_benchmark * 100.0
+
+    bounds = {
+        "max_offending_months": 2,
+        "low_irradiance_ceiling_kwh_m2": 80.0,
+        "max_relative_delta_pct": 20.0,
+        "max_absolute_gap_kwh_m2": 15.0,
+        "max_annual_delta_pct": 5.0,
+    }
+
+    if fold not in DEU18_PREAUTHORISED_FOLDS:
+        return {
+            "ruling": "D-EU-18",
+            "granted": False,
+            "fold": fold,
+            "granted_exception_months": [],
+            "refusal_reasons": ["FOLD_NOT_PRE_AUTHORISED"],
+            "annual_delta_pct": annual_delta_pct,
+            "bounds": bounds,
+            "measured": [],
+        }
+
+    offending_months = list(gate5_result["offending_months"])
+    if not offending_months:
+        return {
+            "ruling": "D-EU-18",
+            "granted": False,
+            "fold": fold,
+            "granted_exception_months": [],
+            "refusal_reasons": ["NO_EXCEPTION_NEEDED"],
+            "annual_delta_pct": annual_delta_pct,
+            "bounds": bounds,
+            "measured": [],
+        }
+
+    offending_rows = sorted(
+        (row for row in monthly if row["month"] in offending_months),
+        key=lambda row: row["month"],
+    )
+
+    reasons: list[str] = []
+    for key, verdict in other_gate_verdicts.items():
+        if verdict != "PASS":
+            reasons.append(f"GATE_NOT_PASS:{key}={verdict}")
+
+    if len(offending_months) > 2:
+        reasons.append(f"TOO_MANY_OFFENDING_MONTHS:{len(offending_months)}")
+
+    for row in offending_rows:
+        month = row["month"]
+        benchmark_kwh = float(row["benchmark_ghi_kwh_m2"])
+        epw_kwh = float(row["epw_ghi_kwh_m2"])
+        pct_difference = float(row["pct_difference"])
+        absolute_gap = abs(epw_kwh - benchmark_kwh)
+        if not benchmark_kwh < 80.0:
+            reasons.append(f"MONTH_NOT_LOW_IRRADIANCE:m{month}={benchmark_kwh:.4f}")
+        if not pct_difference <= 20.0:
+            reasons.append(f"RELATIVE_DELTA_EXCEEDED:m{month}={pct_difference:.4f}")
+        if not absolute_gap <= 15.0:
+            reasons.append(f"ABSOLUTE_GAP_EXCEEDED:m{month}={absolute_gap:.4f}")
+
+    if not annual_delta_pct <= 5.0:
+        reasons.append(f"ANNUAL_DELTA_EXCEEDED:{annual_delta_pct:.4f}")
+
+    granted = not reasons
+    measured = [
+        {
+            "month": row["month"],
+            "epw_ghi_kwh_m2": float(row["epw_ghi_kwh_m2"]),
+            "benchmark_ghi_kwh_m2": float(row["benchmark_ghi_kwh_m2"]),
+            "pct_difference": float(row["pct_difference"]),
+            "absolute_gap_kwh_m2": abs(float(row["epw_ghi_kwh_m2"]) - float(row["benchmark_ghi_kwh_m2"])),
+        }
+        for row in offending_rows
+    ]
+
+    return {
+        "ruling": "D-EU-18",
+        "granted": granted,
+        "fold": fold,
+        "granted_exception_months": sorted(offending_months) if granted else [],
+        "refusal_reasons": reasons,
+        "annual_delta_pct": annual_delta_pct,
+        "bounds": bounds,
+        "measured": measured,
+    }
+
+
+def _gate6_smoke_idf(latitude: float, longitude: float, utc_offset: float, elevation: float) -> str:
+    """Minimal single-zone, single-year IDF for the DR08 gate 6 EnergyPlus smoke check.
+
+    A 10 m x 10 m x 3 m box, all six surfaces exposed to the outdoors (floor adiabatic),
+    an ideal-loads HVAC system, and a full-year RunPeriod driven entirely by the caller's
+    ``-w`` weather file. Geometry reused from the project's own R3 free-float fixture
+    (``tests/test_eu_physics_energyplus.py``), only the boundary conditions differ.
+    """
+    return f"""Version,23.1;
+Timestep,4;
+Building,Gate6 Smoke,0,Suburbs,0.04,0.4,FullExteriorWithReflections,25,6;
+GlobalGeometryRules,UpperLeftCorner,CounterClockWise,World;
+HeatBalanceAlgorithm,ConductionTransferFunction,200,0.1,10000000;
+SimulationControl,No,No,No,No,Yes,No;
+Site:Location,Gate6 Site,{latitude},{longitude},{utc_offset},{elevation};
+RunPeriod,Gate6 Annual,1,1,,12,31,,Sunday,No,No,No,No,No;
+ScheduleTypeLimits,Any Number;
+Schedule:Compact,Always On,Any Number,Through: 12/31,For: AllDays,Until: 24:00,1;
+ScheduleTypeLimits,Temperature,-60,200,Continuous,Temperature;
+Schedule:Compact,Heat 20,Temperature,Through: 12/31,For: AllDays,Until: 24:00,20;
+Schedule:Compact,Cool 26,Temperature,Through: 12/31,For: AllDays,Until: 24:00,26;
+Material,Gate6 Envelope Material,MediumRough,0.2,1.0,1800,900,0.9,0.7,0.7;
+Construction,Gate6 Envelope Construction,Gate6 Envelope Material;
+Zone,Gate6 Zone,0,0,0,0,1,1,autocalculate,autocalculate;
+BuildingSurface:Detailed,Gate6 South,Wall,Gate6 Envelope Construction,Gate6 Zone,,Outdoors,,SunExposed,WindExposed,0.5,4,0,0,0,10,0,0,10,0,3,0,0,3;
+BuildingSurface:Detailed,Gate6 North,Wall,Gate6 Envelope Construction,Gate6 Zone,,Outdoors,,SunExposed,WindExposed,0.5,4,10,10,0,0,10,0,0,10,3,10,10,3;
+BuildingSurface:Detailed,Gate6 East,Wall,Gate6 Envelope Construction,Gate6 Zone,,Outdoors,,SunExposed,WindExposed,0.5,4,10,0,0,10,10,0,10,10,3,10,0,3;
+BuildingSurface:Detailed,Gate6 West,Wall,Gate6 Envelope Construction,Gate6 Zone,,Outdoors,,SunExposed,WindExposed,0.5,4,0,10,0,0,0,0,0,0,3,0,10,3;
+BuildingSurface:Detailed,Gate6 Floor,Floor,Gate6 Envelope Construction,Gate6 Zone,,Adiabatic,,NoSun,NoWind,0.5,4,0,0,0,0,10,0,10,10,0,10,0,0;
+BuildingSurface:Detailed,Gate6 Roof,Roof,Gate6 Envelope Construction,Gate6 Zone,,Outdoors,,SunExposed,WindExposed,0.5,4,0,0,3,10,0,3,10,10,3,0,10,3;
+HVACTemplate:Thermostat,Gate6 Thermostat,Heat 20,,Cool 26,;
+HVACTemplate:Zone:IdealLoadsAirSystem,Gate6 Zone,Gate6 Thermostat,Always On,50,13,0.015,0.009,NoLimit,,,NoLimit,,,,,ConstantSensibleHeatRatio,0.7,60,None,30,None,0.00944,0,0,,None,NoEconomizer,None,0,0;
+Output:Variable,Gate6 Zone,Zone Air Temperature,Timestep;
+Output:Variable,*,Zone Ideal Loads Zone Sensible Heating Rate,Timestep;
+Output:SQLite,SimpleAndTabular;
+"""
+
+
+def evaluate_energyplus_smoke_gate(
+    epw_path: Path | str,
+    *,
+    energyplus_root: Path | str,
+    timeout_s: int = 600,
+) -> dict[str, object]:
+    """Run DR08 gate 6: a minimal single-zone IDF through real EnergyPlus against ``epw_path``.
+
+    Returns PASS only when the process returns 0 with zero severe and zero fatal errors.
+    Never fabricates a result when EnergyPlus is absent: returns UNAVAILABLE_ENERGYPLUS,
+    which is not a pass.
+    """
+    epw_path = Path(epw_path).resolve()
+    energyplus_root = Path(energyplus_root)
+    exe_name = "energyplus.exe" if sys.platform == "win32" else "energyplus"
+    exe = energyplus_root / exe_name
+    if not exe.is_file():
+        return {
+            "verdict": "UNAVAILABLE_ENERGYPLUS",
+            "detail": f"EnergyPlus executable not found at {exe}",
+            "energyplus_root": str(energyplus_root),
+        }
+
+    with epw_path.open(encoding="utf-8", errors="replace") as stream:
+        location_line = stream.readline().rstrip("\r\n")
+    fields = location_line.split(",")
+    try:
+        latitude, longitude, utc_offset, elevation = map(float, fields[6:10])
+    except (ValueError, IndexError) as exc:
+        raise ValueError("DR08 gate 6: EPW LOCATION header is invalid") from exc
+
+    idf_text = _gate6_smoke_idf(latitude, longitude, utc_offset, elevation)
+
+    with tempfile.TemporaryDirectory(prefix="eu_gate6_smoke_") as tmp:
+        run_dir = Path(tmp)
+        idf_path = run_dir / "gate6_smoke.idf"
+        idf_path.write_text(idf_text, encoding="utf-8")
+        command = [str(exe), "-w", str(epw_path), "-d", str(run_dir), "-x", "-r", str(idf_path)]
+        t0 = time.monotonic()
+        try:
+            proc = subprocess.run(command, cwd=run_dir, capture_output=True, text=True, timeout=timeout_s)
+        except subprocess.TimeoutExpired:
+            return {
+                "verdict": "FAIL",
+                "detail": f"EnergyPlus timed out after {timeout_s}s",
+                "wall_clock_s": float(timeout_s),
+            }
+        wall_clock_s = time.monotonic() - t0
+
+        err_path = run_dir / "eplusout.err"
+        err_text = err_path.read_text(encoding="utf-8", errors="replace") if err_path.is_file() else ""
+        severe_lines = iter_severe(err_text)
+        fatal = has_fatal(err_text)
+
+        if proc.returncode != 0:
+            detail = "\n".join(severe_lines) or (proc.stderr or proc.stdout)[-2000:]
+            return {
+                "verdict": "FAIL",
+                "detail": detail or f"EnergyPlus returned code {proc.returncode}",
+                "returncode": proc.returncode,
+                "wall_clock_s": wall_clock_s,
+            }
+        if fatal or severe_lines:
+            detail = "\n".join(severe_lines) or "EnergyPlus reported a fatal error with no severe-line detail"
+            return {
+                "verdict": "FAIL",
+                "detail": detail,
+                "returncode": proc.returncode,
+                "n_severe": len(severe_lines),
+                "wall_clock_s": wall_clock_s,
+            }
+        return {
+            "verdict": "PASS",
+            "returncode": proc.returncode,
+            "n_severe": 0,
+            "wall_clock_s": wall_clock_s,
+        }
+
+
+def evaluate_six_gates(
+    epw_path: Path | str,
+    *,
+    benchmark_path: Path | str,
+    tolerance_pct: float,
+    energyplus_root: Path | str,
+    approved_exception_months: Sequence[int] | None = None,
+    energyplus_timeout_s: int = 600,
+) -> dict[str, object]:
+    """Compose gates 1--4 (existing preflight) with gates 5 and 6 into the registry's six keys."""
+    preflight = validate_epw_preflight(epw_path)
+    gate_5 = evaluate_monthly_benchmark_gate(
+        epw_path, benchmark_path,
+        tolerance_pct=tolerance_pct,
+        approved_exception_months=approved_exception_months,
+    )
+    gate_6 = evaluate_energyplus_smoke_gate(
+        epw_path, energyplus_root=energyplus_root, timeout_s=energyplus_timeout_s,
+    )
+    return {
+        "gate_1_header": preflight["gate_1_header"],
+        "gate_2_8760_continuity": preflight["gate_2_8760_continuity"],
+        "gate_3_no_missing_mandatory_fields": preflight["gate_3_no_missing_mandatory_fields"],
+        "gate_4_physical_and_solar_bounds": preflight["gate_4_physical_and_solar_bounds"],
+        "gate_5_monthly_national_benchmark": gate_5["verdict"],
+        "gate_6_energyplus_smoke": gate_6["verdict"],
+    }

@@ -141,7 +141,7 @@ attributions failed verification**; all were remediated under
 [`debugs/PLAN_citation-audit-fixes-2026-08-23.md`](../debugs/PLAN_citation-audit-fixes-2026-08-23.md)
 (tasks T01–T07, CP-1 and CP-2 both satisfied, plan `CLOSED`). The five rulings that governed the
 remediation are recorded in
-[`debugs/docs/DECISIONS_pending-rulings-2026-08-23.md`](../debugs/docs/DECISIONS_pending-rulings-2026-08-23.md).
+[`debugs/docs/DONE-docs/DECISIONS_pending-rulings-2026-08-23.md`](../debugs/docs/DONE-docs/DECISIONS_pending-rulings-2026-08-23.md).
 
 What a future director must carry forward:
 

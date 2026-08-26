@@ -4,7 +4,7 @@
 **Date:** 2026-06-29 · **Updated 2026-06-29** with the 16-report deep-research set (`deepResearch/RESULT_01..16`, see §10).
 **Binding contract:** there is no separate DESIGN doc for this feature. The binding spec is
 (a) the existing zoning contract in `openubem/geometry/zoning.py`, and (b) §1b of
-`docs/docs_ACTIVE/simulation-Resolution/SIMULATION_RESOLUTION_zoning_by_building.md`
+`docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/SIMULATION_RESOLUTION_zoning_by_building.md`
 (the 4-mode table) + §5.1 of `docs/docs_EXPLANATION/OpenUBEM_fundamentals.md`. Those four
 modes are the contract; this plan implements modes 1–3 and leaves mode 4 (`auto`) untouched.
 

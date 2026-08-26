@@ -100,8 +100,8 @@ Ship **per-building total annual EUI**, extruded to real height, coloured sequen
 ## Reference list
 
 1. OpenUBEM source code (internal, read directly 2026-07-02): `openubem/results/aggregator.py` (Step-5 Module 14, DESIGN §3F–§3G); `openubem/results/carbon.py` (Step-5 Module 14, DESIGN §3E); `openubem/results/parser.py`; `openubem/results/visualization.py` (Step-5 Module 16, DESIGN §3G); `openubem/idf/outputs.py` (DESIGN §3I, fact #26); `openubem/geometry/zoning.py`.
-2. `docs/docs_ACTIVE/3D/deepResearch/RESULT_V04_level_of_detail_model.md` (internal, read 2026-07-02) — LOD-Z resolution-mode gate figures (470/8,152, 5.8%).
-3. `docs/docs_ACTIVE/3D/deepResearch/RESULT_V03_scene_geometry_interchange_formats.md` (internal, read 2026-07-02) — prior (superseded) Torino-repo uncertainty note.
+2. `docs/docs_DONE/VISUALS/3D-visualization/deepResearch/RESULT_V04_level_of_detail_model.md` (internal, read 2026-07-02) — LOD-Z resolution-mode gate figures (470/8,152, 5.8%).
+3. `docs/docs_DONE/VISUALS/3D-visualization/deepResearch/RESULT_V03_scene_geometry_interchange_formats.md` (internal, read 2026-07-02) — prior (superseded) Torino-repo uncertainty note.
 4. fereshtehsabeghi. "Torino-3d-heat-mapping." GitHub repository. https://github.com/fereshtehsabeghi/Torino-3d-heat-mapping — repo page and raw `README.md` fetched directly 2026-07-02.
 5. City Energy Analyst (CEA) documentation. "How to do analyses with CEA?" https://city-energy-analyst.readthedocs.io/en/update_glossary_documentation/cea-workflow-guide.html — fetched 2026-07-02.
 6. UBEM.IO. "Energy Modeler." https://www.ubem.io/energy-modeler — fetched 2026-07-02 (inconclusive on visualization specifics; see caveats).

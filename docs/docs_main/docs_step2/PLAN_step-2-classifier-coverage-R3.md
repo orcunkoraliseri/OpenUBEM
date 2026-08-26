@@ -2,7 +2,7 @@
 
 - **Slug:** step-2-classifier-coverage-R3
 - **Date:** 2026-06-11
-- **Binding contracts:** `docs/docs_step2/DESIGN_step-2-classify-each-cleaned-osm-building-into-one-of-the-30-openstudio-archetyp.md` (read-only) as amended by the two user rulings of 2026-06-11 recorded in §5 below (DESIGN errata E-R3-1, E-R3-2 — the user is the spec owner and has ratified both in conversation). `docs/docs_step2/PLAN_step-2.5-oq7-labelled-fixture.md` §6 L2/L3 task text is incorporated by reference.
+- **Binding contracts:** `docs/docs_main/docs_step2/DESIGN_step-2-classify-each-cleaned-osm-building-into-one-of-the-30-openstudio-archetyp.md` (read-only) as amended by the two user rulings of 2026-06-11 recorded in §5 below (DESIGN errata E-R3-1, E-R3-2 — the user is the spec owner and has ratified both in conversation). `docs/docs_main/docs_step2/PLAN_step-2.5-oq7-labelled-fixture.md` §6 L2/L3 task text is incorporated by reference.
 - **Goal:** (CP-α) classifier matches the user-ratified 50-label fixture at ≥70% fine / ≥90% coarse top-1, the OQ-7 accuracy gate is live in the suite, suite stays 0 skipped / 0 failed. (CP-β) Boston 483-building fleet re-run end-to-end with the improved classifier; CBECS gates recomputed and compared against the 2026-06-11 baseline (CV(RMSE) 53.78 / NMBE −10.81 / R² 0.731 / KS 0.190).
 
 ## §2 Hard rules for the executor
@@ -23,7 +23,7 @@ openubem/semantic/building_classifier.py   (A01 size metric, A02 untagged rule)
 tests/test_building_classifier.py          (A01/A02 test updates; A03 replaces TestLabelledTop1Accuracy stub)
 tests/fixtures/README.md                   (A04 — new, orientation page per OQ-7 plan L3)
 scripts/run_r3_fleet.py                    (B01 — new, full-chain Boston re-run, adapted from run_c4_regen.py + run_r1_t12.py)
-docs/docs_step2/PLAN_step-2-classifier-coverage-R3.md   (this doc — §8 progress log only)
+docs/docs_main/docs_step2/PLAN_step-2-classifier-coverage-R3.md   (this doc — §8 progress log only)
 ```
 
 Other test files may ONLY be touched if the suite proves they assert the old rule-17 routing for untagged `building=yes` inputs (each such edit must be listed in the progress log with the assertion before/after). Tests that merely use `OpenUBEMUnknown` as a literal archetype id (schedules/zoning/idf-builder) must NOT change.
@@ -52,7 +52,7 @@ Other test files may ONLY be touched if the suite proves they assert the old rul
 
 - **E-R3-1 — Office size buckets use TOTAL floor area** (`footprint_area_m2 × levels_imputed`), thresholds unchanged (<500 / 500–4000 / ≥4000 m²). Reconciles §3C rules 12a–c with §3B's literal wording "floor area" and with ASHRAE prototype definitions. User answer: "answer two: total floor area".
 - **E-R3-2 — Untagged `building=yes` rows default to size-bucketed offices, not Unknown.** New rule 17a, evaluated after rules 1–16 and before rule 17: `use_class == "unknown" AND building_tag == "yes"` → Small/Medium/LargeOffice by E-R3-1 metric, confidence **LOW**, new `archetype_source` token **`FALLBACK_SIZE_DEFAULT`** (emit vocabulary 14→15; supersedes part of the OQ-5 resolution). Rule 17 (`OpenUBEMUnknown` + `FALLBACK_UNKNOWN` + LOW) remains for everything else (service/roof/canopy/garage tags, non-yes generic tags). User answer: "answer one, proceed with educated guess". Validator lines 466-470 unchanged (Unknown still requires FALLBACK_UNKNOWN).
-- **E-R3-3 (2026-06-30) — Office / school / hotel cut-points corrected to their DOE/PNNL prototype boundaries.** Supersedes the "thresholds unchanged" clause of E-R3-1: office total-floor-area bins `<500 / 500–4000` → **`<2322 / <9290 m²`** (LBNL CBES 25k / 100k ft²); hotel Small/Large split `≥4` → **`≥5`** levels; school Primary/Secondary now by **level count** (Primary = 1 story / Secondary ≥ 2 stories), replacing the footprint `≥5000` rule (resolves §3C OQ-4). Rationale: the old cut-points misclassified the very DOE prototypes each archetype represents (deep-research RESULT_I02). Full plan + validation: `docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md`. CP-α re-validated 2026-06-30 (coarse 100% / fine 92% on the 50-building fixture; 13 office labels re-ratified to the CBES bins). E-R3-1's total-floor-area *metric* stands — only its thresholds are superseded.
+- **E-R3-3 (2026-06-30) — Office / school / hotel cut-points corrected to their DOE/PNNL prototype boundaries.** Supersedes the "thresholds unchanged" clause of E-R3-1: office total-floor-area bins `<500 / 500–4000` → **`<2322 / <9290 m²`** (LBNL CBES 25k / 100k ft²); hotel Small/Large split `≥4` → **`≥5`** levels; school Primary/Secondary now by **level count** (Primary = 1 story / Secondary ≥ 2 stories), replacing the footprint `≥5000` rule (resolves §3C OQ-4). Rationale: the old cut-points misclassified the very DOE prototypes each archetype represents (deep-research RESULT_I02). Full plan + validation: `docs/docs_DONE/BUGS/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md`. CP-α re-validated 2026-06-30 (coarse 100% / fine 92% on the 50-building fixture; 13 office labels re-ratified to the CBES bins). E-R3-1's total-floor-area *metric* stands — only its thresholds are superseded.
 
 ## §6 Task list
 

@@ -218,7 +218,7 @@ in full, including §4 and its §9 progress log. The log tells you what is alrea
 
 You are the EXECUTOR continuing the OpenUBEM UTCI / Stage-6 arc. Resume at the first task with no
 progress-log entry and continue under the same rules as the original kickoff
-(docs/docs_DONE/OUTDOOR/UTCI/prompt/KICKOFF_utci_full_arc.md §A — read it, it still applies in full).
+(docs/docs_DONE/OUTDOOR/UTCI/prompt/previous/KICKOFF_utci_full_arc.md §A — read it, it still applies in full).
 
 Before writing any new code: run the full pytest suite and confirm the previous session left the
 repo green. If it did not, fix that first and log it in §10 (Error Log).

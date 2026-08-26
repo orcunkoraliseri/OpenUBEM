@@ -28,7 +28,7 @@ Extend "fix don't skip" to the IDF-**generation** stage. The simulation-stage ha
 openubem/idf/builder.py    ← EDIT (generation-exception path → fallback ladder before drop)
 openubem/idf/surfaces.py   ← EDIT only if the fallback ladder needs a new entry point (likely reuse existing)
 tests/test_generation_drop_rescue.py  ← NEW
-docs/docs_ACTIVE/phaseC_combinedResim/RESULT_generation_drop_diagnosis.md  ← NEW (CP-1 data)
+docs/docs_DONE/SETUP/phaseC_combinedResim/RESULT_generation_drop_diagnosis.md  ← NEW (CP-1 data)
 ```
 No other files modified. Do NOT touch the adopted results, the fraction JSONs, or any committed RESULT/REPORT.
 
@@ -70,7 +70,7 @@ No other files modified. Do NOT touch the adopted results, the fraction JSONs, o
 
 ## 7. Kickoff for Sonnet (manager will send)
 
-> Read `docs/docs_ACTIVE/phaseC_combinedResim/PLAN_geometry_generation_drops.md`. Execute T01 only, then STOP at CP-1: write `RESULT_generation_drop_diagnosis.md`, append a §8 progress-log entry, and report each of the 4 buildings' exact exception + whether a fallback would rescue it. Investigate before fixing — capture real tracebacks, do not guess. Do not propose alternatives — execute the plan. If a §4 fact is contradicted by the code, STOP and quote the conflict.
+> Read `docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_geometry_generation_drops.md`. Execute T01 only, then STOP at CP-1: write `RESULT_generation_drop_diagnosis.md`, append a §8 progress-log entry, and report each of the 4 buildings' exact exception + whether a fallback would rescue it. Investigate before fixing — capture real tracebacks, do not guess. Do not propose alternatives — execute the plan. If a §4 fact is contradicted by the code, STOP and quote the conflict.
 
 ## 8. Progress log
 
@@ -78,7 +78,7 @@ _(appended by the executor, one entry per completed task)_
 
 #### T01 — Reproduce + diagnose the 4 generation drops — completed 2026-06-26
 
-- **Artifacts:** `docs/docs_ACTIVE/phaseC_combinedResim/RESULT_generation_drop_diagnosis.md`
+- **Artifacts:** `docs/docs_DONE/SETUP/phaseC_combinedResim/RESULT_generation_drop_diagnosis.md`
 - **Deviations:** None. No production source files modified; all instrumentation in session scratchpad.
 - **Test status:** All 4 buildings individually exercised. Results confirmed by git diff `7635ce2`↔`075934c`.
 - **Notes for auditor:**

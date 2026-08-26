@@ -16,15 +16,29 @@ from openubem.semantic.construction_sets import select_tabula_archetype, tabula_
 REPOSITORY_ROOT = Path(__file__).parent.parent
 DATA_DIR = REPOSITORY_ROOT / "openubem" / "data" / "construction"
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "eu" / "step8_outputs"
-REFERENCE_CSV = (
-    REPOSITORY_ROOT
-    / "docs"
-    / "docs_ACTIVE"
-    / "europeanLocations"
-    / "debugs"
-    / "docs"
-    / "tabula_102_extra_columns_2026-08-23.csv"
+_REFERENCE_CSV_NAME = "tabula_102_extra_columns_2026-08-23.csv"
+_REFERENCE_SEARCH_ROOT = (
+    REPOSITORY_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "debugs"
 )
+
+
+def _resolve_reference_csv() -> Path:
+    """Resolve the reference table by FILENAME, not by a fixed path prefix.
+
+    The archiving rule this repository adopted on 2026-08-09 requires resolving a
+    moved document by its filename: an archive sweep renames the containing folder
+    (``docs/`` -> ``DONE/`` -> ``DONE-docs/`` here, twice on 2026-08-26 alone), and
+    a hard-coded prefix breaks each time without the file ever changing.
+    """
+    matches = sorted(_REFERENCE_SEARCH_ROOT.rglob(_REFERENCE_CSV_NAME))
+    if not matches:
+        raise FileNotFoundError(
+            f"{_REFERENCE_CSV_NAME} not found anywhere under {_REFERENCE_SEARCH_ROOT}"
+        )
+    return matches[0]
+
+
+REFERENCE_CSV = _resolve_reference_csv()
 PARENT_WORKBOOK = Path(
     "C:/Users/o_iseri/Desktop/GSSCanada/GSSCanada-main/4J_docs_occ/"
     "Step8_docs/outputs_step8/raw/tabula-calculator.xlsx"

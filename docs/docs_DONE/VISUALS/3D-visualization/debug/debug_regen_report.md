@@ -1,7 +1,7 @@
 # 3D viewer debug regen report (D05)
 
 - **Date:** 2026-07-03
-- **Plan:** `docs/docs_ACTIVE/3D/debug/PLAN_3dviz_debug_representation.md` (D01–D05)
+- **Plan:** `docs/docs_DONE/VISUALS/3D-visualization/debug/PLAN_3dviz_debug_representation.md` (D01–D05)
 - **Delivery dir (this arc):** `docs/docs_ACTIVE/3D/outputs/<cell>_viewer.html` (12 cells).
   Copy to `openubem/outputs/3D/` is **D06, gated on manager audit — NOT done here.**
 - **Bundle:** `openubem/viz/shell/viewer.js` rebuilt via the exact `BUILD.md` esbuild

@@ -3,7 +3,7 @@
 - **Slug:** `v19-phasec-rescore`
 - **Date:** 2026-06-20
 - **Author:** Manager (Opus session)
-- **Binding contract:** the V17 document `docs/docs_VALIDATION/overAll/V17_external_measured_validation.md`
+- **Binding contract:** the V17 document `docs/docs_VALIDATION/step1/overAll/V17_external_measured_validation.md`
   defines the comparison basis (metric, statistic, anchors). This plan re-runs that exact comparison
   against the **fresh Phase-C results** (multi-floor zoning + DOE schedules + core/perimeter geometry fix).
 - **Why this exists:** V17 found LA running **+39.6 % hot city-wide / +72 % on office**, but V18 showed that
@@ -198,7 +198,7 @@ archetype ⇒ reconstructed = sim total (no uplift). Expect `OpenUBEMUnknown`, `
 
 ## 7. Phase 2 — Manager (Opus) writes the verdict (NOT Sonnet)
 
-After CP-2, the manager writes `docs/docs_VALIDATION/overAll/V19_phaseC_rescore.md`:
+After CP-2, the manager writes `docs/docs_VALIDATION/step1/overAll/V19_phaseC_rescore.md`:
 - Re-score city + archetype tables (from T05), V17-style.
 - **The LA verdict** — is LA still hot? How much did the zoning fix move it? Tie back to V18 (was the V17
   +40 % an artifact?).
@@ -255,7 +255,7 @@ After CP-2, the manager writes `docs/docs_VALIDATION/overAll/V19_phaseC_rescore.
 - Notes: Total passthrough=4 (non-success rows); LA Office recon_median=216.73 delta_vs_measured=+78.4% delta_vs_v17old=+3.7%; LA Overall recon_median=157.65 delta_vs_measured=+38.8% delta_vs_v17old=-0.6%; NYC Office recon_median=251.37 delta_vs_measured=+36.7%
 
 #### Phase 2 (manager) — V19 verdict written — completed 2026-06-20
-- Artifacts: `docs/docs_VALIDATION/overAll/V19_phaseC_rescore.md`
+- Artifacts: `docs/docs_VALIDATION/step1/overAll/V19_phaseC_rescore.md`
 - Deviations: none; verdict written from T03–T05 numbers, V17-style sections.
 - Test status: n/a (analysis doc).
 - Notes: Headline — fixes resolved V17's over-predictions (NYC MF +33.5→+0.7%, food-service +110/160→−1.6/+12%, NYC city +10.0% pass). V17 NYC-office anchor was a V18 artifact: office now +37% (NEW P1 systematic bias, all cities +30–52% vs ESPM). LA still hot +38.8% (unmoved −0.6%) → confirmed climate/HVAC problem, not zoning. Coherent mechanism: zoning fix pushes office loads UP, DOE schedules push dwelling/kitchen loads DOWN. Revised calibration priority supersedes V17 §6. STATUS hub + checklist + memory updated.

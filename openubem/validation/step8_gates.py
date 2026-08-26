@@ -479,7 +479,7 @@ def evaluate_saved_idf_schedule_gates(
     matching_schedule = next(
         (
             fields for fields in schedule_objects
-            if len(fields) >= 7 and fields[0].casefold() == schedule_name.casefold()
+            if len(fields) >= 8 and fields[0].casefold() == schedule_name.casefold()
             and fields[2].replace("\\", "/").casefold() == expected_path
         ),
         (),
@@ -494,7 +494,7 @@ def evaluate_saved_idf_schedule_gates(
         field.casefold() == schedule_name.casefold() for field in consumers[0][1:]
     )
     value_ok = bool(matching_schedule) and checksum_ok
-    interpolation_ok = bool(matching_schedule) and matching_schedule[6].casefold() == "no"
+    interpolation_ok = bool(matching_schedule) and matching_schedule[7].casefold() == "no"
     return (
         GateFinding("G8.12", value_ok and assignment_ok, "saved Schedule:File checksum/path and consuming-object assignment match"),
         GateFinding("G8.13", interpolation_ok, "saved Schedule:File uses Interpolate to Timestep = No"),

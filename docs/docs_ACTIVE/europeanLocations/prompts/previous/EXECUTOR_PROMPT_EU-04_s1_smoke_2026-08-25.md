@@ -6,7 +6,7 @@ conflict rather than choosing.**
 
 **Working directory:** `C:\Users\o_iseri\Desktop\OpenUBEM`
 **Date opened:** 2026-08-25
-**Authority:** `docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISION_REQUEST_EU-04_H_S1_reachability_2026-08-25.md`
+**Authority:** `docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_EU-04_H_S1_reachability_2026-08-25.md`
 — status `RULED`, **Option H1 selected**: *"S1 ladder execution proceeds with 12 buildings
 (3 per typology) selected by the established ladder rules, measuring real corpus yield and
 classifying all failure modes fail-closed."*

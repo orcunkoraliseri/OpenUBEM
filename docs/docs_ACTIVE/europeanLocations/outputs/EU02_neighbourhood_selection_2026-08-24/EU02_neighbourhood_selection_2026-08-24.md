@@ -1,7 +1,7 @@
 # EU-02 — Dense residential neighbourhood selection for the European campaign
 
 **Revision B — 2026-08-24.** Revision A of the same date is retained verbatim at
-[`debugs/docs/EU02_neighbourhood_selection_2026-08-24_revA_superseded.md`](../../debugs/docs/EU02_neighbourhood_selection_2026-08-24_revA_superseded.md).
+[`debugs/docs/DONE-docs/EU02_neighbourhood_selection_2026-08-24_revA_superseded.md`](../../debugs/docs/DONE-docs/EU02_neighbourhood_selection_2026-08-24_revA_superseded.md).
 
 **Executed in-session against live public APIs** (not delegated to an external LLM)
 **Serves:** MVP §9.7.2 gates `NS-01`–`NS-10`, MVP §10.4 four-panel input audit, decision `D-EU-10` (data half)

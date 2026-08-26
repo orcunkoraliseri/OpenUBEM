@@ -3,7 +3,7 @@
 > Binding contract: the L01–L15 `RESULT_*` deep-research answers under
 > `docs/docs_ACTIVE/simulation-Resolution/layoutgenerator/deepResearch/`, and the OpenUBEM
 > zero-fitted-parameters + mandatory-provenance constraints. On approval this plan is copied to
-> `docs/docs_ACTIVE/simulation-Resolution/layoutgenerator/PLAN_layoutgenerator_implementation.md`
+> `docs/docs_TODO/layoutgenerator/PLAN_layoutgenerator_implementation.md`
 > (the persistent manager doc); execution follows manager-writes / Sonnet-executes, with Opus
 > writing the delicate load-bearing pieces (classifier, dispatcher, conservation math, interior-BC wiring).
 

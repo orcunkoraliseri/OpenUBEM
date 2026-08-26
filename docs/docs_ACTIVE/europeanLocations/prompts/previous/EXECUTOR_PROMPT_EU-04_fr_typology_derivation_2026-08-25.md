@@ -6,7 +6,7 @@ conflict rather than choosing.**
 
 **Working directory:** `C:\Users\o_iseri\Desktop\OpenUBEM`
 **Date opened:** 2026-08-25
-**Authority:** `docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISION_REQUEST_EU-04_FR_typology_2026-08-25.md`
+**Authority:** `docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_EU-04_FR_typology_2026-08-25.md`
 — status `RULED`, **Option G1 selected**, both consequences accepted by the owner.
 
 ---

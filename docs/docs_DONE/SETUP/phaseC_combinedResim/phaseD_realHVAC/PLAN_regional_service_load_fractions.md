@@ -3,7 +3,7 @@
 - **Slug:** `regional-service-load-fractions`
 - **Date:** 2026-06-26
 - **Author:** Manager (Opus session)
-- **Binding contract:** this PLAN + the V16 reconstruction method (`docs/docs_VALIDATION/overAll/V16_service_loads_reconstruction.md`) + REPORT §R6-4B scope authority (reporting-layer, **no resim, no IDF/DESIGN change, gates report-only**). Operates on the adopted **phaseD2** baseline (CP-8 ratified 2026-06-26).
+- **Binding contract:** this PLAN + the V16 reconstruction method (`docs/docs_VALIDATION/step1/overAll/V16_service_loads_reconstruction.md`) + REPORT §R6-4B scope authority (reporting-layer, **no resim, no IDF/DESIGN change, gates report-only**). Operates on the adopted **phaseD2** baseline (CP-8 ratified 2026-06-26).
 - **Predecessor:** `PLAN_phaseD_real_hvac_resim.md` (Phase-6 / CP-8 → "Adopt, then tackle LA/Austin" → user chose Direction A: regional fractions).
 
 ## 0. Goal & thesis
@@ -96,7 +96,7 @@ No other files may be created or modified. Do NOT touch `enduse_fractions_table4
 
 ## 7. Kickoff for Sonnet (manager will send)
 
-> Read `docs/docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/PLAN_regional_service_load_fractions.md`. Execute T01–T02, then STOP at CP-1: append progress-log entries under §8, run the T01 tests, and report (incl. the §0 signature check) before continuing. Do not propose alternatives — execute the plan. If a verified fact (§4) is contradicted by the code, STOP and quote the conflict.
+> Read `docs/docs_DONE/SETUP/phaseC_combinedResim/phaseD_realHVAC/PLAN_regional_service_load_fractions.md`. Execute T01–T02, then STOP at CP-1: append progress-log entries under §8, run the T01 tests, and report (incl. the §0 signature check) before continuing. Do not propose alternatives — execute the plan. If a verified fact (§4) is contradicted by the code, STOP and quote the conflict.
 
 ## 8. Progress log
 
@@ -109,7 +109,7 @@ _(appended by the executor, one entry per completed task)_
 - Notes: primary_school and secondary_school share PBA 14 (Education) and therefore receive identical regional fractions within each division. pumps column is 0.0 everywhere (no separate CBECS end-use column; per DD3 folded into cooking_other). FLAGGED FOR CP-1: all regional modeled_fracs are below national (0.6084/0.5431/0.5704 vs 0.8300 for large_office) — this means regional reconstruction produces LARGER uplifts for all three cities, opposite to the §0 NMBE correction direction. Data-only report in T02 memo; no inference drawn here.
 
 #### T02 — Derivation audit memo — completed 2026-06-26
-- Artifacts: `docs/docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/RESULT_regional_fraction_derivation.md`
+- Artifacts: `docs/docs_DONE/SETUP/phaseC_combinedResim/phaseD_realHVAC/RESULT_regional_fraction_derivation.md`
 - Deviations: None. Data-only as specified. §0 signature check included per plan. Thin-cell fallback list enumerated. Per-(region x group) n and modeled_frac side-by-side with national included.
 - Test status: Tables non-empty — PASS. Signature direction reported per group — PASS. Fallbacks enumerated — PASS. §5 data anomaly flagged (regional mf < national for all groups/divisions) for manager CP-1 review.
 - Notes: The §0 signature (cold MA space_heat > mild PAC/WSC) holds for all office and school groups. The lever mechanism is confirmed in the correct direction. However §5 of memo flags that all regional modeled_fracs are below national — the net reconstruction effect may be opposite to §0 prediction; CP-1 manager audit required before T03.
@@ -185,7 +185,7 @@ _(appended by the executor, one entry per completed task)_
 - **Next: regenerate `REPORT_phaseD_final.md`** to the adopted phaseD2 + regional-fraction model (city anchors + national gates + the resolved limitations #1 setback & climate-blind-fractions + the new disclosed costs). This consolidates CP-8 (phaseD2) and CP-2 (regional) into the final baseline report.
 
 #### REPORT regeneration — final baseline report updated — completed 2026-06-26 (manager)
-- Artifact: `docs/docs_ACTIVE/phaseC_combinedResim/phaseD_realHVAC/REPORT_phaseD_final.md` (rewritten; supersedes the 2026-06-25 edition).
+- Artifact: `docs/docs_DONE/SETUP/phaseC_combinedResim/phaseD_realHVAC/REPORT_phaseD_final.md` (rewritten; supersedes the 2026-06-25 edition).
 - Content: adopted model = phaseD2 metered PTAC + V16 reconstruction on regional CBECS fractions, zero fitted parameters. Headline city-Overall ±9% all 3 cities (NYC +2.1 / LA −3.7 / Austin −8.6); national CBECS NMBE + R² passing all 3 regions (NYC +7.7 / LA −6.1 / Austin −9.9). Limitations #1 (NYC office over-heat → setback) + climate-blind fractions (→ regional) marked RESOLVED; LA Office (+12.3%) / LA Warehouse (+31%, n=38) regional-fraction costs + structural CV/KS + Austin-proxy + commercial-only-split disclosed.
 - Deviations: none. Manager-authored synthesis (validation analysis); numbers transcribed verbatim from RESULT_phaseD2_setback_rescore.md + RESULT_phaseD2_regional_fractions.md; no resim, no code/DESIGN change.
 - **Phase-D arc COMPLETE.** Adopted baseline locked; no further resim/calibration indicated (future = RECS-regional MF fractions, reporting-layer, new data).

@@ -63,7 +63,7 @@ on 5am–1am schedule; killed the PrimarySchool runaway 609→179 / 2175→243),
 - Stop-and-ask on ambiguity. **T18 is HELD for the user.**
 
 ## Pointers
-- Plans: `docs/docs_ACTIVE/hvac-ServiceLoads/PLAN_phaseE_full_realism.md` (parent T16/T17/T18),
+- Plans: `docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/implementation/PLAN_phaseE_full_realism.md` (parent T16/T17/T18),
   `…/remediation/PLAN_phaseE_CPD_remediation.md` (§8–§11 = decision record incl. CP-D2 ruling).
 - Harness: `scripts/validation/v12_cell_pipeline.py` (`run_cell`, `--output-subdir phaseE`, 12-cell
   `CELL_CONFIGS` ~line 45), `scripts/validation/phaseE_pilot.py` (single-cell la_urban).

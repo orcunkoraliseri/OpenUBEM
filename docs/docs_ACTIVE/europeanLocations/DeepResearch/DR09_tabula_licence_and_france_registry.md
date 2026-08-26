@@ -1,7 +1,7 @@
 # DR09: TABULA/EPISCOPE Licence Terms and the France Residential Typology Subset
 
 - **Status**: Complete publication-grade research report
-- **Serves decisions**: D-EU-08 (licence & redistribution terms) and D-EU-11 (France physical registry & archetype subset) in [`../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md)
+- **Serves decisions**: D-EU-08 (licence & redistribution terms) and D-EU-11 (France physical registry & archetype subset) in [`../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md)
 - **Brief reference**: [`DR09_tabula_licence_and_france_registry_brief.md`](DR09_tabula_licence_and_france_registry_brief.md)
 - **Date of audit**: 2026-08-23
 - **Evidence base**: Primary extraction of pinned workbooks `tabula-values.xlsx` (MD5 `7347b2cae3c4d9f5ce78221e9d5fb832`) and `tabula-calculator.xlsx` (MD5 `c99ddc9ffcb6dc0ae7391273d9619e37`), live audit of the official web portal `https://episcope.eu/`, and official French legislative texts (JORF / Légifrance).

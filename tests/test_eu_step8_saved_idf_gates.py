@@ -20,7 +20,10 @@ def _write_fixture(tmp_path: Path, *, assigned_schedule="gain_schedule", interpo
   1,
   1,
   8760,
-  {interpolate};
+  Comma,
+  {interpolate},
+  60,
+  Yes;
 OtherEquipment,
   gain_load,
   Zone One,

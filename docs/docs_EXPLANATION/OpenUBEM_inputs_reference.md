@@ -145,7 +145,7 @@ The older **reconstruction overlay** (`service_loads/enduse_fractions_table4.jso
 on the simulated total) is retired as the production path but still present in
 `results/service_loads.py` behind the `OPENUBEM_RECONSTRUCT_SERVICE_LOADS` flag for
 back-compat / reporting comparisons. Full coefficient table and per-archetype source
-citations: `docs/docs_DONE/serviceLoads/SERVICE_LOADS_coefficients.md`.
+citations: `docs/docs_DONE/LOADS & SCHEDULES/serviceLoads/SERVICE_LOADS_coefficients.md`.
 
 ---
 
@@ -176,8 +176,8 @@ Source prompts/results for the three city benchmarks live in
 | Construction (envelope), internal loads, schedules | `openubem/data/construction/PROVENANCE.md` |
 | Climate zones, EPW station catalogue | `openubem/data/climate_zones/PROVENANCE.md` |
 | Carbon factors (eGRID) | `openubem/data/carbon/PROVENANCE.md` |
-| Schedules (digitized DOE prototype IDFs) | `docs/docs_DONE/scheduleDigitization/PROVENANCE.md` |
-| Service-load end-use fractions (legacy overlay) | `docs/docs_DONE/serviceLoads/SERVICE_LOADS_coefficients.md` |
+| Schedules (digitized DOE prototype IDFs) | `docs/docs_DONE/LOADS & SCHEDULES/scheduleDigitization/PROVENANCE.md` |
+| Service-load end-use fractions (legacy overlay) | `docs/docs_DONE/LOADS & SCHEDULES/serviceLoads/SERVICE_LOADS_coefficients.md` |
 | HVAC / DHW / cooking / refrigeration deep research | `docs/docs_DONE/hvac-ServiceLoads/deepResearch/` (RESULT_01 through RESULT_05) |
 | OSM tag → use-class mapping vs. peer UBEM-tool practice | `docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I01_osm_tag_to_use_class_mapping.md` |
 | Archetype size/level cut-points vs. DOE/PNNL prototype TSDs | `docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I02_archetype_classification_cascade.md` |

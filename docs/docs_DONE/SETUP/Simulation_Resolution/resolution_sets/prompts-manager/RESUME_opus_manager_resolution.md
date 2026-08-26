@@ -19,11 +19,11 @@ manager edits markdown plan docs + test files and audits only.
 T09/P5. `zone` mode is deferred to a separate later arc (PLAN §12) — not your problem now.
 
 **Binding docs (read in this order if you need detail):**
-1. `docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md` — the active PLAN. **§8 is the
+1. `docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/PLAN_resolution_mode_switch.md` — the active PLAN. **§8 is the
    binding progress log** (latest entry = M17). §7 = CP4 acceptance. §9 = expected cross-mode physics.
-2. `docs/docs_ACTIVE/simulation-Resolution/deepResearch/prompts-employee/P4b_cluster_harvest.md` — the
+2. `docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/deepResearch/prompts-employee/P4b_cluster_harvest.md` — the
    cluster-harvest babysitter prompt the cron runs each tick.
-3. `docs/docs_ACTIVE/simulation-Resolution/deepResearch/prompts-employee/P4_local.md` — the (completed)
+3. `docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/deepResearch/prompts-employee/P4_local.md` — the (completed)
    local-half prompt; documents the cluster/local split and output schema.
 
 ---

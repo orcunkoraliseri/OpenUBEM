@@ -39,7 +39,14 @@
   footprints arrive clockwise-wound; geomeppy's `build_zones` needs CCW for outward normals, so E+ computes
   a negative zone volume and clamps it to a 10 m³ stub. Universal (95% of la_urban, 100% of la_rural), but
   only *fatal* on the largest footprints (1,173–22,444 m²). Fix: `shapely.geometry.polygon.orient(poly_local,
-  sign=1.0)` before `build_zones` in `openubem/idf/builder.py`.
+  sign=1.0)` before `build_zones` in `openubem/idf/builder.py`. **Measured energy cost, 2026-08-26 (EU S2,
+  31 buildings):** the volume clamp alone understates ACH-driven ventilation loss **57.74×**; repairing the
+  volume without re-winding still leaves **−11.8 %** on heating demand, with EnergyPlus's own reported zone
+  floor area, zone volume, exterior gross wall area and heat-transfer surface count **byte-identical**
+  between the two runs — the vertex *sets* match and only their *order* differs. **No area- or
+  volume-based geometry check can detect this class of defect.** Recurrence note: this entry already
+  carried the correct fix when `scripts/run_eu_s2_campaign.py` shipped with the defect, so the entry was
+  not consulted. *(docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md §12.20, FINDING EU-S2-08)*
   *(docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/debugs/DONE_10_fails.md; docs/docs_REPORTS/REPORT_phaseE_final.md §5)*
 - **The same `orient()` fix is deliberately skipped in `auto` mode** — the guard at
   `openubem/idf/builder.py:464-465` excludes `auto`, which is the mode the published fleet EUI was built in;
@@ -142,7 +149,7 @@
   inside the EU-04 `S1` measurement task and recorded fail-closed as `EPLUS_FATAL`, a named refusal,
   never an energy result. Candidate remedy for a later, explicitly scoped item: a vertex-budget
   simplification (`shapely.simplify` with an area-preserving tolerance) before extrusion, with the
-  simplification error recorded per building. *(docs/docs_ACTIVE/europeanLocations/prompts/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md;
+  simplification error recorded per building. *(docs/docs_ACTIVE/europeanLocations/prompts/previous/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md;
   openubem/outputs/eu_evidence/EU-04/s1_smoke_manifest.csv)*
 
 ## 2. Thermal runaway & envelope thermal mass
@@ -363,7 +370,7 @@
   inside a measurement task (EU-04 `S1-EXEC-01` CP-1, 2026-08-25) and recorded rather than remedied;
   candidate fix is rotation about the footprint centroid and/or a footprint-area-relative topology
   tolerance. Workaround in force: S1 runs in the manifest's native `EPSG:32631`.
-  *(docs/docs_ACTIVE/europeanLocations/prompts/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md:115)*
+  *(docs/docs_ACTIVE/europeanLocations/prompts/previous/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md:115)*
 
 ## 6. Classification & archetype assignment
 
@@ -673,7 +680,7 @@
   (near-zero within-archetype variance vs CBECS's per-building survey spread) plus regional/composition
   mismatch. A scalar reporting basis only shifts the mean, never the shape. Correctly designated report-only
   (V-R5-5); **never tune to pass**.
-  *(docs/docs_DONE/SETUP/phaseC_combinedResim/v19_validation/PLAN_v19_national_cbecs_rescore.md; docs/docs_VALIDATION/step1/overAll/MEMO_phaseB_cbecs_diagnosis.md)*
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/v19_validation/PLAN_v19_national_cbecs_rescore.md; docs/docs_VALIDATION/step1/overAll/results/MEMO_phaseB_cbecs_diagnosis.md)*
 - **A "passing" aggregate metric that was actually a bug artifact** — CP-D NMBE read −3.1% (PASS) only
   because the kitchen-exhaust blowups (1,323 and 888 kWh/m² outliers) inflated the commercial mean enough to
   offset a systematic level deficit. After the fix: honest NMBE −17.6%, R² 0.40 → 0.91. **Rule:** an
@@ -684,7 +691,7 @@
   pre-correction number was a coincidental offset between inflated cooling-thermal and understated
   heating-fuel. Test proposed corrections in isolation; never accept an accidental cancellation as
   validation.
-  *(docs/docs_VALIDATION/step1/overAll/MEMO_phaseB_cbecs_diagnosis.md)*
+  *(docs/docs_VALIDATION/step1/overAll/results/MEMO_phaseB_cbecs_diagnosis.md)*
 - **High R² (0.69–0.996) alongside failing CV(RMSE) and KS_D** — R² checks shape, not level. Together with
   the registered "NMBE is blind to variance collapse" rule: **never read either metric alone as
   "validated."**
@@ -1036,6 +1043,12 @@
   building the `.idf` path from it (`scripts/run_eu_s1_smoke.py:283`).
   *(scripts/run_eu_s1_smoke.py, EU-04 S1 smoke, D-EU-04-H)*
 
+- **`ModuleNotFoundError: No module named 'cdsapi'` raised at import time by `scripts/acquire_era5_eu_folds.py:27` (`from cdsapi.api import get_url_key_verify`)** — the script was launched with the Windows `py` launcher, which resolves to the system interpreter (`AppData/Local/Programs/Python/Python313/python.exe`), not the project virtualenv. `cdsapi`, `pvlib` and `xarray` are installed only in `.venv` and are still undeclared in `pyproject.toml`, so nothing outside `.venv` can import them. The failure is environment selection, not a missing install. Fix: invoke the acquisition and conversion scripts as `./.venv/Scripts/python.exe scripts/acquire_era5_eu_folds.py ...`; `py -0p` lists the launcher targets and confirms `.venv` is not among them. *(docs/docs_ACTIVE/europeanLocations/previous/PLAN_eu-boundary-closure-2026-08-26.md, T01)*
+
+- **`PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'era5_madrid_2009-06.zip'` inside `ecmwf.datastores.processing.Results.download`** — a manual `--poll` invocation was run in the foreground while the background `--run-sequential` loop for the same fold was also polling; both processes saw the CDS job as `successful` at the same moment and raced to write the same target file, so the loser's `os.remove(target)` inside `download()` hit a file the winner still had open. The file itself downloaded correctly (the winner completed it); only the loser process crashed. Fix: `scripts/acquire_era5_eu_folds.py:poll()` catches `PermissionError` around `result.download(str(dest))`, prints `DOWNLOAD_RACE_SKIPPED`, and continues instead of raising -- the next `--poll` retries naturally since `dest` is absent for the losing process. Operational rule: do not run a manual `--poll` while `--run-sequential` is active for the same fold. *(docs/docs_ACTIVE/europeanLocations/previous/PLAN_eu-boundary-closure-2026-08-26.md, T01)*
+
+- **EnergyPlus aborts with `Could not find weather file` even though the `.epw` exists and its path is correct from the shell** — the gate-6 smoke runner invokes EnergyPlus with `cwd=<temp run dir>` while passing the EPW as a **relative** path, so the child resolves it against the temp directory instead of the repo root and never sees the file. The path is right; the working directory is not. Fix: resolve the weather path to absolute before building the argument list — `Path(epw_path).resolve()` at the top of `evaluate_energyplus_smoke_gate`, `openubem/acquisition/european_weather.py`. Found by running the real control (the pinned France EPW, which the registry already records as `gate_6_energyplus_smoke: PASS`) rather than by unit tests, which used a monkeypatched runner and could not see it. General rule for any `subprocess.run(..., cwd=...)`: every path handed to the child must be absolute, because the child's notion of "here" is not yours. *(docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md §12.12)*
+
 ## 14. Test suite: collection aborts, fixtures, benign noise
 
 - **`AttributeError: module 'openubem.semantic.imputation' has no attribute '_draw_tier'` at
@@ -1073,6 +1086,18 @@
   reports the full pass count. Check the exit status, not the stdout dump. Documented independently in at
   least five arcs.
   *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-46_path-verification.md; docs/docs_DONE/BUGS/zoningBug/PLAN_zoning-multifloor-fix.md; docs/docs_TODO/layoutgenerator/debugs/PLAN_design_buildout_by_archetype.md:501)*
+
+- **A single test file takes minutes of CPU while the same code runs in milliseconds outside pytest** — the test asserted membership directly against a large serialised string, `assert "\\" not in serialised` and 26 more `assert f"{letter}:" not in serialised`, where `serialised` was a ~340 KB `json.dumps` of the frozen campaign-cell spec. **pytest's assertion rewriter carries both operands of every rewritten comparison through its explanation machinery**, so 28 membership tests against a 340 KB operand cost minutes; the same 28 checks in a plain `python -c` finish in under a millisecond (measured: `build 0.09 s, dumps 0.00 s, membership 0.0000 s`). Fix: evaluate the membership tests in ordinary code and assert once on the small result — `offenders = [t for t in tokens if t in serialised]` then `assert offenders == []` — which also gives a better failure message, since it names the offending token instead of dumping the string. `tests/test_eu_campaign_cell_spec_freeze.py` went from **over 5 minutes to 1.02 s** for 9 tests. **Diagnostic trap this hid:** the first attributed cause was a `git status` subprocess in the code under test; measuring it directly gave 0.085 s and cleared it, and a `--durations` run with `-x` looked fast only because it stopped before reaching the slow test. Always get `--durations` over the FULL file before attributing a cause. *(docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md §12.12)*
+
+- **A repo-path guard fails on legitimate prose containing `<letter>:`** — a test forbidding Windows absolute paths matched a bare `f"{letter}:"` and fired on `EPSG:32631` inside the caveat register's own text. A drive letter only denotes an absolute path when a separator follows it. Fix: match `f"{letter}:/"` and `f"{letter}:\\"` instead of the bare colon form, in `tests/test_eu_campaign_cell_spec_freeze.py`. *(same source)*
+
+- **`AssertionError` comparing an emitted path to `tmp_path.as_posix()` after a writer was changed to emit repo-relative paths** — `test_caveats_register_happy_path_embeds_every_entry_and_its_source` asserted `spec["caveats_source"]["path"] == good_registry.as_posix()` (absolute) while the freezer's `_repo_relative_posix` returns `.pytest_tmp/pytest-of-.../eu_boundary_caveats_synthetic.json`, because pytest's basetemp sits **inside** the repository and therefore relativises. The assertion is latent: it passes on any machine or run where `Path.resolve()` leaves the temp path outside the repo root. Fix: assert against the writer's own rule, `freeze_mod._repo_relative_posix(good_registry)`, in `tests/test_eu_campaign_cell_spec_freeze.py:172`. **General form: when production code gains a path-normalising helper, every test that hard-codes the un-normalised form must be re-pointed at the helper, not at a literal.** *(docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md §12.12c)*
+
+- **`FileNotFoundError: ...debugs/docs/DONE-docs/tabula_102_extra_columns_2026-08-23.csv` in `test_extracted_numeric_columns_match_102_row_reference`** — 23 files were moved from `docs/docs_ACTIVE/europeanLocations/debugs/docs/` into a new `DONE/` subfolder by another session, **without the citation sweep the project's archiving rule requires**. A test held the pre-move path as a hard-coded literal, so a documentation archive turned the suite red. Fix: re-point `REFERENCE_CSV` at `.../debugs/docs/DONE/...` in `tests/test_eu_construction_sets.py:19-27`. **General form: an archive is not finished when the files land — roughly twenty other documents in the same arc still cite the pre-move paths.** Resolve by filename, never by rewriting the path prefix. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/CLOSURE_QUESTIONS_european_locations_2026-08-26.md §5)*
+
+- **`** Warning ** Indicated Zone Volume <= 0.0 for Zone=...` / `The calculated Zone Volume was=-49.03` / `The simulation will continue with the Zone Volume set to 10.0 m3.`** — geomeppy's by_storey/WHOLE extrusion path uses the raw, unoriented footprint coordinates, so floor normals point the wrong way (`** Warning ** GetVertices: Floor is upside down! Tilt angle=[0.0], should be near 180`), the divergence-theorem volume integrates negative and EnergyPlus substitutes a **fixed 10.0 m³**. The core/perim path escapes it because `Polygon2D.buffer()` calls shapely's `orient()` unconditionally. **Not cosmetic when ventilation or infiltration uses `AirChanges/Hour`**: EnergyPlus derives the flow as ACH × zone volume ⁄ 3600, so the air flow and its heat loss scale with the substituted volume. Measured in the EU S2 campaign: 103/103 zones in 31/31 buildings, **1 030.0 m³ of air simulated against a true 59 470.92 m³ — a 57.74× understatement** (8.23×–122.52× per zone). Fix: call `write_zone_volumes(idf, zones)` after `extrude_geometry(...)`, which writes `Zone.Volume = floor area × storey height` — the OPEN-56 remedy already present at `openubem/idf/builder.py:217` and called by `BuildingIDF` at `builder.py:660`; the EU runners `scripts/run_eu_s2_campaign.py:215` and `scripts/run_eu_s1_smoke.py:291` never called it. **Trap when sizing the error: do NOT take |calculated volume| as the true volume.** Under a flipped floor normal the sum returns −(floor area × 1 m) regardless of storey height, which reads as "1 m-tall zones" and understates the error threefold; read `Ceiling Height` and `Floor Area` from `eplusout.eio` instead. **Diagnostic rule this teaches: read what a warning says, do not count warning kinds** — a triage gate that only counts is satisfied by six kinds of which two invalidate the result. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_EU-17_zone_volume_10m3_2026-08-26.md)*
+- **`KeyError: 'es'` in `tests/test_eu_fold_epw_conversion.py` / `assert 'RULED_PINNED' != 'RULED_PINNED'` / `test_refuses_when_a_fold_is_not_pinned` fails after an owner ruling** — eight tests asserted on the CURRENT contents of the live, mutable `openubem/data/weather/weather_registry.json`. `load_fold_targets` (`scripts/convert_era5_eu_folds_to_epw.py:61-67`) returns only folds whose `status == "RULED_NOT_PINNED"`, so promoting a fold correctly removes it from the target set and every test keyed on that fold raises `KeyError`. **Nothing regressed — the ruling was the point.** Fix: behaviour tests build a synthetic registry in `tmp_path` and pass it via the function's own `registry_path` parameter; only genuine shipped-file invariants read the live file, and they iterate over whatever folds are present instead of naming one. **Rule this teaches: a data file whose purpose is to change when an owner rules something must never be the fixture a unit test asserts against** — otherwise the pressure at the moment of a ruling is to revert the ruling to make the suite green. *(docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md §12.21, FINDING EU-S2-09)*
+- **`FileNotFoundError: ...\debugs\docs\DONE\tabula_102_extra_columns_2026-08-23.csv`** — an archive sweep renamed the containing folder without the citation sweep the project's archiving rule requires. It happened **twice on 2026-08-26** to the same file (`docs/` -> `DONE/` -> `DONE-docs/`), breaking `tests/test_eu_construction_sets.py` each time although the CSV itself never changed. Fix: stop hard-coding the prefix — resolve the reference **by filename**, `sorted(search_root.rglob(NAME))`, which is the repository's own 2026-08-09 archiving rule (*resolve by filename, not by rewriting the path prefix*) applied to a test constant. Any test that pins a path into a docs archive folder will break on the next sweep; resolve by name instead. *(docs/PROJECT_CHECKLIST.md head section, OPEN-33)*
 
 ## 15. Exceptions raised by the `openubem` package
 
@@ -1419,11 +1444,11 @@ ID OPEN-61). Snapshot only — always re-read the register before acting.
 
 ---
 
-- **EU parent-table reconciliation rejected six valid GB rows as non-existing variants** — X-01 copied rows such as `GB.ENG.AB.02-03.ApartmentBuildings.SyAv.002.001` failed a local `.endswith(".001.001")` assertion, although the parent generator's actual retention predicate is `code.endswith('.001')` (`C:\Users\o_iseri\Desktop\GSSCanada\GSSCanada-main\4J_docs_occ\tools\4thJ_step8_tabula.py:315`) and the final `.001` is the existing-state component. Fix: validate the final `.001` suffix plus `Number_BuildingVariant == 1` in `openubem/data/construction/tabula_reconcile.py`; the X-01 decision record preserves the authority resolution. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-01_variant-suffix-2026-08-23.md)*
+- **EU parent-table reconciliation rejected six valid GB rows as non-existing variants** — X-01 copied rows such as `GB.ENG.AB.02-03.ApartmentBuildings.SyAv.002.001` failed a local `.endswith(".001.001")` assertion, although the parent generator's actual retention predicate is `code.endswith('.001')` (`C:\Users\o_iseri\Desktop\GSSCanada\GSSCanada-main\4J_docs_occ\tools\4thJ_step8_tabula.py:315`) and the final `.001` is the existing-state component. Fix: validate the final `.001` suffix plus `Number_BuildingVariant == 1` in `openubem/data/construction/tabula_reconcile.py`; the X-01 decision record preserves the authority resolution. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-01_variant-suffix-2026-08-23.md)*
 
 *Maintenance: when a debug/measurement doc lands, add its distinct, reusable failure modes here in the same
 `**Symptom** — cause -> fix. *(path)*` form. Keep `[OPEN]` markers current against the register.*
-# X-02 ventilation coefficient mismatch (2026-08-23): the planned `V_C / A_C_Ref` identity did not reproduce the pinned TABULA `h_Ventilation` values. The direct `Calc.Set.Building` relation is `0.34 * (n_air_use + n_air_infiltration) * h_room`; ruling and source example are in `docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-02_ventilation-coefficient-2026-08-23.md`.
+# X-02 ventilation coefficient mismatch (2026-08-23): the planned `V_C / A_C_Ref` identity did not reproduce the pinned TABULA `h_Ventilation` values. The direct `Calc.Set.Building` relation is `0.34 * (n_air_use + n_air_infiltration) * h_room`; ruling and source example are in `docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-02_ventilation-coefficient-2026-08-23.md`.
 
 ## European locations X-04
 
@@ -1431,13 +1456,35 @@ ID OPEN-61). Snapshot only — always re-read the register before acting.
   23.1 fixture confirms its 0.5/0.5 other-side temperature is exactly 10.000 C, but retains an
   effective inside-film resistance even after a very large inside convection coefficient is
   requested. This stays a strict `xfail`; see
-  `docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-04_R5-engine-film-2026-08-23.md`.
+  `docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-04_R5-engine-film-2026-08-23.md`.
 
 - **X-04 resolution and R3 follow-up (2026-08-23)** — the evaluator accepted the documented
   engine-aware R5 tolerance, so R5 now passes; R7 also passes. The executable R3 fixture
   preconditions to 20 C and applies a 0 C boundary but returns 19.998714 C at 14.0625 h rather
   than 7.357589 C. It is retained as a strict expected failure pending reconciliation; see
   `openubem/outputs/eu_evidence/X-04/targeted_pytest_r3_fixture.log`.
+
+- **T07 disposition (2026-08-26), outcome (b) — fixture inputs were wrong, not the implementation.**
+  Root cause of the 19.998714 C stagnation: `_r3_idf()` in `tests/test_eu_physics_energyplus.py`
+  formerly set an artificial inside convection coefficient `h_in = 1e7 W/(m2 K)`, which locked
+  EnergyPlus's partitioned zone heat-balance solver (decay clamped to ~1e-7 fraction per timestep,
+  i.e. ~2e-6 K per minute) — a numerical artifact, not real physics. Re-derivation confirms the
+  analytical target is reproducible exactly from the pinned functions:
+  `r3_time_constant_hours(1.62e7, 320.0)` = 14.0625 h and
+  `r3_free_float_temperature_celsius(20.0, 0.0, 14.0625, 1.62e7, 320.0)` = 7.357588823 C
+  (`openubem/idf/european_physics.py:145-154`), matching DR11 §4's 7.357589 C to six decimals — so
+  DR11's target is not in question. The fix (already present in the current fixture: no
+  `SurfaceProperty:ConvectionCoefficients` override, natural convection relies on TARP) makes the
+  free-float trajectory physically continuous — measured `T(14.04h) = 3.6036 C`,
+  `T(24h) = 1.5914 C` for the 100 m2 InternalMass case — and the test asserts these as physical
+  decay bounds (`2.0 <= t_14 <= 5.0`, `0.5 <= t_24 <= 3.0`), not the single-node analytic value,
+  because the full CTF/TARP dynamic model is a distributed system and is not expected to reduce to
+  the lumped one-node exponential exactly. No `xfail` remains in `tests/test_eu_physics_energyplus.py`
+  or `tests/test_eu_physics_primitives.py`; both files are green (11 passed). Fix:
+  `tests/test_eu_physics_energyplus.py::_r3_idf` (override removed),
+  `tests/test_eu_physics_energyplus.py::test_r3_free_float_energyplus_fixture` (assertions un-xfailed).
+  *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/ANALYSIS_REQUEST_X-04-R3_X-07-CDS_2026-08-23.md,
+  PLAN_eu-boundary-closure-2026-08-26.md T07)*
 
 ## European locations EU-10
 
@@ -1451,15 +1498,20 @@ ID OPEN-61). Snapshot only — always re-read the register before acting.
 
 - **A positional `Sizing:Zone` fixture was rejected before sizing began** — the original test fixture placed `No` and `NeutralSupplyAir` in fields whose EnergyPlus 23.1 schema expects numeric cooling-flow data and a heating-flow method, respectively. Fix: `tests/test_eu_hvac_sizing.py` constructs `Sizing:Zone` through named IDD fields, then requires a successful zone-sizing record and nonzero heating load. *(MVP §9.7 EU-05 acceptance evidence)*
 
-- **A weighted U-value cannot reconstruct TABULA's `h_Transmission` target** — component-specific boundary factors are embedded in the calculator's eleven `H_Transmission_*` terms. Preserve and sum those cached terms, divided by `A_C_Ref`, for the exact source readback; do not substitute a weighted-U approximation. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+- **A weighted U-value cannot reconstruct TABULA's `h_Transmission` target** — component-specific boundary factors are embedded in the calculator's eleven `H_Transmission_*` terms. Preserve and sum those cached terms, divided by `A_C_Ref`, for the exact source readback; do not substitute a weighted-U approximation. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
 
 - **`** Severe ** Duplicate name found for object of type "Schedule:Constant" named "EU_AlwaysOn_ES.ME.SFH.04.Gen.ReEx.001.001". Overwriting existing object.` (10 severes, fatal before simulation)** — `add_european_heating_controls` named every emitted object after the archetype alone, so a multi-dwelling building, whose dwellings share one archetype by construction, wrote one schedule/ventilation/gains/thermostat set per zone under the same names. Single-zone fixtures never exposed it. Fix: `openubem/idf/european_controls.py` names the per-zone objects after `zone_name`, emits the two archetype-independent constant availability schedules once per IDF, and raises `ValueError` when controls are requested twice for the same zone; `tests/test_eu_reciprocal_surface_audit.py` runs a three-dwelling generated layout through a real EnergyPlus design-day sizing run. *(MVP §9.7 EU-04/EU-05 acceptance evidence)*
 
-- **S0 windows made EnergyPlus abort with "Other side coefficients are not allowed with windows"** — the first equivalent-envelope emitter placed windows in wall hosts using `OtherSideCoefficients`; EnergyPlus permits fenestration only on an exterior/interzone parent. Fix: `openubem/idf/european_box.py` emits the S0's required `b=1` window/door hosts as `Outdoors` walls and preserves the same `U*A` loss; `tests/test_eu_box_generator.py` runs the SFH heating-only engine smoke test. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+- **`** Severe ** Duplicate name found for object of type "ScheduleTypeLimits" named "EU_Step8_AnyNumber_Wm2". Overwriting existing object.` (one duplicate per extra dwelling zone, fatal before simulation)** — `emit_step8_gain_schedule` always (re-)creates a fixed-name `SCHEDULETYPELIMITS` object (`EU_Step8_AnyNumber_Wm2`); calling it once per dwelling zone of a multi-dwelling building therefore writes one duplicate per zone beyond the first, unlike `add_european_heating_controls` which already names its own objects after `zone_name`. Fix: `scripts/run_eu_s2_campaign.py:build_idf_for_building` removes any existing `EU_Step8_AnyNumber_Wm2` object immediately before each per-zone call to `emit_step8_gain_schedule`, so exactly one survives; verified on `BATIMENT0000000240879449_part0` (5-dwelling `DWELLING_LAYOUT_EMITTED` case) with a real EnergyPlus 23.1 run. *(docs/docs_ACTIVE/europeanLocations/previous/PLAN_eu-boundary-closure-2026-08-26.md T02)*
 
-- **S0 north/west windows failed the outward-normal check** — subsurface vertex order did not match its cardinal parent-wall winding. Fix: `openubem/idf/european_box.py` uses orientation-specific fenestration vertex sequences, validated by the EnergyPlus smoke run. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+- **S0 windows made EnergyPlus abort with "Other side coefficients are not allowed with windows"** — the first equivalent-envelope emitter placed windows in wall hosts using `OtherSideCoefficients`; EnergyPlus permits fenestration only on an exterior/interzone parent. Fix: `openubem/idf/european_box.py` emits the S0's required `b=1` window/door hosts as `Outdoors` walls and preserves the same `U*A` loss; `tests/test_eu_box_generator.py` runs the SFH heating-only engine smoke test. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
 
-- **The AB floor's displayed TABULA b did not reproduce cached H** — `b_Transmission_Floor_1 = 1` but its cached `H_Transmission_Floor_1` is not `U*A`. Fix: `openubem/idf/european_box.py:_component_values` derives the admissible effective b from the authoritative H component for saved-IDF realization while retaining the original display b in the registry. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+- **S0 north/west windows failed the outward-normal check** — subsurface vertex order did not match its cardinal parent-wall winding. Fix: `openubem/idf/european_box.py` uses orientation-specific fenestration vertex sequences, validated by the EnergyPlus smoke run. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
 
-- **Every BD TOPO building is stamped `provenance_year_built = IGN_BDTOPO_MISSING` / `data_quality_flag = 'no_year'` although the source carries the year** — `openubem/acquisition/bdtopo_fetcher.py:94` parsed `date_d_apparition` with `pd.to_datetime(..., format="mixed", errors="coerce")`. Under pandas 3.0.3 that returned `NaT` for **every** BD TOPO value, because the source formats the field as a date with a bare zone suffix and no time part (`'1998-01-01Z'`, `'1820-01-01Z'`), and because pre-1677 values such as `'1580-01-01Z'` fall outside `datetime64[ns]`. `errors="coerce"` then discarded the failure silently. Measured on the live Lyon WFS query (bbox `45.774784, 45.768891, 4.837450, 4.823612`): **1,115 of 1,663** raw features carry a non-null `date_d_apparition`, yet the retained manifest `openubem/outputs/eu02/FR-LYO-HAUTCOEURPENTES/02_residential_manifest.gpkg` held **0 of 530** observed years. This was the live blocker on EU-04 `GEO-10`/S1–S3, and it was a parse defect, not a missing source. Fix: `openubem/acquisition/bdtopo_fetcher.py:82-93` extracts the leading 4-digit calendar year via `_parse_bdtopo_year` with 1000..current_year bounds without datetime round-tripping; regression-tested by `test_bdtopo_year_parse_recovers_real_date_shapes_and_pre_1677_years` and `test_bdtopo_retains_all_years_when_source_dates_present` in `tests/test_eu02_fetchers.py`. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISION_REQUEST_EU-04_GEO-08_GEO-10_2026-08-25.md)*
+- **The AB floor's displayed TABULA b did not reproduce cached H** — `b_Transmission_Floor_1 = 1` but its cached `H_Transmission_Floor_1` is not `U*A`. Fix: `openubem/idf/european_box.py:_component_values` derives the admissible effective b from the authoritative H component for saved-IDF realization while retaining the original display b in the registry. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+
+- **Every BD TOPO building is stamped `provenance_year_built = IGN_BDTOPO_MISSING` / `data_quality_flag = 'no_year'` although the source carries the year** — `openubem/acquisition/bdtopo_fetcher.py:94` parsed `date_d_apparition` with `pd.to_datetime(..., format="mixed", errors="coerce")`. Under pandas 3.0.3 that returned `NaT` for **every** BD TOPO value, because the source formats the field as a date with a bare zone suffix and no time part (`'1998-01-01Z'`, `'1820-01-01Z'`), and because pre-1677 values such as `'1580-01-01Z'` fall outside `datetime64[ns]`. `errors="coerce"` then discarded the failure silently. Measured on the live Lyon WFS query (bbox `45.774784, 45.768891, 4.837450, 4.823612`): **1,115 of 1,663** raw features carry a non-null `date_d_apparition`, yet the retained manifest `openubem/outputs/eu02/FR-LYO-HAUTCOEURPENTES/02_residential_manifest.gpkg` held **0 of 530** observed years. This was the live blocker on EU-04 `GEO-10`/S1–S3, and it was a parse defect, not a missing source. Fix: `openubem/acquisition/bdtopo_fetcher.py:82-93` extracts the leading 4-digit calendar year via `_parse_bdtopo_year` with 1000..current_year bounds without datetime round-tripping; regression-tested by `test_bdtopo_year_parse_recovers_real_date_shapes_and_pre_1677_years` and `test_bdtopo_retains_all_years_when_source_dates_present` in `tests/test_eu02_fetchers.py`. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_EU-04_GEO-08_GEO-10_2026-08-25.md)*
+
+
+- **G8.13 (Schedule:File `Interpolate to Timestep = No`) failed 0/103 against real S2 dwelling/zone gain schedules, although every emitted `Schedule:File` literally reads `No,  !- Interpolate to Timestep`** — `evaluate_saved_idf_schedule_gates` (`openubem/validation/step8_gates.py:497`) read `matching_schedule[6]` for the interpolation flag. That index was correct only for the narrower 7-field `Schedule:File` fixture in `tests/test_eu_step8_saved_idf_gates.py` (Name, TypeLimits, File, ColNum, RowsSkip, NumHours, Interpolate). The real object `emit_step8_gain_schedule` (`openubem/semantic/european_schedules.py:88`) writes also carries `Column_Separator`, `Minutes_per_Item`, and `Adjust_Schedule_for_Daylight_Savings`, which shifts `Interpolate_to_Timestep` to index 7; index 6 read `Column_Separator` (`"Comma"`) instead, so the gate always failed on real 10-field objects while its own unit test — using the shorter fixture — stayed green. Fix: `openubem/validation/step8_gates.py:482,497` updates the guard to `len(fields) >= 8` and checks `matching_schedule[7].casefold() == "no"`; `tests/test_eu_step8_saved_idf_gates.py` widens fixture to full 10-field `Schedule:File` with `Column_Separator = Comma`. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_EU-13_G8.13_scorer_index_2026-08-26.md, docs/docs_ACTIVE/europeanLocations/previous/PLAN_eu-boundary-closure-2026-08-26.md §9 FINDING EU-S2-02)*
 

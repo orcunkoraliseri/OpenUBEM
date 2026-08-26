@@ -1,0 +1,98 @@
+{
+  "schema_version": "eu10-dossier-manual/1.0-s2",
+  "evidence_scope": "retained_campaign",
+  "source_campaign_manifest": "openubem/outputs/eu_evidence/EU-04/s2_campaign_manifest.csv",
+  "source_cell_manifest_dir": "openubem/outputs/eu_evidence/EU-08/s2_cell_manifests/",
+  "source_gate_report": "openubem/outputs/eu_evidence/EU-09/s2_gate_report.json",
+  "n_cells": 31,
+  "fold": "fr",
+  "weather_year": 2023,
+  "weather_exception": "Weather is fr_lyon_bron_2023_era5.epw (SHA-256 2cf15311b9c6d1124f856d80e6deed5e4a7d6f48389681305b90b6dbee88cc2c), registry status RULED_PINNED_EXCEPTION, weather year 2023. 11 of 12 months are within 10% of the PVGIS/JRC same-coordinate benchmark; November differs by 13.8%; annual difference is 3.2%. Owner-approved 2026-08-26.",
+  "denominator_definition": "denominator_area_m2 = floor_area_m2, the sum of every EnergyPlus zone's floor_polygon area for one building (scripts/run_eu_s2_campaign.py: floor_area_m2 = sum(zone['floor_polygon'].area for zone in zones)). This is the modelled zone floor area actually simulated -- a dwelling-partitioned stack for the 5 DWELLING_LAYOUT_EMITTED buildings, a one-zone-per-floor massing box for the 26 FALLBACK_PENDING_LAYOUT buildings -- not an independently surveyed gross floor area.",
+  "end_use_accounting": {
+    "simulated_end_uses": [
+      "heating"
+    ],
+    "not_simulated_end_uses": [
+      "cooling",
+      "lighting",
+      "equipment"
+    ],
+    "not_simulated_note": "Not simulated means no EnergyPlus Output:Variable was ever requested for these end uses in the 31 S2 IDFs; this is distinct from, and must never be read as, a measured zero.",
+    "reconstructed_end_uses": [],
+    "reconstructed_note": "No TABULA q_w_nd_kwh_m2a DHW reconstruction is applied here. The project's ruled four_end_use_tabula_dhw accounting mode (openubem/results/european_campaign.py) requires all four simulated end uses (heating, cooling, lighting, equipment) as a precondition; only heating was simulated for S2, so applying that ruled reconstruction on top of an incomplete simulated base would misrepresent the result as ruled-compliant. reported_total_eui_kwh_m2 below is therefore the heating EUI alone, explicitly labelled as such."
+  },
+  "headline_heating_eui": {
+    "overall": {
+      "n_buildings": 31,
+      "total_heating_kwh": 618782.3181,
+      "total_denominator_area_m2": 19823.6173,
+      "area_pooled_heating_eui_kwh_m2": 31.2144
+    },
+    "eui_kwh_m2_min": 4.93434,
+    "eui_kwh_m2_median": 65.207344,
+    "eui_kwh_m2_max": 149.430992,
+    "by_geometry_outcome": {
+      "DWELLING_LAYOUT_EMITTED": {
+        "n_buildings": 5,
+        "total_heating_kwh": 101928.494,
+        "total_denominator_area_m2": 1197.859,
+        "area_pooled_heating_eui_kwh_m2": 85.09223
+      },
+      "FALLBACK_PENDING_LAYOUT": {
+        "n_buildings": 26,
+        "total_heating_kwh": 516853.8242,
+        "total_denominator_area_m2": 18625.7583,
+        "area_pooled_heating_eui_kwh_m2": 27.749411
+      }
+    }
+  },
+  "gate_summary": {
+    "n_gates": 17,
+    "PASS": [
+      "G8.12",
+      "G8.13"
+    ],
+    "FAIL": [
+      "G8.15"
+    ],
+    "VACUOUS": [
+      "G8.0",
+      "G8.1",
+      "G8.10",
+      "G8.11",
+      "G8.14",
+      "G8.16",
+      "G8.2",
+      "G8.3",
+      "G8.4",
+      "G8.5",
+      "G8.6",
+      "G8.7",
+      "G8.8",
+      "G8.9"
+    ],
+    "restated_note": "Restated 2026-08-26 after D-EU-13 was ruled (a). G8.13 previously read FAIL 0/103 solely because evaluate_saved_idf_schedule_gates read Schedule:File field 6 (Column Separator) instead of field 7 (Interpolate to Timestep); the scorer was corrected at openubem/validation/step8_gates.py:482,497 and G8.13 now reads PASS 103/103. The underlying artefacts did not change: an independent parse of all 31 retained S2 IDFs finds 103 Schedule:File objects, all 10 fields, field 7 = 'No' in 103 of 103, zero violations. The superseded summary was 1 PASS / 2 FAIL / 14 VACUOUS."
+  },
+  "findings_carried_forward": {
+    "EU-S2-01": "Only 5 of 31 S2 buildings emitted a real dwelling layout (DWELLING_LAYOUT_EMITTED); 26 fell back to FALLBACK_PENDING_LAYOUT (a one-zone-per-floor massing box), even though all 31 were selected as MAPPED_LAYOUT_READY and HIGH_MAPPING_INPUT_COMPLETENESS. Mapping readiness does not predict layout success. area_pooled_heating_eui_kwh_m2 differs sharply between the two geometry outcomes above (see by_geometry_outcome), so 26 of the 31 EUIs are geometry-limited (massing box, not dwelling partition) and this split must always be reported alongside any headline number.",
+    "s1_finding_crs_dependence": "Dwelling-layout success is CRS-dependent: generate_european_dwelling_layout rotates about the literal coordinate origin while audit_european_floor_partition compares against an absolute tolerance, so rotation noise scales with distance from (0,0). S2 was run in the manifest's native CRS (EPSG:32631) with the G1/V1 remedies from the 2026-08-25 geometry-remedy ruling; this is not fixed in general, only remedied for this corpus. (Not fixed / carried forward.)",
+    "s1_finding_one_floor_plate": "The dwelling-level EnergyPlus path models one floor plate of dwellings, not the full multi-storey stack, while the fallback path models the full stack (one zone per observed storey). The two geometry outcomes are therefore not comparable in vertical extent, on top of not being comparable in partition fidelity. (Not fixed / carried forward.)"
+  },
+  "why_reused_functions_could_not_be_invoked": {
+    "assemble_european_cell_result_from_eplus_csv / aggregate_european_fold_results / export_european_result_bundle": "extract_four_end_use_eplus_csv requires hourly J columns for all four FOUR_END_USE_OUTPUT_VARIABLES (heating, cooling, lighting, equipment). scripts/run_eu_s2_campaign.py requests only the heating Output:Variable. Confirmed by direct invocation on the real retained openubem/outputs/eu_evidence/EU-04/s2_campaign/BATIMENT0000000013365727_part0/eplusout.csv: raises ValueError('retained EnergyPlus CSV lacks hourly J output: Zone Ideal Loads Zone Total Cooling Energy'). Supplying fabricated zero values for the missing end uses to force the call to succeed is forbidden (no fabrication).",
+    "build_european_dossier_report / export_european_dossier_report": "Both hard-require every one of EUROPEAN_GATE_IDS (G8.0-G8.16) to report passed=True (openubem/results/european_campaign.py:349-354), raising ValueError otherwise. The real T04 gate report has only 2 of 17 gates genuinely PASS (G8.12, G8.13 -- the latter restated to PASS on 2026-08-26 under ruling D-EU-13, which corrected a scorer off-by-one, not the artefacts); the rest are FAIL (1, G8.15, a genuine untriaged-warning FAIL) or VACUOUS (14, each with an empty/single-valued population). Calling this function on the real gate report would raise; reporting all 17 as passed=True to avoid the raise would be exactly the kind of gate-weakening the plan forbids."
+  },
+  "no_verified_fleet_figure_statement": "No value in this dossier is a verified fleet figure. It covers n=31 real buildings, one quarter (FR-LYO-HAUTCOEURPENTES), one weather year (Lyon 2023, carrying the documented November GHI exception), f=0 only, heating end use only, and 26 of the 31 results are geometry-limited (massing box, not dwelling partition, per FINDING EU-S2-01).",
+  "restatements": [
+    {
+      "id": "D-EU-13",
+      "date": "2026-08-26",
+      "what": "G8.13 FAIL -> PASS",
+      "cause": "gate-scorer off-by-one (Schedule:File field 6 read instead of field 7), not a change in any artefact",
+      "fix": "openubem/validation/step8_gates.py:482,497; fixture widened in tests/test_eu_step8_saved_idf_gates.py",
+      "director_verification": "independent parse of 31 retained S2 IDFs: 103 Schedule:File objects, 103/103 field 7 = 'No', 0 violations",
+      "doc": "docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISION_REQUEST_EU-13_G8.13_scorer_index_2026-08-26.md"
+    }
+  ]
+}
