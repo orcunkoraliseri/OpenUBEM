@@ -1,6 +1,6 @@
 # LayoutAssigner — E-LA-20 Root-Cause Investigation Plan (v1.0)
 
-**Slug:** layout-assigner-e-la-20-investigation · **Date:** 2026-07-24 · **Binding contract:** this plan + the E-LA-20 and CP-E entries in the CLOSED structural-fixes plan's own error/progress log (`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/structural-fixes/PLAN_structural-fixes_implementation.md`, lines 559-586, dated 2026-07-24). Executor: a fresh Sonnet session, or an autonomous director session per `prompt/DIRECTOR_PROMPT_e-la-20-investigation.md`. Manager: audits, never writes feature code.
+**Slug:** layout-assigner-e-la-20-investigation · **Date:** 2026-07-24 · **Binding contract:** this plan + the E-LA-20 and CP-E entries in the CLOSED structural-fixes plan's own error/progress log (`docs/docs_DONE/SETUP/layoutAssigner/DONE/structural-fixes/PLAN_structural-fixes_implementation.md`, lines 559-586, dated 2026-07-24). Executor: a fresh Sonnet session, or an autonomous director session per `prompt/DIRECTOR_PROMPT_e-la-20-investigation.md`. Manager: audits, never writes feature code.
 
 ## Executive Summary
 

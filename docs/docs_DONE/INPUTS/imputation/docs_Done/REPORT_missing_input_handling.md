@@ -53,7 +53,7 @@ file:line source.
 | `levels` and `height_m` both absent | Yes | Default to 1 level | `1` | `HEURISTIC_DEFAULT` | A | `building_classifier.py:127` |
 | `building_tag` and `function_tag` both absent | Yes | `use_class="unknown"` → cascades through rule table to `OpenUBEMUnknown` | `archetype_id=OpenUBEMUnknown` | `FALLBACK_UNKNOWN`, confidence forced `LOW` | A | `building_classifier.py:316-317`, invariant check `484-493` |
 | `building_tag`/`function_tag` disagree | Yes | Routed by `dominant_tag_threshold=0.60`, else `MidriseApartment` | Dominant tag's class, or `MidriseApartment` | Confidence downgraded `MEDIUM`/`LOW` | A | `building_classifier.py:100,292-310` |
-| Untagged `building=yes`, footprint area known | Yes | Size-bucketed office guess (rule 17a) | Archetype guess by size bucket | `FALLBACK_SIZE_DEFAULT` | A (tracked — but 2 of the underlying size thresholds are wrong; see `docs/docs_ACTIVE/misclassification/BUG_archetype_classification_thresholds.md`) | `building_classifier.py` rule 17a |
+| Untagged `building=yes`, footprint area known | Yes | Size-bucketed office guess (rule 17a) | Archetype guess by size bucket | `FALLBACK_SIZE_DEFAULT` | A (tracked — but 2 of the underlying size thresholds are wrong; see `docs/docs_DONE/BUGS/misclassification/BUG_archetype_classification_thresholds.md`) | `building_classifier.py` rule 17a |
 
 ### 2.3 Climate zone & weather inputs
 

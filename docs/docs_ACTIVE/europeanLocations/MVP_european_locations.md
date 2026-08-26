@@ -13,7 +13,8 @@
 - **Core OpenUBEM Docs**: [`OpenUBEM_fundamentals.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_fundamentals.md), [`OpenUBEM_inputs_reference.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_inputs_reference.md), [`OpenUBEM_imputation_methods.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_imputation_methods.md), [`simulated_vs_reconstructed_methodology.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/simulated_vs_reconstructed_methodology.md), [`OpenUBEM_debug_References.md`](file:///C:/Users/o_iseri/Desktop/OpenUBEM/docs/docs_EXPLANATION/OpenUBEM_debug_References.md)
 - **Reusable Figure/Table Assets**: [`content/`](content/README.md)
 - **Parent Step 8 Authorities (tier 1, read before implementing)**: `Step8_docs/4thJ_08_bemSimulation.md` (rulings, progress log), `Step8_docs/4thJ_08_bemSimulation_val.md` (G8/V8 contract, perturbation matrix), `Step8_docs/outputs_step8/archetype_parameter_provenance.md` (what TABULA gives and does not give; open decisions §6), and the existing parameter tables `Step8_docs/outputs_step8/archetype_parameters_{es,uk,it}.csv`. All paths are relative to `C:\Users\o_iseri\Desktop\GSSCanada\GSSCanada-main\4J_docs_occ\`.
-- **Revision**: v1.3 (2026-08-23) — Section 11 adds a source-alignment addendum drawn from those tier-1 authorities. Nothing from v1.0–v1.2 was removed; earlier text that Section 11 supersedes is kept and marked in place.
+- **Revision**: v1.4 (2026-08-26) — **Section 12** records the boundary-closure execution: what was actually built and measured, the rulings taken, the caveat register the contract must carry, and the hand-off protocol. Nothing from v1.0–v1.3 was removed. **Where Section 12 and any earlier section or working plan document disagree, Section 12 governs.**
+- **Previous revision**: v1.3 (2026-08-23) —
 
 > **Document role.** This MVP is the principal implementation specification. It owns scientific decisions, scope, interfaces, data contracts, algorithms, acceptance criteria, and the definition of done. The sister walkthrough owns ordered tasks, runnable commands, stop conditions, and the append-only progress log; it must link back here instead of creating a second scientific contract.
 
@@ -21,7 +22,7 @@
 >
 > **Speed/pre-occupant extension.** Section 10 adds the Speed HPC execution profiles and the required Q0–Q3 physics qualification sequence before any `f>0` occupant schedule is authorized.
 
-> **Citation audit (v1.2, closed 2026-08-23).** Every numeric claim attributed to *Iseri et al. (2025)* in this document was searched in the published paper, in `IMP_step8/outputs/`, in `IMP_step8/DeepResearch/`, and in `IMP_step8/resources/`. **Nine attributions failed verification.** They were corrected under [`debugs/DONE_PLAN_citation-audit-fixes-2026-08-23.md`](debugs/DONE_PLAN_citation-audit-fixes-2026-08-23.md) (`CLOSED`; rulings in [`debugs/docs/DECISIONS_pending-rulings-2026-08-23.md`](debugs/docs/DECISIONS_pending-rulings-2026-08-23.md)). Consequences a reader must know:
+> **Citation audit (v1.2, closed 2026-08-23).** Every numeric claim attributed to *Iseri et al. (2025)* in this document was searched in the published paper, in `IMP_step8/outputs/`, in `IMP_step8/DeepResearch/`, and in `IMP_step8/resources/`. **Nine attributions failed verification.** They were corrected under [`debugs/DONE/DONE_PLAN_citation-audit-fixes-2026-08-23.md`](debugs/DONE/DONE_PLAN_citation-audit-fixes-2026-08-23.md) (`CLOSED`; rulings in [`debugs/docs/DONE-docs/DECISIONS_pending-rulings-2026-08-23.md`](debugs/docs/DONE-docs/DECISIONS_pending-rulings-2026-08-23.md)). Consequences a reader must know:
 > - **The Ankara sample is 593 buildings, not 277.** Section 4.7 no longer presents validation evidence; it presents a *provenance status*, with three quantities recomputed from the raw dataset and the rest marked `UNSOURCED`.
 > - **The statistics `63.61 / 15.54 / 75.5% / 3.2×` are not in the published paper** — they come from the 2026-08-22 re-analysis and are cited to it. `75.5%` is a standard-deviation ratio, not a variance ratio.
 > - **Anything marked `UNSOURCED` must not be quoted as evidence** in a paper, a report, or a downstream document until its source is named or it is measured anew through the `GEO-01`–`GEO-10` matrix in §4.8.
@@ -36,6 +37,15 @@
 > - the full twelve-row G8 perturbation matrix and the seven V8 vacuity guards are itemised so the `EU-09` scorer can be written against them (§11.8).
 >
 > Where Section 11 and an earlier section disagree, **Section 11 governs**; the earlier text is retained for provenance and carries an inline `v1.3` note.
+
+> **Boundary-closure record (v1.4, 2026-08-26).** Sections 1–11 specify the interface. **Section 12 records the execution that carries it to signature**, and is the section to read first by anyone receiving this work.
+> - One quarter, **FR-LYO-HAUTCOEURPENTES**, was taken end to end on real footprints, real TABULA archetypes, real ERA5-derived weather and real EnergyPlus: 31/31 runs returned 0, severe 0, fatal 0. Area-pooled heating EUI **60.7087 kWh/m²** over 19,823.6173 m² — **restated twice** on 2026-08-26; `31.2144` and `68.8114` are both **withdrawn** and must not be quoted (§12.2, §12.19).
+> - **No value in Section 12 is a fleet figure**, and §12.2 states the reasons in the same breath as the number: heating only, `f = 0` only, one weather year, and **26 of the 31 results geometry-limited** (FINDING EU-S2-01).
+> - Gates are scored three-way and honestly: **3 PASS / 0 FAIL / 14 VACUOUS**, each vacuity naming the population that was empty. **Vacuous is not a soft pass** — **only three of seventeen gates were actually exercised**, and §12.22 inventories all fourteen empty populations one by one (§12.4, §12.22, §12.9 C-09).
+> - **Ruling D-EU-13** corrected a gate-scorer off-by-one that had reported `FAIL` 0/103 on a property the artefacts always satisfied; the restatement was verified outside the gate code and **nothing was re-simulated** (§12.6).
+> - **The §9.4 contract does not need to be authored — it is already implemented.** `build_campaign_cells` returns 102 archetypes → 510 validated cells today; only `epw_path` and `weather_status` are unresolved, and EU-07/T06 fills exactly those two (§12.9).
+> - **§12.10 Table 26 is the caveat register**, **twenty-two** entries, each naming what a consumer must *not* conclude. The freeze copies it verbatim. A caveat may be added at CP-C; **none may be removed**.
+> - §12.11 fixes the hand-off protocol, including the two prohibitions that make the boundary symmetric: OpenUBEM never infers the held-out fold, GSSCanada never patches generated IDF internals.
 
 ---
 
@@ -678,7 +688,7 @@ Checksums must be computed from files on disk. A cache hit is valid only when a 
 | **EU-01** | **Completed** |
 | **EU-02** | **Completed** — the European semantic crosswalk, residential-use filter, dense-neighbourhood selection decision, and `NS-02` acquisition gate are complete. All four selected sites have live standard artifact sets with endpoint/licence sidecars; the frozen-schema tail is the sole active OSM implementation, and Bologna's complete CTC catalogue is fail-closed (67 focused acquisition tests pass). Madrid/London match their recorded residential counts within one building; Lyon/Bologna raw-source and model-ready-clean counts are explicitly separated. Bologna T07 records 2,188 CTC residential volumes, 231 dissolved components, 1,312 CTC-touched cadastral objects, 1,372 ruled cadastral objects, and ISTAT 1,010. The final audit is `ns02_contract_met=true` for all four sites. |
 | **EU-03** | **Completed** |
-| **EU-04** | **In progress -- GEO-01/GEO-02/GEO-03/GEO-05/GEO-09 local supplied-partition audit, GEO-04 fail-closed narrow-width feasibility, GEO-06 saved-IDF reciprocal party-wall audit, and GEO-07 deterministic dwelling allocation are tested. The strict `<8 m` GEO-04 threshold returns stable `NARROW_FOOTPRINT_LT_8M` and one-zone-per-floor fallback without claiming dwelling output; GEO-06 requires one reciprocal, vertex-matched wall mate after saved-IDF readback. Owner-ruled Option A half-up rounds the three GB synthetic-average `n_Storey` values to 3/4/4 while retaining source floats in provenance; the rounded stack's plates conserve `A_C_Ref`. A generated three-dwelling layout now completes an EnergyPlus design-day sizing run and still passes the `GEO-06` reciprocal audit after readback, and the S0 equivalent-envelope design-day smoke now covers **all four residential typologies** (ES SFH, FR TH, ES MFH, ES AB) with an explicit no-severe-diagnostic assertion, completing S0's geometry-and-IDF-construction scope. Real-footprint layout and S1–S3 acceptance remain pending; owner ruling `D-EU-04-F` **defers `GEO-08`** Grasshopper parity until after S1–S3, and ruling `D-EU-04-E` authorized the live BD TOPO re-acquisition of the France site. Executing it showed the observed French construction year is **present in the source** (1,115 of 1,663 raw features carry `date_d_apparition`) yet reaches the retained manifest as **0 of 530**, destroyed by a pandas parse defect at `openubem/acquisition/bdtopo_fetcher.py:94`, while **529 of 530** French buildings already carry an observed dwelling count on disk — so `GEO-10`/S1–S3 is blocked by a parse bug, not by a missing data source. A paste-able executor prompt now specifies the remedy (anchored leading-`YYYY` extraction replacing the datetime round-trip; a regression fixture in the **real** BD TOPO shape — bare `Z` suffix, pre-1677 year — with a retained non-null-rate assertion proven by restoring the old expression; in-place closure of the `[OPEN]` debug-reference bullet; then the single authorized live re-acquisition and a readiness regeneration), with a checkpoint before the re-acquisition. **A second, independent French blocker was measured while scoping it:** all 530 retained rows carry `building_tag` `Résidentiel` (524) or `Commercial et services` (6), while `OBSERVED_TAG_TO_TABULA_TYPE` (`openubem/semantic/european_archetype_mapping.py:30`) maps only `apartments`, `detached`, `terrace` — so recovering the year still leaves every French row excluded on `UNMAPPABLE_RESIDENTIAL_TYPE`, and a French typology derivation is a **new ruling**, not an implementation detail. **The remedy has since been executed and audited against disk:** `_parse_bdtopo_year` (`openubem/acquisition/bdtopo_fetcher.py:82`) extracts the leading four-digit year with no datetime round-trip, the pinned Lyon re-acquisition ran as the single authorized live IGN call, and the retained manifest now holds **522 of 530** observed years spanning **1550 → 2010** (median 1850, four pre-1677) where it held 0, **all 522 resolving to a TABULA French construction period**, with the `[OPEN]` debug entry closed and 12 focused tests passing; two deviations are recorded rather than fixed — a hardcoded `current_year = 2026` that will silently reject valid years from 2027, and an unreported difference between the script's exclusion counts and its `expected_raw_boundary_counts` that is a population difference, not a source move (`raw_schema_rows` is 1,455 in both runs). France nonetheless stays at `layout_ready_count = 0`, the 522 rows now failing on `UNMAPPABLE_RESIDENTIAL_TYPE` alone, so **decision request `D-EU-04-G` is OPEN**: recommended option **G1** requires the dwelling and storey signals to agree against thresholds read off the FR TABULA registry itself (`SFH`/`TH` at 1 dwelling, `MFH` 4–12, `AB` 15–86), for a measured **302 typed of 530** and **297 with a year** (7 SFH, 21 TH, 123 MFH, 146 AB) — `S1` and `S2` become reachable, while **`S3` cannot be typology-balanced for France** because `SFH` caps at 7 in this dense historic quarter**. **`D-EU-04-G` was RULED on 2026-08-25: Option G1 adopted**, both consequences accepted. The rule is ruled but **not yet implemented** — `DERIVED_BDTOPO_TWO_SIGNAL` appears in no `.py` file, `european_archetype_mapping.py` predates the ruling, and the readiness summary still reports `layout_ready_count = 0`; the yield figures returned as an execution result are the manager's own §2 measurement. A manager-authored executor prompt pins the implementation (`prompts/EXECUTOR_PROMPT_EU-04_fr_typology_derivation_2026-08-25.md`) with 302/297 and 7/21/123/146 as acceptance numbers and a STOP on any mismatch, and it also wires `nombre_de_logements` out of `surplus_tags`, which no code reads today — the reason the one mapped London building still stops at `MAPPED_LAYOUT_BLOCKED_MISSING_DWELLING_COUNT`. **Implemented and audited on 2026-08-25 (T01-T04):** the two-signal derivation now sits behind `OBSERVED_TAG_TO_TABULA_TYPE` for `FR` only, and the regenerated readiness summary reports `layout_ready_count` **0 -> 297** with `derived_type_counts` 7 SFH / 21 TH / 123 MFH / 146 AB and 302 rows stamped `DERIVED_BDTOPO_TWO_SIGNAL`; `UNMAPPABLE_RESIDENTIAL_TYPE` is gone from France, the 228 fail-closed exclusions are 189 `TYPOLOGY_SIGNALS_DISAGREE` + 37 gap-13-14 + 1 + 1, and the `ES` (1,194) / `GB` (1,242) / `IT` (1,220) counts are byte-identical. **`S1` is unblocked.** One caveat: `type_provenance_counts` counts *rows*, not typed rows -- of the 3,884 stamped `OBSERVED_TAG`, only 1,313 carry a type, so that counter must never be quoted as an observed-type total. **Scoping `S1` on 2026-08-25 then falsified the "`S1` is unblocked" claim above, and the correction is recorded rather than hidden:** `layout_ready` means the *mapping inputs* are complete, not that a dwelling layout can be generated. Run against all 297 French layout-ready rows with `units_per_floor` from `allocate_european_dwellings`, the layout generator emits for only **18** of them — **0** `SFH`, **1** `TH`, **14** `MFH`, **3** `AB` — because its ruled contract requires a convex, courtyard-free plate at least 8 m wide with 2.5 m of facade contact per dwelling, and **256 of 297** Lyon footprints are non-convex or hold a courtyard (23 more fall back on `NARROW_FOOTPRINT_LT_8M` 13 / `PARTITION_AUDIT_FAILED` 10). **`S1` as specified -- three per typology -- cannot be formed from buildings that run**, so decision request `D-EU-04-H` is **OPEN** (`debugs/docs/DECISION_REQUEST_EU-04_H_S1_reachability_2026-08-25.md`, evidence `openubem/outputs/eu_evidence/EU-04/s1_layout_reachability_census.csv`), recommending **H1**: run the ladder's own 12 and classify every failure, rather than selecting the sample on the outcome being tested. **`D-EU-04-H` was RULED on 2026-08-25: Option H1 adopted** -- "S1 ladder execution proceeds with 12 buildings (3 per typology) selected by the established ladder rules, measuring real corpus yield and classifying all failure modes fail-closed." Applying that rule -- per typology the two lowest-`building_id` irregular footprints plus the lowest-`building_id` simple one -- froze the sample and **corrected the manager's own estimate in the decision request that "about 4" of the 12 would reach a dwelling-level run: exactly **1** of the 12 does** (`AB` `BATIMENT0000000240879449_part0`), the other 11 being **8** `NON_CONVEX_FOOTPRINT` refusals and **3** `NARROW_FOOTPRINT_LT_8M` fallbacks. The executor prompt (`prompts/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md`) pins two axes that are recorded in separate columns and never collapsed: the **dwelling-layout status** the ruling asked to be classified, and a **design-day EnergyPlus smoke** that falls back to the already-ruled `one_zone_per_floor` strategy where no dwelling layout exists -- so a refused building that completes EnergyPlus is a whole-floor smoke success **and** a dwelling-layout failure, never dwelling-level geometry (`openubem/geometry/european_residential.py:89`). `S1` produces no energy number; it proves the observed-footprint-to-EnergyPlus path runs. **`S1` ran on 2026-08-25 and met its ladder criterion ("12/12 accounted for; failures classified").** Axis A reproduces the frozen sample exactly: **8** `REFUSED_BY_LAYOUT_CONTRACT`/`NON_CONVEX_FOOTPRINT`, **3** `FALLBACK_PENDING_LAYOUT`/`NARROW_FOOTPRINT_LT_8M`, **1** `DWELLING_LAYOUT_EMITTED`. Axis B: **11 of 12 `EPLUS_COMPLETED`** (10 `FALLBACK_ONE_ZONE_PER_FLOOR` + the one `EUROPEAN_DWELLING_LAYOUT`) and **1 `EPLUS_FATAL`** -- `BATIMENT0000000240877527_part0`, whose real exterior ring carries **173 vertices** against the IDD's ~120-vertex `BuildingSurface:Detailed` limit, a named reproducible refusal and not an energy result (registered in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` ch.1). **Two findings are carried, not fixed, because `S1` is a measurement task.** First, **dwelling-layout success is CRS-dependent**: `generate_european_dwelling_layout` rotates about the literal coordinate origin (`openubem/geometry/european_residential.py:504`) while `audit_european_floor_partition` compares against an **absolute** `topology_tolerance_m2 = 1e-8` (`:643`), so rotation noise scales with distance from `(0,0)` -- the same building emits cleanly in the manifest's native `EPSG:32631` (~642000/5070000) and fails `AREA_GAP` + `OUTSIDE_FOOTPRINT` in `EPSG:2154` (~852000/6519000) at an `area_error_fraction` of **5.09e-12**. A census run in Lambert-93 would therefore have reported near-zero emitted layouts for this same corpus; `S1` was ruled to run in the **native** CRS with no reprojection, and the finding is an `[OPEN]` bullet in ch.5 of the debug references. Second, the one dwelling-level EnergyPlus run is **a single floor plate of 5 dwellings, not the 6-storey / 28-dwelling stack** (`zone_count = 5`, `units_per_floor = 5`), while the 11 fallback runs are full stacks (`zone_count = observed_storeys`) -- so the two axes are not comparable in vertical extent and the dwelling-level path must never be quoted as "a 6-storey dwelling-partitioned building runs". |
+| **EU-04** | **In progress -- GEO-01/GEO-02/GEO-03/GEO-05/GEO-09 local supplied-partition audit, GEO-04 fail-closed narrow-width feasibility, GEO-06 saved-IDF reciprocal party-wall audit, and GEO-07 deterministic dwelling allocation are tested. The strict `<8 m` GEO-04 threshold returns stable `NARROW_FOOTPRINT_LT_8M` and one-zone-per-floor fallback without claiming dwelling output; GEO-06 requires one reciprocal, vertex-matched wall mate after saved-IDF readback. Owner-ruled Option A half-up rounds the three GB synthetic-average `n_Storey` values to 3/4/4 while retaining source floats in provenance; the rounded stack's plates conserve `A_C_Ref`. A generated three-dwelling layout now completes an EnergyPlus design-day sizing run and still passes the `GEO-06` reciprocal audit after readback, and the S0 equivalent-envelope design-day smoke now covers **all four residential typologies** (ES SFH, FR TH, ES MFH, ES AB) with an explicit no-severe-diagnostic assertion, completing S0's geometry-and-IDF-construction scope. Real-footprint layout and S1–S3 acceptance remain pending; owner ruling `D-EU-04-F` **defers `GEO-08`** Grasshopper parity until after S1–S3, and ruling `D-EU-04-E` authorized the live BD TOPO re-acquisition of the France site. Executing it showed the observed French construction year is **present in the source** (1,115 of 1,663 raw features carry `date_d_apparition`) yet reaches the retained manifest as **0 of 530**, destroyed by a pandas parse defect at `openubem/acquisition/bdtopo_fetcher.py:94`, while **529 of 530** French buildings already carry an observed dwelling count on disk — so `GEO-10`/S1–S3 is blocked by a parse bug, not by a missing data source. A paste-able executor prompt now specifies the remedy (anchored leading-`YYYY` extraction replacing the datetime round-trip; a regression fixture in the **real** BD TOPO shape — bare `Z` suffix, pre-1677 year — with a retained non-null-rate assertion proven by restoring the old expression; in-place closure of the `[OPEN]` debug-reference bullet; then the single authorized live re-acquisition and a readiness regeneration), with a checkpoint before the re-acquisition. **A second, independent French blocker was measured while scoping it:** all 530 retained rows carry `building_tag` `Résidentiel` (524) or `Commercial et services` (6), while `OBSERVED_TAG_TO_TABULA_TYPE` (`openubem/semantic/european_archetype_mapping.py:30`) maps only `apartments`, `detached`, `terrace` — so recovering the year still leaves every French row excluded on `UNMAPPABLE_RESIDENTIAL_TYPE`, and a French typology derivation is a **new ruling**, not an implementation detail. **The remedy has since been executed and audited against disk:** `_parse_bdtopo_year` (`openubem/acquisition/bdtopo_fetcher.py:82`) extracts the leading four-digit year with no datetime round-trip, the pinned Lyon re-acquisition ran as the single authorized live IGN call, and the retained manifest now holds **522 of 530** observed years spanning **1550 → 2010** (median 1850, four pre-1677) where it held 0, **all 522 resolving to a TABULA French construction period**, with the `[OPEN]` debug entry closed and 12 focused tests passing; two deviations are recorded rather than fixed — a hardcoded `current_year = 2026` that will silently reject valid years from 2027, and an unreported difference between the script's exclusion counts and its `expected_raw_boundary_counts` that is a population difference, not a source move (`raw_schema_rows` is 1,455 in both runs). France nonetheless stays at `layout_ready_count = 0`, the 522 rows now failing on `UNMAPPABLE_RESIDENTIAL_TYPE` alone, so **decision request `D-EU-04-G` is OPEN**: recommended option **G1** requires the dwelling and storey signals to agree against thresholds read off the FR TABULA registry itself (`SFH`/`TH` at 1 dwelling, `MFH` 4–12, `AB` 15–86), for a measured **302 typed of 530** and **297 with a year** (7 SFH, 21 TH, 123 MFH, 146 AB) — `S1` and `S2` become reachable, while **`S3` cannot be typology-balanced for France** because `SFH` caps at 7 in this dense historic quarter**. **`D-EU-04-G` was RULED on 2026-08-25: Option G1 adopted**, both consequences accepted. The rule is ruled but **not yet implemented** — `DERIVED_BDTOPO_TWO_SIGNAL` appears in no `.py` file, `european_archetype_mapping.py` predates the ruling, and the readiness summary still reports `layout_ready_count = 0`; the yield figures returned as an execution result are the manager's own §2 measurement. A manager-authored executor prompt pins the implementation (`prompts/EXECUTOR_PROMPT_EU-04_fr_typology_derivation_2026-08-25.md`) with 302/297 and 7/21/123/146 as acceptance numbers and a STOP on any mismatch, and it also wires `nombre_de_logements` out of `surplus_tags`, which no code reads today — the reason the one mapped London building still stops at `MAPPED_LAYOUT_BLOCKED_MISSING_DWELLING_COUNT`. **Implemented and audited on 2026-08-25 (T01-T04):** the two-signal derivation now sits behind `OBSERVED_TAG_TO_TABULA_TYPE` for `FR` only, and the regenerated readiness summary reports `layout_ready_count` **0 -> 297** with `derived_type_counts` 7 SFH / 21 TH / 123 MFH / 146 AB and 302 rows stamped `DERIVED_BDTOPO_TWO_SIGNAL`; `UNMAPPABLE_RESIDENTIAL_TYPE` is gone from France, the 228 fail-closed exclusions are 189 `TYPOLOGY_SIGNALS_DISAGREE` + 37 gap-13-14 + 1 + 1, and the `ES` (1,194) / `GB` (1,242) / `IT` (1,220) counts are byte-identical. **`S1` is unblocked.** One caveat: `type_provenance_counts` counts *rows*, not typed rows -- of the 3,884 stamped `OBSERVED_TAG`, only 1,313 carry a type, so that counter must never be quoted as an observed-type total. **Scoping `S1` on 2026-08-25 then falsified the "`S1` is unblocked" claim above, and the correction is recorded rather than hidden:** `layout_ready` means the *mapping inputs* are complete, not that a dwelling layout can be generated. Run against all 297 French layout-ready rows with `units_per_floor` from `allocate_european_dwellings`, the layout generator emits for only **18** of them — **0** `SFH`, **1** `TH`, **14** `MFH`, **3** `AB` — because its ruled contract requires a convex, courtyard-free plate at least 8 m wide with 2.5 m of facade contact per dwelling, and **256 of 297** Lyon footprints are non-convex or hold a courtyard (23 more fall back on `NARROW_FOOTPRINT_LT_8M` 13 / `PARTITION_AUDIT_FAILED` 10). **`S1` as specified -- three per typology -- cannot be formed from buildings that run**, so decision request `D-EU-04-H` is **OPEN** (`debugs/docs/DONE-docs/DECISION_REQUEST_EU-04_H_S1_reachability_2026-08-25.md`, evidence `openubem/outputs/eu_evidence/EU-04/s1_layout_reachability_census.csv`), recommending **H1**: run the ladder's own 12 and classify every failure, rather than selecting the sample on the outcome being tested. **`D-EU-04-H` was RULED on 2026-08-25: Option H1 adopted** -- "S1 ladder execution proceeds with 12 buildings (3 per typology) selected by the established ladder rules, measuring real corpus yield and classifying all failure modes fail-closed." Applying that rule -- per typology the two lowest-`building_id` irregular footprints plus the lowest-`building_id` simple one -- froze the sample and **corrected the manager's own estimate in the decision request that "about 4" of the 12 would reach a dwelling-level run: exactly **1** of the 12 does** (`AB` `BATIMENT0000000240879449_part0`), the other 11 being **8** `NON_CONVEX_FOOTPRINT` refusals and **3** `NARROW_FOOTPRINT_LT_8M` fallbacks. The executor prompt (`prompts/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md`) pins two axes that are recorded in separate columns and never collapsed: the **dwelling-layout status** the ruling asked to be classified, and a **design-day EnergyPlus smoke** that falls back to the already-ruled `one_zone_per_floor` strategy where no dwelling layout exists -- so a refused building that completes EnergyPlus is a whole-floor smoke success **and** a dwelling-layout failure, never dwelling-level geometry (`openubem/geometry/european_residential.py:89`). `S1` produces no energy number; it proves the observed-footprint-to-EnergyPlus path runs. **`S1` ran on 2026-08-25 and met its ladder criterion ("12/12 accounted for; failures classified").** Axis A reproduces the frozen sample exactly: **8** `REFUSED_BY_LAYOUT_CONTRACT`/`NON_CONVEX_FOOTPRINT`, **3** `FALLBACK_PENDING_LAYOUT`/`NARROW_FOOTPRINT_LT_8M`, **1** `DWELLING_LAYOUT_EMITTED`. Axis B: **11 of 12 `EPLUS_COMPLETED`** (10 `FALLBACK_ONE_ZONE_PER_FLOOR` + the one `EUROPEAN_DWELLING_LAYOUT`) and **1 `EPLUS_FATAL`** -- `BATIMENT0000000240877527_part0`, whose real exterior ring carries **173 vertices** against the IDD's ~120-vertex `BuildingSurface:Detailed` limit, a named reproducible refusal and not an energy result (registered in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` ch.1). **Two findings are carried, not fixed, because `S1` is a measurement task.** First, **dwelling-layout success is CRS-dependent**: `generate_european_dwelling_layout` rotates about the literal coordinate origin (`openubem/geometry/european_residential.py:504`) while `audit_european_floor_partition` compares against an **absolute** `topology_tolerance_m2 = 1e-8` (`:643`), so rotation noise scales with distance from `(0,0)` -- the same building emits cleanly in the manifest's native `EPSG:32631` (~642000/5070000) and fails `AREA_GAP` + `OUTSIDE_FOOTPRINT` in `EPSG:2154` (~852000/6519000) at an `area_error_fraction` of **5.09e-12**. A census run in Lambert-93 would therefore have reported near-zero emitted layouts for this same corpus; `S1` was ruled to run in the **native** CRS with no reprojection, and the finding is an `[OPEN]` bullet in ch.5 of the debug references. Second, the one dwelling-level EnergyPlus run is **a single floor plate of 5 dwellings, not the 6-storey / 28-dwelling stack** (`zone_count = 5`, `units_per_floor = 5`), while the 11 fallback runs are full stacks (`zone_count = observed_storeys`) -- so the two axes are not comparable in vertical extent and the dwelling-level path must never be quoted as "a 6-storey dwelling-partitioned building runs". |
 | **EU-05** | **In progress -- 102 ES/GB/IT heating-only, constant-air, all-convective control records locally audited; the runnable S0 SFH fixture passes EnergyPlus zone sizing with a nonzero design heating load; control objects are namespaced per zone, so a multi-dwelling building sharing one archetype no longer produces duplicate-name aborts; the owner ruled Option 1 on `F_red_temp`, which is now a strictly positive **source multiplier** rather than a bounded reduction factor, so `FR.N.AB.10` emits its exact `1.0086438144755208` untruncated while non-positive values still raise; S1–S3 and dwelling/core acceptance remain pending** |
 | **EU-06** | **In progress -- f=0 schedule-file path locally tested; f>0 blocked on chaining rule** |
 | **EU-07** | **In progress -- blocked on CDS credentials for live ERA5** |
@@ -713,7 +723,7 @@ The geospatial acquisition layer may retain all source footprints for audit coun
 |---|---:|---|---|---|
 | `S0` | 4 synthetic fixtures | One footprint per SFH, TH, MFH, AB | Geometry and IDF construction only | All geometry and saved-IDF gates pass |
 | `S1` | 12 observed buildings | Three per typology; simple and irregular footprints | Short design-day smoke simulations | 12/12 accounted for; failures classified |
-| `S2` | 32 observed buildings | Old/new and high/low data-completeness strata | Short-period simulations | Stable outputs and measured resources |
+| `S2` | 31 observed buildings (`D-EU-04-S2-C` C1A) | High-completeness operational sample: AB/MFH/TH 4 old + 4 new each; SFH 6 old + 1 new | Short-period simulations | Stable outputs and measured resources |
 | `S3` | 96 observed buildings | Balanced multi-country residential pilot, including FR physical cases | Annual controlled-baseline simulations | Approved exclusions and measured resource envelope |
 | `N1` | **At least 100** residential buildings inside one selected contiguous dense neighbourhood (500–600 preferred where the official geography offers it) | First neighbourhood-scale study after S0–S3 | Staged controls before any occupant cases | Neighbourhood selection and independent input/control audits pass |
 | `N2` | Any larger whole official unit after `N1` — **no 1,000-building ceiling** | Optional scale-up after N1 | Same per-neighbourhood manifest/dependency contract | Measured capacity and explicit approval |
@@ -999,7 +1009,7 @@ relationship, on all 102 retained rows, is `h_Ventilation = 0.34 *
 (n_air_use + n_air_infiltration) * h_room`; the fixed `h_room = 2.5 m` gives
 the stated 0.3825--0.68 range exactly. This source correction supersedes the
 earlier formula wherever it appears. See
-`debugs/docs/DECISIONS_X-02_ventilation-coefficient-2026-08-23.md`.
+`debugs/docs/DONE-docs/DECISIONS_X-02_ventilation-coefficient-2026-08-23.md`.
 
 `4thJ_08_bemSimulation.md` records at line 10 and lines 280–284 that work item 8.1 produced `outputs_step8/archetype_parameters_{es,uk,it}.csv` (24 / 36 / 42 archetypes) with `archetype_parameter_provenance.md`, built by `tools/4thJ_step8_tabula.py`, locally, with no cluster. Re-read on 2026-08-23:
 
@@ -1019,7 +1029,7 @@ earlier formula wherever it appears. See
 | `building_type` | `Code_BuildingSizeClass` | `SFH` / `TH` / `MFH` / `AB`. |
 | `source_workbook_sha256`, `source_sheet`, `source_row` | `#` comment lines; `Calc.Set.Building` | Record the parent MD5 and compute SHA-256 of the pinned workbook in `outputs_step8/raw/`; `source_row` = `Code_BuildingVariant` in `Calc.Set.Building`. |
 | `u_wall_w_m2k`, `u_roof_w_m2k`, `u_floor_w_m2k`, `u_window_w_m2k` | `U_Wall_1..3`, `U_Roof_1..2`, `U_Floor_1..2`, `U_Window_1..2` (with `A_*` weights) | Area-weighted over the non-zero components; record the weighting rule and the thermal-bridging term `delta_U_ThermalBridging_Original` separately (it is an additive $\Delta U$, not part of any component). |
-| `g_gl_window` | `g_gl_n_Window_1` in `Calc.Set.Building` (not among the 44 carried columns) | **Corrected 2026-08-23 (evening):** present in the calculator workbook for all 102 rows — values 0.67 / 0.72 / 0.75 / 0.76 / 0.85; `g_gl_n_Window_2 = 0` everywhere (one window type per archetype). Extracted in [`debugs/docs/tabula_102_extra_columns_2026-08-23.csv`](debugs/docs/tabula_102_extra_columns_2026-08-23.csv). |
+| `g_gl_window` | `g_gl_n_Window_1` in `Calc.Set.Building` (not among the 44 carried columns) | **Corrected 2026-08-23 (evening):** present in the calculator workbook for all 102 rows — values 0.67 / 0.72 / 0.75 / 0.76 / 0.85; `g_gl_n_Window_2 = 0` everywhere (one window type per archetype). Extracted in [`debugs/docs/DONE-docs/tabula_102_extra_columns_2026-08-23.csv`](debugs/docs/DONE-docs/tabula_102_extra_columns_2026-08-23.csv). |
 | `n_apartment`, `n_air_infiltration_h_1`, `delta_u_tb_w_m2k`, `b_transmission_*`, `f_red_temp`, `h_transmission_w_m2k`, `h_ventilation_w_m2k`, `n_storey_effective_envelope` | same-named columns of `Calc.Set.Building` (not among the 44 carried columns) | **Added 2026-08-23 (evening):** required by rulings D-EU-01/02/03/07 (§11.12). Extracted to the same CSV; slice X-02 re-derives them from the pinned workbook. |
 | `n_air_use_h_1`, `c_m_wh_m2k`, `f_red_htr` | — (join on `Code_BoundaryCond`) | From `Tab.BoundaryCond` rows `EU.SUH`/`EU.MUH` (Table 13). Refuse any other pointer. |
 | `phi_int_w_m2` | `phi_int` | Must equal 3 on every row; assert. |
@@ -1071,7 +1081,7 @@ The parent ruled on 2026-08-21 that each fold runs on the **actual meteorologica
 
 The France baseline weather (`FR-B`) is outside the ruling and needs its own documented source and window (§2.2.1); it inherits rule 3.
 
-> **Closure, 2026-08-23 (DR08 accepted).** The three owed items of point 2 are now settled — source = ERA5/C3S (licence publication-compatible and redistributable), stations confirmed Madrid (WMO 08221) / London Heathrow (WMO 03772) / Bologna Borgo Panigale (WMO 16140), and the twelve-month rule stands as ruled (window pinning from the corpus diary dates is an execution task). Rome was explicitly rejected for `it` (climatic Zone D → `IT.MedClim`, not `IT.MidClim`). File acquisition, EPW conversion and the six-gate validation checklist are slice `X-07`. Rules 1 and 3 are unchanged. See §11.13 and the closure addendum of `debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`.
+> **Closure, 2026-08-23 (DR08 accepted).** The three owed items of point 2 are now settled — source = ERA5/C3S (licence publication-compatible and redistributable), stations confirmed Madrid (WMO 08221) / London Heathrow (WMO 03772) / Bologna Borgo Panigale (WMO 16140), and the twelve-month rule stands as ruled (window pinning from the corpus diary dates is an execution task). Rome was explicitly rejected for `it` (climatic Zone D → `IT.MedClim`, not `IT.MidClim`). File acquisition, EPW conversion and the six-gate validation checklist are slice `X-07`. Rules 1 and 3 are unchanged. See §11.13 and the closure addendum of `debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`.
 
 ### 11.7 Diary-derived facts the schedule adapter must handle
 
@@ -1140,7 +1150,7 @@ Three gate facts that the abbreviated Table 6 does not carry:
 
 *Table 19. Parent open decisions and their owners in this MVP. Inline; mirror into `content/` when the first decision record is written.*
 
-> **Status update, 2026-08-23 (evening).** Every OPEN row of Table 19 was ruled or converted into a sourced research brief the same day — see §11.12 (Table 20) and `debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`. Only decision 14 (chaining rule) remains blocked, and it is upstream.
+> **Status update, 2026-08-23 (evening).** Every OPEN row of Table 19 was ruled or converted into a sourced research brief the same day — see §11.12 (Table 20) and `debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`. Only decision 14 (chaining rule) remains blocked, and it is upstream.
 
 ### 11.10 Context the parent fixes, for the negative controls and the reader
 
@@ -1159,7 +1169,7 @@ Three gate facts that the abbreviated Table 6 does not carry:
 
 <!-- SEC:rulings-under-delegation-2026-08-23 -->
 
-On the user's instruction *"vas-y résoudre maintenant"*, the open items of Table 19 were ruled from artefacts already on disk, chiefly the cached values of `tabula-calculator.xlsx` `Calc.Set.Building` for the 102 archetype rows (extracted with `openpyxl`, filed as [`debugs/docs/tabula_102_extra_columns_2026-08-23.csv`](debugs/docs/tabula_102_extra_columns_2026-08-23.csv)). Full text, evidence and reversal procedure: [`debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](debugs/docs/DECISIONS_parent-open-items-2026-08-23.md). Items needing outside sources have a deep-research brief in [`DeepResearch/`](DeepResearch/README.md). Deciding principle: *reproduce TABULA's own monthly balance as literally as a dynamic engine can, declare every assumption, and make it a one-line sensitivity later.*
+On the user's instruction *"vas-y résoudre maintenant"*, the open items of Table 19 were ruled from artefacts already on disk, chiefly the cached values of `tabula-calculator.xlsx` `Calc.Set.Building` for the 102 archetype rows (extracted with `openpyxl`, filed as [`debugs/docs/DONE-docs/tabula_102_extra_columns_2026-08-23.csv`](debugs/docs/DONE-docs/tabula_102_extra_columns_2026-08-23.csv)). Full text, evidence and reversal procedure: [`debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`](debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md). Items needing outside sources have a deep-research brief in [`DeepResearch/`](DeepResearch/README.md). Deciding principle: *reproduce TABULA's own monthly balance as literally as a dynamic engine can, declare every assumption, and make it a one-line sensitivity later.*
 
 | ID | Item | Ruling (one line) | Status | Brief |
 |---|---|---|---|---|
@@ -1188,7 +1198,7 @@ Two acceptance assertions follow directly from D-EU-01/02/03 and are added to `E
 and saved-IDF checks. The earlier `V_C / A_C_Ref` expression is superseded;
 the reference geometry is not consistently `A_C_Ref * h_room`.
 
-The four DR08–DR11 reports were returned, audited against their briefs' acceptance tests and **accepted** on 2026-08-23 (verdicts and caveats: `DeepResearch/README.md` §Acceptance Record; full closure text: `debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`, closure addendum). Table 20's status column is superseded as follows:
+The four DR08–DR11 reports were returned, audited against their briefs' acceptance tests and **accepted** on 2026-08-23 (verdicts and caveats: `DeepResearch/README.md` §Acceptance Record; full closure text: `debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`, closure addendum). Table 20's status column is superseded as follows:
 
 | ID | Was | Now | Substance of the closure |
 |---|---|---|---|
@@ -1200,3 +1210,1224 @@ The four DR08–DR11 reports were returned, audited against their briefs' accept
 | D-EU-09 | BLOCKED (upstream) | **BLOCKED (upstream)** — unchanged | Step 7 chaining-rule experiment; blocks `f>0` cells and Q4 only. **It is now the arc's only remaining block**; Q1–Q3, FR-B and slices X-01…X-08 are pure execution. |
 
 *Table 21. Closures produced by the accepted DR08–DR11 reports. Where this table and Table 20 disagree, this table governs.*
+
+---
+
+## 12. v1.4 Boundary-Closure Execution Record (Authoritative)
+
+This section is the arc's authoritative record of the **execution** that carries §9.4's boundary
+contract from specification to signature. Sections 1–11 state what the interface must be; this
+section states what was actually built, measured and ruled, and what is still owed. Where this
+section and any working plan document disagree, **this section governs**.
+
+Scope discipline is unchanged and restated here because it is the thing most easily lost: the full
+§9.12 Definition of Done — the 510-cell campaign, the Q1–Q4 ladder and the five-level `f` matrix —
+is **GSSCanada-owned** (§9, lines 591–594). OpenUBEM's deliverable ends at the versioned, immutable
+campaign-cell specification of **§9.4 (line 596)**. Everything below is inside that boundary.
+
+### 12.1 What was executed
+
+One quarter, **FR-LYO-HAUTCOEURPENTES**, was taken end to end: real footprints, real TABULA
+archetypes, real ERA5-derived weather, real EnergyPlus, real gate scoring, real cell manifests, real
+dossier. Nothing in the chain is synthetic and nothing was stubbed.
+
+| Stage | Artefact | Result |
+|---|---|---|
+| Sample formation | `EU-04/s2_c1_high_completeness_sample.csv` | 31 buildings, all `MAPPED_LAYOUT_READY` and `HIGH_MAPPING_INPUT_COMPLETENESS` |
+| Campaign run | `EU-04/s2_campaign_manifest.csv` | 31/31 EnergyPlus runs returned 0; severe = 0, fatal = 0 |
+| Cell manifests | `EU-08/s2_cell_manifests/` | 31 files, **one uniform 32-key schema**, 31 unique `cell_id`, all `__f000` |
+| Gate scoring | `EU-09/s2_gate_report.json` | 17 gates scored three-way: **2 PASS / 1 FAIL / 14 VACUOUS** |
+| Dossier | `EU-10/s2_dossier/s2_dossier.json` | schema `eu10-dossier-manual/1.0-s2`; simulated and not-simulated end uses separated |
+| Physics fixture | `tests/test_eu_physics_*.py` | X-04 R3 disposed; 11 passed, no `xfail` remains |
+
+*Table 22. The S2 execution chain, artefact by artefact. Every row was verified by the director
+against the artefact on disk, not against an executor's report.*
+
+### 12.2 The number, and everything that must be said with it
+
+The area-pooled heating EUI over the retained 31 buildings is
+
+> **31.2144 kWh/m²** = 618,782.3181 kWh ÷ 19,823.6173 m², n = 31.
+
+Per-building the distribution is min **4.93434**, median **65.207344**, max **149.430992** kWh/m².
+The denominator is `floor_area_m2`, the summed area of every EnergyPlus zone floor polygon actually
+simulated — **not** an independently surveyed gross floor area.
+
+This figure is **not a fleet figure and must never be quoted as one.** It covers one quarter, one
+weather year, `f = 0` only, and **heating only**: no `Output:Variable` was ever requested for
+cooling, lighting or equipment in these 31 IDFs, which is categorically different from a measured
+zero. The ruled `four_end_use_tabula_dhw` reconstruction was deliberately **not** applied, because it
+requires all four simulated end uses as a precondition and applying it over an incomplete base would
+misrepresent the result as ruled-compliant.
+
+The single most important qualifier is the geometry split:
+
+| Geometry outcome | n | Heating (kWh) | Area (m²) | Pooled EUI (kWh/m²) |
+|---|---:|---:|---:|---:|
+| `DWELLING_LAYOUT_EMITTED` | 5 | 101,928.494 | 1,197.859 | **85.09223** |
+| `FALLBACK_PENDING_LAYOUT` | 26 | 516,853.8242 | 18,625.7583 | **27.749411** |
+| Total | 31 | 618,782.3181 | 19,823.6173 | **31.2144** |
+
+*Table 23. The headline EUI decomposed by geometry outcome. The two rows are not comparable — in
+partition fidelity or in vertical extent — and the split must be reported wherever the pooled figure is.*
+
+### 12.3 Findings carried into the contract
+
+- **FINDING EU-S2-01 — mapping readiness does not predict layout success.** All 31 buildings were
+  selected as `MAPPED_LAYOUT_READY` with `HIGH_MAPPING_INPUT_COMPLETENESS`, yet only **5 emitted a
+  real dwelling layout**; 26 fell back to a one-zone-per-floor massing box. 26 of the 31 EUIs are
+  therefore geometry-limited.
+- **Dwelling-layout success is CRS-dependent.** `generate_european_dwelling_layout` rotates about the
+  literal coordinate origin while `audit_european_floor_partition` compares against an absolute
+  tolerance, so rotation noise scales with distance from (0,0). S2 ran in EPSG:32631 with the
+  2026-08-25 geometry remedies. **Remedied for this corpus, not fixed in general.**
+- **One floor plate, not the stack.** The dwelling-level path models a single floor plate of
+  dwellings; the fallback path models every observed storey. The two outcomes differ in vertical
+  extent on top of differing in partition fidelity.
+- **X-04 R3 is a bounded-continuity check, not an analytic match.** DR11 §4's target is reproducible
+  from the pinned functions (τ = 14.0625 h → **7.357588823 °C**), but the distributed CTF/TARP engine
+  legitimately does not reduce to the lumped one-node exponential (3.6036 °C measured at the same
+  elapsed time). Accepted as multi-node physics. **The contract must not let a reader infer the
+  analytic value was reproduced by the engine.**
+- **Weather carries a ruled exception.** `fr_lyon_bron_2023_era5.epw`
+  (SHA-256 `2cf15311…`), registry status **`RULED_PINNED_EXCEPTION`**: 11 of 12 months within 10 % of
+  the PVGIS/JRC same-coordinate benchmark, **November differs by 13.8 %**, annual difference 3.2 %.
+
+### 12.4 Gate conformance — three-way scoring and what vacuity means
+
+§7's gate architecture is honoured literally: a gate that cannot be evaluated is scored **VACUOUS**
+and **must name the population that was empty**. All 14 vacuous verdicts do so — no comparison series
+for G8.5/G8.6, no `Output:Meter` requests for G8.10/G8.11, no non-zero `f` for G8.0/G8.8, no held-out
+fold for G8.16, and so on. No gate was weakened, and no gate was reported as passing to avoid a raise.
+
+| Verdict | Gates | Standing |
+|---|---|---|
+| **PASS** | G8.12, G8.13 | Genuine, over 103 saved `Schedule:File` objects |
+| **FAIL** | G8.15 | Genuine and **carried into the caveat list** — see §12.5 |
+| **VACUOUS** | G8.0–G8.11, G8.14, G8.16 (14) | Each names its empty or single-valued population |
+
+*Table 24. S2 gate conformance after ruling D-EU-13. Supersedes the 1 PASS / 2 FAIL / 14 VACUOUS
+summary recorded before that ruling.*
+
+### 12.5 G8.15 — a real failure, and why it stays open
+
+`evaluate_warning_gate` was run with an **empty approval set**, because no `approved_warning_kinds`
+list has ever been ruled for this arc — verified by searching the whole repository, which returns only
+the function's own parameter at `openubem/validation/step8_gates.py:528`. Scoring against an empty set
+was the only non-fabricating choice. 31/31 buildings therefore carry at least one untriaged warning
+kind, from six distinct kinds observed (`calculated design cooling load for zone`, `gethtsurfacedata`,
+`getvertices`, `indicated zone volume <`, `managesizing`, `processscheduleinput`).
+
+**Severe and fatal counts are 0/31.** This is a failure of the *triage step* — no warning-kind approval
+review has been performed — not of physics or geometry.
+
+### 12.6 Ruling D-EU-13 — the G8.13 scorer off-by-one
+
+**Ruled (a): fix the index, then freeze.**
+
+G8.13 had reported **FAIL 0/103**. The cause was entirely in the scorer:
+`evaluate_saved_idf_schedule_gates` read `Schedule:File` **field 6** (`Column Separator` = `"Comma"`)
+where it meant **field 7** (`Interpolate to Timestep` = `"No"`), so the comparison
+`"comma" == "no"` could never be true; the membership guard `len(fields) >= 7` was off by the same one.
+The unit test stayed green because its fixture was a shorter object in which index 6 landed on the
+right field by accident.
+
+The fix is `openubem/validation/step8_gates.py:482,497` (guard becomes `>= 8`, read becomes `[7]`), with
+`tests/test_eu_step8_saved_idf_gates.py` widened to a real ten-field object. `pytest -q
+tests/test_eu_step8_*.py` gives **25 passed**.
+
+**The restatement was verified independently of the gate code.** A direct parse of all 31 retained S2
+IDFs finds **103 `Schedule:File` objects, every one ten fields long, field 7 = `No` in 103 of 103,
+zero violations.** Nothing in the campaign was re-run, re-emitted or altered: the artefacts were always
+conformant and the scorer was not. This is a **scorer restatement, not a physics change** — and the
+distinction is itself contract-relevant, because the same gate will score all 510 cells of the
+GSSCanada campaign.
+
+*Full decision record: `debugs/docs/DECISION_REQUEST_EU-13_G8.13_scorer_index_2026-08-26.md`.*
+
+### 12.7 Deviation from the §9 `cell_id` grammar — accepted
+
+**§9.6 (line 641)** introduces the grammar with the words *"A deterministic cell identifier **should**
+be constructed from normalized dimensions, **for example**:"* — permissive in both the verb and the
+qualifier, and therefore illustrative rather than normative. The grammar itself sits at line 643. The emitted id carries a fifth `building_id` segment:
+
+```
+FR__FR.N.AB.01.Gen.ReEx.001.001__BATIMENT0000000240877151_part0__fr_lyon_bron_2023_era5__f000
+```
+
+The reason is arithmetic: the 31 buildings share only **14 distinct TABULA archetypes**, so the literal
+four-segment form would produce colliding ids. Every dimension the MVP requires — country stock,
+archetype, weather, sensitivity level — is preserved, and uniqueness is restored. **Accepted.**
+
+Two further honest nulls are recorded rather than invented: `held_out_country` is null with a note that
+LOCO fold assignment is GSSCanada-owned, and `random_seed` is null with a note that no stochastic draw
+occurs at `f = 0`. At `f = 0`, `schedule_source_sha256 == schedule_emitted_sha256` by construction
+(`openubem/semantic/european_schedules.py:34-36`), which is a property of the level, not an error.
+
+### 12.8 What is still owed before §9.4 can be signed
+
+| Owed | Substance | State |
+|---|---|---|
+| ES / GB / IT weather acquisition | Madrid 2009–2010, London 2014–2015, Bologna 2013–2014; 25 ERA5 month-archives each, nine variables | **In flight**, sequential by necessity — concurrent CDS jobs are rejected. **Madrid complete 25/25 on 2026-08-26**; London and Bologna follow |
+| DR08 gate-5 benchmarks | One monthly-GHI reference per **fold-year**, local file, never fetched at gate time | **CLOSED 2026-08-26.** All seven exist; the six for `es` / `uk` / `it` were acquired from PVGIS and the France control run reproduces the owner's ruling to two decimals (§12.12c) |
+| EPW conversion + DR08 six gates | Per fold; registry promotion **only if all six pass**, otherwise that fold stops with a decision request and **no substituted file** | Blocked on the acquisition |
+| Undeclared dependency gap | `cdsapi`, `ecmwf-datastores-client`, `pvlib` and `xarray` were used by the acquisition and conversion path but **not declared in `pyproject.toml`** — the gap that let the first acquisition launch die on `ModuleNotFoundError: cdsapi` under the `py` launcher | **CLOSED 2026-08-26.** Declared as `xarray >= 2024.1`, `cdsapi >= 0.7.4`, `ecmwf-datastores-client >= 0.5`, `pvlib >= 0.11`; floors set below the installed 2026.7.0 / 0.7.7 / 0.5.3 / 0.15.2. `h5netcdf` was already declared. File re-parsed with `tomllib` after the edit |
+| Contract freeze | `openubem/data/campaign/eu_campaign_cell_spec_v1.0.json` + closure record | Waits on the two rows above |
+
+*Table 25. The remaining path to the §9.4 signature.*
+
+The frozen contract's caveat list is **fixed by this section** and must carry, at minimum: the G8.15
+untriaged-warning FAIL; the Lyon November GHI exception; CRS-dependent layout success; the one-floor-plate
+asymmetry; FINDING EU-S2-01's geometry split; the complete vacuity list with its named empty populations;
+the X-04 R3 bounded-continuity disposition; the `cell_id` grammar deviation; and any fold left
+`RULED_NOT_PINNED` at freeze time.
+
+
+### 12.9 The contract is already built — it is waiting on one field
+
+A pre-CP-C audit of the codebase, run 2026-08-26 while the weather was downloading, establishes that
+**the §9.4 campaign-cell specification does not have to be authored: it is already implemented and it
+already runs on the real registries today.**
+
+`openubem/validation/european_campaign.py` provides `load_campaign_archetypes`,
+`build_campaign_cells` and `validate_campaign_cells`. Invoked by the director against the three real
+TABULA registries (`openubem/data/construction/tabula_archetypes_{es,gb,it}.json`), it returns
+**102 archetypes → 510 cells**, and `validate_campaign_cells` accepts them: 510 rows, 510 unique ids,
+102 rows at each of the five `f` levels, 102 distinct archetypes, every archetype carrying the ordered
+level tuple with its `f=0` control first, fold set exactly `{es, uk, it}`.
+
+Every field of a cell is already populated — `cell_id`, `archetype_id`, `survey_fold`,
+`country_stock_code`, `sensitivity_f`, `control_cell_id`, `idf_path`, `gain_csv_path`,
+`manifest_path`, `schedule_status` — **with two deliberate exceptions**:
+
+```
+"epw_path":       "PENDING_EU07_WEATHER"
+"weather_status": "RULED_NOT_PINNED"
+```
+
+Those two literals are the entire remaining gap between the repository and the frozen contract. They
+are exactly what EU-07 / T06 fills, which is why the weather acquisition is the arc's only critical
+path and not merely one task among several.
+
+**Consequences, and they change how the freeze must be done.**
+
+1. **T08 must invoke this module, not hand-author a JSON.** A hand-written
+   `eu_campaign_cell_spec_v1.0.json` would be a second, unvalidated implementation of a contract the
+   repository already validates. The freeze is: pin the weather, re-run `build_campaign_cells`,
+   substitute the two weather fields from the registry, and serialise — with
+   `validate_campaign_cells` passing on the result.
+2. **This is not the GSSCanada boundary violation it looks like.** §9.12's 510-cell *campaign* is
+   GSSCanada-owned; what this module produces is the 510-cell *specification* — identifiers, paths and
+   statuses. Specifying the cells is §9.4 and is OpenUBEM's; running them is not. The module writes
+   Q3/Q4 planning lists and states in its own docstring that neither file authorises a cluster
+   submission, which is the same line drawn in code.
+3. **🔴 An open question the freeze must answer: `weather_id` is absent from this `cell_id`.**
+   `build_campaign_cells` emits three segments — `<fold>__<archetype_id>__f<level>` — while §9.6's
+   illustrative grammar has four (it includes `<weather_id>`) and the S2 manifests emit five. Today
+   the omission is harmless because every cell shares one pending weather. **The moment T06 pins three
+   different fold weathers, a `cell_id` with no weather segment stops identifying its own weather
+   input.** This must be settled at the freeze, not after it: either the weather segment enters the id,
+   or the contract states explicitly that weather identity lives elsewhere in the row.
+
+   **Settled 2026-08-26 under the owner's standing delegation — the `cell_id` does NOT change.**
+   Reasons, in order of weight. First, `cell_id` is the filename stem for `idf_path`, `gain_csv_path`
+   and `manifest_path`; lengthening it churns every path in the contract for no information the row
+   does not already carry. Second, the specification is **versioned and immutable**: within
+   `v1.0` the weather is pinned once per fold, so `cell_id` is unique and its weather is
+   unambiguous — the ambiguity would only arise across versions, which is what the version number is
+   for. Third, no test pins the literal three-segment form (`tests/test_eu_campaign_manifest.py`
+   asserts uniqueness and control ordering only), so the choice is genuinely free and should be made
+   on merit rather than on what is easiest to change.
+
+   **The obligation this creates on the freeze is therefore explicit and must not be skipped:** each
+   frozen cell carries `epw_path`, `weather_id`, `weather_sha256` and `weather_status` as first-class
+   fields, and the closure record states in words that **`cell_id` is an index key, not a complete
+   provenance key** — provenance is the row, not the identifier. A consumer that hashes `cell_id`
+   alone and expects it to pin the weather input is using it wrongly, and the contract must say so
+   rather than leave it to be discovered.
+4. **The S2 run is evidence, not the contract.** The 31-building Lyon quarter proves the pipeline
+   produces conformant cells, manifests, gates and a dossier end to end. It is the demonstration that
+   the specification is executable — it is not itself the frozen artefact.
+
+
+### 12.10 The caveat register — the exact text the frozen contract must carry
+
+This is the authoritative, closed list. It is written here rather than at the freeze so that the
+freeze copies it instead of re-deriving it, and so that no caveat can be dropped by whoever performs
+the freeze. **A caveat may be added to this list at CP-C; none may be removed.** Each entry states the
+limitation, its measured extent where a number exists, and — the part most often lost — **what a
+consumer must not conclude.**
+
+| # | Caveat | Measured extent | What a consumer must NOT conclude |
+|---|---|---|---|
+| C-01 | **Heating is the only simulated end use.** No `Output:Variable` was requested for cooling, lighting or equipment in any S2 IDF. | 1 of 4 end uses | That cooling, lighting or equipment demand is **zero**. Absence of a requested output is not a measured zero. |
+| C-02 | **No DHW reconstruction was applied.** The ruled `four_end_use_tabula_dhw` mode requires all four simulated end uses as a precondition. | Not applied | That the reported EUI is a total EUI, or that it is ruled-compliant in the four-end-use sense. |
+| C-03 | **26 of 31 results are geometry-limited.** Only 5 buildings emitted a real dwelling layout; 26 fell back to a one-zone-per-floor massing box (FINDING EU-S2-01). | **Amended 2026-08-26:** 5 pool to **101.9353** kWh/m², 26 pool to **58.0573** (`s2_campaign_v3`). The v1 figures 85.09 / 27.75 are **withdrawn** with 31.2144. | That the pooled **60.7087 kWh/m²** describes dwelling-partitioned buildings. It is dominated by massing boxes — they hold 18,625.76 of the 19,823.62 m². **The limitation is unchanged by the restatement; only the digits moved.** |
+| C-04 | **The two geometry outcomes differ in vertical extent too.** The dwelling path models one floor plate; the fallback path models every observed storey. | Structural | That the 85.09 and 27.75 figures are comparable, or that their difference measures partition fidelity alone. |
+| C-05 | **Mapping readiness does not predict layout success.** All 31 were selected `MAPPED_LAYOUT_READY` with `HIGH_MAPPING_INPUT_COMPLETENESS`; 26 still fell back. | 5 of 31 succeeded | That a readiness flag can be used to forecast layout yield anywhere in the corpus. |
+| C-06 | **Dwelling-layout success is CRS-dependent.** Rotation is about the literal coordinate origin while the audit tolerance is absolute, so error scales with distance from (0,0). | Remedied for EPSG:32631 only | That the geometry path is fixed. It is **remedied for this corpus**, not repaired in general. |
+| C-07 | **The weather carries a ruled exception.** `fr_lyon_bron_2023_era5.epw`, status `RULED_PINNED_EXCEPTION`. | 11/12 months within 10 % of PVGIS/JRC; **November 13.8 %**; annual 3.2 % | That the weather passed all six DR08 gates cleanly. It passed on an owner ruling with a named November deviation. |
+| C-08 | **G8.15 is a genuine FAIL.** No `approved_warning_kinds` list has ever been ruled, so triage ran against an empty approval set. | 31/31 buildings carry ≥1 untriaged warning kind; 6 distinct kinds; **severe 0/31, fatal 0/31** | That the models emit dangerous warnings. This is an untriaged-review failure, not a physics or geometry failure. |
+| C-09 | **14 of 17 gates are VACUOUS.** Each names the population that was empty — no comparison series, no `Output:Meter` requests, no non-zero `f`, no held-out fold. | 14 of 17 | That the pipeline was validated by 17 gates. **Three gates were actually exercised.** Vacuous is not a soft pass. |
+| C-10 | **G8.13's PASS is a restatement, not a re-run.** The scorer read the wrong `Schedule:File` field; ruling D-EU-13 corrected it. | 103/103 field 7 = `No`, verified outside the gate code | That anything in the campaign was re-simulated to obtain the PASS. Nothing was. The artefacts were always conformant. |
+| C-11 | **X-04 R3 is a bounded-continuity check, not an analytic match.** The distributed CTF/TARP engine does not reduce to the lumped one-node exponential. | 3.6036 °C measured vs 7.357589 °C analytic at the same elapsed time | That the DR11 §4 analytic target was reproduced **by the engine**. It was reproduced by the pinned functions; the engine is a different model. |
+| C-12 | **The `cell_id` grammar deviates from §9.6's illustration**, which is permissive (`should` … `for example`). S2 ids carry a fifth `building_id` segment because 31 buildings share only 14 archetypes. | 31 unique ids | That `cell_id` is a complete provenance key. It is an index key — weather identity lives in `epw_path`, `weather_id`, `weather_sha256`. |
+| C-13 | **`f = 0` only.** Every emitted cell ends `__f000`. The four non-zero levels were never run and are GSSCanada-owned. | 1 of 5 levels | That any sensitivity behaviour has been observed. None has. |
+| C-14 | **The denominator is modelled zone floor area**, `sum(zone.floor_polygon.area)`, not a surveyed gross floor area. | 19,823.6173 m² over 31 buildings | That the EUI is comparable to a figure published against surveyed GFA. |
+| C-15 | **One quarter, one weather year, n = 31.** FR-LYO-HAUTCOEURPENTES, 2023. | n = 31 | That any value here is a fleet figure. It is not, and §12.2 says so in the same words. |
+| C-16 | **Any fold left `RULED_NOT_PINNED` at freeze time** is carried as an open weather dependency, with `epw_path` unresolved rather than substituted. | Filled at CP-C | That the specification is executable for that fold. It is specified but not runnable until its weather pins. |
+| C-17 | **No fold outside France can be tied to a weather year** (FINDING EU-S2-03). `diary_window` is `None` and `RULED_NOT_PINNED` for es/uk/it, each ERA5 window spans two calendar years, and an EPW is one year. | 3 of 4 folds | That a fold whose archives are complete and whose six DR08 gates pass is therefore pinned. Year selection is a diary question and the diary is GSSCanada-owned; the converter **refuses to default it**. |
+| C-18 | **DR08 gate 5 has no benchmark data for ES / GB / IT** (FINDING EU-S2-04). The gate reads a **local** monthly-GHI reference — live fetches are forbidden and would make the verdict unreproducible — and six such files are needed (three folds × two candidate years). | **Amended 2026-08-26: 7 of 7 fold-year benchmarks now exist** (`fr` 2023 transcribed; `es` 2009/2010, `uk` 2014/2015, `it` 2013/2014 acquired from PVGIS) | That any fold outside France therefore promotes. The benchmark is one of gate 5's **two** inputs; the EPW is the other, and no fold outside France has a ruled year (C-17). |
+| C-19 | **The evidence bundle and this specification share no fold** (FINDING EU-S2-05). `CAMPAIGN_FOLDS` is `(es, uk, it)`; the 31 simulated buildings, the 31.2144 kWh/m² and the one six-gate weather file are all fold `fr`. | 0 of 510 campaign cells were simulated; 0 carry a pinned weather file | That the campaign was validated on 31 real buildings, or that the pinned France weather lends its status to any campaign cell. |
+| C-20 | **Every simulated zone ran with a 10.0 m³ volume** (FINDING EU-S2-07). EnergyPlus calculated a *negative* volume in 103/103 zones and substituted 10.0 m³; ventilation is ACH-based, so the loss scales directly with it. **Root cause: OPEN-56's remedy exists at `builder.py:217-234` and the two EU runners never called it.** | 103/103 zones, 31/31 buildings; understatement **57.74×** aggregate, 8.23×–122.52× per zone. **Repaired**; `Indicated Zone Volume` absent in 31/31 v3 error files. | That a warning kind may be counted rather than read. Six kinds looked benign and one of them *was* the defect. |
+| C-21 | **Vertex order alone is worth 11.8 % of heating** (FINDING EU-S2-08). Repairing the volume left the reversed floor winding in place; orienting the footprints afterwards changed heating from 1,364,091.4373 to 1,203,465.4667 kWh. | 31/31 buildings, 103/103 zones. Floor area, zone volume, gross wall area and surface count **byte-identical** across the two runs. Blast radius measured: 41 non-EU runs, **0** occurrences. | That any area- or volume-based geometry check can detect this class of defect. **None can** — every such quantity was identical. |
+| C-22 | **Gate-5 winter exceptions for `uk` and `it` are pre-authorised, not individually ruled** (D-EU-18, option (a), 2026-08-26). Seven bounds were fixed **before** the London and Bologna archives finished downloading; a fold-year meeting all seven promotes with no further ruling. | Bounds: gates 1–4+6 all PASS · ≤2 offending months · each below 80 kWh/m² benchmark · ≤20 % relative · ≤15 kWh/m² absolute · annual Δ ≤5 % · full provenance written. Worst already-approved value: 1 month, 14.13 %, 8.93 kWh/m², annual 3.23 %. | That a `uk` or `it` EPW passed all six DR08 gates cleanly, or that the 10 % tolerance was widened. It was not — only the *decision procedure* was pre-committed, and `fr`/`es` are refused by name. |
+
+*Table 26. The caveat register carried into `eu_campaign_cell_spec_v1.0.json` and its closure record.
+**Twenty-two entries**; the freeze copies this table verbatim into the contract's `caveats` block. C-17 to C-22 were all added on 2026-08-26 under the register's own rule (add at CP-C, never remove) — **every one of them was discovered by building the machinery, not by reviewing the plan**, which is the strongest single argument in this document for executing a specification before signing it. C-03, C-08, C-18, C-19 and C-20 additionally carry an `amendment` or `resolution` field: a caveat whose figures were superseded is **restated in place, never rewritten silently**.*
+
+**Two rules govern this register at the freeze.** First, **no caveat is satisfied by being written
+down** — C-06, C-08 and C-16 name work that remains genuinely undone, and the contract must not read
+as though disclosure closed them. Second, **the register is the honest half of the deliverable.** The
+specification says what Step 8 may run; this table says what the run already known to have happened
+does and does not license anyone to claim. Handing over the first without the second would be the one
+failure mode this whole arc was built to avoid.
+
+
+### 12.11 Hand-off protocol — what crosses the boundary, and in which direction
+
+§9.4 names the coupling boundary but does not say how the hand-off is performed. This subsection fixes
+that, because an immutable specification that nobody knows how to receive is not a deliverable.
+
+**What OpenUBEM hands over — exactly four artefacts, and nothing else.**
+
+| Artefact | What it is | Why it crosses |
+|---|---|---|
+| `openubem/data/campaign/eu_campaign_cell_spec_v1.0.json` | The 510-cell specification: identifiers, paths, `f` levels, control references, and per-cell weather provenance | It **is** the §9.4 boundary contract |
+| The caveat register (§12.10, Table 26) | Eighteen entries, embedded in the contract's `caveats` block | It is what the contract does not license anyone to claim |
+| `CLOSURE_eu_boundary_contract_v1.0.md` | The signature record: what was verified, by whom, against which artefacts | It makes the freeze auditable after the fact |
+| The S2 evidence bundle (`EU-04`, `EU-08`, `EU-09`, `EU-10`) | One quarter run end to end | It is the **proof the specification is executable**, not part of the specification |
+
+**What does not cross, in either direction.** §9's boundary is symmetric and both halves are load-bearing:
+
+- OpenUBEM **must not** infer the held-out LOCO fold from a country filename. Every emitted manifest
+  therefore carries `held_out_country = null` with a note naming GSSCanada as the owner — an honest
+  null, never a guess.
+- GSSCanada **must not** reach into private OpenUBEM geometry or IDF internals to patch objects after
+  generation. If a cell is wrong, the correct action is a defect report against the specification, not
+  a post-generation edit — an edited IDF silently invalidates `idf_sha256` and every dependency digest
+  computed from it.
+
+**The receiving order matters.** These four steps are not interchangeable, and doing them out of order
+is how a false result gets published:
+
+1. **Verify the freeze before running anything.** Re-run `validate_campaign_cells` on the contract's
+   own `cells` array. It must accept: 510 rows, 510 unique ids, 102 at each `f` level, 102 archetypes,
+   ordered levels with the `f=0` control first, fold set exactly `{es, uk, it}`. A contract that does
+   not re-validate has been edited after signature.
+2. **Read the caveat register before reading any number.** Specifically C-01, C-03 and C-09 — the
+   end-use, geometry and vacuity limits. A reader who takes 31.2144 kWh/m² without them will
+   over-claim, and the register exists precisely to make that impossible to do accidentally.
+3. **Run the `f = 0` controls first.** Every cell carries `control_cell_id`; the control is the only
+   level OpenUBEM has ever executed, and it is the only level against which a non-zero `f` result can
+   be interpreted. `schedule_status` already marks the four non-zero levels
+   `BLOCKED_CHAINING_RULE` — that block is D-EU-09, upstream in Step 7, and it is **not** OpenUBEM's
+   to lift.
+4. **Treat any `RULED_NOT_PINNED` fold as unrunnable, not as runnable-with-a-substitute.** Its
+   `epw_path` is left unresolved deliberately. Substituting a nearby station's file would produce
+   numbers that look complete and are not traceable to a pinned, gated weather source.
+
+**The one thing this hand-off is designed to prevent.** Every mechanism above — the honest nulls, the
+three-way gate scoring with named empty populations, the refusal to reconstruct DHW on an incomplete
+base, the refusal to write a spec whose weather is unpinned, the caveat register — exists to stop a
+single failure: a plausible-looking European energy number leaving this project without the conditions
+that make it true travelling alongside it. **The specification is the easy half. The register is the
+half that makes the specification safe to use.**
+
+
+### 12.12 Freeze machinery built and proven, 2026-08-26
+
+§12.9 established that the contract is already implemented; this subsection records the machinery
+built around it so that CP-C is a signature and not a construction project. All of it was built while
+the ERA5 acquisition ran, none of it touched the acquisition, and every claim below was verified by
+the director against the artefact rather than against an executor's report.
+
+**`scripts/freeze_eu_campaign_cell_spec.py` — the freeze.** It consumes
+`openubem/validation/european_campaign.py` and never re-implements it. Behaviour verified by direct
+invocation:
+
+- Run with no flags it **refuses**, printing `NOT_PINNED es RULED_NOT_PINNED`, `NOT_PINNED uk …`,
+  `NOT_PINNED it …` and exiting non-zero. **A specification whose weather is unpinned cannot be
+  written.** No substitution, no nearest-station fallback, no placeholder EPW.
+- `--allow-unpinned` writes `eu_campaign_cell_spec_v1.0_DRAFT.json` with `spec_status =
+  DRAFT_WEATHER_NOT_PINNED`. The draft is a proof that the machinery works, and its filename and
+  status make it impossible to mistake for the contract.
+- The draft was independently re-validated by the director: **510 cells, 510 unique `cell_id`**,
+  `validate_campaign_cells` **accepts**, every cell carries all four weather fields
+  (`epw_path`, `weather_id`, `weather_sha256`, `weather_status`), and the `cell_id_note` of §12.9 is
+  present verbatim.
+- Per-fold composition confirmed against §11.3's ruled counts: **es 24, uk 36, it 42 archetypes** —
+  102 exactly, ×5 levels = 120 / 180 / 210 cells. The `24/36/42` here are the parent parameter-table
+  row counts of §11.3, **not** the `ES 24/24, GB 29/32, IT 42/48` workbook counts of §11.5; the two
+  are different quantities and must not be reconciled with each other.
+
+**The caveat register is machine-enforced, not editorial.** §12.10's entries live at
+`openubem/data/campaign/eu_boundary_caveats_v1.0.json` (`eu-boundary-caveats/1.0`), and the freeze
+script hard-fails if that file is missing, carries the wrong schema version, disagrees with its own
+`n_caveats`, holds fewer than sixteen entries (a deliberate floor, not a target — the register stood at
+sixteen when the check was written and is seventeen today), or contains an entry missing any of `id`, `caveat`,
+`measured_extent`, `must_not_conclude`. **A contract cannot be written without its caveats.** That is
+the single most important property of this machinery, and it is a test, not a habit.
+
+**`scripts/convert_era5_eu_folds_to_epw.py` — the conversion.** Generalises the Lyon converter to the
+three folds, reading `output_filename`, coordinates, UTC offset, station and window **verbatim from
+the registry, never retyped**. It refuses twice over. A fold whose month-archives are
+incomplete prints `INCOMPLETE <fold> <have>/<need>` and is skipped; a fold whose diary window is unpinned
+prints `YEAR_NOT_RULED <fold> <window>` and is skipped before that. Verified against the live state, the
+second refusal fires first and correctly:
+
+```
+YEAR_NOT_RULED es 2009-01-01/2010-12-31
+YEAR_NOT_RULED uk 2014-01-01/2015-12-31
+YEAR_NOT_RULED it 2013-01-01/2014-12-31
+```
+
+Exit 0, **no `.epw` emitted or overwritten**. `tests/test_eu_fold_epw_conversion.py`: 8 passed.
+
+### 🔴 FINDING EU-S2-03 — no fold outside France can be tied to a weather year
+
+The converter's first implementation defaulted the emitted year to the first year of each fold's
+two-year ERA5 window. The director rejected that default, because the registry shows the ground truth:
+
+```
+fr  diary_window 2023-01-01/2023-12-31   RULED_PINNED
+es  diary_window None                    RULED_NOT_PINNED   era5 2009-01-01/2010-12-31
+uk  diary_window None                    RULED_NOT_PINNED   era5 2014-01-01/2015-12-31
+it  diary_window None                    RULED_NOT_PINNED   era5 2013-01-01/2014-12-31
+```
+
+**The diary fieldwork window is unpinned for every fold except France.** There is therefore no ruled
+basis anywhere in this project for preferring 2009 to 2010, 2014 to 2015, or 2013 to 2014 — and an EPW
+is a single year while each window is two. A silent default would have (i) invented an answer to an
+unruled question, and (ii) discarded half of the data the acquisition is spending hours fetching.
+
+**Ruled by the director under standing delegation:** the converter **refuses** rather than defaults.
+`--year` is explicit; without it, a fold whose diary window is unpinned prints
+`YEAR_NOT_RULED <fold> <window>` and writes nothing. `--all-years` emits one EPW per complete calendar
+year in the window, named `<registry stem>_y<year>.epw`, so both years are produced and neither is
+overwritten. **Choosing which year a campaign cell uses is a diary question, and the diary is
+GSSCanada's** — this is the same boundary §12.11 draws for the held-out fold, applied to time instead
+of geography.
+
+**Consequence for the freeze, and it is not small.** Even after all three folds are acquired,
+converted and gated, a fold's weather cannot be reduced to one file until its diary window is ruled.
+Caveat C-16 covers `RULED_NOT_PINNED` folds; this finding is the reason a fold may *stay* that way
+after a technically successful acquisition. It is an upstream data question, not an OpenUBEM defect,
+and it must be visible in the contract rather than resolved by a default.
+
+**Two corrections made to the registry itself.** Its ES/GB/IT entries carried
+`acquisition_status: BLOCKED_NO_CDS_CREDENTIALS`, which is false — those same credentials acquired and
+converted the Lyon fold, and the download is live. Corrected to `IN_PROGRESS_ERA5_DOWNLOAD` with a note
+recording why the old value was wrong; `tests/test_eu_weather_registry.py` re-run, 6 passed. A false
+status in the artefact that feeds the frozen contract is exactly the class of error this section exists
+to catch.
+
+**Evidence-bundle integrity, re-checked before freeze.** The retained campaign manifest and the 31 cell
+manifests were cross-checked field by field: identical building sets (0 in either difference),
+`heating_kwh` and `floor_area_m2` agreeing row by row to 1e-6, **one** distinct `weather_sha256` across
+all 31 cells, and **31 distinct `idf_sha256`** — no accidental duplicate model.
+
+**Full-suite status.** `pytest -q tests/` re-run in full after the D-EU-13 production change:
+**2,178 passed, 55 skipped**, exit 0, 20 min 57 s. The skip count is unchanged from the standing
+baseline, which is the invariant that matters; the pass count is higher because this arc added tests.
+**The change to `openubem/validation/step8_gates.py` broke nothing.**
+
+
+### 12.12b The six DR08 gates are now code, and gate 6 was proven against the real engine
+
+Before 2026-08-26 only gates 1-4 existed in `openubem/acquisition/european_weather.py`; gates 5 and 6
+returned `PENDING_EXTERNAL_BENCHMARK` and `PENDING_ENERGYPLUS`. The France fold's six PASS verdicts
+were obtained **by hand**, which is not reproducible three more times. Both are now implemented:
+
+- **Gate 5 — `evaluate_monthly_benchmark_gate`.** Reads a **local** twelve-month reference file; the
+  benchmark is never fetched live, in code or in tests. Tolerance **10 %**, taken verbatim from
+  `debugs/docs/DECISION_REQUEST_EU-07_Lyon_gate5_GHI_2026-08-26.md:14` and not invented. Verdicts are
+  `PASS`, `PASS_WITH_DOCUMENTED_EXCEPTION` — **only** when the caller's approved-month list exactly
+  matches the months that exceeded tolerance — or `FAIL`. **A missing or malformed benchmark is an
+  error, never a pass**, which is what makes the France precedent (`PASS_WITH_DOCUMENTED_NOVEMBER_
+  EXCEPTION`) a ruling rather than a default.
+- **Gate 6 — `evaluate_energyplus_smoke_gate`.** Runs a minimal single-zone IDF through the real
+  EnergyPlus 23.1 against the candidate EPW and passes only on return code 0 with zero severe and zero
+  fatal errors. When EnergyPlus is absent it returns `UNAVAILABLE_ENERGYPLUS`, **which is not a pass**.
+- **`evaluate_six_gates`** composes gates 1-4 with 5 and 6 and returns exactly the six `gate_*` keys the
+  registry's `validation` block already uses, so a result can be written straight into a fold entry.
+
+**Verified by the director, not on report.** `tests/test_eu_weather_six_gates.py` plus the registry
+tests: **12 passed**. The real control run against the pinned France EPW — the one file whose gate-6
+verdict is already recorded as `PASS` — returns `PASS`, return code 0, 0 severe, in **1.19 s**; pointed
+at a non-existent EnergyPlus root it returns `UNAVAILABLE_ENERGYPLUS` with the missing executable named.
+
+**A bug the unit tests could not have found.** The first implementation passed the EPW to the
+subprocess as a relative path while running with `cwd=<temp dir>`, so EnergyPlus resolved it against
+the temp directory and reported `Could not find weather file`. The unit tests used a monkeypatched
+runner and stayed green; **only the real control run surfaced it.** Fixed by resolving the path to
+absolute, and registered in the debug references. This is the concrete case for the project's standing
+rule that a synthetic green is not a live green.
+
+### 🔴 FINDING EU-S2-04 — the download is not the last blocker; gate 5 has no data for three folds
+
+Building gate 5 exposed a dependency that no plan in this arc had named. Gate 5 compares an EPW's
+monthly GHI against an independent monthly reference. That reference is **a local file, deliberately**
+— the project forbids live-network integration tests, and a benchmark fetched at gate time would make
+the verdict unreproducible. So gate 5 cannot run without a benchmark file per **fold-year**.
+
+**No such file existed anywhere in the repository.** The France benchmark had never been stored as
+data at all: its twelve PVGIS values lived only as a markdown table inside the evidence document the
+owner ruled on, and as prose in the registry's `exception` string. The director has now materialised
+it at `openubem/data/weather/benchmarks/fr_2023_monthly_ghi_benchmark.json`, transcribed from that
+evidence document without re-querying, re-deriving or rounding a single value, so that **the France
+gate-5 verdict can be re-run offline against exactly the numbers the ruling was made on.** The file
+carries its source endpoint, its coordinates, the transcription note, the ruling text and
+`approved_exception_months: [11]`.
+
+**For ES / GB / IT nothing equivalent exists**, and the count is not three but **six** — each fold has
+two candidate years (FINDING EU-S2-03), and a benchmark is per fold-year:
+
+```
+es_madrid    2009, 2010
+uk_london    2014, 2015
+it_bologna   2013, 2014
+```
+
+Those values come from PVGIS, a network service. Acquiring them is a separate, deliberate act with its
+own provenance obligations — the endpoint, the coordinates, the retrieval date and the exact returned
+values must be recorded the way the France file now records them. It is not something the gate may do
+for itself at run time.
+
+**What this changes.** The arc's critical path was believed to be the ERA5 download alone. It is not.
+Even with all 75 archives on disk and all three folds converted, **gate 5 will return
+`PENDING_FILE_AND_BENCHMARK` for every fold-year**, no fold will reach six passes, and no fold will
+promote to `RULED_PINNED`. The freeze will refuse, correctly, and the deliverable would end at a
+`_DRAFT.json` — not because anything failed, but because a data dependency was never acquired.
+
+**This is exactly the class of gap that only appears when you build the thing.** The gates existed on
+paper in DR08 §6 and were recorded as satisfied for France; nobody had asked where the France numbers
+would come from a second time. Recorded here so the freeze cannot arrive at CP-C and discover it.
+
+**RESOLVED 2026-08-26 — the six files now exist, and the finding stays.**
+`scripts/acquire_pvgis_monthly_ghi_benchmarks.py` acquired all six from PVGIS MRcalc v5_3, at the
+coordinates read **verbatim from the registry** rather than re-typed, with each file carrying its own
+endpoint, station, retrieval date and the twelve values exactly as returned — not rounded, not
+re-ordered, not interpolated. Candidate years come from the registry's own `raw_era5_window`, so both
+years of each fold were acquired and **neither was chosen**: acquiring a benchmark is not a diary
+ruling (C-17).
+
+```
+es 2009  1797.48        uk 2014  1125.40        it 2013  1404.50
+es 2010  1744.12        uk 2015  1089.53        it 2014  1412.61     kWh/m2 annual
+```
+
+The script **refuses the France fold** with `RULED_TRANSCRIBED_BENCHMARK_NOT_REQUERIED`. That refusal
+is load-bearing: the `RULED_PINNED_EXCEPTION` was granted against twelve specific numbers, and a
+re-query years later could silently replace the numbers the owner actually ruled on with different
+ones bearing the same provenance label. `tests/test_eu_gate5_benchmarks.py` pins that refusal, pins
+the France twelve, and asserts every registry fold-year has a benchmark whose coordinates match the
+registry — 18 tests, all passing.
+
+Filenames follow the orchestrator's own convention, `<fold>_<year>_monthly_ghi_benchmark.json`, so
+`run_eu_t06_weather_promotion.py --benchmark-dir openubem/data/weather/benchmarks` resolves them
+without configuration. **Caveat C-18 is amended, not retired** — the register's rule is that a caveat
+may be added and none removed. It now records both the gap and its closure, because what the finding
+measures is not "a file was missing" but "a gate's data dependency was invisible until the gate was
+built".
+
+**The France control run — gate 5 reproduces the owner's ruling to two decimals.** With the benchmark
+now stored as data, gate 5 could be run for the first time against a real EPW and a real reference
+rather than a monkeypatched one. Against `fr_lyon_bron_2023_era5.epw` at the ruled 10 % tolerance and
+the ruled `approved_exception_months = [11]`, it returns **`PASS_WITH_DOCUMENTED_EXCEPTION`**:
+
+| M | 01 | 02 | 03 | 04 | 05 | 06 | 07 | 08 | 09 | 10 | 11 | 12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Δ % | 0.80 | 4.59 | 5.64 | 0.20 | 2.78 | 3.56 | 6.79 | 6.44 | 2.53 | 0.70 | **13.82** | 6.77 |
+
+Eleven months inside 10 %, November at **13.82 %**, annual EPW 1 377.98 against benchmark 1 424.02 —
+**3.23 %**. The decision request the owner ruled on recorded *"11 of 12 months within the 10 percent
+limit, November 13.8 percent, annual difference 3.2 percent."* The numbers agree, and they agree
+through code and data that were both written after the ruling. That is the strongest available
+evidence that the transcription is faithful and that the gate implements the tolerance rule the owner
+actually approved — and it is why the France benchmark must never be re-queried.
+
+*Table 27. Gate-5 monthly deviation, France control run, 2026-08-26.*
+
+**What is still not resolved.** Gate 5 has two inputs and only one of them arrived. No fold outside
+France has an EPW yet, and none has a ruled year. The blocker moved from two items to one.
+
+### 12.12d The orchestrator, and a slow test that was not slow for the reason anyone guessed
+
+**`scripts/run_eu_t06_weather_promotion.py` — T06 end to end.** Counts archives, converts through the
+existing converter, runs `evaluate_six_gates` per emitted EPW, writes a per-fold-per-year gate report
+to `EU-07/t06_<fold>_<year>_six_gates.json`, and decides. It is **`--dry-run` by default**; `--commit`
+is required before the registry is touched at all. Its promotion rule is deliberately harder to satisfy
+than "all six gates passed": a fold with **two candidate years and no ruled diary window is not
+promoted even when both years pass every gate**, printing `STOP <fold> YEAR_NOT_RULED_TWO_CANDIDATES`.
+That is FINDING EU-S2-03 enforced in code rather than trusted to a reader.
+
+Verified by the director against the live tree: `tests/test_eu_t06_weather_promotion.py` **5 passed**;
+the live `--all` dry run prints `SKIP_INCOMPLETE es 18/25`, `SKIP_INCOMPLETE uk 0/25`,
+`SKIP_INCOMPLETE it 0/25`; and the registry's SHA-256 is **byte-identical before and after**
+(`f7f865b274ecd017…`). A dry run that leaves a checksum unchanged is the only proof worth having that
+it is dry.
+
+**A diagnostic worth recording, because the director got it wrong first.**
+`tests/test_eu_campaign_cell_spec_freeze.py` was taking **over five minutes** for nine tests. The
+director attributed it to a `git status` subprocess in the code under test, and told an executor to fix
+that. **Measuring it cleared it**: `git status --porcelain` takes 0.085 s on this tree and the whole
+freeze script runs in 1.305 s. A `--durations` run then looked fast — but only because `-x` stopped it
+at the fourth test, before the slow one.
+
+The real cause: the test asserted membership directly against a **340 KB** serialised spec —
+`assert "\\" not in serialised` plus twenty-six `assert f"{letter}:" not in serialised`. **pytest's
+assertion rewriter carries both operands of every rewritten comparison through its explanation
+machinery**, so twenty-eight membership tests against a 340 KB operand cost minutes; the identical
+checks in a plain interpreter finish in under a millisecond. Evaluating them in ordinary code and
+asserting once on the small result — `offenders = [t for t in tokens if t in serialised]` — brought the
+file to **9 passed in 1.02 s**, and gives a better failure message besides, since it names the
+offending token instead of dumping the string.
+
+Fixing it surfaced a second defect the slowness had been hiding: the guard matched a bare
+`<letter>:` and therefore fired on `EPSG:32631` inside the caveat register's own text. A drive letter
+only denotes an absolute path when a separator follows, so the check now matches `<letter>:/` and
+`<letter>:\`. Both entries are in the debug references.
+
+**The lesson, stated plainly because it cost real time:** get `--durations` over the *whole* file
+before attributing a cause, and never let `-x` stand in for a full run when the question is *where*
+the time goes.
+
+### 12.12e 🔴 FINDING EU-S2-05 — the evidence fold is not in the campaign
+
+Checked while preparing D-EU-14, and it changes what a partial freeze is worth.
+
+`CAMPAIGN_FOLDS = ("es", "uk", "it")` (`openubem/validation/european_campaign.py:14`). The 510 cells
+are **es 120 / uk 180 / it 210**. France is **not one of them.**
+
+Everything this arc actually simulated — the 31 buildings, the 618 782.3181 kWh, the 19 823.6173 m²,
+the 31.2144 kWh/m², the S2 gate report, the one weather file that ever passed six gates — is fold
+**`fr`**, FR-LYO-HAUTCOEURPENTES 2023. **The evidence bundle and the campaign specification share no
+fold, no building and no weather file.**
+
+Neither artefact is wrong; they answer different questions. The S2 bundle demonstrates that the
+pipeline runs end to end and produces a defensible number. The campaign spec fixes the boundary Step 8
+will consume. But the natural reading — *"the campaign was validated on 31 real buildings"* — is false,
+and nothing in the spec said so until now.
+
+**The consequence for the freeze.** Every one of the 510 cells currently carries
+`weather_status: RULED_NOT_PINNED` and `epw_path: PENDING_EU07_WEATHER`. **Not one campaign cell is
+executable today**, and the pinned France weather cannot lend its status to any of them. Caveat C-16 was
+written expecting a fold or two to be carried; the true state is that **all three** would be. Recorded
+as caveat **C-19**.
+
+### 12.14 D-EU-14 — what CP-C signs when no campaign fold can pin
+
+**The contradiction.** Caveat **C-16** says the freeze proceeds: *"Any fold left `RULED_NOT_PINNED` at
+freeze time is carried as an open weather dependency, with `epw_path` unresolved rather than
+substituted."* The freeze script says the opposite — `scripts/freeze_eu_campaign_cell_spec.py:190-197`
+refuses with `NOT_PINNED <fold> <status>` unless **every** fold is pinned, and `--allow-unpinned`
+produces only a labelled `_DRAFT.json`, never a signed contract.
+
+Both are defensible. C-16 protects the deliverable; the refusal protects the signature. Neither
+anticipated FINDING EU-S2-05: the count of carried folds is not one or two but **three of three**.
+
+**Why the download will not resolve it.** FINDING EU-S2-03 is not a scheduling problem.
+`diary_window` is `None` and `diary_window_status` is `RULED_NOT_PINNED` for `es`, `uk` and `it`; each
+ERA5 window spans two calendar years and an EPW is one year; **year selection is a diary question and
+the diary is GSSCanada-owned** (§9, lines 591–599). With all 75 archives on disk, all seven benchmarks
+in place and all six gates green on every candidate EPW, the expected end state is still **zero folds
+pinned**.
+
+**What is genuinely finished.** Everything except that one field. 510 cells, 510 unique ids, 102
+archetypes, the five-level `f` ladder, every path repo-relative, `validate_campaign_cells` accepting,
+the caveat register embedded, the gates implemented and controlled against the real engine and the real
+benchmark. The specification is complete; the **weather binding** is not.
+
+| | **(a) Freeze partial now** | **(b) Stay at DRAFT** |
+|---|---|---|
+| Artefact | `FROZEN_PARTIAL_WEATHER`, `epw_path: null` on all 510 | `_DRAFT.json`, unchanged |
+| Executable cells | **0 of 510** | 0 of 510 |
+| §9.4 signed | Yes, with three carried folds | No |
+| Risk | A `FROZEN` label on something nothing can run | The arc closes with no signed artefact |
+| Reversible | No — v1.0 is immutable; a year ruling forces v1.1 | Yes |
+
+**Preparation that needs no ruling, and should happen either way.** Run the six DR08 gates on **both**
+candidate years of all three folds and store the twelve verdicts. It substitutes nothing and chooses
+nothing — but the moment a diary year is ruled, the fold pins with no further computation, and if a
+candidate year fails a gate the diary ruling can be made knowing that *before* it is made rather than
+after. This is the only remaining work the arc can do on its own authority.
+
+**Recommendation: (b), with the preparation above executed immediately.** This reverses the earlier
+recommendation in this section, which was written before FINDING EU-S2-05 and assumed the France fold
+was inside the campaign and would give a partial freeze something to run. It would not. A `FROZEN`
+contract with **zero** executable cells buys a signature and nothing else, and v1.0 is immutable — the
+diary ruling would then arrive against a frozen artefact and force a v1.1 that differs from v1.0 in the
+only field anyone was waiting for. Better to hand GSSCanada a `_DRAFT.json` that is complete in every
+other respect, with twelve gate verdicts attached, and let the year ruling produce a **single** frozen
+v1.0 that is executable on the day it is signed.
+
+**Choose (a) only if** the hand-off must close before the diary ruling can be obtained. In that case
+(a) needs, and does not yet have: a distinct `--carry-unpinned` mode — never a loosening of
+`--allow-unpinned` — the `FROZEN_PARTIAL_WEATHER` status value, a `carried_folds` block in the header,
+and a test asserting that no cell of a carried fold ever acquires a non-null `epw_path`.
+
+**RULED 2026-08-26 — option (b), with the preparation executed immediately.** The owner approved
+retaining `eu_campaign_cell_spec_v1.0_DRAFT.json` at `DRAFT_WEATHER_NOT_PINNED` pending GSSCanada's
+diary-year selection for ES / UK / IT, and directed that the six DR08 gates be evaluated on **both**
+candidate years of every fold so that a single executable `v1.0` can be signed the moment the years are
+ruled — with no further weather computation. The ruling block is filled in
+`docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_EU-14_partial_freeze_2026-08-26.md`.
+
+**Consequences, stated plainly.** The `FROZEN_PARTIAL_WEATHER` status, the `--carry-unpinned` mode and
+the `carried_folds` header block described under option (a) are **not to be built**. `--allow-unpinned`
+stays exactly as narrow as it is. The arc's terminal deliverable is the DRAFT plus twelve gate verdicts
+and the year question — and §9.4 is *prepared*, not *signed*, until GSSCanada answers.
+
+
+### 12.15 🔴 FINDING EU-S2-06 — gate 5 fails both Madrid years, on one winter month each
+
+The D-EU-14 preparation was executed the moment the ruling arrived. Madrid was the only fold with all
+25 archives on disk, so it went first: both candidate years converted, both gated.
+
+```
+es 2009   gates 1,2,3,4,6 PASS   gate 5 FAIL   offending months [12]
+es 2010   gates 1,2,3,4,6 PASS   gate 5 FAIL   offending months [ 1]
+```
+
+Five of six pass on both years. Gate 5 fails on **one month each**, and the shape is the France shape:
+
+| Fold-year | Offending month | Δ that month | Absolute gap | Annual Δ |
+|---|---|---|---|---|
+| `fr` 2023 | November | 13.82 % | 5.90 kWh/m² | 3.23 % |
+| `es` 2009 | December | 12.04 % | 6.46 kWh/m² | **0.22 %** |
+| `es` 2010 | January | 14.13 % | 8.93 kWh/m² | 2.55 % |
+
+**Three independent fold-years, three winter months, three absolute gaps of 6–9 kWh/m², three annual
+agreements inside 3.3 %.** Madrid 2009 agrees with PVGIS to **0.22 % over the year** and still fails.
+
+**Why the rule bites where it does.** The gate is a *relative* test at a fixed 10 %. December in Madrid
+carries 53.69 kWh/m²; July carries 250.18. The same 6.46 kWh/m² discrepancy is **12 %** in December and
+**2.6 %** in July. So the tolerance is harshest exactly where the absolute stakes are lowest, and a
+reanalysis-versus-satellite disagreement of a few kWh/m² — ERA5's own known winter cloud bias against
+PVGIS SARAH — is guaranteed to trip it. This is not evidence that the Madrid EPW is bad; the annual
+totals say the opposite.
+
+**What this does not license.** The 10 % tolerance is ruled and is not being changed here, and no
+`approved_exception_months` list may be written by this project on its own authority — the France
+precedent required an owner ruling, and so does each of these. Recorded as **D-EU-15**.
+
+**What it does change.** The France exception now reads as the **first observed instance of a systematic
+pattern**, not a one-off blemish on one file. Any future statement that "the weather passed six gates"
+must name which months were excepted, for which fold-year, under which ruling.
+
+*Table 28. Gate-5 winter-month failures across three independent fold-years.*
+
+
+### 12.16 Q1 answered — the diary year is the **second** year in all three folds
+
+D-EU-14 Q1 was ruled option (b): derive each national time-use survey's actual fieldwork window before
+ruling the weather year. Done, from the statistics institutes' own methodology pages.
+
+| Fold | Survey | Fieldwork | Months in yr 1 | Months in yr 2 | **Dominant year** |
+|---|---|---|---|---|---|
+| `es` | INE *Encuesta de Empleo del Tiempo* 2009-2010 | 2009-10 → 2010-09 | 3 | **9** | **2010** |
+| `uk` | UKTUS 2014-2015 (UK Data Service study 8128) | 2014-04 → 2015-12 | 9 | **12** | **2015** |
+| `it` | ISTAT *Indagine Uso del Tempo* 2013-2014 | 2013-11 → 2014-10 | 2 | **10** | **2014** |
+
+**All three surveys put the majority of their fieldwork in the second calendar year**, and two of the
+three put fieldwork almost entirely there. The obvious default — the first year of the window, the year
+the fold is named after — would have been **wrong for every fold**. Spain's survey collected 9 of its 12
+months in 2010; Italy's collected 10 of 12 in 2014.
+
+This is the strongest possible vindication of FINDING EU-S2-03's refusal. The converter's first version
+silently defaulted to the first year. Had that default survived, all three campaign folds would have been
+simulated against weather from the wrong year, and nothing downstream would have shown it.
+
+*Table 29. Time-use survey fieldwork windows and the dominant calendar year.*
+
+Sources: `ine.es` operation metodología page for the ES survey; UK Data Service study 8128 documentation
+for UKTUS; `istat.it` multiscopo *Uso del tempo* page for the IT survey.
+
+**Recommended ruling: `es` 2010, `uk` 2015, `it` 2014** — the dominant-fieldwork year in each case.
+Recorded as **D-EU-16**; the years are not written to the registry until it is ruled.
+
+
+### 12.17 🔴 FINDING EU-S2-07 — every zone ran with a 10 m³ volume, and ventilation is ACH-based
+
+Found while executing the Q3 ruling on G8.15, by reading what the six approved warning kinds actually
+say rather than counting them. **Two of the six are not benign, and one of those changes the reported
+number.**
+
+**What EnergyPlus reported, in 31 of 31 buildings and 103 of 103 zones:**
+
+```
+** Warning ** Indicated Zone Volume <= 0.0 for Zone=BATIMENT0000000013365727_PART0_F0_WHOLE
+**   ~~~   ** The calculated Zone Volume was=-49.03
+**   ~~~   ** The simulation will continue with the Zone Volume set to 10.0 m3.
+```
+
+The volume came out **negative** — the companion warning `GetVertices: Floor is upside down! Tilt
+angle=[0.0], should be near 180` names the cause — so EnergyPlus substituted a **fixed 10.0 m³** for
+every zone. The `Zone` object asks for `autocalculate` volume, so nothing in the IDF overrode it.
+
+| | |
+|---|---|
+| Zones affected | **103 of 103**, in **31 of 31** buildings |
+| Calculated volume | **always negative**, −27.44 to −408.41 m³ |
+| Volume actually simulated | **10.0 m³**, every zone |
+| Ceiling height EnergyPlus itself reports | **3.00 m**, every zone, no exception |
+| True air volume (floor area × ceiling height) | **59 470.92 m³** against **1 030.0 m³** simulated |
+| Understatement factor | **57.74× aggregate**; 8.23× to 122.52× per zone, median 46.78× |
+
+**Why this is not cosmetic.** Ventilation is specified as `ZoneVentilation:DesignFlowRate` with
+`Design Flow Rate Calculation Method = AirChanges/Hour` at 0.567 ACH. EnergyPlus turns that into a mass
+flow as **ACH × zone volume ⁄ 3600**. With the volume at 10 m³ instead of its true value, **the
+ventilation air flow — and therefore the ventilation heat loss — is understated by the same 57.74×**.
+Ventilation loss is a first-order term in heating demand.
+
+**Consequence for the published number.** The S2 headline, **31.2144 kWh/m²** over 31 buildings, was
+computed with essentially no ventilation heat loss. It is not a small correction and its sign is known:
+the true figure is **higher**, materially. Until this is repaired, 31.2144 must not be quoted as a
+heating demand for these buildings at all — not with a caveat, not with an uncertainty band.
+
+**Correction to the first reading of this finding.** The magnitudes of the negative volumes sum to
+19 823.7 m³ against a reported modelled floor area of 19 823.64 m² — equal to four significant figures.
+That was first read as evidence of 1 m-tall zones and the error stated as **19.2×**. It is not. Read
+from `eplusout.eio`, EnergyPlus reports a **Ceiling Height of 3.00 m** in every one of the 103 zones, and
+the IDF z-coordinates run 0 / 3 / 6 / 9 m. The zones are 3 m tall. What the coincidence shows is that the
+divergence-theorem sum, under a flipped floor normal, returns −(floor area × 1 m) — an artifact of the
+calculation, not a geometry height. **The true volume is floor area × 3.00 m and the understatement is
+57.74×, three times larger than first stated.** 19.2× is superseded.
+
+**Root cause, in the codebase's own words.** `openubem/idf/builder.py:217-234` — the docstring of
+`_write_zone_volumes`, written for **OPEN-56** — already names this exact failure: geomeppy's
+by_storey/WHOLE extrusion path uses the raw, unoriented footprint coordinates, so floor normals point
+the wrong way; the core/perim path escapes it because `Polygon2D.buffer()` calls shapely's `orient()`
+unconditionally. The main pipeline has been immune since OPEN-56, because `BuildingIDF` calls
+`_write_zone_volumes` after extrusion (`builder.py:660`). **The two EU runner scripts —
+`scripts/run_eu_s2_campaign.py:215` and `scripts/run_eu_s1_smoke.py:291` — call `extrude_geometry` and
+never call it.** This is therefore an EU-path defect, not a fleet-wide one, and the fix is the remedy
+the repository already carries rather than a new one. That also narrows C-20's scope: whoever executes
+the frozen contract inherits the defect only through the EU runners.
+
+**The lesson, which outlasts the fix.** A remedy can be applied to a shared library and still not reach
+a caller that bypasses the wrapper carrying it. OPEN-56 was closed; the defect it closed was live in
+this arc for the whole of S2.
+
+**Why G8.15 exists.** This is precisely the defect the warning-triage gate is designed to surface, and
+it surfaced it. Approving `indicated zone volume <` and `getvertices` as benign would make the gate pass
+over the one finding it earned. The other four kinds — `calculated design cooling load for zone`
+(consistent with C-01, heating only), `gethtsurfacedata`, `managesizing`, `processscheduleinput` — are
+reviewable as stated, though `gethtsurfacedata` carries its own consequence:
+*"Defaults, constant throughout the year of (18.0) will be used"* for ground temperature, which is an
+assumption a heating study must state rather than inherit silently.
+
+**Status — RULED.** **D-EU-17 was ruled (a) on 2026-08-26: repair, re-run, restate.** The repair writes
+`Zone.Volume` explicitly as floor area × storey height — the OPEN-56 remedy — in both EU runners, and S2
+is re-run into `openubem/outputs/eu_evidence/EU-04/s2_campaign_v2/` without overwriting the superseded
+bundle. **31.2144 kWh/m² is withdrawn** and preserved as superseded. G8.15 is re-scored on the repaired
+outputs, where the two geometry warning kinds should be **absent** rather than approved; the Q3 approval
+therefore stands for the four benign kinds only, recorded in
+`openubem/data/campaign/eu_approved_warning_kinds_v1.0.json`. Caveat **C-20** carries the corrected
+57.74× and the ruling; C-08 is amended to point at it.
+
+
+### 12.18 D-EU-16 and D-EU-17 ruled and executed — Madrid is the first campaign fold pinned
+
+Both open decisions were ruled on 2026-08-26, both option (a). This section records what the rulings
+*did*, not what they said; the decision documents in `debugs/docs/` carry the reasoning and the signed
+approval blocks.
+
+**D-EU-16 — the diary year.** `es` = 2010, `uk` = 2015, `it` = 2014, the dominant-fieldwork calendar
+year in each case. Written into `openubem/data/weather/weather_registry.json` as `diary_window`,
+`diary_window_status: RULED_PINNED`, `diary_year_basis: DOMINANT_FIELDWORK_YEAR`, and a `diary_fieldwork`
+block per fold carrying the survey name, the fieldwork window, the month split between the two calendar
+years and the documentary source. Pinning the diary window does **not** by itself pin a fold: `status`
+becomes `RULED_PINNED` only when the six DR08 gates pass on the converted EPW. That separation is
+deliberate and is what let Madrid promote while London and Bologna could not.
+
+**Madrid promoted — the first fold of the campaign to be pinned.**
+
+```
+$PY scripts/run_eu_t06_weather_promotion.py --fold es     --approve-gate5-exception es:2009 12 --approve-gate5-exception es:2010 1 --commit
+  -> PROMOTED es 2010
+```
+
+| | |
+|---|---|
+| Weather file | `openubem/data/weather/es_madrid_2009_2010_y2010.epw` |
+| SHA-256 | `d2563b7dfdd8a78716ce3611c4180bea4e4d217b3779d0f693c607390a17346d` |
+| Gates | six of six; gate 5 `PASS_WITH_DOCUMENTED_EXCEPTION`, January, under D-EU-15 |
+| Campaign cells now pinned | **120 of 510** — every `es` cell |
+
+The two `--approve-gate5-exception` flags are addressed **per fold-year**, not per fold, because the
+offending month differs between the two candidate years of the same fold (FINDING EU-S2-06): December
+for 2009, January for 2010. A fold-wide approval would have silently forgiven a month the gate never
+flagged.
+
+**The DRAFT specification moved for the first time.** Regenerating it after the promotion gives
+510 cells of which **120 carry a real `epw_path` and a real `weather_sha256`** and 390 still read
+`PENDING_EU07_WEATHER`. The register is embedded at **21 caveats** (C-21 added by the winding control, §12.20) — **since raised to 22 by C-22 under D-EU-18, §12.23**. The status stays
+`DRAFT_WEATHER_NOT_PINNED` — the freeze refuses while any fold is unpinned, and that refusal is the
+contract's own safety catch, not an obstacle. **The only thing between the DRAFT and the signed `v1.0`
+is now the London and Bologna ERA5 archives**, which are downloading and cannot be accelerated.
+
+**D-EU-17 — the zone volume.** Ruled (a): repair, re-run, restate. The repair is the OPEN-56 remedy the
+repository already carried and the EU runners bypassed — `Zone.Volume` written explicitly as floor area
+× storey height after extrusion, in `scripts/run_eu_s2_campaign.py` and `scripts/run_eu_s1_smoke.py`.
+S2 is re-run into `openubem/outputs/eu_evidence/EU-04/s2_campaign_v2/`; the superseded bundle in
+`s2_campaign/` is kept untouched so the withdrawn number stays auditable. **31.2144 kWh/m² is
+withdrawn.**
+
+**Q3 executed for four kinds, refused for two.** `openubem/data/campaign/eu_approved_warning_kinds_v1.0.json`
+records the ruling: `calculated design cooling load for zone`, `managesizing`, `processscheduleinput` and
+`gethtsurfacedata` are approved, each with the reading that justifies it; `indicated zone volume <` and
+`getvertices` are listed as **refused** with the reason, because they are the defect and are being
+repaired rather than accepted. After the repair those two kinds must be **absent** from the error files,
+not approved in a list. G8.15 is re-scored on `s2_campaign_v2`.
+
+The one thing worth carrying out of this section: **`gethtsurfacedata` is approved as a warning and
+recorded as an assumption.** EnergyPlus's own text is *"Defaults, constant throughout the year of (18.0)
+will be used"* for ground temperature. A heating study may inherit that, but it may not inherit it
+silently.
+
+
+### 12.19 The restated S2 number — 60.7087 kWh/m², after two repairs, not one
+
+The repair ran twice, because the first repair fixed the consequence and the second fixed the cause.
+
+**Repair 1 — the volume (`s2_campaign_v2/`).** `write_zone_volumes(idf, zones)` — the OPEN-56 remedy —
+now follows `extrude_geometry` in both EU runners. Verified before any number was read: 103 zones in 31
+buildings, **0 left at 10.0 m³**, total **59 470.94 m³** against the 59 470.92 m³ predicted from floor
+area × ceiling height *before* the run — agreement to seven significant figures. `Indicated Zone Volume
+<= 0.0` gone from 31 of 31 error files.
+
+**Repair 2 — the winding itself (`s2_campaign_v3/`).** Repair 1 left `GetVertices: Floor is upside
+down!` in all 31 buildings, so G8.15 still read **31/31 FAIL** on that single kind. Orienting each zone
+footprint counter-clockwise before extrusion (`shapely … orient(sign=1.0)`) removed it. **`s2_campaign_v3/`
+is the authoritative bundle.**
+
+**Table 30 — the restatement, in the order it happened.**
+
+| | Superseded `s2_campaign/` | `s2_campaign_v2/` (volume fixed) | **Authoritative `s2_campaign_v3/`** |
+|---|---|---|---|
+| Buildings | 31 | 31 | 31 |
+| Total heating | 618 782.3181 kWh | 1 364 091.4373 kWh | **1 203 465.4667 kWh** |
+| Denominator | 19 823.6173 m² | 19 823.6173 m² | **19 823.6173 m²** |
+| **Area-pooled heating EUI** | 31.2144 | 68.8114 | **60.7087 kWh/m²** |
+| vs superseded | — | ×2.204 | **×1.945** |
+| `DWELLING_LAYOUT_EMITTED` (n=5) | 85.0922 | 125.9016 | **101.9353** |
+| `FALLBACK_PENDING_LAYOUT` (n=26) | 27.7494 | 65.1398 | **58.0573** |
+| Per-building EUI min / median / max | 4.934 / 65.207 / 149.431 | — | **29.566 / 77.963 / 158.105** |
+| Return code ≠ 0 · severe · fatal | 0 · 0 · 0 | 0 · 0 · 0 | **0 · 0 · 0** |
+| **G8.15** | FAIL 0/31 | FAIL 0/31 (`getvertices`) | **PASS 31/31** |
+
+**The denominator did not move by a single digit across three runs, and that is the most useful line in
+the table.** It is the independent confirmation that the modelled floor area was always sound and only
+the third dimension was not. C-14 — which warns that the denominator is modelled zone floor area rather
+than a surveyed gross area — is untouched and stands as written.
+
+**G8.15 is now green, and it was earned rather than bought.** Re-scoring the repaired run against the
+four ruled approval kinds leaves **zero** untriaged kinds. The two kinds §12.17 refused to approve are
+not approved — they are **absent**. The S2 gate summary moves from 2 PASS / 1 FAIL / 14 VACUOUS to
+**3 PASS / 0 FAIL / 14 VACUOUS**, with the 14 vacuities untouched and each still naming the empty
+population that caused it.
+
+**What 60.7087 is, and what it is not.** A heating-only, area-pooled EUI for 31 Lyon buildings under
+ERA5 2023 weather, of which 26 are one-zone-per-floor massing boxes rather than dwelling partitions
+(C-03, FINDING EU-S2-01). Not validated, not comparable across folds, and belonging to fold `fr`, which
+is **not a campaign fold** (C-19). **31.2144 was not a number with a wide band; it was a number missing
+a first-order loss term. 60.7087 is the first S2 figure that may be quoted at all**, and only inside the
+caveats above.
+
+
+### 12.20 🔴 FINDING EU-S2-08 — vertex order is worth 11.8 % of heating with every area and volume identical
+
+The second repair was expected to remove a warning and change nothing. It changed the answer.
+
+| | `s2_campaign_v2/` | `s2_campaign_v3/` |
+|---|---|---|
+| Total zone floor area | 19 823.64 m² | **19 823.64 m²** |
+| Total zone volume | 59 470.94 m³ | **59 470.94 m³** |
+| Exterior gross wall area | 16 582.10 m² | **16 582.10 m²** |
+| Heat-transfer surfaces | 1 681 | **1 681** |
+| **Total heating** | 1 364 091.4373 kWh | **1 203 465.4667 kWh** |
+| **Difference** | — | **−11.8 %** |
+
+Every geometric quantity EnergyPlus reports is **byte-identical**. The vertex *sets* are identical too —
+only their **order** differs:
+
+```
+v2  Vertex 1 = (642815.9023799713, 5070601.480301854)   Vertex 2 = (642816.7041495886, 5070607.784807721)
+v3  Vertex 1 = (642816.7041495886, 5070607.784807721)   Vertex 2 = (642815.9023799713, 5070601.480301854)
+```
+
+Reversing the ring reverses the outward normal, and the outward normal is what tells EnergyPlus which
+face is outdoors. Areas and volumes are orientation-blind; convection coefficients, longwave sky
+exchange and the inside/outside assignment of every surface film are not. **A geometry that is correct
+in every dimension can still be wrong in its sense, and no area-based check will ever see it.**
+
+**Why this matters beyond one bundle.** The consequence is not bounded by the volume defect: repair 1
+had already fixed the volumes, so this 11.8 % sits entirely on top of it. Anyone who repairs a
+`10.0 m³` substitution by writing the volume explicitly, and stops there, keeps this error and loses the
+warning that would have revealed it.
+
+**Blast radius, measured rather than assumed.** 41 non-EU EnergyPlus runs under `openubem/outputs/`
+were checked for `Floor is upside down` and `Indicated Zone Volume`: **0 occurrences of either.** The
+adopted fleet baseline is not implicated by this finding. That is a measurement over 41 runs, not a
+proof over every configuration.
+
+**Caveat C-20 carries this. G8.15 is the gate that found it** — twice, and it was right to stay red the
+first time.
+
+
+### 12.21 🔴 FINDING EU-S2-09 — a ruling broke eight tests, and that is the tests' defect, not the ruling's
+
+Pinning Madrid moved `es` from `RULED_NOT_PINNED` to `RULED_PINNED` in
+`openubem/data/weather/weather_registry.json`. The full suite then went from **2 224 passed / 55 skipped**
+to **9 failed / 2 220 passed / 55 skipped**.
+
+Not one of the nine was a real regression. Every one asserted on the **live registry's current contents**:
+
+```
+tests/test_eu_fold_epw_conversion.py   KeyError: 'es'                             (x6)
+tests/test_eu_fold_epw_conversion.py   assert 'RULED_PINNED' != 'RULED_PINNED'
+tests/test_eu_campaign_cell_spec_freeze.py::test_refuses_when_a_fold_is_not_pinned
+```
+
+`load_fold_targets` (`scripts/convert_era5_eu_folds_to_epw.py:61-67`) deliberately returns **only** folds
+whose status is `RULED_NOT_PINNED` — conversion is for folds that still need converting. Promoting a fold
+is supposed to remove it from that set. The function behaved exactly as designed; the tests had hard-coded
+`"es"` as a key and *"no fold is ruled"* as a premise.
+
+**The rule this establishes, and it applies well beyond this arc.** A registry whose entire purpose is to
+change when the owner rules something **must never be the fixture a unit test asserts against**. Behaviour
+tests get a synthetic registry built in `tmp_path`; only genuine shipped-file invariants — every target has
+an `output_filename`, every fold has an elevation, every window spans two calendar years — may read the
+live file, and even those must iterate over whatever folds are present rather than naming one.
+
+Had this not been caught, the pressure at the moment of a ruling would have been to *revert the ruling* to
+make the suite green — the exact inversion of what a ruling is for. **Repaired: all eight converted to
+synthetic fixtures, with no assertion weakened, deleted, or marked `xfail`.**
+
+**This will recur twice more.** `uk` and `it` are promoted the moment their ERA5 archives land. Any test
+that still names a fold or counts unpinned folds against the live file will fail again then, and the fix
+is the same one.
+
+
+### 12.22 The anatomy of the 14 vacuities — what S2 never tested
+
+§12.4 states the rule; this section states the **inventory**, gate by gate, so that no reader has to take
+"3 PASS / 0 FAIL / 14 VACUOUS" on trust. **Vacuous means the gate's population was empty — the check ran
+and had nothing to check.** Reporting such a gate as PASS would assert a verification that never happened,
+which is why the arc scores three-way rather than two-way.
+
+Read the column that matters: **only 3 of 17 gates were actually exercised.** S2 is a *path proof* — the
+pipeline runs end-to-end and emits sane artefacts — not a validated campaign.
+
+| Gate | Verdict | The population that was empty, and why |
+|---|---|---|
+| G8.0 | VACUOUS | Cells with `sensitivity_f > 0`: **0 of 31**. All S2 cells are `f = 0`; §9.4 forbids synthesising `f > 0` cells here. |
+| G8.1 | VACUOUS | Re-run pairs: **0 of 31**. G8.1–G8.4 compare a cell against a re-run of itself; each building was executed exactly once. |
+| G8.2 | VACUOUS | Same — no reproducibility pair exists. |
+| G8.3 | VACUOUS | Same — no reproducibility pair exists. |
+| G8.4 | VACUOUS | Same — no reproducibility pair exists. |
+| G8.5 | VACUOUS | Named external comparison series: **0 of 31**. S2 has one modelled hourly heating series per building and nothing independent to compare it against (`step8_gates.py:618`). |
+| G8.6 | VACUOUS | Same empty comparison-series population as G8.5. |
+| G8.7 | VACUOUS | FR archetypes with a declared as-modelled EUI band: **0 of 14**. `tabula_archetypes_fr.json` carries `q_w_nd_kwh_m2a` for DHW only; fabricating a heating band is forbidden. |
+| G8.8 | VACUOUS | Archetype groups with more than one distinct `f`: **0 of 14**. Only `f = 0` exists, so there is no by-`f` checksum difference to detect. |
+| G8.9 | VACUOUS | Cache records: **0 of 31**. `run_eu_s2_campaign.py` implements no resumable-cache layer, so no `dependency_digest` exists to reconcile. |
+| G8.10 | VACUOUS | Buildings with ≥1 declared `Output:Meter`: **0 of 31**. The S2 IDFs request a single `Output:Variable` and bypass the meter system entirely. |
+| G8.11 | VACUOUS | Same empty `Output:Meter` population as G8.10. |
+| G8.12 | **PASS** | Genuine: 103 saved `Schedule:File` checksums + consumer assignments, across 31 buildings. |
+| G8.13 | **PASS** | Genuine over the same 103 objects — and see §12.6, where the scorer's own off-by-one was found and ruled before this verdict was accepted. |
+| G8.14 | VACUOUS | **The one anomaly: its own check passes 31/31.** Every manifest has a non-empty `cell_id` / `platform` / `created_utc`. It scores vacuous only because `evaluate_pre_submission_gates` multiplies every gate by one shared `prerequisites_ok`, which is False from G8.9's empty cache. A shared precondition, not a G8.14 defect. |
+| G8.15 | **PASS** | Genuine: 31/31 scored against the 4 ruled approved kinds, 0 untriaged, 0 severe/fatal. **Earned, not bought** — the two refused kinds are *absent*, not approved (§12.18). |
+| G8.16 | VACUOUS | Manifests with a non-null `held_out_country`: **0 of 31**. S2 is not a LOCO held-out experiment; GSSCanada has assigned no held-out fold to the FR/Lyon site. |
+
+*Table 31. The 17 Step 8 gates on the authoritative `s2_campaign_v3` bundle, with the empty population
+named for each of the 14 vacuities. Supersedes Table 24's 2 PASS / 1 FAIL / 14 VACUOUS summary. Source:
+`openubem/outputs/eu_evidence/EU-09/s2_gate_report_v3.json`, whose `reason` field carries the full text
+quoted here in abbreviated form.*
+
+**Three structural reasons account for all 14**, and none of them is a defect in the pipeline:
+
+1. **S2 is single-shot and single-`f`.** One run per building, `f = 0` only, kills G8.0–G8.4 and G8.8
+   (7 gates) — these need a second execution or a second `f` level to have any content at all.
+2. **S2 has no external reference.** No measured series, no ruled EUI band, no held-out fold kills
+   G8.5, G8.6, G8.7 and G8.16 (4 gates). Supplying one would mean *inventing* it.
+3. **S2 requests no meters and caches nothing.** Heating is extracted from one `Output:Variable`, and the
+   runner is not resumable — this kills G8.10, G8.11, G8.9 and, transitively, G8.14 (4 gates).
+
+**What this means for the boundary contract.** Every one of the three causes is a property of the S2
+*evidence run*, not of the campaign specification being handed over. The full §9.12 campaign is
+GSSCanada-owned and will run multiple `f` levels, with re-runs and meters, which retires causes 1 and 3
+outright. Cause 2 — no external reference — is the one that does **not** retire itself: it needs measured
+data or a ruled EUI band that does not exist today in any of the three folds. Caveat **C-09** carries this
+across the boundary in exactly those terms.
+
+**The line that must never be written:** "the pipeline was validated by 17 gates." Three gates were
+exercised. This section exists so that sentence can be refuted with a citation rather than a memory.
+
+
+### 12.23 D-EU-18 ruled (a) — gate 5's winter exception is pre-authorised for `uk` and `it`, under seven bounds
+
+**Asked before the data existed, and that is the whole point.** London stood at 23 of 25 archives and
+Bologna at 0 when this was put to the owner. A bound fixed before the numbers arrive is a
+pre-registration; the identical bound fixed after seeing them is a post-hoc widening of a ruled gate —
+the exact move option (b) of D-EU-15 was refused for. The question was therefore askable *only* while
+the download was still running, and it was asked then.
+
+**What was ruled.** Option (a): `PASS_WITH_DOCUMENTED_EXCEPTION` may be granted to a `uk` or `it`
+candidate fold-year **without a further ruling**, if and only if every one of seven bounds holds.
+
+| # | Bound | Threshold | Worst value in the three already-approved fold-years |
+|---|---|---|---|
+| 1 | Gates 1, 2, 3, 4 and 6 | all `PASS` | all `PASS` (3 of 3) |
+| 2 | Offending months in the year | ≤ 2 | **1** |
+| 3 | Each offending month is low-irradiance | benchmark < 80 kWh/m² | 53.69 (`es` 2009, December) |
+| 4 | Each offending month's relative Δ | ≤ 20 % | **14.13 %** (`es` 2010, January) |
+| 5 | Each offending month's absolute gap | ≤ 15 kWh/m² | **8.93 kWh/m²** (`es` 2010, January) |
+| 6 | Annual Δ against the benchmark | ≤ 5 % | **3.23 %** (`fr` 2023) |
+| 7 | Provenance written | months, each Δ, each gap, annual Δ, in `weather_registry.json` | obligation, not a test |
+
+*Table 32. The seven D-EU-18 bounds, with the worst value observed across `fr` 2023, `es` 2009 and
+`es` 2010 — the three fold-years already approved case-by-case under D-EU-07 and D-EU-15.*
+
+**The right-hand column is the argument.** Every bound was set with headroom over evidence that had
+already been approved on its own merits, so the pre-authorisation cannot retroactively bless anything
+the owner had not already accepted — and it cannot pass a genuinely bad file either. A systematically
+wrong EPW fails on the **annual** total (bound 6), on **month count** (bound 2), or on a **summer**
+month (bound 3), and each of those is a hard stop that no amount of winter cloud bias can produce.
+
+**The guard rail is the operative half of the ruling.** If a fold-year breaches **any single** bound,
+nothing is granted automatically; that fold-year is escalated as its own decision request, exactly as
+`es` was. Pre-authorisation removes up to four repetitions of a question already answered three times
+out of three — it does not remove the owner from the loop when the evidence changes shape.
+
+**What this does not do.** The 10 % relative tolerance of DR08 gate 5 is untouched. Gates 1–4 and 6 are
+untouched. `fr` and `es` are **not** pre-authorised — their exceptions remain the individually ruled
+ones, and the mechanism refuses those folds by name rather than by omission.
+
+**Any later statement that "the weather passed six gates" is incomplete** and must name which months
+were excepted, for which fold-year, and under which ruling — D-EU-07 for `fr` 2023, D-EU-15 for `es`
+2009 and 2010, D-EU-18 for whatever `uk` and `it` produce. This obligation was created by FINDING
+EU-S2-06 and is not discharged by pre-authorisation; bound 7 exists to keep it discharge*able*.
+
+**Decision record:** `debugs/docs/DECISION_REQUEST_EU-18_gate5_pre_authorisation_2026-08-26.md`,
+ruled and signed 2026-08-26.
+
+
+### 12.13 Runbook — the exact sequence from acquisition to signature
+
+Written while the acquisition ran, so that the closing steps are executed rather than designed under
+time pressure. Every command uses the project virtualenv explicitly. **The Windows `py` launcher does
+not resolve to it** — that mistake killed the first acquisition attempt with
+`ModuleNotFoundError: No module named 'cdsapi'`, and the four missing declarations it exposed are now
+in `pyproject.toml` (§12.8).
+
+```
+PY="C:\Users\o_iseri\Desktop\OpenUBEM\.venv\Scripts\python.exe"
+```
+
+**Step 0 — do not disturb the acquisition.** While `scripts/acquire_era5_eu_folds.py --run-sequential`
+is alive, **never** run `--poll`, `--submit`, or a second `--run-sequential`. Two concurrent loops race
+on the same target file (`PermissionError: [WinError 32]`) and concurrent CDS jobs are rejected outright.
+Read progress by counting `openubem/data/weather/raw/<fold>/*.zip`; read liveness from the process list.
+**Never infer death from the log tail** — `EU-07/t01_acquire_eu_folds.log` is frozen at the first
+launch and still ends on that dead `cdsapi` traceback.
+
+**Step 1 — confirm the acquisition is complete, not merely quiet.**
+Each fold needs **25 archives** (24 months plus the UTC-offset boundary day); 75 in total.
+
+```
+ls openubem/data/weather/raw/era5_madrid_2009_2010/*.zip | wc -l    # expect 25
+ls openubem/data/weather/raw/era5_london_2014_2015/*.zip | wc -l    # expect 25
+ls openubem/data/weather/raw/era5_bologna_2013_2014/*.zip | wc -l   # expect 25
+```
+
+**Step 2 — convert. Expect a refusal, and do not override it.**
+
+```
+$PY scripts/convert_era5_eu_folds_to_epw.py --all
+```
+
+With the diary windows unpinned this prints `YEAR_NOT_RULED` for all three folds and writes nothing
+(§12.12, FINDING EU-S2-03). That is the correct outcome, not a failure to be worked around. To produce
+both candidate years without choosing between them:
+
+```
+$PY scripts/convert_era5_eu_folds_to_epw.py --all --all-years
+```
+
+which emits `<registry stem>_y<year>.epw`, two per fold. **Never pass `--year` to make the refusal go
+away.** `--year` is for a fold whose diary window has actually been ruled.
+
+**Step 2b — the gate-5 benchmarks. Already acquired; verify, do not re-acquire.**
+
+```
+$PY scripts/acquire_pvgis_monthly_ghi_benchmarks.py          # expect 6 x SKIP ... EXISTS, 0 written
+```
+
+All seven fold-year files are in `openubem/data/weather/benchmarks/`. The script is idempotent: it
+skips what exists and only touches the network for a genuinely missing file. **Never pass
+`--overwrite`**, and never run it for `fr` — it refuses that fold on purpose (§12.12c). If a
+benchmark ever has to be replaced, that is a decision request, not a command-line flag.
+
+**Step 3 — run the orchestrator, which does conversion, gates and the decision in one pass.**
+
+```
+$PY scripts/run_eu_t06_weather_promotion.py --all --benchmark-dir openubem/data/weather/benchmarks
+```
+
+It is dry-run by default and writes `EU-07/t06_<fold>_<year>_six_gates.json` per candidate year.
+Add `--commit` only when you intend the registry to change. Gate 5 requires a local monthly benchmark
+file; it is never fetched live. A fold is promoted **only if all six pass**, and
+`PASS_WITH_DOCUMENTED_EXCEPTION` on gate 5 counts only when the approved month list exactly matches the
+months that exceeded tolerance — the France precedent (`gate_5_monthly_national_benchmark:
+PASS_WITH_DOCUMENTED_NOVEMBER_EXCEPTION`) is the shape to follow, and it required an owner ruling.
+
+**Step 4 — promote in the registry, or stop.** On six passes, write the fold's `weather_file`,
+`sha256`, `validation` block and set `status` to `RULED_PINNED`. On any failure, **stop that fold with
+a decision request and leave it `RULED_NOT_PINNED`.** Do not substitute a nearby station, a TMY file,
+or another year. A fold that stops here is covered by caveats C-16 and C-17 and the freeze proceeds
+without it.
+
+**Step 5 — freeze.**
+
+```
+$PY scripts/freeze_eu_campaign_cell_spec.py
+```
+
+It refuses unless every fold is pinned, printing `NOT_PINNED <fold> <status>`. That refusal is the
+contract's own safety catch and must not be bypassed with `--allow-unpinned`, which exists only to
+produce a clearly-labelled `_DRAFT.json`. On success it writes
+`openubem/data/campaign/eu_campaign_cell_spec_v1.0.json` — 510 cells, `validate_campaign_cells`
+re-run before writing, the caveat register embedded in full, every path repo-relative.
+
+**Step 6 — verify the frozen artefact independently of the tool that wrote it.**
+
+```
+$PY -c "import json; from openubem.validation.european_campaign import validate_campaign_cells; \
+d=json.load(open('openubem/data/campaign/eu_campaign_cell_spec_v1.0.json',encoding='utf-8')); \
+validate_campaign_cells(d['cells']); \
+print(d['n_cells'], len({c['cell_id'] for c in d['cells']}), len(d['caveats']), d['spec_status'])"
+```
+
+Expect `510 510 22 FROZEN`. **A contract that does not re-validate has been edited after signature.**
+
+**Step 7 — sign.** Write `CLOSURE_eu_boundary_contract_v1.0.md` recording: the spec's own SHA-256, the
+registry status of each of the four folds, the S2 gate result, the caveat register version, the suite
+result, and what was verified by whom against which artefact. Then Table 26's signature row is filled
+and §9.4 is closed.
+
+**The one rule that governs every step above.** At each point where the pipeline can either stop
+honestly or continue with a substitution, it stops. That is not caution for its own sake — it is the
+only reason any number leaving this project can be traced back to a pinned, gated source.
+

@@ -5,7 +5,7 @@
 - **Author:** Manager (Opus session)
 - **Binding contracts (read, do not edit):**
   - Sister diagnostic (the city-anchor sweep this mirrors) — `./PLAN_v19_basis_diagnostic.md` + `./RESULT_basis_diagnostic.md`. Its CP-2 verdict is the reason this phase exists.
-  - F8 source memo — `docs/docs_VALIDATION/overAll/results/MEMO_phaseB_cbecs_diagnosis.md` (V07 section).
+  - F8 source memo — `docs/docs_VALIDATION/step1/overAll/results/MEMO_phaseB_cbecs_diagnosis.md` (V07 section).
   - DESIGN step-3 §3H (Phase-1 HVAC = `IdealLoadsAirSystem`) — load basis is thermal, no COP.
   - Ruling V-R5-5 / M-R2-4 — CBECS gates are report-only; `openubem/` is NOT modified.
 
@@ -202,7 +202,7 @@ _(Sonnet appends one entry per completed task: `#### TXX — <title> — complet
 - Notes: None.
 
 #### T03 — Run the full 120-grid — completed 2026-06-21
-- Artifacts: `docs/docs_ACTIVE/phaseC_combinedResim/v19_validation/national_cbecs_sweep.csv` (120 rows). `run_grid` function in harness.
+- Artifacts: `docs/docs_DONE/SETUP/phaseC_combinedResim/v19_validation/national_cbecs_sweep.csv` (120 rows). `run_grid` function in harness.
 - Deviations: None. Used imported `_GRID` directly; sorted by `max_abs_nmbe` ascending. CSV is joinable to `basis_sweep_combos.csv` on the 4 param keys (verified: 120-row inner join confirmed in test).
 - Test status: `TestGrid` (8 tests) — all passed.
 - Notes: None.
@@ -214,7 +214,7 @@ _(Sonnet appends one entry per completed task: `#### TXX — <title> — complet
 - Notes: Key finding (factual): city_winner NMBE: MA=−19.232%, PAC=−30.700%, WSC=−36.808%. Gen signals: MA=−24.273, PAC=−38.617, WSC=−38.163 (all large negative = COP=3.5 massively undershoots all three regions). 0/3 regions pass NMBE at city_winner or grid_min.
 
 #### T05 — Findings memo (data only) + self-check — completed 2026-06-21
-- Artifacts: `docs/docs_ACTIVE/phaseC_combinedResim/v19_validation/RESULT_national_cbecs_rescore.md`; `write_findings` function; stdout self-check prints CP-1 reproduction + cross-ref rows.
+- Artifacts: `docs/docs_DONE/SETUP/phaseC_combinedResim/v19_validation/RESULT_national_cbecs_rescore.md`; `write_findings` function; stdout self-check prints CP-1 reproduction + cross-ref rows.
 - Deviations: None. No interpretation prose written per rule 9. F8 cited factually only ("OLD Boston-R3 New-England single-cell dataset"). Service-load reconstruction note included per §3.
 - Test status: `TestFindingsFile` (9 tests) — all passed. Full suite: 36/36 passed in 4.94 s.
 - Notes: None.
@@ -226,13 +226,13 @@ _(Sonnet appends one entry per completed task: `#### TXX — <title> — complet
 - Notes: CP-3 correctness gate clear — comparison is apples-to-apples with the city sweep.
 
 #### T07 — Run the reconstruction-ON 120-grid — completed 2026-06-21
-- Artifacts: `run_grid_recon` function; `docs/docs_ACTIVE/phaseC_combinedResim/v19_validation/national_cbecs_sweep_reconstructed.csv` (120 rows, `recon=True` marker column). Grid sorted by `max_abs_nmbe` ascending, joinable to both `national_cbecs_sweep.csv` and `basis_sweep_combos.csv` on 4 param keys.
+- Artifacts: `run_grid_recon` function; `docs/docs_DONE/SETUP/phaseC_combinedResim/v19_validation/national_cbecs_sweep_reconstructed.csv` (120 rows, `recon=True` marker column). Grid sorted by `max_abs_nmbe` ascending, joinable to both `national_cbecs_sweep.csv` and `basis_sweep_combos.csv` on 4 param keys.
 - Deviations: None. Reused `_GRID` directly per plan. `recon=True` marker present in every row.
 - Test status: `TestGridRecon` (8 tests) — all passed. CSV 120-row join to raw grid confirmed.
 - Notes: None.
 
 #### T08 — Reconstructed cross-reference + findings (data only) — completed 2026-06-21
-- Artifacts: `build_cross_reference_recon` function; `write_findings_recon` function; `_print_self_check_recon` function; `docs/docs_ACTIVE/phaseC_combinedResim/v19_validation/RESULT_national_cbecs_rescore_reconstructed.md`.
+- Artifacts: `build_cross_reference_recon` function; `write_findings_recon` function; `_print_self_check_recon` function; `docs/docs_DONE/SETUP/phaseC_combinedResim/v19_validation/RESULT_national_cbecs_rescore_reconstructed.md`.
 - Deviations: None. Head-to-head table includes per-region recon_nmbe/raw_nmbe/recon_cv_rmse/raw_cv_rmse/recon_ks_d/raw_ks_d + pass flags side-by-side for all 3 focal combos. No interpretation prose per rule 9. `_df_to_md_table` reused from `v19_rescore`.
 - Test status: `TestCrossRefRecon` (4 tests) + `TestFindingsFileRecon` (7 tests) — all passed. Full suite: **59/59 passed** in 182.46 s.
 - Notes: `test_file_exists` in `TestFindingsFileRecon` required `result_text` fixture dependency to ensure file is written before check (class-scoped fixture ordering issue; fixed by adding `result_text` as parameter). No functional change to production code.

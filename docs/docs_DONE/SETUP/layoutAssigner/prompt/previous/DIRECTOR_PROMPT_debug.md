@@ -18,7 +18,7 @@ You are the **director/manager** of the **LayoutAssigner debug-fixes plan** for 
 
 ## 1. Read first (in this order)
 
-1. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/PLAN_debug_implementation.md` — **the binding contract for this run.** §0 live checklist, §1 executor hard rules, §2 file layout, §3 dependency decisions, §4 manager-verified facts (line-cited against the current code and the closed arc's error log), §5 tasks T01–T11, §6 stop-and-report points, §7 progress log, §8 error log.
+1. `docs/docs_DONE/SETUP/layoutAssigner/debug/DONE/PLAN_debug_implementation.md` — **the binding contract for this run.** §0 live checklist, §1 executor hard rules, §2 file layout, §3 dependency decisions, §4 manager-verified facts (line-cited against the current code and the closed arc's error log), §5 tasks T01–T11, §6 stop-and-report points, §7 progress log, §8 error log.
 2. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/implementation_plan.md` §9 (Error Log) — read the full `E-LA-06`/`E-LA-07`/`E-LA-08`/`E-LA-09`/`E-LA-10` entries in the CLOSED arc's own words; these are the root-cause investigations this plan's fixes are built on. **Do not re-derive these facts — they are already measured and cited by line number in the debug plan's §4.**
 3. `openubem/geometry/layout_assigner.py` lines 260–355 (`_ABSOLUTE_LOAD_SPECS`, `_UNCONDITIONAL_ABSOLUTE_SPECS`, `scale_baseline_idf()`) and `openubem/idf/builder.py` lines ~434–474 (the `layout_assign` branch and its exact function-call order) — read these directly, do not assume the plan's citations are still accurate if the code has moved since 2026-07-23.
 
@@ -49,7 +49,7 @@ Do **not** re-open or re-litigate the CLOSED arc's own §8/§9 — it is a froze
 | 11 | Director | **CP-E audit** (final production-readiness reassessment) → sign, tick, log |
 | 12 | Director | Final completion report (see §6) |
 
-**Employee dispatch rules:** give each employee the plan path (`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/PLAN_debug_implementation.md`), its exact task range, the plan's own §1 hard rules, the instruction to append §7 entries + tick §0 (tasks only), and "if the plan is ambiguous or conflicts with the code, STOP and report the conflict back to YOU (the director) — you resolve it against plan §4 and log the ruling, never invent a plan-violating workaround." Default-effort Sonnet subagents for execution; the T06/T08 investigation employees may warrant higher effort given they're genuinely open-ended. If an employee returns its own plan instead of executed work, reject it and re-dispatch.
+**Employee dispatch rules:** give each employee the plan path (`docs/docs_DONE/SETUP/layoutAssigner/debug/DONE/PLAN_debug_implementation.md`), its exact task range, the plan's own §1 hard rules, the instruction to append §7 entries + tick §0 (tasks only), and "if the plan is ambiguous or conflicts with the code, STOP and report the conflict back to YOU (the director) — you resolve it against plan §4 and log the ruling, never invent a plan-violating workaround." Default-effort Sonnet subagents for execution; the T06/T08 investigation employees may warrant higher effort given they're genuinely open-ended. If an employee returns its own plan instead of executed work, reject it and re-dispatch.
 
 ## 4. Progress log formats (enforce exactly)
 
@@ -94,8 +94,8 @@ Anything missing → dispatch a fix employee before greenlighting the next range
 
 ## 6. Final completion report (last action before going idle)
 
-Write `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/COMPLETION_REPORT_debug.md` (English) containing: per-task outcome table (T01–T11), checkpoint verdicts, the T03/T05/T07/T09 real-EnergyPlus before/after tables, T11's full-cluster before (T17) vs. after (T18) success-rate and EUI-median comparison, §8 error summary (closed vs. any new `OPEN-BLOCKED`), and exact pytest totals. Then:
-- Update `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md` with the new post-fix numbers (append a new section — do not rewrite §3's original T17 table, which stays as the historical record).
+Write `docs/docs_DONE/SETUP/layoutAssigner/debug/DONE/COMPLETION_REPORT_debug.md` (English) containing: per-task outcome table (T01–T11), checkpoint verdicts, the T03/T05/T07/T09 real-EnergyPlus before/after tables, T11's full-cluster before (T17) vs. after (T18) success-rate and EUI-median comparison, §8 error summary (closed vs. any new `OPEN-BLOCKED`), and exact pytest totals. Then:
+- Update `docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md` with the new post-fix numbers (append a new section — do not rewrite §3's original T17 table, which stays as the historical record).
 - Update `docs/PROJECT_CHECKLIST.md`'s Arc L entry with the debug plan's outcome (does `layout_assign` now qualify as production-grade for fleet EUI? Say so plainly, either way, with the numbers).
 - Update memory `C:\Users\o_iseri\.claude\projects\C--Users-o-iseri-Desktop-OpenUBEM\memory\project_layout_assigner_arc.md` (+ `MEMORY.md` index hook if the one-line description changed).
 - Leave a short final message summarizing: done/not-done, where the report is, any `OPEN-BLOCKED` items remaining. In French (the user converses in French; the report itself stays English).

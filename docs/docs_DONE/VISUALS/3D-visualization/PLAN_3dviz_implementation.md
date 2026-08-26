@@ -1376,8 +1376,8 @@ Independently verified (not on the executor's table alone):
 The user vetoed the T22 muted-placeholder default (footprint-only buildings were
 rendering as dominant flat-colored slabs / basemap resolution was too coarse).
 Fixed under a dedicated debug plan, not inline here — see
-`docs/docs_ACTIVE/3D/debug/PLAN_3dviz_debug_representation.md` (tasks D01–D06)
-and `docs/docs_ACTIVE/3D/debug/debug_regen_report.md` for the full record.
+`docs/docs_DONE/VISUALS/3D-visualization/debug/PLAN_3dviz_debug_representation.md` (tasks D01–D06)
+and `docs/docs_DONE/VISUALS/3D-visualization/debug/debug_regen_report.md` for the full record.
 Summary: `FOOTPRINT_ONLY_MUTED`/opacity gating removed from `colormaps.mjs` so
 footprint-only buildings render their real EUI/archetype colour at full
 opacity (dashed-outline legend cue kept instead of a muted swatch); basemap

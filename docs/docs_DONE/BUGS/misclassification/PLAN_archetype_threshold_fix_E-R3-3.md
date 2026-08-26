@@ -8,7 +8,7 @@
 > `docs/docs_main/docs_step2/PLAN_step-2-classifier-coverage-R3.md` §5).
 > **Companion docs (same folder):** `BUG_archetype_classification_thresholds.md`,
 > `INVESTIGATION_archetype_classification_thresholds.md`.
-> **Source of corrected values:** `docs/docs_ACTIVE/input/deepResearch/RESULT_I02_archetype_classification_cascade.md`.
+> **Source of corrected values:** `docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I02_archetype_classification_cascade.md`.
 
 ---
 
@@ -258,7 +258,7 @@ data table is **not** created here (out of scope — see investigation §3.H).
   user's monitoring surface.
 - **How:** Single appended bullet in R3 PLAN §5: `- **E-R3-3** — size/level cut-points corrected (office
   2322/9290 total m²; school level-count Primary=1/Secondary≥2; hotel ≥5 levels). Ratified 2026-06-30.
-  Full text + plan: docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md §4.`
+  Full text + plan: docs/docs_DONE/BUGS/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md §4.`
 - **How to test:** n/a (doc edit); manager audit.
 
 ### T10 — CP-β: Boston 483-building CBECS fleet re-run  ⟶ **CHECKPOINT 2 (report to user)**
@@ -520,7 +520,7 @@ _(Sonnet appends one entry per completed task, format below. Manager audits.)_
 - Artifacts (promotion, Sonnet employee `af7a43646d0d876b9` for the mechanical half; manager for the binding half):
   - **Data promoted:** 12 `phaseE_er33` cells copied → committed `docs/docs_VALIDATION/validations/overAll/results/phaseE/<cell>/` (all 12 `05_results.csv` size+md5-verified match; source tree left in place; no target file deleted).
   - **Figures regenerated:** `phaseE_rescore.py` (city_comparison / enduse_breakdown / cbecs_scatter) + `phaseE_overview_grid.py`. Rescore reproduced NYC 149.3/−31.9%, LA 106.6/−6.2%, Austin 112.2/−30.7% **exactly** — confirms the promoted data. Manager synced the overview grid from the script's root output path into `openubem/outputs/comparisons/` (script hard-codes root, docs reference `comparisons/`); removed the throwaway report `phaseE_rescore.py` writes to the vestigial `docs_ACTIVE/hvac-ServiceLoads/` path.
-  - **Binding docs (manager):** `REPORT_phaseE_final.md` **§14 E-R3-3 addendum** appended (erratum-style — original §0–§13 numbers preserved as as-first-adopted; new baseline numbers + mechanism + decomposition + 6-drop reconciliation recorded); new reader-facing explanation doc `docs/docs_EXPLANATION/OpenUBEM_results_archetypeClassification.md` authored (matches the hvacServiceLoads / Resolution template family).
+  - **Binding docs (manager):** `REPORT_phaseE_final.md` **§14 E-R3-3 addendum** appended (erratum-style — original §0–§13 numbers preserved as as-first-adopted; new baseline numbers + mechanism + decomposition + 6-drop reconciliation recorded); new reader-facing explanation doc `docs/docs_EXPLANATION/Results/OpenUBEM_results_archetypeClassification.md` authored (matches the hvacServiceLoads / Resolution template family).
   - **6-drop reconciliation:** the T11.6 "1 new unexplained `la_urban way/402215469`" is **not new** — REPORT §7 limitation #6 names all six (5 la_rural + `way/402215469`) as the inverted-geometry-winding fatals recovered in the baseline only via the post-hoc `debugs/10_fails_solution.md` remediation, not re-applied in the automated per-cell re-run. Pre-existing, geometry-related, not an E-R3-3 effect. Corrected in the explanation doc + REPORT §14.
 - Deviations: none from §6 T11.7. Erratum-style addendum (vs. full REPORT rewrite) chosen to preserve the as-first-adopted record and match the project's E-R3-1/2/3 supersession convention; `phaseE_rescore.py`'s stale `_REPORT_PATH` (points to `docs_ACTIVE`, real report in `docs_DONE`) left as a pre-existing script-staleness backlog item, out of scope.
 - Test status: promotion data verified by md5 (12/12), rescore headline verified exact (3/3 cities).

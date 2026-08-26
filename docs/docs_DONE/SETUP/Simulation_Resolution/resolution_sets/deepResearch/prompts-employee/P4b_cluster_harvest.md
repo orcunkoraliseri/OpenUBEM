@@ -49,7 +49,7 @@ not retry blindly.
    benchmark predates the cooking+refrigeration realism commits (benchmark `refrigeration_eui = 0`), so `auto`
    legitimately runs higher on food-service. Report the numbers; **annotate them as the known stale-benchmark
    offset.** Flag only NON-food structural deltas, if any.
-2. **Append a T08 progress-log entry under PLAN §8** (`docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md`):
+2. **Append a T08 progress-log entry under PLAN §8** (`docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/PLAN_resolution_mode_switch.md`):
    cluster-half completion table (per cell×mode success/failed/fatal), per-cell mean `auto` EUI, fast_zone
    fallback counts, and any NON-food structural delta. Note this is the **cluster (Linux) half**; the local
    (Windows) half is `t08_local_remainder_eui.csv` (M15).

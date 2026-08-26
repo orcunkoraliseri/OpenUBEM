@@ -1,6 +1,6 @@
 # DR10: European Open Building Data and Dense Residential Neighbourhood Candidates
 
-- **Serves decision**: D-EU-10 (data half) in [`../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md); feeds MVP §9.7.2 selection gates `NS-01`–`NS-10` and §10.4 four-panel audit
+- **Serves decision**: D-EU-10 (data half) in [`../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md); feeds MVP §9.7.2 selection gates `NS-01`–`NS-10` and §10.4 four-panel audit
 - **Date of report**: 2026-08-23
 - **Status**: COMPLETE / PUBLICATION-GRADE RESEARCH DOSSIER
 - **Target save path**: `docs/docs_ACTIVE/europeanLocations/DeepResearch/DR10_european_open_building_data_and_dense_neighbourhoods.md`

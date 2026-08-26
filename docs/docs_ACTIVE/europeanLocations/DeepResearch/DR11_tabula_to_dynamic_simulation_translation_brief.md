@@ -1,6 +1,6 @@
 # DR11 — Brief: Translating TABULA Monthly-Balance Parameters into Dynamic Simulation
 
-- **Validates decisions**: D-EU-01, D-EU-02, D-EU-03, D-EU-07 in [`../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md). These were ruled from the TABULA workbook on 2026-08-23 under the principle "reproduce TABULA's own balance literally, declare the rest"; this brief asks the literature whether each realisation is standard practice, whether a better-founded one exists, and what error it is known to carry.
+- **Validates decisions**: D-EU-01, D-EU-02, D-EU-03, D-EU-07 in [`../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md). These were ruled from the TABULA workbook on 2026-08-23 under the principle "reproduce TABULA's own balance literally, declare the rest"; this brief asks the literature whether each realisation is standard practice, whether a better-founded one exists, and what error it is known to carry.
 - **Report to be saved as**: `DR11_tabula_to_dynamic_simulation_translation.md`
 - **Date of brief**: 2026-08-23
 

@@ -2,7 +2,7 @@
 
 - **Document ID**: `DR11_tabula_to_dynamic_simulation_translation.md`
 - **Brief reference**: [`DR11_tabula_to_dynamic_simulation_translation_brief.md`](DR11_tabula_to_dynamic_simulation_translation_brief.md)
-- **Validates decisions**: D-EU-01 (Geometry box), D-EU-02 (Massless envelope, thermal mass, thermal bridging surcharge, $b$-factors), D-EU-03 (Air change rate), D-EU-07 (Gain object, convective split, cooling, $F_{red\_temp}$ transfer multiplier) in [`../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md)
+- **Validates decisions**: D-EU-01 (Geometry box), D-EU-02 (Massless envelope, thermal mass, thermal bridging surcharge, $b$-factors), D-EU-03 (Air change rate), D-EU-07 (Gain object, convective split, cooling, $F_{red\_temp}$ transfer multiplier) in [`../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md)
 - **Date**: 2026-08-23
 
 ---

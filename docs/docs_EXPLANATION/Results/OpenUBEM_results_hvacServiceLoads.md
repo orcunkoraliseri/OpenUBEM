@@ -211,7 +211,7 @@ single-zone VAV over-sizing guard; and the fleet-wide clockwise-winding geometry
 | The full technical report | `docs/docs_DONE/hvac-ServiceLoads/REPORT_phaseE_final.md` |
 | The plain-language pipeline overview | `docs/docs_EXPLANATION/OpenUBEM_fundamentals.md` |
 | Simulated vs reconstructed methodology | `docs/docs_EXPLANATION/simulated_vs_reconstructed_methodology.md` |
-| The resolution-mode results | `docs/docs_EXPLANATION/OpenUBEM_results_Resolution.md` |
+| The resolution-mode results | `docs/docs_EXPLANATION/Results/OpenUBEM_results_Resolution.md` |
 | Current project status | `docs/PROJECT_CHECKLIST.md` |
 
 ---

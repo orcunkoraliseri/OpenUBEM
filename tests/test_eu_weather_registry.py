@@ -54,9 +54,17 @@ def test_template_write_refuses_to_replace_an_acquired_registry(tmp_path: Path):
         write_ruled_not_pinned_registry(path)
 
 
-def test_committed_template_matches_the_deterministic_registry():
+def test_committed_registry_preserves_template_targets_and_records_lyon_promotion():
     committed = Path(__file__).parents[1] / "openubem" / "data" / "weather" / "weather_registry.json"
-    assert json.loads(committed.read_text(encoding="utf-8")) == ruled_not_pinned_registry()
+    registry = json.loads(committed.read_text(encoding="utf-8"))
+    assert registry["status"] == "PARTIALLY_PINNED"
+    assert [target["fold"] for target in registry["targets"][:3]] == ["fr", "es", "uk"]
+    lyon = registry["targets"][0]
+    assert lyon["status"] == "RULED_PINNED_EXCEPTION"
+    assert lyon["validation"]["gate_6_energyplus_smoke"] == "PASS"
+    assert lyon["validation"]["gate_5_monthly_national_benchmark"] == "PASS_WITH_DOCUMENTED_NOVEMBER_EXCEPTION"
+    template = ruled_not_pinned_registry()
+    assert [target["fold"] for target in template["targets"]] == ["es", "uk", "it"]
 
 
 def test_preflight_accepts_well_formed_nonleap_epw(tmp_path: Path):

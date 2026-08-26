@@ -56,7 +56,7 @@ Phase-E is the 🔒 adopted OpenUBEM baseline (8,160 buildings = 3 cities × 4 d
 (Boston 483 fleet) the fix was **accepted** and proven neutral-to-beneficial on validation (isolated effect:
 CV/KS improve, R² unchanged, NMBE slightly more negative from office down-tiering). T11 folds that fix into
 the full Phase-E baseline *properly* — a clean classifier isolation re-run — instead of silently. Binding
-spec: `docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` **§6 T11** (read it; it has
+spec: `docs/docs_DONE/BUGS/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` **§6 T11** (read it; it has
 Verified mechanics M1–M6 + Execution recipe T11.1–T11.7).
 
 ---
@@ -226,7 +226,7 @@ replacing the baseline. Park at the sign-off gate and wait.
 ## 8. Bookkeeping duties (do these as you go)
 
 - **Progress log:** append/finalize the **T11** entry in
-  `docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` **§8** (format per its
+  `docs/docs_DONE/BUGS/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` **§8** (format per its
   template). An interim "IN PROGRESS" T11 entry is already there — finalize it when the fleet lands + CP-3
   is done (sim success counts, archetype before/after, CBECS before/after table, deviations, user ruling).
 - **§0 checklist:** the T11 line is `GREENLIT + DISPATCHED`; flip to reflect fleet-complete / CP-3-reported
@@ -241,7 +241,7 @@ replacing the baseline. Park at the sign-off gate and wait.
 
 ## 9. Pointers
 
-- Binding spec: `docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` §6 **T11** + §2.
+- Binding spec: `docs/docs_DONE/BUGS/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` §6 **T11** + §2.
 - Baseline report: `docs/docs_DONE/hvac-ServiceLoads/REPORT_phaseE_final.md` (§3b/§6/§9 = the "before").
 - Pipeline driver: `scripts/validation/v12_cell_pipeline.py` (`run_cell` :946-1087; `CELL_CONFIGS` :45-106).
 - Rescore (reference only — do NOT run against baseline): `scripts/validation/phaseE_rescore.py`.

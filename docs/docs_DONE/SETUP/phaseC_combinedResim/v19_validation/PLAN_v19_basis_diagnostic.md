@@ -5,9 +5,9 @@
 - **Author:** Manager (Opus session)
 - **Binding contracts (read, do not edit):**
   - DESIGN step-3 §3H (Phase-1 HVAC = `IdealLoadsAirSystem`) — `docs/docs_step3/DESIGN_...generate-one-energyplus-idf....md` line 394.
-  - V19 verdict — `docs/docs_VALIDATION/overAll/V19_phaseC_rescore.md`.
+  - V19 verdict — `docs/docs_VALIDATION/step1/overAll/V19_phaseC_rescore.md`.
   - Deep-research inputs — `./deepResearch/RESULT_1_LA_climate_overprediction.md`, `RESULT_2_office_overprediction.md`, `RESULT_3_benchmarking_normalization.md`.
-  - Prior basis falsification — `docs/docs_VALIDATION/overAll/results/MEMO_phaseB_cbecs_diagnosis.md`.
+  - Prior basis falsification — `docs/docs_VALIDATION/step1/overAll/results/MEMO_phaseB_cbecs_diagnosis.md`.
 
 ## 0. Purpose (why this phase exists)
 
@@ -173,7 +173,7 @@ _(Sonnet appends one entry per completed task: `#### TXX — <title> — complet
 - Notes: **CP-1 identity reproduction numbers** (actual): NYC Office +36.7%, NYC Overall +10.0%, LA Office +78.4%, LA Overall +38.8%, Austin Office +41.1%, Austin Overall +42.2%. Success-row count: 8156.
 
 #### T04 — Run the full grid — completed 2026-06-21
-- Artifacts: `run_grid` + `_identity_present` in `scripts/validation/v19_basis_diagnostic.py`; `docs/docs_ACTIVE/phaseC_combinedResim/v19_validation/basis_sweep_combos.csv` (120 rows); `tests/test_v19_basis_diagnostic.py` class `TestRunGrid` (7 tests)
+- Artifacts: `run_grid` + `_identity_present` in `scripts/validation/v19_basis_diagnostic.py`; `docs/docs_DONE/SETUP/phaseC_combinedResim/v19_validation/basis_sweep_combos.csv` (120 rows); `tests/test_v19_basis_diagnostic.py` class `TestRunGrid` (7 tests)
 - Deviations: None. Grid asserted 120 rows exactly; identity combo verified present. CSV written sorted by max_abs_delta ascending.
 - Test status: 7/7 grid tests passed (including CSV on-disk check). Runtime: ~488 s total for full test session (120 combos × ~8k rows, serial; acceptable for a one-off per plan note).
 - Notes: `itertools.product` over 5×2×4×3 = 120. `reconstruct_frame` call per combo is the bottleneck; no parallelism needed per plan.
@@ -185,7 +185,7 @@ _(Sonnet appends one entry per completed task: `#### TXX — <title> — complet
 - Notes: **CP-2 coherence results**: best-global combo = (cop=2.5, hf=1.19, ls=0.8, es=0.7), max_abs_delta=13.00%, n_within_15=6/6, n_within_20=6/6. NYC Overall −7.7%, LA Overall −13.0% — SAME sign (both negative). Per-city ceilings all well below global best.
 
 #### T06 — Findings memo — completed 2026-06-21
-- Artifacts: `write_findings` + `_LOAD_SCALING_CAVEAT` in `scripts/validation/v19_basis_diagnostic.py`; `docs/docs_ACTIVE/phaseC_combinedResim/v19_validation/RESULT_basis_diagnostic.md`; `tests/test_v19_basis_diagnostic.py` class `TestFindingsFile` (7 tests)
+- Artifacts: `write_findings` + `_LOAD_SCALING_CAVEAT` in `scripts/validation/v19_basis_diagnostic.py`; `docs/docs_DONE/SETUP/phaseC_combinedResim/v19_validation/RESULT_basis_diagnostic.md`; `tests/test_v19_basis_diagnostic.py` class `TestFindingsFile` (7 tests)
 - Deviations: None. All six sections present in order per plan. Verbatim caveat from §3 included. `_df_to_md_table` imported from `scripts.v19_rescore` (single source of truth). No interpretation prose written (rule 8 complied with).
 - Test status: 7/7 findings file tests passed. File exists, all sections non-empty, coherence metrics section contains n_within_15/n_within_20/opposite-sign fields.
 - Notes: stdout self-check echoes identity reproduction and best-global row on every `__main__` run. `n_within_15` and `n_within_20` appear as floats in the MD header line (from pandas Series `.iloc[0]`); the integer values are correct (6/6). **Full test suite: 39/39 passed.**

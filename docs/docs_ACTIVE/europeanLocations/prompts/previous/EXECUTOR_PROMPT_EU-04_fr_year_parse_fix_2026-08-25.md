@@ -5,7 +5,7 @@
 **Authority:** ruling `D-EU-04-E` = **Option E1** (re-acquire `FR-LYO-HAUTCOEURPENTES`
 through the existing IGN BD TOPO V3 adapter; live IGN WFS fetch **authorized** under
 Licence Ouverte 2.0) — see
-`docs/docs_ACTIVE/europeanLocations/debugs/docs/DECISION_REQUEST_EU-04_GEO-08_GEO-10_2026-08-25.md` §1.4.
+`docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_EU-04_GEO-08_GEO-10_2026-08-25.md` §1.4.
 **Diagnosis this prompt acts on:**
 `openubem/outputs/eu_evidence/EU-04/fr_bdtopo_year_availability_diagnosis.json`
 and the `[OPEN]` entry in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`.

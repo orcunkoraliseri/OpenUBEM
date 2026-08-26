@@ -4,7 +4,7 @@
 **Date:** 2026-07-03
 **Arc:** Input-Parameter Imputation ("OpenUBEM AI"). This is the **detailed execution plan for
 task T11** of the parent plan
-`docs/docs_ACTIVE/input/imputation/PLAN_input_imputation_implementation.md` (§6 T11, §7 CP-3). The
+`docs/docs_DONE/INPUTS/imputation/PLAN_input_imputation_implementation.md` (§6 T11, §7 CP-3). The
 parent plan's §0 tracker + §8 progress log remain the binding arc record; this doc decomposes T11
 into executable sub-tasks T11.1–T11.7 and pins the load-bearing decisions.
 **Binding contract:** OpenUBEM Stage-2.2 DESIGN §3E (ML tier, lines 116–140) —

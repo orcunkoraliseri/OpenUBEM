@@ -2,7 +2,7 @@
 
 - **Slug:** `docs-explanation-surfacing`
 - **Opened:** 2026-08-05, by the manager session that signed CP-E (storey-matching arc close).
-- **Binding contract:** `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`
+- **Binding contract:** `docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`
   **§8 and §9** (the arc's own closing record). Where this plan and that document disagree, that
   document wins and you STOP and quote the conflict.
 - **Why this exists:** the LayoutAssigner arc closed 2026-08-04 with CP-E signed, but **neither
@@ -40,7 +40,7 @@
 ```
 docs/docs_EXPLANATION/OpenUBEM_fundamentals.md              ← edit §5.1, add §5.1.2
 docs/docs_EXPLANATION/Results/OpenUBEM_results_Resolution.md ← amend §1 table, add new §10, amend §8/§9
-docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/PLAN_docs-explanation-surfacing.md  ← §8 progress log
+docs/docs_DONE/SETUP/layoutAssigner/PLAN_docs-explanation-surfacing.md  ← §8 progress log
 docs/PROJECT_CHECKLIST.md                                    ← one pointer line (T07 only)
 ```
 
@@ -283,7 +283,7 @@ half is not.
     problem, the deleted `.eio` file, the measured N=6 result, the inferred 6,939/7,442 exposure, and
     the plain-language reading from §5.4. State the condition under which the column gets added:
     **a fleet re-run that retains `eplusout.eio`, giving a verified denominator.** Name it as
-    register item **OPEN-01** in `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register.md`.
+    register item **OPEN-01** in `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`.
   - **10.6 The transformer cliff** — §5.8. A clean, sharp, reproducible result; worth surfacing.
   - **10.7 Provenance** — every CSV and PNG you drew on, with paths.
 - **Why:** §4-D. This is the deliverable the user asked for: `layout_assign` present in the
@@ -421,7 +421,7 @@ At each checkpoint, append your progress-log entries under §8 **before** report
   - `eplusout.eio` deletion, N=6 local measurement (~0.002% / exactly 4/3), 6,939/7,442 inferred
     exposure — reproduces from `:685–704`.
   - Link opened relative to `docs_EXPLANATION/`: confirmed resolves to
-    `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`
+    `docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`
     (file exists at that path; verified via `ls` from `docs_EXPLANATION/`).
   - Confirmed no sentence in the rewritten paragraph claims fleet-EUI validity; the paragraph states
     the opposite plainly.

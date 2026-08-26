@@ -1003,7 +1003,7 @@ condition.
 ---
 
 #### A1 — Map storey structure of all 25 baseline prototypes — completed 2026-07-26
-- Artifacts: `openubem/outputs/comparisons/a1_prototype_storey_structure.csv` (25 rows = 25 baseline prototype IDFs) and `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/a1_prototype_storey_structure.csv` (25 rows = 25 baseline prototype IDFs). Both files present with 25 rows mapped.
+- Artifacts: `openubem/outputs/comparisons/a1_prototype_storey_structure.csv` (25 rows = 25 baseline prototype IDFs) and `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/a1_prototype_storey_structure.csv` (25 rows = 25 baseline prototype IDFs). Both files present with 25 rows mapped.
 - Deviations: none — evaluated with eppy using Z-coordinate floor geometry clustering (0.2m tolerance). Recomputed vs registry areas reconciled; disparities identified for downscaled schools, attic zones, and un-multiplied DOE high/mid-rise geometry.
 - Test status: 92 passed in `tests/test_layout_assigner.py`.
 - git status --short openubem/ tests/ main.py:
@@ -1023,7 +1023,7 @@ condition.
 - Notes: Identified that MidriseApartment & HighriseApartment baseline IDFs carry 3 modelled storeys in geometry with Multiplier=1 in IDF fields, representing 4 and 10 storeys respectively. Tall & SuperTall carry explicit Zone Multiplier values > 1.
 
 #### A1b — num_floors provenance across the fleet — completed 2026-07-26
-- Artifacts: `openubem/outputs/comparisons/a1b_num_floors_provenance.csv` (32 rows = 32 summary groups) and `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/a1b_num_floors_provenance.csv` (32 rows = 32 summary groups).
+- Artifacts: `openubem/outputs/comparisons/a1b_num_floors_provenance.csv` (32 rows = 32 summary groups) and `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/a1b_num_floors_provenance.csv` (32 rows = 32 summary groups).
 - Deviations: none — read data_quality_flag across all 8,160 fleet buildings in phaseE results dataset.
 - Test status: 92 passed in `tests/test_layout_assigner.py`.
 - git status --short openubem/ tests/ main.py:
@@ -1043,7 +1043,7 @@ condition.
 - Notes: STOP CONDITION TRIGGERED! Fleet overall has 94.02% imputed num_floors (7,672 / 8,160). For buildings under 500 m², 98.40% carry imputed num_floors (5,417 / 5,505), far exceeding the 50.0% pre-registered stop threshold.
 
 #### A2 — Measure Zone Multiplier mechanism on a real prototype — completed 2026-07-26
-- Artifacts: `openubem/outputs/comparisons/a2_multiplier_measurement_summary.csv` (2 rows = 2 model runs) and `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/a2_multiplier_measurement_summary.csv` (2 rows = 2 model runs). Raw runs archived in `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/a2_run_today/` (17 files) and `a2_run_multiplier/` (15 files).
+- Artifacts: `openubem/outputs/comparisons/a2_multiplier_measurement_summary.csv` (2 rows = 2 model runs) and `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/a2_multiplier_measurement_summary.csv` (2 rows = 2 model runs). Raw runs archived in `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/a2_run_today/` (17 files) and `a2_run_multiplier/` (15 files).
 - Deviations: none — executed real EnergyPlus 23.1 simulations for MediumOffice (n_real=6 storeys vs 3 storeys baseline).
 - Test status: 92 passed in `tests/test_layout_assigner.py`.
 - git status --short openubem/ tests/ main.py:
@@ -1063,7 +1063,7 @@ condition.
 - Notes: Both runs passed cleanly with 0 Fatal and 0 Severe errors. Verified in .eio that Zone Multiplier=4 reached sizing (air terminals & coils scaled by factor of 4). Output total conditioned floor area = 6000 m² (1000 m² plate * 6 storeys). Total EUI moved from 83.51 kWh/m²/yr (today's unmatched 3-storey model) to 125.49 kWh/m²/yr (6-storey matched model).
 
 #### A3 — Measure shorter than prototype case (band deletion) — completed 2026-07-26
-- Artifacts: `openubem/outputs/comparisons/a3_shorter_deletion_summary.csv` (1 row = 1 test case) and `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/a3_shorter_deletion_summary.csv` (1 row = 1 test case). Raw run archived in `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/a3_run_shorter_deletion/`.
+- Artifacts: `openubem/outputs/comparisons/a3_shorter_deletion_summary.csv` (1 row = 1 test case) and `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/a3_shorter_deletion_summary.csv` (1 row = 1 test case). Raw run archived in `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/a3_run_shorter_deletion/`.
 - Deviations: none — tested middle band deletion on MediumOffice (3 storeys -> 2 storeys).
 - Test status: 92 passed in `tests/test_layout_assigner.py`.
 - git status --short openubem/ tests/ main.py:
@@ -1083,7 +1083,7 @@ condition.
 - Notes: STOP CONDITION TRIGGERED! Deleting the middle floor band produced 203 dangling object references. Real EnergyPlus 23.1 execution failed with 31 Severe errors and 1 Fatal error (`GetSurfaceData: Errors discovered, program terminates`). Severe errors verbatim: `AuditBranches: Branch="SWHSYS1 DEMAND INLET BRANCH" not found on any BranchLists`, `BuildingSurface:Detailed="PERIMETER_TOP_ZN_1_FLOOR", invalid Outside Boundary Condition="ZONE"`. Proves that floor band deletion cannot be performed without hand-editing HVAC topology and interzone boundary surface matching.
 
 #### A4 — 3D visual evidence before code change — completed 2026-07-26
-- Artifacts: `openubem/outputs/comparisons/a4_3d_viz_evidence_summary.csv` (2 rows = 2 cells) and `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/figures/a4_3d_viz_evidence_summary.csv` (2 rows = 2 cells). HTML viewer copies: `nyc_suburban_real_auto_viewer.html` (9.67 MB) and `la_suburban_real_auto_viewer.html` (16.96 MB) saved to `openubem/outputs/` and `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/figures/`.
+- Artifacts: `openubem/outputs/comparisons/a4_3d_viz_evidence_summary.csv` (2 rows = 2 cells) and `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/figures/a4_3d_viz_evidence_summary.csv` (2 rows = 2 cells). HTML viewer copies: `nyc_suburban_real_auto_viewer.html` (9.67 MB) and `la_suburban_real_auto_viewer.html` (16.96 MB) saved to `openubem/outputs/` and `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/figures/`.
 - Deviations: none — checked layout_assign IDF compatibility and exported self-contained 3D viewers.
 - Test status: 92 passed in `tests/test_layout_assigner.py`.
 - git status --short openubem/ tests/ main.py:
@@ -1199,7 +1199,7 @@ chance.
   discrepancies found were internal contradictions between a note and the artifact it cited.
 
 #### A1c — Value distribution of the imputed `num_floors` — completed 2026-07-26
-- Artifacts: `openubem/outputs/comparisons/a1c_num_floors_distribution.csv` (58 level rows mapped) and `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/a1c_num_floors_distribution.csv`.
+- Artifacts: `openubem/outputs/comparisons/a1c_num_floors_distribution.csv` (58 level rows mapped) and `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/a1c_num_floors_distribution.csv`.
 - Imputer Details: `missforest` (Iterative Random Forest ML model, defined in `openubem/semantic/imputation.py`), a non-linear machine learning model predicting missing building levels based on footprint area, raw tags, and spatial context features.
 - Value Distribution Summary:
   - Total Imputed Fleet: 7,672 rows (1.0 storey: 3,180 [41.45%], 2.0 storeys: 1,939 [25.27%], 3.0 storeys: 1,405 [18.31%], 4.0 storeys: 408 [5.32%], 5+ storeys: 740 [9.65%]). Storeys 1–3 represent **85.04%** (6,524 / 7,672) of all imputed buildings.
@@ -1218,7 +1218,7 @@ chance.
 - Notes: Imputed `num_floors` for <500 m² buildings is overwhelmingly concentrated in 1–3 storeys (97.38%). Storey matching for small buildings does NOT inject wide imputation variance into geometry; it aligns prototype massing to a tightly bounded, realistic 1–3 storey low-rise envelope.
 
 #### A2-bis — Redo A2 with verified applied multiplier — completed 2026-07-26
-- Artifacts: `openubem/outputs/comparisons/a2_multiplier_measurement_summary.csv` (2 rows = 2 model runs) and `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/a2_multiplier_measurement_summary.csv`. Raw runs archived in `results/a2_run_today/` and `results/a2_run_multiplier/`. Repaired `a3_shorter_deletion_summary.csv` to record `severe_count = 31` (was 0 due to 2-space string matching bug).
+- Artifacts: `openubem/outputs/comparisons/a2_multiplier_measurement_summary.csv` (2 rows = 2 model runs) and `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/a2_multiplier_measurement_summary.csv`. Raw runs archived in `results/a2_run_today/` and `results/a2_run_multiplier/`. Repaired `a3_shorter_deletion_summary.csv` to record `severe_count = 31` (was 0 due to 2-space string matching bug).
 - Ambiguity Resolution (E-LA-26): For `MediumOffice`, both geometry and registry readings yield `n_proto = 3` storeys (`Core_bottom`, `Core_mid`, `Core_top` geometric bands; 4982 m² registry area / 1660.73 m² plate = 3.0). For apartment prototypes (`MidriseApartment` / `HighriseApartment`), geometry models 3 bands while registry implies 4 and 10 storeys respectively.
 - Pre-Run Proof (in.idf):
 ```idf
@@ -1255,7 +1255,7 @@ Zone Information, CORE_MID,0.0,0.00,0.00,0.00,19.36,12.91,5.33,1,4,1,3.55,35.18,
 
 #### A4-bis — Layout_assign viewer export before panel — completed 2026-07-26
 - Artifacts: 
-  - `openubem/outputs/comparisons/a4_3d_viz_evidence_summary.csv` and `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/figures/a4_3d_viz_evidence_summary.csv` (4 rows = 2 cells × 2 scenes).
+  - `openubem/outputs/comparisons/a4_3d_viz_evidence_summary.csv` and `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/figures/a4_3d_viz_evidence_summary.csv` (4 rows = 2 cells × 2 scenes).
   - Viewer HTML exports saved to `openubem/outputs/` and `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/figures/`:
     - `nyc_suburban_real_auto_viewer.html` (9.67 MB, real auto massing scene)
     - `nyc_suburban_layout_assign_viewer.html` (26.35 MB, prototype substitution scene)
@@ -1383,7 +1383,7 @@ just at the call site.
 
 - Artifacts: `openubem/outputs/comparisons/b00_coverage_census.csv` (30 rows = 2 fleet-wide/subset
   summary rows + 18 by-archetype fleet-wide rows + 10 by-archetype <500m² rows) and its copy at
-  `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/b00_coverage_census.csv`;
+  `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/b00_coverage_census.csv`;
   `b00_coverage_census_registry_alt.csv` (4 rows = MidriseApartment/HighriseApartment × fleet-wide/<500m²,
   E-LA-26 registry reading) in both locations; `b00_coverage_census_row_detail.csv` (8,160 rows = 8,160
   fleet buildings, one row per building) in both locations. Harness:
@@ -1997,7 +1997,7 @@ parallel. **Held:** C01, and C02 which is gated on B06.
 - **Run outcome: 20/20 real EnergyPlus 23.1 runs succeeded, 0 Fatal, 0 Severe, on both variants of
   all 10 buildings.** No `** Severe **` line to quote — none occurred. Full row-level table (build
   status, run status, n_warnings, n_severe, all 10 end-use EUIs) at
-  `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/b05e_energy_delta.csv`
+  `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/b05e_energy_delta.csv`
   (also `openubem/outputs/comparisons/b05e_energy_delta.csv`).
 - **🔑 Result: no energy effect, reported as a finding per the task's own instruction ("report the
   number whether it moves or not").** Before/after total EUI pivot
@@ -2274,7 +2274,7 @@ parallel. **Held:** C01, and C02 which is gated on B06.
 #### B08a — E-LA-31 item 2: residual cross-building placement diagnosis — completed 2026-07-26
 
 - **Artifacts:**
-  `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/results/b08a_placement_diagnosis.csv`
+  `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/b08a_placement_diagnosis.csv`
   (2,630 rows — one per real, layout_assign-substituted building across both cells; columns
   `osm_id, cell, archetype, planar_k, local_centroid_x, local_centroid_y, predicted_offset,
   measured_offset`, `cell` is an extra disambiguation column beyond the plan's required set);

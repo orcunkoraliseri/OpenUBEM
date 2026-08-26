@@ -1,7 +1,7 @@
 # BUG — Archetype classification thresholds misclassify their own DOE/PNNL prototype buildings
 
 > **Status:** definition only — no code touched. Written for hand-off to a fresh session.
-> **Found by:** deep-research audit `docs/docs_ACTIVE/input/deepResearch/RESULT_I02_archetype_classification_cascade.md`
+> **Found by:** deep-research audit `docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I02_archetype_classification_cascade.md`
 > (commissioned via `I02_archetype_classification_cascade_prompt.md`, run through Gemini Antigravity).
 > **Folder note:** the user asked for `docs/docs_ACTIVE/misclassificaiton` — created here as
 > `docs/docs_ACTIVE/misclassification` (typo corrected; flag if the typo'd path was intentional).

@@ -18,8 +18,8 @@ You are the **director/manager** of the **LayoutAssigner E-LA-20 investigation p
 
 ## 1. Read first (in this order)
 
-1. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/e-la-20/PLAN_e-la-20_investigation.md` — **the binding contract for this run.** §0 live checklist, §1 hard rules (note rule 2 and rule 9 — no fix implementation, this plan does not close), §2 file layout, §3 dependency decisions, §4 manager-verified facts (read carefully — the roof-material-assignment mechanism is already cited line-by-line; do not re-derive it from scratch, but do not assume the "small S causes it" framing is already proven either — that is precisely what I02-I04 exist to test), §5 tasks I01-I05, §6 stop-and-report points, §7/§8 (currently empty — you fill them).
-2. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/structural-fixes/PLAN_structural-fixes_implementation.md`, specifically the E-LA-20 entry (search for `#### E-LA-20`) and the CP-E entry immediately after it (search for `#### CP-E`) — read these in full; the investigation plan's §4 already extracted the load-bearing facts, but the full original evidence (the 150-building programmatic `.err` scan methodology, the manager's independent CSV re-derivation) lives there. **Do not re-open or re-litigate that plan's own §7/§8 — it is a frozen historical record.**
+1. `docs/docs_DONE/SETUP/layoutAssigner/DONE/e-la-20/PLAN_e-la-20_investigation.md` — **the binding contract for this run.** §0 live checklist, §1 hard rules (note rule 2 and rule 9 — no fix implementation, this plan does not close), §2 file layout, §3 dependency decisions, §4 manager-verified facts (read carefully — the roof-material-assignment mechanism is already cited line-by-line; do not re-derive it from scratch, but do not assume the "small S causes it" framing is already proven either — that is precisely what I02-I04 exist to test), §5 tasks I01-I05, §6 stop-and-report points, §7/§8 (currently empty — you fill them).
+2. `docs/docs_DONE/SETUP/layoutAssigner/DONE/structural-fixes/PLAN_structural-fixes_implementation.md`, specifically the E-LA-20 entry (search for `#### E-LA-20`) and the CP-E entry immediately after it (search for `#### CP-E`) — read these in full; the investigation plan's §4 already extracted the load-bearing facts, but the full original evidence (the 150-building programmatic `.err` scan methodology, the manager's independent CSV re-derivation) lives there. **Do not re-open or re-litigate that plan's own §7/§8 — it is a frozen historical record.**
 3. `openubem/geometry/envelope_patcher.py` (full file, it's short) and `openubem/geometry/layout_assigner.py`'s geometry-scaling section (`_GEOMETRY_SURFACE_CLASSES` and wherever scale factor S is applied to surface dimensions) — read these directly; do not assume the investigation plan's line citations are still accurate if the code has moved since 2026-07-24.
 
 ## 2. State at handoff (2026-07-24)
@@ -42,7 +42,7 @@ You are the **director/manager** of the **LayoutAssigner E-LA-20 investigation p
 | 6 | Employee E | I05 (diagnostic-only mitigation probes on 2-3 buildings, 3 probe types) |
 | 7 | Director | **CP-INV** — synthesize all findings, write the completion report (§6 below) |
 
-**Employee dispatch rules:** give each employee the plan path (`docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/e-la-20/PLAN_e-la-20_investigation.md`), its exact task letter, the plan's own §1 hard rules (especially rule 2 — no production-code edits) and §3 dependency decisions, the instruction to append its own §7 entry, and: "if the plan is ambiguous or conflicts with the code, STOP and report the conflict back to YOU (the director) — you resolve it against the plan's §3/§4 and log the ruling, never invent a plan-violating workaround." Default-effort Sonnet subagents for I01/I03/I04 (mechanical data-gathering); consider higher effort for I02 (genuine mechanism-isolation judgment) and I05 (diagnostic engineering probes).
+**Employee dispatch rules:** give each employee the plan path (`docs/docs_DONE/SETUP/layoutAssigner/DONE/e-la-20/PLAN_e-la-20_investigation.md`), its exact task letter, the plan's own §1 hard rules (especially rule 2 — no production-code edits) and §3 dependency decisions, the instruction to append its own §7 entry, and: "if the plan is ambiguous or conflicts with the code, STOP and report the conflict back to YOU (the director) — you resolve it against the plan's §3/§4 and log the ruling, never invent a plan-violating workaround." Default-effort Sonnet subagents for I01/I03/I04 (mechanical data-gathering); consider higher effort for I02 (genuine mechanism-isolation judgment) and I05 (diagnostic engineering probes).
 
 ## 4. Progress log formats (enforce exactly)
 
@@ -75,7 +75,7 @@ Anything missing → dispatch a fix employee before continuing to the next step.
 
 ## 6. Final completion report (last action before going idle)
 
-Write `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/e-la-20/COMPLETION_REPORT_e-la-20-investigation.md` (English) containing:
+Write `docs/docs_DONE/SETUP/layoutAssigner/DONE/e-la-20/COMPLETION_REPORT_e-la-20-investigation.md` (English) containing:
 - Per-task outcome table (I01-I05).
 - I02's 3-variant pass/fail table (the load-bearing mechanism-isolation result).
 - I03/I04's numeric-regime findings — state plainly whether a clean threshold/outlier emerged or not, do not overstate an inconclusive result as conclusive.

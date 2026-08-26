@@ -1,7 +1,7 @@
 # Employee (Sonnet executor) prompt set — resolution-mode switch
 
 These are the **kickoff prompts** the manager hands to fresh Sonnet sessions to execute
-`docs/docs_ACTIVE/simulation-Resolution/PLAN_resolution_mode_switch.md` top-to-bottom. One prompt
+`docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/PLAN_resolution_mode_switch.md` top-to-bottom. One prompt
 per session, **in order**, auditing the checkpoint before launching the next.
 
 | Prompt | Tasks | Stops at | Kind | Notes |

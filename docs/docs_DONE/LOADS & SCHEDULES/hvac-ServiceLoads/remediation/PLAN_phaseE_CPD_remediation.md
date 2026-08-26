@@ -2,7 +2,7 @@
 
 - **Slug:** `phaseE_CPD_remediation`
 - **Date:** 2026-06-27
-- **Parent plan (binding):** `docs/docs_ACTIVE/hvac-ServiceLoads/PLAN_phaseE_full_realism.md` — this remediation gates its **T17 fan-out**. All parent decisions D1–D10 and source-of-truth RESULT_01..05 remain binding.
+- **Parent plan (binding):** `docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/implementation/PLAN_phaseE_full_realism.md` — this remediation gates its **T17 fan-out**. All parent decisions D1–D10 and source-of-truth RESULT_01..05 remain binding.
 - **Ruling this implements:** `../pilot/RESULT_phaseE_CPD_gonogo.md` (CP-D NO-GO; required items B1/B2/G2/W1 before T17). User greenlit the **fix B1+B2 → re-pilot la_urban → fan out** sequence (G2 + W1 folded in) on 2026-06-27.
 - **Manager:** this Claude session (writes/audits, no feature code). **Executor:** fresh Sonnet session.
 - **Goal:** eliminate the PrimarySchool/PVAV-HW-reheat heating runaway (B1), make the cell driver tolerate a small number of *logged* geometry drops (B2), re-specify the fans+pumps gate per-archetype (G2), verify the residential DHW fuel split (W1), then re-run the la_urban pilot clean (CP-D2) — the real hard gate before the 12-cell fan-out.
@@ -70,7 +70,7 @@ No new feature modules. No changes to the data tables except a possible W1 corre
 - `scripts/validation/phaseE_pilot.py:32-33` `_FANS_PUMPS_LO/HI = 12.0/16.0`; `:288-291` whole-cell `fans_pumps = fans_median + pumps_median`, `band_ok = LO <= fans_pumps <= HI`. `:348-351` archetype composition already computed (`arch_counts`). The per-archetype EUI medians are NOT currently computed — add them.
 
 **W1 (DHW fuel):**
-- `docs/docs_ACTIVE/hvac-ServiceLoads/deepResearch/RESULT_03_service_water_heating_DHW.md:54`: "Residential (Midrise/Highrise Apartment) | Midrise: **Electricity** / Highrise: **NaturalGas**" (ASHRAE 90.1 Table 7.8 & baseline prototypes).
+- `docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/deepResearch/RESULT_03_service_water_heating_DHW.md:54`: "Residential (Midrise/Highrise Apartment) | Midrise: **Electricity** / Highrise: **NaturalGas**" (ASHRAE 90.1 Table 7.8 & baseline prototypes).
 - `openubem/data/loads/dhw_by_archetype.json:173-191`: MidriseApartment `heater_fuel:"Electricity"` (eff 1.00), HighriseApartment `heater_fuel:"NaturalGas"` (eff 0.80) — **already matches RESULT_03**.
 
 ---

@@ -3,7 +3,7 @@
 - **Date:** 2026-06-27
 - **Author:** Manager (Opus session)
 - **Status:** FINAL — CP-E stop-and-report. All 12 cells complete. Phase-E is the adopted OpenUBEM baseline.
-- **Plan:** `docs/docs_ACTIVE/hvac-ServiceLoads/PLAN_phaseE_full_realism.md` (T01–T18)
+- **Plan:** `docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/implementation/PLAN_phaseE_full_realism.md` (T01–T18)
 - **Supersedes:** Phase-D2 metered PTAC + V16 regional reconstruction (`REPORT_phaseD_final.md`)
 
 ---
@@ -370,7 +370,7 @@ No further action is prescribed beyond updating the checklist and memory. Next a
 
 ## 14. E-R3-3 addendum — classifier fix folded into the baseline (2026-07-03)
 
-**Status:** the committed Phase-E baseline data (`docs/docs_VALIDATION/.../phaseE/<cell>/05_results.csv` × 12) and the figures referenced by this report were **regenerated** on 2026-07-03 to fold in the user-ratified **E-R3-3** archetype-classification fix (office size bins → `< 2322 / < 9290 m²`; school tier → level count; hotel tier → `≥ 5` levels; see `docs/docs_ACTIVE/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` §4). This is an **erratum-style addendum, not a rewrite**: the §0–§13 numbers above stand as the *as-first-adopted* Phase-E record; the numbers below are the *current* (post-E-R3-3) baseline. The full reader-facing results presentation is `docs/docs_EXPLANATION/OpenUBEM_results_archetypeClassification.md`.
+**Status:** the committed Phase-E baseline data (`docs/docs_VALIDATION/.../phaseE/<cell>/05_results.csv` × 12) and the figures referenced by this report were **regenerated** on 2026-07-03 to fold in the user-ratified **E-R3-3** archetype-classification fix (office size bins → `< 2322 / < 9290 m²`; school tier → level count; hotel tier → `≥ 5` levels; see `docs/docs_DONE/BUGS/misclassification/PLAN_archetype_threshold_fix_E-R3-3.md` §4). This is an **erratum-style addendum, not a rewrite**: the §0–§13 numbers above stand as the *as-first-adopted* Phase-E record; the numbers below are the *current* (post-E-R3-3) baseline. The full reader-facing results presentation is `docs/docs_EXPLANATION/Results/OpenUBEM_results_archetypeClassification.md`.
 
 E-R3-3 introduces **no fitted parameters** (published-source literal swap only), so the zero-fitted-parameters discipline is preserved. Geometry was **frozen** (re-classify off the committed `01_buildings.gpkg`, no OSM re-fetch), isolating the classifier.
 

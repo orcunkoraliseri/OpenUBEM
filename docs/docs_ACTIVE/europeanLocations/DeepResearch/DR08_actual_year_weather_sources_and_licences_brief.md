@@ -1,6 +1,6 @@
 # DR08 — Brief: Actual-Year Weather Sources and Licences for the Three Fold Windows
 
-- **Serves decision**: D-EU-05 (weather), items 2 and 3, in [`../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md)
+- **Serves decision**: D-EU-05 (weather), items 2 and 3, in [`../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md)
 - **Report to be saved as**: `DR08_actual_year_weather_sources_and_licences.md` (same folder, unchanged on receipt)
 - **Date of brief**: 2026-08-23
 

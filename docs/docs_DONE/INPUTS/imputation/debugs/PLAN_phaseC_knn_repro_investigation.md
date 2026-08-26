@@ -40,8 +40,8 @@ Re-running the exact §5-C protocol (pool all 12 committed `docs/docs_VALIDATION
 
 ## 2. Source-of-truth to read first
 
-- `docs/docs_ACTIVE/input/imputation/docs_Done/PLAN_phaseC_ml_imputer.md` **§8 progress log** — the binding record of the EXACT 2026-07-03 protocol/config: the entries "T11.1 build_ml_imputer", "T11.6 — CP-3 gate", "T11.6 attribute leaderboard". Extract every load-bearing knn detail: which `feature_cols`, whether the neighbour-vintage `_spatial_lag` feature was on, `n_neighbors`, `weights`, the `family` selection (KNNImputer "matrix" vs `KNeighborsClassifier` estimator), the per-target floors, and the tier order `("spatial","ml","statistical")`.
-- `docs/docs_ACTIVE/input/imputation/results/phase_C/RESULTS_phaseC.md` — the committed leaderboard numbers (26.43→25.14; 9.18→8.39; n_holdout 562/134; "re-run twice, byte-identical").
+- `docs/docs_DONE/INPUTS/imputation/docs_Done/PLAN_phaseC_ml_imputer.md` **§8 progress log** — the binding record of the EXACT 2026-07-03 protocol/config: the entries "T11.1 build_ml_imputer", "T11.6 — CP-3 gate", "T11.6 attribute leaderboard". Extract every load-bearing knn detail: which `feature_cols`, whether the neighbour-vintage `_spatial_lag` feature was on, `n_neighbors`, `weights`, the `family` selection (KNNImputer "matrix" vs `KNeighborsClassifier` estimator), the per-target floors, and the tier order `("spatial","ml","statistical")`.
+- `docs/docs_DONE/INPUTS/imputation/results/phase_C/RESULTS_phaseC.md` — the committed leaderboard numbers (26.43→25.14; 9.18→8.39; n_holdout 562/134; "re-run twice, byte-identical").
 - `openubem/semantic/imputation.py` — current `build_ml_imputer`, `_ml_tier`, `_spatial_lag`, `_estimator_for`, the `MLImputer` dataclass, `family` selection, `_knn_dispersion`, `_clamp_to_observed_range`.
 - `openubem/config.py` — `IMPUTE_ML_FLOORS`, `IMPUTE_ML_METHOD_BY_TARGET`, the default `feature_cols`/feature set, `RANDOM_SEED`.
 - `openubem/results/impute_scatter.py` — the module docstring already records this block (audit trail).

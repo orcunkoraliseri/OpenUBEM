@@ -208,7 +208,7 @@ No new files. No `.py` under `docs/`.
 - Artifacts: `scripts/validation/v12_cell_pipeline.py` — `"nyc_centre"` entry added to `CELL_CONFIGS` after `austin_rural`.
 - Deviations: none.
 - Test status: `argparse` smoke-check confirms `nyc_centre` accepted as a valid `choices` value (`py -3 -c "... ap.parse_args(['nyc_centre', ...])"` → no error). `py_compile` OK.
-- Notes: `probe_count=619` sourced directly from `docs/docs_VALIDATION/overAll/V10_matrix_proposal.md` row 1 (V10 matrix, approved 2026-06-11). Config: lat=40.7549, lon=-73.9840, radius_m=500.0, state="NY", epsg=32618.
+- Notes: `probe_count=619` sourced directly from `docs/docs_VALIDATION/step1/overAll/V10_matrix_proposal.md` row 1 (V10 matrix, approved 2026-06-11). Config: lat=40.7549, lon=-73.9840, radius_m=500.0, state="NY", epsg=32618.
 
 #### T09 — Regression tests for new pathology classes — completed 2026-06-19
 - Artifacts: `tests/test_coreperim_degenerate.py` — added 4 new test classes (10 new tests): `TestSliverInvertedReroute`, `TestInterzoneMismatchReroute`, `TestThermalDivergenceReroute`, `TestMultiPolygonCoercion`; added 3 translated-to-origin coordinate constants (`_SLIVER_COORDS`, `_INTERZONE_MISMATCH_COORDS`, `_THERMAL_DIV_COORDS`); added imports for `MultiPolygon`, `_coreperim_has_tiny_zone_area`, `_coerce_to_polygon`.

@@ -79,7 +79,7 @@ is logged there too, not adopted.
    suite green (21 + 50 passed). CP-A/CP-B/CP-C all cleared.
 2. [x] **Manager-launched cluster re-run (fix-batch T10):** austin_urban + la_centre + nyc_centre →
    DONE 2026-06-19, **12-cell set complete, zero exclusions.** R5 baselines untouched.
-3. [x] **V19 re-score — DONE 2026-06-20.** Verdict shipped: `docs/docs_VALIDATION/overAll/V19_phaseC_rescore.md`
+3. [x] **V19 re-score — DONE 2026-06-20.** Verdict shipped: `docs/docs_VALIDATION/step1/overAll/V19_phaseC_rescore.md`
    (Sonnet ran Phase 1 over all 12 cells; manager wrote the verdict). **Findings:** the fixes worked where
    V17 flagged over-prediction — NYC multifamily +33.5 %→**+0.7 %**, food-service +110/+160 %→**−1.6/+12 %**,
    NYC city aggregate **+10.0 %** (still a pass). The V17 "NYC office −0.3 % anchor" was **partly a V18

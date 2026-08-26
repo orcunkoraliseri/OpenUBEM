@@ -2,11 +2,11 @@
 
 - **Slug:** `3dviz-debug-representation`
 - **Date:** 2026-07-03
-- **Binding contract:** the frozen specs behind the 3D arc (`docs/docs_ACTIVE/3D/PLAN_3dviz_implementation.md`
+- **Binding contract:** the frozen specs behind the 3D arc (`docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md`
   §0 faithful-to-model, §9 manager rulings, V09 colour/accessibility). This debug plan is a
   **correction of the T22 muting default**, which the main PLAN itself flagged as *"a reversible
   manager default pending the user's veto"* (PLAN line 1177). The user has now vetoed it.
-- **Parent PLAN:** `docs/docs_ACTIVE/3D/PLAN_3dviz_implementation.md` (T01–T22 done, CP-4 audited).
+- **Parent PLAN:** `docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md` (T01–T22 done, CP-4 audited).
   This doc does NOT renumber that plan; it adds a self-contained debug arc **D01–D06**. When D06
   closes, append a one-line pointer + progress entries back into the parent PLAN §8.
 
@@ -305,7 +305,7 @@ _(Executor appends one entry per completed task here, per project convention.)_
     mtimes 10:03–10:11).
   - 12 × `docs/docs_VALIDATION/.../phaseE/<cell>/06_basemap_utm.png` + `.json`
     (higher-res, overwritten, all mtimes 10:02–10:11).
-  - `docs/docs_ACTIVE/3D/debug/debug_regen_report.md` (per-cell parity+size+
+  - `docs/docs_DONE/VISUALS/3D-visualization/debug/debug_regen_report.md` (per-cell parity+size+
     resolution table + screenshot paths).
   - 6 screenshots in `docs/docs_ACTIVE/3D/debug/Image-outputs/`:
     `austin_centre_before/after.png`, `nyc_suburban_before/after.png`,
@@ -343,7 +343,7 @@ _(Executor appends one entry per completed task here, per project convention.)_
   07:55 copies via `Copy-Item`, byte-identical to
   `docs/docs_ACTIVE/3D/outputs/<cell>_viewer.html` — no regeneration); one
   progress-log pointer entry appended to
-  `docs/docs_ACTIVE/3D/PLAN_3dviz_implementation.md` §8.
+  `docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md` §8.
 - Deviations: none.
 - Test status: 12/12 byte-size match confirmed (source vs
   `openubem/outputs/3D/`) — austin_centre 13,572,598; austin_rural 4,483,257;

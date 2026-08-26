@@ -65,7 +65,7 @@ Read `phaseG_summary.json` (12 rows) and verify:
 
 ### Step C — write the doc debt (owed; the killed executor never wrote it)
 Append **§8 progress-log entries for T23–T27** and a **CP-5 audit entry** to
-`docs/docs_ACTIVE/3D/PLAN_3dviz_implementation.md` (standard format: Artifacts / Deviations / Test status / Notes). Verify facts against the files — do not invent. Key facts:
+`docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md` (standard format: Artifacts / Deviations / Test status / Notes). Verify facts against the files — do not invent. Key facts:
 - **T23 deviation:** `_blocks_to_features` does `unary_union(lines)` noding before `polygonize` (rationale: `polygonize` only splits at shared endpoints, so un-noded roads crossing mid-span would not enclose cells).
 - **Tests:** 64 Python + 46 Node green.
 - **T27 (regen ride-along):** record the two prior failures (double-launch rate-limiting; v3 3-hour hang from the `ThreadPoolExecutor` shutdown-wait defeating the cap) and the **daemon-thread fix**, plus the final 12-cell `phaseG_summary.json` outcome including which cells degraded to partial context.
@@ -100,5 +100,5 @@ If any cell reports `MISSING_IDFS`, restore from `<cell>_step3_idfs_archive.zip`
 
 ## 6. Evidence / pointers
 - Live-smoke screenshots: `docs/docs_ACTIVE/3D/debug/Image-outputs/` (`nyc_centre_context_after.png`, `..._all_three_topdown.png`, `..._all_off.png`, `..._blocks_only_topdown.png`, `..._roads_only_topdown.png`, `..._toggle_blocksOn_greenOff.png`, before/after).
-- Prior full Opus handoff (deeper background): `docs/docs_ACTIVE/3D/manager_prompt/opus_manager_handoff.md`.
+- Prior full Opus handoff (deeper background): `docs/docs_DONE/VISUALS/3D-visualization/manager_prompt/opus_manager_handoff.md`.
 - Driver + logs + summary: prior Opus scratchpad `...\b1abb870-9290-4b85-b52a-5541cad3f35a\scratchpad\` (`phaseG_regen_capped_v2.py`, `phaseG_regen_v4.log`, `phaseG_summary.json`).

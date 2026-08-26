@@ -1,6 +1,6 @@
 # DR08: Actual-Year Weather Sources and Licences for the Three Fold Windows
 
-- **Serves decision**: D-EU-05 (weather), items 2 and 3, in [`../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md)
+- **Serves decision**: D-EU-05 (weather), items 2 and 3, in [`../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md)
 - **Author**: Deep Research Agent (OpenUBEM European Locations Arc)
 - **Date**: 2026-08-23
 - **Engine / Target**: EnergyPlus 23.1 / EPW format

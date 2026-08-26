@@ -48,7 +48,7 @@ Do not regenerate them. Do not re-run `scripts\analysis\enrich_layout_assign_vie
 
 ## 3. Read first — and only this
 
-1. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/debug/storey-Matching/PLAN_storey-matching_REMAINder.md` — **in full.** It is short by design. It is your contract.
+1. `docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/PLAN_storey-matching_REMAINder.md` — **in full.** It is short by design. It is your contract.
 2. `openubem/geometry/layout_assigner.py` — specifically `compute_band_map()` (~392-425) and `match_storeys()` (~490-525). **Verify the line numbers; the file moves.**
 3. `docs/PROJECT_CHECKLIST.md`, Arc L block — the user's monitoring surface. Keep it current.
 

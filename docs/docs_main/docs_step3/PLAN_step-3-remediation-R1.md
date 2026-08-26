@@ -2,7 +2,7 @@
 
 - **Slug:** step-3-remediation-R1
 - **Date:** 2026-06-11
-- **Binding contracts:** `docs/docs_step3/DESIGN_step-3-generate-one-energyplus-idf-per-building-from-the-archetype-enriched-geod.md` and `docs/docs_step-4/DESIGN_step-4-run-energyplus-in-parallel-for-every-generated-idf-via-joblib-loky-in-isol.md`. Read-only; never edit them.
+- **Binding contracts:** `docs/docs_main/docs_step3/DESIGN_step-3-generate-one-energyplus-idf-per-building-from-the-archetype-enriched-geod.md` and `docs/docs_step-4/DESIGN_step-4-run-energyplus-in-parallel-for-every-generated-idf-via-joblib-loky-in-isol.md`. Read-only; never edit them.
 - **Goal:** the Boston 483-building fleet must reach **483/483 simulation success** and a clean Step-5 results regeneration. The manager has already root-caused all 8 failures (§5); execute the prescribed fixes — do not re-diagnose from scratch.
 
 ## §2 Hard rules for the executor
@@ -21,7 +21,7 @@ openubem/idf/surfaces.py          (edit: R01 narrow-footprint fallback, R02 roof
 openubem/config.py                (edit: R03 SIM_TIMEOUT_S)
 tests/test_surfaces.py            (edit: R01/R02 tests; update test_bbox_fallback_marks_zone)
 scripts/run_r1_targeted.py        (new: R04 targeted regen+resim of the 8, adapted from run_c4_regen.py)
-docs/docs_step3/PLAN_step-3-remediation-R1.md   (this doc — append §8 progress log only)
+docs/docs_main/docs_step3/PLAN_step-3-remediation-R1.md   (this doc — append §8 progress log only)
 ```
 
 ## §4 Dependency decisions (pre-decided — do not re-debate)
@@ -139,7 +139,7 @@ docs/docs_step3/PLAN_step-3-remediation-R1.md   (this doc — append §8 progres
 - Notes: Headline EUI: heating=20.96, cooling=64.52, lighting=28.33, equipment=34.85, total=148.65 kWh/m²/yr. GWP=359,185,510 kg CO2e. IOD: mean=0.032, p95=0.160, max=0.481. pct_floor_area_simulated=100.00%. Wall clock: 1535.5s (25.6 min) dominated by 483-SQL parse in aggregate_results.
 
 #### R06 — Full suite + progress log — completed 2026-06-11
-- Artifacts: `docs/docs_step3/PLAN_step-3-remediation-R1.md` (this entry)
+- Artifacts: `docs/docs_main/docs_step3/PLAN_step-3-remediation-R1.md` (this entry)
 - Deviations: none.
 - Test status: 503 passed, 10 skipped, 3 warnings in 64.37s — exactly matches CP-A baseline; zero new failures.
 - Notes: 3 DeprecationWarnings from `results/parser.py:88` (datetime.strptime without year) — pre-existing, not introduced by R01–R06.

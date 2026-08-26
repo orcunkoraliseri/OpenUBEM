@@ -1,6 +1,6 @@
 # Deep Research Dossier II: Weather, Licences, Open Building Data, and TABULA-to-EnergyPlus Translation for the European Locations Arc
 
-This dossier continues the parent Step 8 dossier (`GSSCanada-main/4J_docs_occ/Step8_docs/IMP_step8/DeepResearch/`, reports DR01–DR07) with the research the OpenUBEM European-locations arc still needs before its owed decisions can be closed. The parent dossier covers layout generation, zoning resolution, and the European/national standards framework; **it does not cover the four data-acquisition questions that the 2026-08-23 decision record left open** ([`../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md)).
+This dossier continues the parent Step 8 dossier (`GSSCanada-main/4J_docs_occ/Step8_docs/IMP_step8/DeepResearch/`, reports DR01–DR07) with the research the OpenUBEM European-locations arc still needs before its owed decisions can be closed. The parent dossier covers layout generation, zoning resolution, and the European/national standards framework; **it does not cover the four data-acquisition questions that the 2026-08-23 decision record left open** ([`../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md)).
 
 ```
 docs/docs_ACTIVE/europeanLocations/DeepResearch/
@@ -34,8 +34,8 @@ A report is **not** an authority by itself. The standing citation rule of this a
 * **Validates**: the desk rulings D-EU-01 (box from areas + `n_Apartment`), D-EU-02 (mass-less U + explicit `c_m`; ΔU surcharge; `b`-factors as other-side coefficients), D-EU-03 (`n_air_use + n_air_infiltration`), D-EU-07 (`F_red_temp` as transfer-coefficient multiplier; all-convective gain; no cooling). Asks the literature (TEASER, TABULA/EPISCOPE calculation documentation, EN ISO 13790/52016 annexes, published TABULA→EnergyPlus/Modelica studies) whether each realisation is standard, whether a better-founded one exists, and what error each is known to introduce.
 
 ## Associated Arc Documents
-* **Decision record these briefs serve**: [`../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md)
-* **Extracted TABULA columns (evidence)**: [`../debugs/docs/tabula_102_extra_columns_2026-08-23.csv`](../debugs/docs/tabula_102_extra_columns_2026-08-23.csv)
+* **Decision record these briefs serve**: [`../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md)
+* **Extracted TABULA columns (evidence)**: [`../debugs/docs/DONE-docs/tabula_102_extra_columns_2026-08-23.csv`](../debugs/docs/DONE-docs/tabula_102_extra_columns_2026-08-23.csv)
 * **MVP specification**: [`../MVP_european_locations.md`](../MVP_european_locations.md) (§11 source alignment; §11.12 rulings)
 * **Walkthrough**: [`../WALKTHROUGH_european_locations.md`](../WALKTHROUGH_european_locations.md) (§12 executor contract)
 * **Director prompt**: [`../prompts/DIRECTOR_PROMPT_european_locations.md`](../prompts/DIRECTOR_PROMPT_european_locations.md)
@@ -52,4 +52,4 @@ The four reports were returned 2026-08-23 and audited against each brief's accep
 | `DR10` | Every dataset row carries a licence verdict on derived publication; every candidate count carries a source; crosswalks flag one-to-many cases | **ACCEPTED** | All §5 building counts are published-statistics **estimates** and are candidates only; the final unit is selected by the project's own computed counts under `NS-03`/`NS-05` — no DR10 count may appear as a project number. GB age-band straddle shares (63 %/75 %/88 %/89 %/71 %/71 %) are duration-derived heuristics, usable only as the deterministic tie-break rule they parameterise, never as measured stock shares. |
 | `DR11` | Every §1 verdict backed by a §3 citation; clause-level `F_red` answer; concrete fixtures for R3/R5/R7 | **ACCEPTED** | No desk ruling overturned (6 × Standard, 4 × Acceptable-with-caveat). The three §4 fixtures (R3 time constant, R5 flux, R7 scaling) are adopted into slice X-04 with their numeric pass criteria. The quoted bias magnitudes (e.g. +8–18 % peak from mass-less envelope) are literature-order estimates for the dossier's caveat text, not project measurements. |
 
-Closures these acceptances produce are written in `../debugs/docs/DECISIONS_parent-open-items-2026-08-23.md` (closure addendum), MVP §11.13, walkthrough §12.5–12.6, and the director prompt head box. Remaining blocked item: **D-EU-09 (Step 7 chaining rule) only**, and it blocks only `f>0` cells.
+Closures these acceptances produce are written in `../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md` (closure addendum), MVP §11.13, walkthrough §12.5–12.6, and the director prompt head box. Remaining blocked item: **D-EU-09 (Step 7 chaining rule) only**, and it blocks only `f>0` cells.

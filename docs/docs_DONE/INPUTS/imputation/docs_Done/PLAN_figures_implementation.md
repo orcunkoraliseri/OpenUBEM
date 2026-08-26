@@ -630,7 +630,7 @@ E **frontier ruled out** (none ship).
 
 #### T12 — embed the 3 scatter figures + close — completed 2026-07-15
 - Artifacts: additive-only edits (verified by reproducing each anchor line verbatim in the `Edit` call
-  before any new content) to `docs/docs_ACTIVE/input/imputation/results/phase_B/RESULTS_phaseB.md`
+  before any new content) to `docs/docs_DONE/INPUTS/imputation/results/phase_B/RESULTS_phaseB.md`
   (new `### Predicted-vs-actual` under the existing `## Quantitative before/after`, embedding
   `phaseB_scatter_year_built.png`), `.../phase_C/RESULTS_phaseC.md` (same pattern, embedding both
   `phaseC_scatter_{year_built,levels}.png`, with a one-line note on the honest mice/linear
@@ -761,7 +761,7 @@ E **frontier ruled out** (none ship).
   mean (both gates PASS)"` (the two per-panel titles and every bar value untouched). Regenerated
   `docs/docs_ACTIVE/input/imputation/results/arc_quant_summary.png` and
   `.../phase_B/phaseB_quant_accuracy.png`.
-  `docs/docs_ACTIVE/input/imputation/results/phase_B/RESULTS_phaseB.md` — reworded (numbers untouched):
+  `docs/docs_DONE/INPUTS/imputation/results/phase_B/RESULTS_phaseB.md` — reworded (numbers untouched):
   opening paragraph ("Phase B proves it is **accurate**" → "proves it is **unbiased in the aggregate**"
   + one clarifying sentence pointing at the reframe note); section header "CP-2 downstream-EUI accuracy"
   → "CP-2 downstream-EUI aggregate bias"; new paragraph appended under the existing "Predicted-vs-actual"
@@ -960,7 +960,7 @@ omissions explained. Manager self-signs on pass (autonomous-completion momentum)
 
 **Why added.** The user wants, for **each step (phase)**, a single **contact-sheet `.png`** that gathers
 **all of that phase's figures** into one image, placed **next to the parent plan**
-`docs/docs_ACTIVE/input/imputation/PLAN_input_imputation_implementation.md` (i.e. directly in
+`docs/docs_DONE/INPUTS/imputation/PLAN_input_imputation_implementation.md` (i.e. directly in
 `docs/docs_ACTIVE/input/imputation/`, NOT under `results/`). This is a pure **assembly of already-shipped
 PNGs** — no data, no new numbers, no fabrication.
 

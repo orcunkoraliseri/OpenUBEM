@@ -1,0 +1,44 @@
+{
+  "schema_version": "eu-approved-warning-kinds/1.0",
+  "ruled": "D-EU-13 closure question Q3, option (a), 2026-08-26",
+  "rule": "G8.15 approves warning KINDS, never a warning COUNT. A kind enters this list only after someone has read what EnergyPlus actually writes under it and can state why the simulation is still valid. A kind may be added by a ruling; none may be removed silently.",
+  "applies_to": "European locations arc (EU-04 S2 and EU-01 S1 evidence bundles)",
+  "n_approved": 4,
+  "approved": [
+    {
+      "kind": "calculated design cooling load for zone",
+      "reading": "Design cooling load is reported for zones with no cooling equipment. Consistent with C-01: heating is the only requested end use, so a sizing-only cooling figure has no effect on the reported result."
+    },
+    {
+      "kind": "managesizing",
+      "reading": "Plant sizing is skipped because there is no Sizing:Plant object. There is no plant loop in these models, so nothing is left unsized."
+    },
+    {
+      "kind": "processscheduleinput",
+      "reading": "Schedule:Constant EU_ALWAYSON carries no Schedule Type Limits name, so its values are not range-validated. The schedule is a literal constant written by the generator, not user input, so the missing validation cannot admit an out-of-range value."
+    },
+    {
+      "kind": "gethtsurfacedata",
+      "reading": "Ground-coupled surfaces with no Ground Temperatures input. EnergyPlus states: 'Defaults, constant throughout the year of (18.0) will be used'. Benign as a warning, but 18.0 C year-round ground temperature is an ASSUMPTION a heating study must state rather than inherit silently. Approved as a warning kind, recorded as an assumption."
+    }
+  ],
+  "refused": [
+    {
+      "kind": "indicated zone volume <",
+      "reason": "NOT BENIGN. FINDING EU-S2-07: EnergyPlus computed a negative volume in 103 of 103 zones and substituted 10.0 m3, understating ventilation heat loss 57.74x. Ruled D-EU-17 (a): repaired, not approved. After the repair this kind must be ABSENT, not approved.",
+      "outcome": "REPAIRED, NOT APPROVED. Absent from all 31 error files in the authoritative run openubem/outputs/eu_evidence/EU-04/s2_campaign_v3/."
+    },
+    {
+      "kind": "getvertices",
+      "reason": "NOT BENIGN. The same defect seen from the other side - 'Floor is upside down! Tilt angle=[0.0], should be near 180'. It is the cause of the negative volume above. Repaired under D-EU-17 (a), not approved.",
+      "outcome": "REPAIRED, NOT APPROVED. Absent from all 31 error files in the authoritative run openubem/outputs/eu_evidence/EU-04/s2_campaign_v3/."
+    }
+  ],
+  "note": "The Q3 ruling approved six observed kinds. Executing it revealed that two of the six are the same defect and that the defect changes the reported number, so the approval is recorded here for the four benign kinds only and the other two are repaired instead. G8.15 was never marked PASS over an unread warning.",
+  "gate_result": {
+    "authoritative_run": "openubem/outputs/eu_evidence/EU-04/s2_campaign_v3/",
+    "G8.15": "PASS 31/31",
+    "untriaged_kinds_remaining": [],
+    "note": "Scored against the four approved kinds only. The two refused kinds are ABSENT, not present-and-approved: the gate was passed, not bought. On the intermediate run s2_campaign_v2/ the same scoring gave FAIL 31/31 on 'getvertices' alone, which is what forced the second repair and exposed FINDING EU-S2-08 (caveat C-21)."
+  }
+}
