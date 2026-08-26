@@ -94,7 +94,22 @@ def test_required_archive_count_is_boundary_plus_24_months(tmp_path: Path) -> No
 
 
 def test_incomplete_year_skips_without_writing_epw(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
-    targets = load_fold_targets()
+    registry_path = _write_registry(
+        tmp_path,
+        [
+            _synthetic_entry(
+                "uk",
+                "London",
+                51.48,
+                -0.45,
+                0,
+                2014,
+                2015,
+                "uk_london_2014_2015.epw",
+            )
+        ],
+    )
+    targets = load_fold_targets(registry_path)
     target = dict(targets["uk"])
     target["raw_dir"] = tmp_path / "raw_uk"
     target["raw_dir"].mkdir()
@@ -115,7 +130,10 @@ def test_incomplete_year_skips_without_writing_epw(monkeypatch: pytest.MonkeyPat
     assert not any(output_dir.rglob("*.epw"))
 
 
-def test_missing_year_flag_on_unruled_fold_refuses(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_missing_year_flag_on_unruled_fold_refuses(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(module, "OUTPUT_ROOT", tmp_path / "out")
     registry_path = _write_registry(
         tmp_path,
         [

@@ -266,8 +266,9 @@ def process_fold(
         return "STOP"
 
     if commit:
+        gate5_excepted = report["gate_5_monthly_national_benchmark"] == "PASS_WITH_DOCUMENTED_EXCEPTION"
         updates: dict[str, object] = {
-            "status": "RULED_PINNED",
+            "status": "RULED_PINNED_EXCEPTION" if gate5_excepted else "RULED_PINNED",
             "weather_file": str(epw_paths[ruled_year]).replace("\\", "/"),
             "sha256": report["epw_sha256"],
             "diary_window": f"{ruled_year}-01-01/{ruled_year}-12-31",
