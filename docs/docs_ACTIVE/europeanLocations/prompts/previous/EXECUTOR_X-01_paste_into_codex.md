@@ -30,7 +30,7 @@ Work in small, verifiable increments. After **every** material completed, partia
 documented step, append the same UTC result row to both:
 
 1. `docs/docs_ACTIVE/europeanLocations/content/walkthrough_progress_log.csv`
-2. Table 4 in `docs/docs_ACTIVE/europeanLocations/WALKTHROUGH_european_locations.md`
+2. Table 4 in `docs/docs_ACTIVE/europeanLocations/previous/WALKTHROUGH_european_locations.md`
 
 Then update the current-status paragraph and table in
 `docs/docs_ACTIVE/europeanLocations/prompts/DIRECTOR_PROMPT_european_locations.md` §19.5. The

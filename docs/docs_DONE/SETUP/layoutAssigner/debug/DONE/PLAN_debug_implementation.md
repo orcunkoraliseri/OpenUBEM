@@ -1,6 +1,6 @@
 # LayoutAssigner — Debug Fixes Implementation Plan (v1.0)
 
-**Slug:** layout-assigner-debug · **Date:** 2026-07-23 · **Binding contract:** this plan + the measured facts in §5, all sourced from the CLOSED arc's own error log at `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/implementation_plan.md` §9 (E-LA-06 through E-LA-10, all still `OPEN-BLOCKED`/`OPEN-BLOCKED-PARTIAL` as of CP-E, 2026-07-23). Executor: a fresh Sonnet session. Manager: audits, never writes feature code.
+**Slug:** layout-assigner-debug · **Date:** 2026-07-23 · **Binding contract:** this plan + the measured facts in §5, all sourced from the CLOSED arc's own error log at `docs/docs_DONE/SETUP/layoutAssigner/DONE/DONE-implementation_plan.md` §9 (E-LA-06 through E-LA-10, all still `OPEN-BLOCKED`/`OPEN-BLOCKED-PARTIAL` as of CP-E, 2026-07-23). Executor: a fresh Sonnet session. Manager: audits, never writes feature code.
 
 ## Executive Summary
 

@@ -17,7 +17,7 @@ You are the **director/manager** of the **LayoutAssigner arc** for OpenUBEM. Fol
 
 ## 1. Read first (in this order)
 
-1. `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/implementation_plan.md` — **v2.1, the binding contract.** §0 live checklist, §1 executor hard rules, §3 manager-verified facts, §5 tasks T01–T12, §6 checkpoints, §7 open questions **with manager defaults you must apply**, §8 progress log, §9 error log.
+1. `docs/docs_DONE/SETUP/layoutAssigner/DONE/DONE-implementation_plan.md` — **v2.1, the binding contract.** §0 live checklist, §1 executor hard rules, §3 manager-verified facts, §5 tasks T01–T12, §6 checkpoints, §7 open questions **with manager defaults you must apply**, §8 progress log, §9 error log.
 2. `docs/docs_DONE/SETUP/layoutAssigner/DONE/walkthrough.md` — strategy + audit snapshot (not a tracking surface).
 3. `docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md` — results shell; `*pending*` EUI cells are filled at T12.
 

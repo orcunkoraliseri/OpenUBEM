@@ -19,7 +19,7 @@ from openubem.idf.european_box import (
     source_h_ventilation_w_m2k,
 )
 from openubem.idf.european_controls import add_european_heating_controls
-from openubem.validation.step8_gates import audit_saved_idf_geometries
+from openubem.validation.step8_gates import audit_saved_idf_geometries, read_saved_idf_geometry
 
 
 DATA_DIR = Path(__file__).parent.parent / "openubem" / "data" / "construction"
@@ -233,3 +233,46 @@ Output:Variable,*,Zone Ideal Loads Zone Sensible Heating Rate,Timestep;
     assert result.returncode == 0, errors
     assert "Completed Successfully" in errors
     assert "** Severe  **" not in errors, errors
+
+
+def _write_zone_fixture(
+    path: Path, archetype_id: str, *, ceiling_height: float, volume: float, floor_area: float,
+) -> None:
+    path.write_text(
+        "Zone,\n"
+        "  EU Zone,\n"
+        "  0,\n"
+        "  0,\n"
+        "  0,\n"
+        "  0,\n"
+        "  1,\n"
+        "  1,\n"
+        "  {ceiling_height},\n"
+        "  {volume},\n"
+        "  {floor_area};\n"
+        "BuildingSurface:Detailed,\n"
+        "  EU_{archetype_id}_Floor;\n".format(
+            ceiling_height=ceiling_height, volume=volume, floor_area=floor_area, archetype_id=archetype_id,
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_v8d_read_saved_idf_geometry_tolerates_7sf_ceiling_height_truncation(tmp_path):
+    """FINDING 183: a 7-significant-figure Ceiling_Height must not fail an integral storey count."""
+    archetype_id = "TEST.ARCH.001"
+    path = tmp_path / "truncated_height.idf"
+    _write_zone_fixture(path, archetype_id, ceiling_height=10.999998, volume=3300, floor_area=100)
+
+    geometry = read_saved_idf_geometry(path, archetype_id)
+
+    assert geometry.storey_count == 3
+
+
+def test_v8d_read_saved_idf_geometry_still_rejects_non_integral_storeys(tmp_path):
+    archetype_id = "TEST.ARCH.002"
+    path = tmp_path / "non_integral.idf"
+    _write_zone_fixture(path, archetype_id, ceiling_height=10, volume=2500, floor_area=100)
+
+    with pytest.raises(ValueError, match="integral storey count"):
+        read_saved_idf_geometry(path, archetype_id)

@@ -22,17 +22,21 @@ import csv
 import hashlib
 import json
 import re
+import statistics
 import subprocess
 import sys
 import time
+from collections import Counter
 from pathlib import Path
 
 import geopandas as gpd
 import pandas as pd
+from shapely.geometry import LineString, Polygon
 from shapely.geometry.polygon import orient
 
 from openubem.acquisition.european_weather import sha256_file
 from openubem.config import ENERGYPLUS_IDD_PATH, ENERGYPLUS_PATH
+from openubem.geometry.context import discover_context, resolve_european_context_height
 from openubem.geometry.european_residential import (
     allocate_european_dwellings,
     european_layout_to_zone_specs,
@@ -42,7 +46,14 @@ from openubem.geometry.zoning import build_zones
 from openubem.idf.european_controls import add_european_heating_controls
 from openubem.idf.european_physics import add_european_internal_mass, add_nomass_construction
 from openubem.idf.builder import write_zone_volumes
-from openubem.idf.surfaces import extrude_geometry
+from openubem.idf.surfaces import (
+    extrude_geometry,
+    find_mismatched_interzone_pairs,
+    _force_reroute_room_layout_to_one_zone_per_floor,
+    _repair_roof_roof_pairs,
+    _repair_mismatched_horizontal_pairs,
+    _pair_interfloor_surfaces,
+)
 from openubem.semantic.european_schedules import emit_step8_gain_schedule
 from scripts.form_eu_s2_c1_sample import CENSUS_PATH
 
@@ -57,11 +68,94 @@ RUN_ROOT = ROOT / "openubem/outputs/eu_evidence/EU-04/s2_campaign"
 CAMPAIGN_MANIFEST_PATH = ROOT / "openubem/outputs/eu_evidence/EU-04/s2_campaign_manifest.csv"
 ZONE_WINDING_SIGN = 1.0
 
+# FINDING 210 residual (2026-08-31 root-cause pass): geomeppy's intersect_match can
+# leave a sub-mm near-duplicate vertex pair on a surface's own ring that EnergyPlus's
+# GetVertices/CheckConvexity collapses asymmetrically between a ceiling and its paired
+# floor -- observed at 0.0002-0.0006 m separation, well inside a typical OSM-derived
+# coordinate's float noise floor. 5 mm is comfortably above that observed range while
+# staying well below any real architectural feature.
+NEAR_DUPLICATE_VERTEX_TOLERANCE_M = 0.005
+# A second, independent instance of the same class of defect: intersect_match can
+# also leave an exactly- (or near-) collinear vertex on a ring -- e.g. a point where a
+# neighbouring zone's wall meets this surface's shared edge, splitting it at 180.000
+# degrees exactly (confirmed on stem `8cdf349a99934f0d`, vertex 7 of a 9-vertex ring,
+# interior angle = 180.000 deg, cos(angle) = -1.0000000000000002, i.e. genuinely
+# collinear to machine precision, not just "nearly straight"). EnergyPlus's own
+# CheckConvexity legitimately treats this as a redundant point and drops it, but not
+# symmetrically between a ceiling and its mirrored floor partner, producing the
+# identical vertex-size-mismatch FATAL even though no two vertices were close
+# together. 0.1 deg is deliberately tight: a real, naturally near-straight OSM
+# building corner was measured at 179.348 deg on a known-clean building
+# (`BATIMENT0000000240879449_part0`) -- 0.65 deg short of straight -- so 0.1 deg
+# catches the machine-precision artifact without flagging real architecture.
+COLLINEAR_VERTEX_ANGLE_TOLERANCE_DEG = 0.1
+
+
+def _has_near_duplicate_vertex_surfaces(idf) -> bool:
+    """True if any BUILDINGSURFACE:DETAILED ring carries a near-duplicate or a
+    near-/exactly-collinear vertex (FINDING 210 residual, both confirmed independently
+    against real EnergyPlus 23.1.0 runs, not just the `find_mismatched_interzone_pairs`
+    raw-count heuristic, which catches neither).
+
+    Checked on the ring itself (consecutive triples, including wrap-around), not just
+    at interzone boundaries, since either side of a pair can carry the artifact.
+    """
+    import math
+
+    for surf in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
+        coords = list(surf.coords)
+        n = len(coords)
+        if n < 3:
+            continue
+        for i in range(n):
+            p0 = coords[(i - 1) % n]
+            p1 = coords[i]
+            p2 = coords[(i + 1) % n]
+            v1 = (p0[0] - p1[0], p0[1] - p1[1], p0[2] - p1[2])
+            v2 = (p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2])
+            len1 = math.sqrt(sum(c * c for c in v1))
+            len2 = math.sqrt(sum(c * c for c in v2))
+            if len1 < NEAR_DUPLICATE_VERTEX_TOLERANCE_M or len2 < NEAR_DUPLICATE_VERTEX_TOLERANCE_M:
+                return True
+            cos_a = sum(a * b for a, b in zip(v1, v2)) / (len1 * len2)
+            cos_a = max(-1.0, min(1.0, cos_a))
+            angle_deg = math.degrees(math.acos(cos_a))
+            if angle_deg > 180.0 - COLLINEAR_VERTEX_ANGLE_TOLERANCE_DEG:
+                return True
+    return False
+
 PROJECTED_CRS = "EPSG:32631"
 FLOOR_TO_FLOOR_M = 3.0
 FLOOR_TO_FLOOR_NOTE = "floor_to_floor_m=3.0 pinned geometry-smoke constant, not a physical claim about Lyon"
 ENERGYPLUS_J_TO_KWH = 1.0 / 3.6e6
 SENSITIVITY_F = 0.0
+
+EUROPEAN_CONTEXT_RADIUS_M = 20.0
+EUROPEAN_CONTEXT_RADIUS_NOTE = (
+    "D-EU-40 R2: 20.0 m, the published method's own radius -- a separate constant from "
+    "config.SHADING_SPHERE_RADIUS=30.0 (the North-American DESIGN value), never edited here."
+)
+SHADOW_CALCULATION_METHOD = "PolygonClipping"
+SHADOW_CALCULATION_UPDATE_FREQUENCY_METHOD = "Periodic"
+SHADOW_CALCULATION_UPDATE_FREQUENCY_DAYS = 1
+SHADOW_CALCULATION_NOTE = (
+    "D-EU-40 R7: EnergyPlus's own 20-day periodic default is documented as unsuitable for "
+    "closely-spaced urban buildings; a daily (1-day) periodic update is used instead of "
+    "Timestep to keep the four-district fleet's runtime bounded. Chosen once, before any "
+    "EnergyPlus run in this task -- reported, not tuned to a result."
+)
+
+EUROPEAN_ADIABATIC_TOLERANCE_M = 0.30
+EUROPEAN_ADIABATIC_NOTE = (
+    "D-EU-40 R6, amended by D-EU-41 (2026-08-30): openubem/idf/surfaces.py's "
+    "set_adiabatic_surfaces is a no-op stub with no neighbour-footprint input and is never "
+    "called here. The party-wall flip is a European-only pass in this file, reusing the "
+    "same neighbour rows and coordinate transform build_european_context (T06) already uses, "
+    "so shading and the flip can never disagree about a neighbour's location. Adjacency test: "
+    "the wall's XY base segment (its two most distant projected vertices) lies inside the "
+    "neighbour footprint (the same minimum-rotated-rectangle emitted for shading), buffered "
+    "by EUROPEAN_ADIABATIC_TOLERANCE_M -- state, never tune."
+)
 
 MANIFEST_COLUMNS = [
     "building_id", "archetype_id", "building_type", "age_band", "geometry_outcome",
@@ -70,7 +164,7 @@ MANIFEST_COLUMNS = [
 ]
 
 IDF_HEADER_TEMPLATE = """Version,23.1;
-Timestep,6;
+Timestep,12;
 Building,EU S2 Campaign,0,City,,,FullExterior,,;
 GlobalGeometryRules,UpperLeftCorner,CounterClockWise,World;
 HeatBalanceAlgorithm,ConductionTransferFunction,200,0.1,10000000;
@@ -79,6 +173,10 @@ SizingPeriod:WeatherFileDays,AnnualSizingPeriod,1,1,12,31,Monday,No,No;
 RunPeriod,RunPeriod1,1,1,,12,31,,Sunday,No,No,No,Yes,Yes;
 Site:Location,{city},{latitude},{longitude},{time_zone},{elevation};
 ScheduleTypeLimits,Any Number;
+ShadowCalculation,
+    {shadow_method},
+    {shadow_update_method},
+    {shadow_update_days};
 """
 
 
@@ -159,6 +257,154 @@ def _orient_zone_footprints(zones: list[dict[str, object]], *, sign: float = 1.0
         zone["coords_m"] = list(oriented.exterior.coords)[:-1]
 
 
+def compute_district_median_residential_height_m(
+    rows: list[dict[str, object]], *, floor_to_floor_m: float = FLOOR_TO_FLOOR_M,
+) -> float:
+    """D-EU-40 R4 fallback tier: median height over the district's own simulated
+    residential population, each resolved height_m if present else levels *
+    floor_to_floor_m. ``rows`` is the district's mapped residential row list
+    (the same population that becomes the simulated fleet), never the raw
+    01_buildings_clean.gpkg superset -- a non-residential context building must
+    never set the "residential" median it may itself fall back to.
+    """
+    heights: list[float] = []
+    for row in rows:
+        height_m = row.get("height_m")
+        levels = row.get("levels")
+        if pd.notna(height_m) and float(height_m) > 0.0:
+            heights.append(float(height_m))
+        elif pd.notna(levels) and float(levels) > 0.0:
+            heights.append(float(levels) * floor_to_floor_m)
+    if not heights:
+        raise ValueError("district median residential height: no row carries height_m or levels")
+    return float(statistics.median(heights))
+
+
+def build_european_context(
+    building_osm_id: str,
+    footprint,
+    buildings_clean: gpd.GeoDataFrame,
+    district_median_height_m: float,
+    height_fallback_counter: Counter,
+) -> list[dict[str, object]]:
+    """D-EU-40 R2-R5: the target's 20 m context, geometry via ``discover_context``
+    unchanged, height re-resolved per the European R4 precedence.
+
+    ``buildings_clean`` must be the district's 01_buildings_clean.gpkg superset
+    (R3), never the residential manifest alone, so non-residential/excluded/
+    typology-gap neighbours shade too. ``height_fallback_counter`` is mutated
+    in place, one increment per context building, keyed by the tier used.
+    """
+    target_row = pd.Series({"osm_id": str(building_osm_id), "_simplified_geom": footprint})
+    raw_context = discover_context(
+        target_row, buildings_clean, 0.0, 0.0, sphere_radius_m=EUROPEAN_CONTEXT_RADIUS_M,
+    )
+    by_osm_id = buildings_clean.set_index(buildings_clean["osm_id"].astype(str), drop=False)
+    context: list[dict[str, object]] = []
+    for entry in raw_context:
+        ctx_osm_id = entry["name"][len("shade_"):]
+        ctx_row = by_osm_id.loc[ctx_osm_id]
+        height_m, tier = resolve_european_context_height(
+            ctx_row.get("height_m"), ctx_row.get("levels"), district_median_height_m,
+        )
+        height_fallback_counter[tier] += 1
+        context.append({**entry, "height": height_m})
+    return context
+
+
+def _wall_xy_segment(coords) -> tuple[tuple[float, float], tuple[float, float]] | None:
+    """The wall's two most distant projected (XY) vertices -- its footprint base edge.
+
+    A vertical rectangular wall (as produced by geomeppy's add_block extrusion)
+    projects to exactly two distinct XY points; taking the most-distant pair is
+    robust to any extra collinear vertices without assuming a fixed count.
+    """
+    unique: list[tuple[float, float]] = []
+    for x, y, _z in coords:
+        pt = (round(float(x), 6), round(float(y), 6))
+        if pt not in unique:
+            unique.append(pt)
+    if len(unique) < 2:
+        return None
+    best_pair = None
+    best_dist = -1.0
+    for i in range(len(unique)):
+        for j in range(i + 1, len(unique)):
+            dist = ((unique[i][0] - unique[j][0]) ** 2 + (unique[i][1] - unique[j][1]) ** 2) ** 0.5
+            if dist > best_dist:
+                best_dist = dist
+                best_pair = (unique[i], unique[j])
+    return best_pair
+
+
+def _wall_area_m2(coords) -> float:
+    """Planar area of a vertical rectangular wall: base-segment length x height range."""
+    segment = _wall_xy_segment(coords)
+    if segment is None:
+        return 0.0
+    (x1, y1), (x2, y2) = segment
+    base_length = ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** 0.5
+    zs = [float(z) for _x, _y, z in coords]
+    return base_length * (max(zs) - min(zs))
+
+
+def apply_adiabatic_party_walls(
+    idf, context: list[dict[str, object]], *, tolerance_m: float = EUROPEAN_ADIABATIC_TOLERANCE_M,
+) -> dict[str, float]:
+    """D-EU-40 R6 / D-EU-41: flip walls shared with a neighbour to Adiabatic.
+
+    European-only pass; ``openubem/idf/surfaces.py`` is never edited or called
+    here. Reuses the exact neighbour footprints ``context[i]["coords"]`` --
+    the same minimum-rotated-rectangle ``build_european_context`` already
+    builds for shading -- so shading and the flip can never disagree about a
+    neighbour's location. Must be called after ``extrude_geometry`` (so
+    ``intersect_match`` and the shading blocks are already in the IDF -- R8).
+
+    Scope: ``BUILDINGSURFACE:DETAILED`` with ``Surface_Type == Wall`` **and**
+    ``Outside_Boundary_Condition == outdoors`` only -- never ``ground``, never
+    ``surface`` (inter-zone, from ``intersect_match``), never a
+    ``Floor``/``Roof``/``Ceiling``. A ground-floor slab at z=0 keeps ``Ground``
+    (``surfaces.py:912``) because it is never a ``Wall``.
+
+    Adjacency test: the wall's XY base segment lies inside the neighbour
+    footprint buffered by ``tolerance_m`` (shapely ``within``) -- stated here,
+    never tuned to move a count.
+
+    Returns the R9 disclosure counts: flipped wall count, exterior wall area
+    before the flip, and the flipped subset's area.
+    """
+    neighbour_polygons = [Polygon(ctx["coords"]).buffer(tolerance_m) for ctx in context]
+    flipped_count = 0
+    exterior_wall_area_m2 = 0.0
+    flipped_wall_area_m2 = 0.0
+    for surface in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
+        if str(surface.Surface_Type).strip().upper() != "WALL":
+            continue
+        if str(surface.Outside_Boundary_Condition).strip().upper() != "OUTDOORS":
+            continue
+        coords = list(surface.coords)
+        area_m2 = _wall_area_m2(coords)
+        exterior_wall_area_m2 += area_m2
+        if not neighbour_polygons:
+            continue
+        segment = _wall_xy_segment(coords)
+        if segment is None:
+            continue
+        line = LineString(segment)
+        if any(line.within(poly) for poly in neighbour_polygons):
+            surface.Outside_Boundary_Condition = "Adiabatic"
+            surface.Outside_Boundary_Condition_Object = ""
+            surface.Sun_Exposure = "NoSun"
+            surface.Wind_Exposure = "NoWind"
+            flipped_count += 1
+            flipped_wall_area_m2 += area_m2
+    return {
+        "adiabatic_wall_count": flipped_count,
+        "exterior_wall_area_m2": round(exterior_wall_area_m2, 4),
+        "adiabatic_wall_area_m2": round(flipped_wall_area_m2, 4),
+    }
+
+
 def build_geometry_for_row(row: pd.Series, manifest: gpd.GeoDataFrame) -> tuple[list[dict[str, object]], str]:
     """Return (zones, geometry_outcome) re-derived from the real footprint, never from the CSV."""
     building_id = row["building_id"]
@@ -200,8 +446,17 @@ def build_idf_for_building(
     run_dir: Path,
     *,
     epw_path: Path = WEATHER_PATH,
+    context: list[dict[str, object]] | None = None,
 ) -> Path:
-    """Assemble and save one building's IDF; caller runs EnergyPlus separately."""
+    """Assemble and save one building's IDF; caller runs EnergyPlus separately.
+
+    ``context`` (D-EU-40 / EU-16 T06): shading-only volumes for buildings within
+    the European 20 m radius, built by :func:`build_european_context`. Defaults
+    to no context (unchanged behaviour) when the caller does not supply one.
+    The same ``context`` also drives T07's adiabatic party-wall flip
+    (:func:`apply_adiabatic_party_walls`), applied right after
+    ``extrude_geometry`` so the ordering invariant (R8) holds.
+    """
     from geomeppy import IDF
     from eppy.modeleditor import IDDAlreadySetError
 
@@ -220,11 +475,64 @@ def build_idf_for_building(
     idf_path.write_text(
         IDF_HEADER_TEMPLATE.format(
             city=city, latitude=latitude, longitude=longitude, time_zone=time_zone, elevation=elevation,
+            shadow_method=SHADOW_CALCULATION_METHOD,
+            shadow_update_method=SHADOW_CALCULATION_UPDATE_FREQUENCY_METHOD,
+            shadow_update_days=SHADOW_CALCULATION_UPDATE_FREQUENCY_DAYS,
         ),
         encoding="utf-8",
     )
     idf = IDF(str(idf_path))
-    extrude_geometry(idf, zones, [])
+    extrude_geometry(idf, zones, context or [])
+    # FINDING 210 residual (D-EU-42/D-EU-43 [OPEN] correction, 2026-08-31 root-cause
+    # pass): geomeppy's own intersect_match (surfaces.py:866, non-editable, D-EU-41)
+    # inserts new boundary vertices from live floating-point intersection arithmetic
+    # when it cuts a same-zone-label block (e.g. one ``_2`` dwelling-index or
+    # ``_circulation`` block spanning every storey that carries that label) against
+    # its per-storey neighbours -- independently for the ceiling of storey n and the
+    # floor of storey n+1, so the two can end up with different final vertex counts
+    # even though the raw ring `_stabilize_ring_coords` emitted was identical and
+    # already 1 mm-snapped going in. No further ring construction change can fix a
+    # divergence introduced downstream of extrusion, so this reuses the exact
+    # gate/reroute safety net `openubem/idf/builder.py` already wires for the same
+    # symptom (`find_mismatched_interzone_pairs` +
+    # `_force_reroute_room_layout_to_one_zone_per_floor`, which already understands
+    # ``mode="european_dwelling_layout"`` zones) -- one_zone_per_floor has no
+    # interzone perim pairs, so it structurally cannot reproduce this mismatch.
+    #
+    # A raw `len(coords)` count match is NOT sufficient on its own -- confirmed by
+    # running EnergyPlus 23.1.0 directly (Windows, this session) on stem
+    # `e21bec78b937acf5`: `find_mismatched_interzone_pairs` reported 0 mismatches
+    # (both paired surfaces carried 7 raw vertices, mirror-ordered), yet EnergyPlus's
+    # own GetVertices/CheckConvexity still collapsed them asymmetrically to 4 vs 6 and
+    # FATALed identically to Speed. The culprit was a sub-mm near-duplicate vertex
+    # pair intersect_match had inserted into BOTH surfaces' own rings (one point
+    # grid-clean from the 1 mm snap, the other an unsnapped raw intersection
+    # coordinate ~0.0002-0.0006 m away) -- EnergyPlus's own duplicate-vertex removal
+    # is winding-direction-dependent, so it does not collapse both sides the same way.
+    # `_has_near_duplicate_vertex` below flags exactly this pattern (any two
+    # consecutive vertices on one surface's own ring closer than
+    # `NEAR_DUPLICATE_VERTEX_TOLERANCE_M`) so the reroute fires proactively instead of
+    # relying on a raw count that this class of defect does not always move.
+    mismatched = find_mismatched_interzone_pairs(idf)
+    at_risk = mismatched or _has_near_duplicate_vertex_surfaces(idf)
+    if at_risk:
+        reason = "interzone_vertex_mismatch" if mismatched else "near_duplicate_vertex"
+        did_reroute = _force_reroute_room_layout_to_one_zone_per_floor(idf, zones, reason)
+        if did_reroute:
+            idf.intersect_match()
+            _repair_roof_roof_pairs(idf)
+            _repair_mismatched_horizontal_pairs(idf)
+            _pair_interfloor_surfaces(idf)
+            mismatched = find_mismatched_interzone_pairs(idf)
+            residual_near_dup = _has_near_duplicate_vertex_surfaces(idf)
+        else:
+            residual_near_dup = _has_near_duplicate_vertex_surfaces(idf)
+        if mismatched or residual_near_dup:
+            raise RuntimeError(
+                f"interzone_vertex_mismatch_unresolved: mismatched={mismatched} "
+                f"near_duplicate_vertex={residual_near_dup}"
+            )
+    apply_adiabatic_party_walls(idf, context or [])
     write_zone_volumes(idf, zones)
 
     wall_construction = _envelope_construction(idf, record, "wall")
@@ -240,6 +548,21 @@ def build_idf_for_building(
             surface.Construction_Name = floor_construction
 
     for zone in zones:
+        if zone.get("conditioned") is False:
+            # D-EU-39 §3 / EU-15 T05: the carved circulation core/corridor is
+            # unconditioned -- no SIZING:ZONE, no HVACTemplate:Zone, no
+            # internal gains, only the ruled constant infiltration rate.
+            if idf.getobject("SCHEDULE:CONSTANT", "EU_AlwaysOn") is None:
+                idf.newidfobject("SCHEDULE:CONSTANT", Name="EU_AlwaysOn", Hourly_Value=1.0)
+            idf.newidfobject(
+                "ZONEINFILTRATION:DESIGNFLOWRATE",
+                Name=f"EU_Circulation_Infiltration_{zone['name']}",
+                Zone_or_ZoneList_or_Space_or_SpaceList_Name=zone["name"],
+                Schedule_Name="EU_AlwaysOn",
+                Design_Flow_Rate_Calculation_Method="Flow/Area",
+                Flow_Rate_per_Floor_Area=float(zone.get("infiltration_m3_s_m2", 0.000500)),
+            )
+            continue
         floor_area_m2 = float(zone["floor_polygon"].area)
         add_european_internal_mass(idf, zone["name"], floor_area_m2, c_m_wh_m2k=float(record["c_m_wh_m2k"]))
         idf.newidfobject(

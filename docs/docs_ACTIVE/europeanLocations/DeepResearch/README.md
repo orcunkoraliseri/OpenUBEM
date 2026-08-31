@@ -8,7 +8,12 @@ docs/docs_ACTIVE/europeanLocations/DeepResearch/
 ├── DR08_actual_year_weather_sources_and_licences_brief.md      <- Brief (prompt) for the AMY weather question  (D-EU-05)
 ├── DR09_tabula_licence_and_france_registry_brief.md            <- Brief for the TABULA licence + France subset  (D-EU-08, D-EU-11)
 ├── DR10_european_open_building_data_and_dense_neighbourhoods_brief.md <- Brief for EPC/cadastre sources + N1 candidates (D-EU-10)
-└── DR11_tabula_to_dynamic_simulation_translation_brief.md      <- Brief validating the desk rulings D-EU-01/02/03/07
+├── DR11_tabula_to_dynamic_simulation_translation_brief.md      <- Brief validating the desk rulings D-EU-01/02/03/07
+├── DR12_eui_external_validation_brief.md                        <- Brief validating the EU-11 district heating-EUI results (cross-country method)
+├── DR13_madrid_berruguete_validation_brief.md                   <- Brief validating the Madrid / Berruguete district result
+├── DR14_lyon_croixrousse_validation_brief.md                    <- Brief validating the Lyon / Haut Cœur des Pentes district result
+├── DR15_london_stdunstans_validation_brief.md                   <- Brief validating the London / St Dunstan's district result
+└── DR16_bologna_galvani2_validation_brief.md                    <- Brief validating the Bologna / Galvani 2 district result
 ```
 
 ## How this dossier works (two files per topic)
@@ -33,11 +38,38 @@ A report is **not** an authority by itself. The standing citation rule of this a
 ### 11. [`DR11: Translating TABULA Monthly-Balance Parameters into Dynamic Simulation`](DR11_tabula_to_dynamic_simulation_translation_brief.md)
 * **Validates**: the desk rulings D-EU-01 (box from areas + `n_Apartment`), D-EU-02 (mass-less U + explicit `c_m`; ΔU surcharge; `b`-factors as other-side coefficients), D-EU-03 (`n_air_use + n_air_infiltration`), D-EU-07 (`F_red_temp` as transfer-coefficient multiplier; all-convective gain; no cooling). Asks the literature (TEASER, TABULA/EPISCOPE calculation documentation, EN ISO 13790/52016 annexes, published TABULA→EnergyPlus/Modelica studies) whether each realisation is standard, whether a better-founded one exists, and what error each is known to introduce.
 
+### 12. [`DR12: External Validation of the EU-11 District Heating-EUI Results`](DR12_eui_external_validation_brief.md)
+* **Validates**: the per-district heating EUIs produced by `EU-11` (four districts, real footprints, TABULA archetypes, pinned ERA5-derived weather, EnergyPlus 23.1 on Speed).
+* **Questions**: which published sources carry a comparable residential space-heating intensity for Spain, France, the UK and Italy and what each actually measures; the correction chain between delivered/primary energy and a simulated net demand; what exists below city level for Berruguete, Croix-Rousse, St Dunstan's and Galvani 2; the unsurprising range per district; the prebound/rebound and zoning/mass biases of this route; and a justified acceptance test.
+* **Opened**: 2026-08-28. **Report returned**: [`DR12_eui_external_validation.md`](DR12_eui_external_validation.md).
+
+### 13. [`DR13: Madrid / Berruguete — District Result Validation`](DR13_madrid_berruguete_validation_brief.md)
+* **Validates**: the `ES-MAD-BERRUGUETE` fold of `EU-11` — 1,194 residential buildings, OSM footprints, **no measured height** (1,044 `storeys × 3.0 m`, 354 assumed 9.0 m), Catastro-observed year on 1,183 of 1,194, ERA5 **2009–2010**.
+* **Questions**: SPAHOUSEC / IDAE / Odyssee benchmarks and what each measures; district-level evidence for Tetúán; the 2009–2010 degree-day correction; Spanish prebound and partial heating; the unsurprising range and an acceptance test.
+* **Opened**: 2026-08-28. Report not yet returned.
+
+### 14. [`DR14: Lyon / Haut Cœur des Pentes — District Result Validation`](DR14_lyon_croixrousse_validation_brief.md)
+* **Validates**: the `FR-LYO-HAUTCOEURPENTES` fold of `EU-11` **and the already-produced 31-building `s2_campaign_v3` figure, 60.7087 kWh/m² over 19,823.6173 m²** — the only district with measured heights (764 of 768) and the only one with an existing result.
+* **Questions**: CEREN / TREMI / base DPE benchmarks (DPE is *conventional*); IRIS and Grand Lyon district evidence; the **2023** warm-year correction; the zoning-fallback and vertex-order (**11.8 %**) sensitivities; where 60.7087 falls, with the 31-of-530 and 26-massing-box caveats repeated.
+* **Opened**: 2026-08-28. Report not yet returned.
+
+### 15. [`DR15: London / St Dunstan's — District Result Validation`](DR15_london_stdunstans_validation_brief.md)
+* **Validates**: the `GB-LDN-STDUNSTANS` fold of `EU-11` — 1,242 residential buildings, **no measured height**, construction year present on **1 of 1,242** so only the EPC-covered subset is simulable, ERA5 **2014–2015**.
+* **Questions**: NEED / sub-national LSOA gas / EPC-SAP benchmarks and why metered gas is not space-heating demand; LSOA-level evidence for the ward; the **mild 2014** correction; UK prebound, partial heating and party-wall effects in flatted stock; how a partial population must be reported.
+* **Opened**: 2026-08-28. Report not yet returned.
+
+### 16. [`DR16: Bologna / Galvani 2 — District Result Validation`](DR16_bologna_galvani2_validation_brief.md)
+* **Validates**: the `IT-BOL-GALVANI2` fold of `EU-11` — the weakest-attributed district: **0 of 1,220 construction years, 0 of 1,220 storeys, every height assumed 9.0 m**.
+* **Questions**: §0 asks first for **data recovery** (per-building year, the `c_a944ctc_edifici_pl` height layer, any LiDAR/DSM, each with licence and coverage); then ENEA / ISTAT / SIAPE benchmarks; centro-storico evidence; the **mild 2013–2014** correction; heavy-masonry vs mass-less model, the uniform 9.0 m assumption, and archetype assignment without an observed year; and what this district's result may **not** be used for.
+* **Opened**: 2026-08-28. Report not yet returned.
+
+**Order of execution**: `DR12` (cross-country method) first — `DR13`–`DR16` instantiate its correction chain per country and each may be run independently afterwards. All five are reserved for **Gemini Antigravity**; the `EU-11` simulation itself is a separate, non-research work package.
+
 ## Associated Arc Documents
 * **Decision record these briefs serve**: [`../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md`](../debugs/docs/DONE-docs/DECISIONS_parent-open-items-2026-08-23.md)
 * **Extracted TABULA columns (evidence)**: [`../debugs/docs/DONE-docs/tabula_102_extra_columns_2026-08-23.csv`](../debugs/docs/DONE-docs/tabula_102_extra_columns_2026-08-23.csv)
-* **MVP specification**: [`../MVP_european_locations.md`](../MVP_european_locations.md) (§11 source alignment; §11.12 rulings)
-* **Walkthrough**: [`../WALKTHROUGH_european_locations.md`](../WALKTHROUGH_european_locations.md) (§12 executor contract)
+* **MVP specification**: [`../previous/MVP_european_locations.md`](../previous/MVP_european_locations.md) (§11 source alignment; §11.12 rulings)
+* **Walkthrough**: [`../previous/WALKTHROUGH_european_locations.md`](../previous/WALKTHROUGH_european_locations.md) (§12 executor contract)
 * **Director prompt**: [`../prompts/DIRECTOR_PROMPT_european_locations.md`](../prompts/DIRECTOR_PROMPT_european_locations.md)
 * **Parent dossier (DR01–DR07)**: `C:\Users\o_iseri\Desktop\GSSCanada\GSSCanada-main\4J_docs_occ\Step8_docs\IMP_step8\DeepResearch\README.md`
 

@@ -1,7 +1,7 @@
 # Decision request — EU-04 remaining blockers (`GEO-08`, `GEO-10`/S1–S3)
 
 **Date:** 2026-08-25
-**Status:** `RULED` (E1 + F2 selected)
+**Status:** `RULED` (E1 + **F4**) — F2 was selected 2026-08-25 and **SUPERSEDED 2026-08-28**; see the outcome block in §2.5
 **Raised by:** manager session, after `EU-04 / S0-SMOKE-02` closed S0's scope
 **Decisions requested:** `D-EU-04-E` (observed year + dwelling count source), `D-EU-04-F` (Grasshopper golden set)
 
@@ -155,7 +155,7 @@ appears in a paper, would be `UNSOURCED` under this arc's own §0 rule.
   point at the normalized Grasshopper output; parity comparison is then implemented
   as a normal task and `GEO-08` closes properly.
 
-- [x] **F2 — Defer `GEO-08` until after S1–S3.** It stays open and explicitly
+- [ ] ~~**F2 — Defer `GEO-08` until after S1–S3.**~~ *(selected 2026-08-25; SUPERSEDED 2026-08-28 — see the outcome block at the end of this section)* It stays open and explicitly
   unclaimed; the ladder proceeds. Recommended if the golden export is not near to
   hand, because `GEO-08` does not gate anything downstream.
 
@@ -164,7 +164,7 @@ appears in a paper, would be `UNSOURCED` under this arc's own §0 rule.
   Requires an explicit amendment to MVP §4.8, since Table 4 currently lists it as a
   required gate.
 
-- [ ] **F4 — Substitute a different independent reference** (a second, independently
+- [x] **F4 — Substitute a different independent reference** *(RULED 2026-08-28 — this is the standing outcome)* (a second, independently
   written partitioner, or a CAD export) as the cross-implementation check. Honest
   independence, but it is no longer Grasshopper parity and §4.8 must say so.
 
@@ -172,38 +172,27 @@ appears in a paper, would be `UNSOURCED` under this arc's own §0 rule.
 
 **If F1 is selected, name the footprint set, CRS, and definition version:**
 
-> _N/A (Option F2 selected)._
+> _N/A._
 
-**If F3, F4 or F5 is selected, give the exact §4.8 amendment text:**
+### 2.5 Outcome — RULED 2026-08-28, option F4 (substitute an independent reference)
 
-> _N/A (Option F2 selected)._
+🔴 **The 2026-08-25 F2 deferral is SUPERSEDED. `GEO-08` is RE-BASED, neither deferred nor waived.**
+The owner ruled that OpenUBEM is a **Python-only** pipeline and that no Rhino/Grasshopper runtime
+will be used in this arc, so the golden export F1 would require will never exist. Rather than drop
+the only cross-implementation check, its reference is replaced: a **second, independently written
+Python partitioner**, sharing no code with `openubem.geometry`, processes the same footprints and is
+compared on zone count, areas, exterior contact and adjacency, ordering ignored.
 
-**Owner ruling / initials / date:**
+Binding consequences, all recorded in `MVP_european_locations.md` §4.8 and §9.7.3:
 
-> RULING: Option F2 adopted (GEO-08 deferred and explicitly open/unclaimed; does not gate S1–S3). / Project Lead / 2026-08-25
-
----
-
-## 3. Manager recommendation
-
-**E1 and F2.** E1 is the only option that resolves both missing inputs from one
-authoritative source using an adapter that already exists, and it neither imputes a
-value nor waives a gate. F2 keeps `GEO-08` honestly open rather than waived, and it
-gates nothing, so the ladder moves while the golden export is found.
-
-If you tick E1 the next task is the France acquisition pass; if you tick F1 as well,
-the parity comparison becomes the task after it. One task at a time, as ruled.
-
----
-
-## 4. Confirmation
-
-Completing §1.4 and §2.4 authorizes the European implementation to act on the ticked
-options only. No construction year, dwelling count, typology, or parity result may be
-inferred, imputed, or claimed outside what is ticked here, and any imputation approved
-under E3 must carry its provenance into every artefact it touches.
-
-**Owner name / initials:** Project Lead / Evaluator
-
-**Date:** 2026-08-25
-
+1. 🔴 **This is no longer Grasshopper parity and must never be written as such.** Parity with the
+   Ankara/Grasshopper method stays **NOT TESTED**; any such claim is `UNSOURCED` under the MVP's §0
+   rule. What `GEO-08` now asserts is *independent-reimplementation agreement* — weaker, and different.
+2. 🔴 **The independence is part of the gate.** A reference that imported the implementation under
+   test would prove nothing, so the test asserts the reference imports nothing from `openubem.geometry`.
+3. 🔴 **The neighbourhood `.html` viewer is NOT part of `GEO-08`.** §4.8's rule stands: *visual
+   similarity alone is not a pass.* It is an inspection aid and may never be cited as evidence.
+4. ⚪ `GEO-03`'s comparison column (*"Python vs. Grasshopper export"*) is void under the same ruling
+   and was restated to the local supplied-partition audit on which `GEO-03` was actually accepted;
+   its assertion and acceptance are unchanged, and the former text is retained inline.
+5. ⚪ The re-basing does **not** close `EU-04`: real-footprint layout remains its open item.

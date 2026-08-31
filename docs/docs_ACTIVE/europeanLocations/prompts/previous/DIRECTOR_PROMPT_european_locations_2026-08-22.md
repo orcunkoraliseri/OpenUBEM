@@ -69,8 +69,8 @@ Use this precedence when sources disagree:
 
 For day-to-day work, the additive correction sections in the two local planning documents are the active working specification:
 
-- `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md`
-- `docs/docs_ACTIVE/europeanLocations/WALKTHROUGH_european_locations.md`
+- `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md`
+- `docs/docs_ACTIVE/europeanLocations/previous/WALKTHROUGH_european_locations.md`
 
 Earlier sections in those documents remain as historical design material. Where an addendum labels an earlier command, API, count, or assumption as illustrative or superseded, follow the addendum.
 

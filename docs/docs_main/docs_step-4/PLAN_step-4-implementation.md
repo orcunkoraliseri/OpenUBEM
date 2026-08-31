@@ -2,7 +2,7 @@
 
 > **Slug:** `step-4-run-energyplus-in-parallel-for-every-generated-idf-via-joblib-loky-in-isol`
 > **Date:** 2026-06-10 • **Author:** Manager session
-> **Binding contract:** `docs/docs_step-4/DESIGN_step-4-run-energyplus-in-parallel-for-every-generated-idf-via-joblib-loky-in-isol.md`. Line numbers cite that file.
+> **Binding contract:** `docs/docs_main/docs_step-4/DESIGN_step-4-run-energyplus-in-parallel-for-every-generated-idf-via-joblib-loky-in-isol.md`. Line numbers cite that file.
 > **Environment fact (manager-verified):** EnergyPlus 23.1 is installed at `C:\EnergyPlusV23-1-0\energyplus.exe` (22.1 and 24.2 also present — the handshake must select/verify 23.1). Integration tests therefore RUN on this machine; they must still skip gracefully where the binary is absent.
 > **Upstream dependency:** Steps 2.1 and 2.2 complete (the bridge to real Step-3 IDFs). The synthetic-fixture tasks (T01–T09) need only Step 3's existing test scaffolding.
 

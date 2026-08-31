@@ -2,7 +2,7 @@
 
 - **Date:** 2026-08-26
 - **Arc:** European locations × Step 8 boundary closure
-- **Record:** `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md` §12.15
+- **Record:** `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md` §12.15
 - **Finding:** **EU-S2-06** (new)
 - **Blocks:** promotion of any fold to `RULED_PINNED` — and therefore the executable `v1.0`
 - **Follows:** D-EU-14, ruled (b) — this is the preparation D-EU-14 ordered, reporting its first result
@@ -140,7 +140,7 @@ That is FINDING EU-S2-06 and it stands whichever option you choose.
 | `openubem/data/weather/benchmarks/es_2009_monthly_ghi_benchmark.json` | The reference values, with their PVGIS endpoint |
 | `openubem/acquisition/european_weather.py` — `evaluate_monthly_benchmark_gate` | The 10 % relative rule and the exception mechanism |
 | `docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_EU-07_Lyon_gate5_GHI_2026-08-26.md` | The France precedent |
-| `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md` §12.15 | FINDING EU-S2-06 |
+| `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md` §12.15 | FINDING EU-S2-06 |
 
 **Answer:** **(a) Approve per fold-year** ☒   **(b) Standing winter rule** ☐   **(c) Reject** ☐
 

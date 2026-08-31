@@ -2,7 +2,7 @@
 
 - **Date:** 2026-08-26
 - **Arc:** European locations × Step 8 boundary closure
-- **Record:** `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md` §12.15, §12.22
+- **Record:** `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md` §12.15, §12.22
 - **Finding:** **EU-S2-06** (already open)
 - **Blocks:** promotion of `uk` and `it` to `RULED_PINNED` — and therefore the frozen executable `v1.0`
 - **Follows:** D-EU-15, ruled (a) for `es` 2009 month 12 and `es` 2010 month 1

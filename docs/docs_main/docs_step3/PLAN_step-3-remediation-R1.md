@@ -2,7 +2,7 @@
 
 - **Slug:** step-3-remediation-R1
 - **Date:** 2026-06-11
-- **Binding contracts:** `docs/docs_main/docs_step3/DESIGN_step-3-generate-one-energyplus-idf-per-building-from-the-archetype-enriched-geod.md` and `docs/docs_step-4/DESIGN_step-4-run-energyplus-in-parallel-for-every-generated-idf-via-joblib-loky-in-isol.md`. Read-only; never edit them.
+- **Binding contracts:** `docs/docs_main/docs_step3/DESIGN_step-3-generate-one-energyplus-idf-per-building-from-the-archetype-enriched-geod.md` and `docs/docs_main/docs_step-4/DESIGN_step-4-run-energyplus-in-parallel-for-every-generated-idf-via-joblib-loky-in-isol.md`. Read-only; never edit them.
 - **Goal:** the Boston 483-building fleet must reach **483/483 simulation success** and a clean Step-5 results regeneration. The manager has already root-caused all 8 failures (§5); execute the prescribed fixes — do not re-diagnose from scratch.
 
 ## §2 Hard rules for the executor

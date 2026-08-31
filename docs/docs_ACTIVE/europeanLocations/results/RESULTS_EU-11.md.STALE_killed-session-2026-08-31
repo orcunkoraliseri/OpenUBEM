@@ -1,0 +1,322 @@
+# RESULTS_EU-11 — full district campaign on Speed, harvested
+
+- **Arc**: European locations × Step 8. Executor prompt:
+  [`prompts/PROMPT_EU-16B_speed_resimulation_T09.md`](../prompts/PROMPT_EU-16B_speed_resimulation_T09.md).
+- 🔴 **Superseded 2026-08-31 (`EU-15`/`EU-16` T09, `D-EU-42`/`D-EU-43`).** All four districts rebuilt on the
+  `EU-15` ruled thermal zoning (carved circulation cores, retired strip cutter) **and** `EU-16` context
+  geometry (20 m shading, adiabatic party walls) simultaneously — the two are not separable in this harvest
+  (see the T09 progress-log entry, `PLAN_eu15-eu16-zoning-context-2026-08-30.md` §8). Wave 1: jobs
+  `1299912`/`1299945`/`1299946`/`1299947` (Madrid/Lyon/London/Bologna, 2026-08-30). `FINDING 210` (a
+  cross-platform/GEOS-build vertex-precision fragility in boolean-op-derived dwelling/circulation rings,
+  registered `OpenUBEM_debug_References.md` "European locations EU-16") and a related "zero/negative
+  surface area" symptom of the same defect killed 8–9 % of tasks before warmup. Fixed via
+  `_stabilize_ring_coords` (`openubem/geometry/european_residential.py`, 1 mm precision snap) and
+  resubmitted restricted to exactly the casualties: `D-EU-42` (81 stems: 66 Madrid + 13 Lyon + 2 London,
+  jobs `1302748`/`1302781`/`1302782` after a corrected v2 rebuild — see the T09 progress-log Deviations) and
+  `D-EU-43` (45 stems: 32 Madrid + 13 Lyon "zero/negative surface area", jobs `1302787`/`1302788`). This
+  first fix wave (v2) recovered 53/98 Madrid, 18/35 Lyon, 1/2 London of the wave-1 fatals. 🔴 **A second,
+  overlapping session then diagnosed a further root cause on the same residual** (`geomeppy`'s
+  `intersect_match` inserting new boundary vertices post-extrusion, independently per surface — see
+  `OpenUBEM_debug_References.md`), implemented a second fix (a post-extrusion `find_mismatched_interzone_pairs`
+  reroute gate in `scripts/run_eu_s2_campaign.py::build_idf_for_building`), and submitted a third wave (v3,
+  jobs `1302881`/`1302908`/`1302920`, 52 stems: 43 Madrid + 8 Lyon + 1 London) under the same `D-EU-43`-style
+  authorisation, relayed mid-task. **That session's own claim of "0/52 mismatches, fix proven" does not match
+  the actual Speed result**, independently re-verified here by reading `sacct` and every residual `.err`: v3
+  recovered only 11/43 Madrid, 1/8 Lyon, 0/1 London (12/52 = 23 %), with 9 tasks `CANCELLED` before ever
+  running and the rest still showing the identical `FINDING 210` vertex-size-mismatch signature — corrected
+  in `OpenUBEM_debug_References.md` in place, exactly as that session corrected the first (false) "conclusively
+  proved" claim before it. **Final combined recovery across both fixes: 64/98 Madrid, 19/35 Lyon, 1/2 London.**
+  The true final residual is **34 Madrid, 16 Lyon, 1 London**, all still blank `heating_kwh`, never pooled —
+  see the table below. Neither `D-EU-42` nor `D-EU-43` authorises a fourth wave; none was submitted.
+  **Bologna's own 177 wave-1 fatals (85 `FINDING 210` + 92 other) were never in scope for any of the three
+  waves** — its wave 1 was still running when the first fix fleets were built — and remain **fully
+  unaddressed**, disclosed here, not silently pooled around. The `EU-13B`/`EU-14B` figures below
+  (81.5325/69.5235/86.8703/47.4921 kWh/m²) are historical context only, superseded wherever they disagree
+  with the table below.
+- **Date harvested**: 2026-08-28 (original); re-harvested 2026-08-28 under `D-EU-35` Option 1; superseded
+  2026-08-30 by `EU-13B` T09 (Madrid/Lyon/London) and `EU-14B` T05 (Bologna); **superseded again 2026-08-31
+  by `EU-15`/`EU-16` T09** (above). Harvest script: `scripts/cluster/harvest_eu11_district.py`.
+- **Scope**: S2 real-footprint perimeter, `f = 0` (uninjected baseline), heating only. This is **not** the
+  frozen S0 archetype campaign (149 cells) and is not compared to it. `D-EU-27/28/30/31` are untouched.
+
+## Per-district results
+
+| District | attempted | prep-excluded | run on Speed | success | Speed-failed | pooled heating EUI |
+|---|---:|---:|---:|---:|---:|---:|
+| `ES-MAD-BERRUGUETE` | 1,194 | 233 | 961 | 927 | 34 | **72.2892 kWh/m²** |
+| `FR-LYO-HAUTCOEURPENTES` | 530 | 233 | 297 | 281 | 16 | **62.4470 kWh/m²** |
+| `GB-LDN-STDUNSTANS` | 1,242 | 1,160 | 82 | 81 | 1 | **78.3505 kWh/m²** |
+| `IT-BOL-GALVANI2` | 1,220 | 16 | 1,204 | 1,014 | 190 | **48.9253 kWh/m²** 🔴 imputed period |
+
+Figures above are the `EU-15`/`EU-16` T09 resimulation (wave 1 + `D-EU-42` + `D-EU-43`, 2026-08-30/31),
+**superseding** the `EU-13B`/`EU-14B` figures previously shown here (81.5325/69.5235/86.8703/47.4921
+kWh/m², see per-district sections below and `RESULTS_EU-13B.md`/`RESULTS_EU-14B.md` for that history).
+🔴 Bologna's 190 Speed-failed rows include the 177 wave-1 fatals never covered by `D-EU-42`/`D-EU-43`
+(disclosed above) plus 13 `prep`-adjacent exclusions; still the only district with an imputed
+`construction_period` (never `OBSERVED_YEAR`) and an imputed dwelling count for 100 % of its population.
+
+Manifests: `openubem/outputs/eu_evidence/EU-11/<DISTRICT>/<district_slug>_manifest.csv`.
+Post-run summaries: `openubem/outputs/eu_evidence/EU-11/<DISTRICT>/summary.json` (pre-run version kept
+alongside as `summary_prerun.json`).
+
+### Madrid `ES-MAD-BERRUGUETE`
+
+🔴 **Superseded 2026-08-30 (`EU-13B` T09, job `1297338`).** Current authoritative figure: **81.5325
+kWh/m²** (865,128.0203 m², 914/952 success, 38 `EPLUS_FATAL`). Population dropped 961→952 (9 buildings,
+0.94%, excluded `IDF_ASSEMBLY_FAILED_ZeroDivisionError` — a geomeppy numeric edge case on the new
+ruled-grid geometry, registered in the debug reference file). 902/952 (94.7%) now dwelling-partitioned
+(900 observed + 2 imputed-count), up from 770/961 (80.1%). Full census: `RESULTS_EU-13B.md` section 12.
+The paragraph below describes the prior `D-EU-35` state (job `1294465`, 79.0862 kWh/m²) and is kept as
+historical record.
+
+- Prep exclusions (measured at staging, `run_eu_s2_district_campaign.py`): `MISSING_OBSERVED_STOREY_COUNT`
+  145, `UNMAPPABLE_RESIDENTIAL_TYPE` 77, `MISSING_OBSERVED_YEAR_BUILT` 7,
+  `MISSING_OBSERVED_YEAR_BUILT;UNMAPPABLE_RESIDENTIAL_TYPE` 4. Unchanged by `D-EU-35` — same 961-building
+  prepared population, resimulated.
+- Speed (`D-EU-35` resimulation, job `1294465`): 961 tasks. 957 completed (rc=0, 0 severe, 0 fatal, heating
+  parsed). 4 `EPLUS_FATAL` (rc=1, 1 fatal each, 4/4/4/8 severe) — `GetSurfaceData` RoofCeiling
+  vertex-count-mismatch fatal, same symptom class as Lyon/Bologna; `heating_kwh`/`eui_kwh_m2` blank for
+  these 4, never fabricated (registered `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`).
+- `geometry_outcome` split, **post-`EU-13`** (`FINDING EU-S2-01` no longer the dominant story here):
+  `DWELLING_LAYOUT_EMITTED` 769, `DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT` 1, `FALLBACK_PENDING_LAYOUT` 189,
+  `FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT` 2 — **770/961 (80.1 %) now carry real dwelling
+  partitioning**, up from 51/961 (5.3 %) pre-`EU-13`. The pooled EUI rose from 73.1889 to 79.0862 kWh/m²,
+  consistent with DR13 §6.3's documented direction (massing-box single-zone sharing underestimates heating
+  4–10 % vs dwelling-partitioned).
+- Platform/version observed directly from Speed run headers: `EnergyPlus, Version 23.1.0-87ed9199d4` (19
+  distinct build timestamps across the array, same engine build); hosts `speed-24..39`, `magic-node-02..10`,
+  `wolsey`, `xailab`, `antenna1`, `matrix` (all `Linux 5.14.0-687.3x/41.1.el9_8.x86_64`).
+
+### Lyon `FR-LYO-HAUTCOEURPENTES`
+
+🔴 **Superseded 2026-08-30 (`EU-13B` T09, job `1297355`).** Current authoritative figure: **69.5235
+kWh/m²** (363,510.0729 m², 277/283 success, 6 `EPLUS_FATAL`). Population dropped 297→283 (14 buildings,
+4.7%, excluded `IDF_ASSEMBLY_FAILED_ZeroDivisionError`). 268/283 (94.7%) now imputed-count
+dwelling-partitioned, up from 239/297 (80.5%) — `FINDING 198` below deepens rather than resolves: the
+dwelling-partitioned share rose further and the EUI barely moved (70.0619 → 69.5235). Full census:
+`RESULTS_EU-13B.md` section 12. The paragraph below describes the prior `D-EU-35` state (job `1294513`,
+70.0619 kWh/m²) and is kept as historical record.
+
+- Prep exclusions: `TYPOLOGY_SIGNALS_DISAGREE` 186, `TYPOLOGY_DWELLINGS_IN_REGISTRY_GAP_13_14` 37,
+  `MISSING_OBSERVED_YEAR_BUILT` 5, `MISSING_OBSERVED_YEAR_BUILT;TYPOLOGY_SIGNALS_DISAGREE` 3,
+  `MISSING_OBSERVED_DWELLING_COUNT` 1, `MISSING_OBSERVED_STOREY_COUNT` 1. Unchanged by `D-EU-35` — same
+  297-building prepared population, resimulated.
+- Speed (`D-EU-35` resimulation, job `1294513`): 297 tasks. 290 completed; 7 `EPLUS_FATAL` (rc=1, 1 fatal
+  each, 2/4/6/10/12/12/81 severe), same `GetSurfaceData` vertex-mismatch symptom. One of the 7 is the
+  previously-flagged `fleet.lst` entry 31, stem `b2d90c2cba300225` = building
+  `BATIMENT0000000240879534_part0` — the same building that was already the single `EPLUS_FATAL` of the
+  96-building `S3` campaign (registered `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` ch.1); not
+  fixed here either, same disposition.
+- `geometry_outcome`, **post-`EU-13`**: `DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT` 239,
+  `FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT` 58 — **239/297 (80.5 %) now carry imputed-count dwelling
+  partitioning**, up from 0/297 (0 %) pre-`EU-13`, when the pooled EUI was 64.6017 kWh/m² on 100 %
+  massing-box geometry.
+- 🔴 **`FINDING 198` — the composition shift did not move the EUI the way DR14's own within-run comparison
+  predicts.** DR14 measured, in the same simulation run, 5 dwelling-partitioned buildings averaging
+  113.33 kWh/m² against 26 massing-box buildings averaging 49.40 kWh/m². A population-weighted blend of an
+  80/20 dwelling-partitioned/fallback split on those two reference means would land near 100 kWh/m²; the
+  harvested pooled figure is **70.0619 kWh/m²**, essentially unchanged from the pre-`EU-13` 100 %-fallback
+  figure (64.6017). DR14's two-track acceptance table (§7, `Dwelling-Partitioned` vs
+  `If Massing-Box Fallback Persists`) does not cover a mixed population, so no verdict can be read off it
+  directly — see the DR12–16 table below. Not diagnosed further here; candidates include EU-13's imputed
+  dwelling partition producing thinner heating gains than DR14's 5-building sample, or that 5-building
+  sample not being representative at 239-building scale. Recorded, not corrected.
+- 🔴 **Not comparable to `s2_campaign_v3` (60.7087 kWh/m², 31-building Lyon sample, Windows EnergyPlus).**
+  Per `FINDING 187`/`FINDING 190` the Speed engine is a different binary and platform; this Speed number
+  (70.0619 kWh/m², 297 buildings) is a different measurement on a different, much larger sample and
+  supersedes nothing — both stand, neither is carried across.
+- `FINDING EU-S2-08` (vertex order worth 11.8 % of heating with area/volume byte-identical) applies to the
+  geometry writer used here unchanged — the corrected `s2_campaign_v3` winding orientation was kept, not
+  re-derived.
+- Platform/version: `EnergyPlus, Version 23.1.0-87ed9199d4`, hosts `speed-24..39`, `magic-node-03/06/10`,
+  `wolsey`, `xailab`, `antenna1`.
+
+### London `GB-LDN-STDUNSTANS`
+
+🔴 **Superseded 2026-08-30 (`EU-13B` T09, job `1297373`).** Current authoritative figure: **86.8703
+kWh/m²** (78,196.5715 m², 76/80 success, 4 `EPLUS_FATAL`). Population dropped 82→80 (2 buildings, 2.4%,
+excluded `IDF_ASSEMBLY_FAILED_ZeroDivisionError`). 59/80 (73.75%) now imputed-count dwelling-partitioned.
+**Verdict moved**: 86.8703 exceeds DR15's CONSISTENT ceiling (45.0–85.0) and now falls in DR15's own
+pre-registered WORTH INVESTIGATING upper tail (85.0–105.0) — London's previously-unchanged CONSISTENT
+verdict does not survive this geometry fix; see the DR12–16 table below. Full census:
+`RESULTS_EU-13B.md` section 12. The paragraph below describes the prior `D-EU-35` state (job `1294581`,
+74.7151 kWh/m², still CONSISTENT) and is kept as historical record.
+
+- Prep exclusions: `UNMAPPABLE_RESIDENTIAL_TYPE` 345, `PERIOD_STRADDLE_D_GB.03_GB.04` 97,
+  `PERIOD_STRADDLE_C_GB.02_GB.03` 77, `PERIOD_STRADDLE_B_GB.01_GB.02` 76, `PERIOD_STRADDLE_F_GB.04_GB.05` 66,
+  `MISSING_OBSERVED_EPC_AGE_BAND` 445 (of 1,242, only the buildings whose fetched EPC certificate carries a
+  usable, non-straddling `age_band` were run), `PERIOD_STRADDLE_K_GB.07_GB.08` 20,
+  `PERIOD_STRADDLE_J_GB.06_GB.07` 19, `MISSING_OBSERVED_STOREY_COUNT` 15. Unchanged by `D-EU-35` — same
+  82-building prepared population, resimulated.
+- Speed (`D-EU-35` resimulation, job `1294581`): 82 tasks, 81/82 completed (rc=0, 0 severe, 0 fatal). 1
+  `EPLUS_FATAL` (rc=0, 4 severe, 1 fatal) — same `GetSurfaceData` vertex-mismatch symptom class.
+- `geometry_outcome`, **post-`EU-13`**: `DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT` 69,
+  `FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT` 13 — **69/82 (84.1 %) now carry imputed-count dwelling
+  partitioning**, up from 0/82 (0 %) pre-`EU-13`, when the pooled EUI was 67.4153 kWh/m². The pooled EUI
+  rose to 74.7151 kWh/m², same direction as Madrid, unlike Lyon.
+- Platform/version: `EnergyPlus, Version 23.1.0-87ed9199d4`, 12 distinct hosts.
+
+### Bologna `IT-BOL-GALVANI2`
+
+🔴 **Superseded 2026-08-30 (`EU-14B` T05, job `1298672`).** Current authoritative figure: **47.4921
+kWh/m²** (2,479,443.7385 m², 1,184/1,201 success, 17 `EPLUS_FATAL`). 🔴 Still carries
+`construction_period_provenance = IMPUTED_CENSUS_SECTION_CONSTRUCTION_PERIOD` on all 1,201 rows, and 100 %
+of the population has an imputed dwelling count (no per-building count exists for Bologna at all) — quote
+this figure with both tags, always. Population dropped 1,204→1,201 (3 buildings, 0.25 %, excluded
+`IDF_ASSEMBLY_FAILED_ZeroDivisionError` — the same geomeppy numeric edge case already registered for
+Madrid/Lyon/London under `EU-13B` T09, applying here because Bologna's IDFs were rebuilt from the same
+ruled-grid geometry code for the first time). 1,058/1,201 (88.1 %) now dwelling-partitioned
+(imputed-count only — Bologna has no observed dwelling count to partition against), up sharply from the
+pre-T05 796/1,204 (66.1 %) — same direction as Madrid (80.1 %→94.7 %) and Lyon (80.5 %→94.7 %) under the
+same ruled-grid partitioner switch; full census in
+`openubem/outputs/eu_evidence/EU-14B/RESULTS_EU-14B.md`. The pooled EUI **fell** from
+55.5346 to 47.4921 kWh/m² (-8.0425, -14.5 %), moving *further* into `DR16`'s pre-registered INCOMPATIBLE
+(Too Low) band, not out of it — see `FINDING 199` below, verdict did not move to CONSISTENT and in fact
+deepened. The paragraph below describes the prior `EU-14`/`D-EU-34` state (job `1295646`, 55.5346 kWh/m²)
+and is kept as historical record.
+
+- Speed (`EU-14B` T05, job `1298672`): 1,201 tasks. 1,184 completed; 17 `EPLUS_FATAL` (all with
+  `eplus_return_code` unrecorded — the remote-deployed `submit_fleet_t08.sbatch` lacks the `set +e`/`set
+  -e` guard the local repo copy has, so its top-level `set -e` aborts before `task.rc` is written whenever
+  EnergyPlus itself returns non-zero; `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`, chapter
+  "European locations EU-14B"), same `GetSurfaceData` RoofCeiling vertex-mismatch fatal symptom as
+  Madrid/Lyon/London/pre-T05-Bologna (ch.1 "Recurrence 3") in every one sampled. `heating_kwh`/`eui_kwh_m2`
+  blank for these 17, never fabricated.
+- `geometry_outcome` (post `EU-14B` T02/T03 re-emission): `DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT` 1,058,
+  `FALLBACK_PENDING_LAYOUT` 143 (141 `NARROW_FOOTPRINT_LT_8M`, 2 `PARTITION_AUDIT_FAILED`) — 1,058/1,201
+  (88.1 %) dwelling-partitioned, all imputed-count (0 observed — Bologna publishes no per-building dwelling
+  count).
+- Per-building `eui_kwh_m2` (1,184 successes): mean 68.54, median 56.73, IQR 48.02–74.74, range 22.02–319.81
+  kWh/m². The **pooled** (area-weighted) figure, 47.4921 kWh/m², again sits well below the per-building
+  mean — larger-floor-area buildings pull it down, same direction as before T05.
+- Platform/version: **`[OPEN]` not captured this run** — the remote-deployed `submit_fleet_t08.sbatch`
+  never writes `platform.txt`/`energyplus_version.txt` (confirmed absent on every sampled `out/<stem>/` on
+  Speed for job `1298672`); registered in the debug reference file. Does not affect `heating_kwh` /
+  `floor_area_m2` / `eui_kwh_m2`, all confirmed fresh by direct remote file-timestamp inspection.
+
+#### Prior state (`EU-14`/`D-EU-34`, job `1295646`, superseded above)
+
+Reopened under `D-EU-34`/`EU-14` (`DECISION_REQUEST_D-EU-34_bologna_construction_year_relax_2026-08-28.md`).
+The INSPIRE Buildings WFS retry (step 1) failed again; construction period is now imputed by ISTAT 2011
+census-section spatial join, tagged `construction_period_provenance =
+IMPUTED_CENSUS_SECTION_CONSTRUCTION_PERIOD` per district (never `OBSERVED_YEAR`). Prep exclusions: 16 of
+1,220 (`CENSUS_SECTION_NO_RESIDENTIAL_BUILDINGS` 4, `CENSUS_SECTION_PERIOD_TIE_E8_E9` 10,
+`CENSUS_SECTION_PERIOD_TIE_E9_E10` 2).
+- Speed (`EU-14`, job `1295646`): 1,204 tasks. 1,202 completed; 2 `EPLUS_FATAL` (rc=1, 1 fatal each, 6/8
+  severe) — same `GetSurfaceData` vertex-mismatch symptom as Madrid/Lyon (registered
+  `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` ch.12, recurrence 2).
+- `geometry_outcome`: `DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT` 796, `FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT`
+  408 — 796/1,204 (66.1 %) dwelling-partitioned. This is the pre-ruled-grid (massing-box/strip-cutter)
+  partition; `EU-14B` T02 replaced it.
+- Per-building `eui_kwh_m2` (1,202 successes): mean 71.35, median 67.49, IQR 58.18–79.45, range 35.62–169.76
+  kWh/m². The **pooled** (area-weighted) figure, 55.5346 kWh/m², sits well below the per-building mean —
+  larger-floor-area buildings pull it down.
+- Platform/version: `EnergyPlus, Version 23.1.0-87ed9199d4`, 22 distinct hosts.
+
+## Caveats carried forward (every one required by the executor prompt)
+
+- **`FINDING EU-S2-01`, superseded for all four districts (Madrid/Lyon/London by `EU-13B` T09, Bologna by
+  `EU-14B` T02/T05; previously `EU-13` + `D-EU-35` / `EU-14`)** — dwelling-layout coverage is no longer the
+  minority case anywhere: Madrid 902/952 (94.7 %), Lyon 268/283 (94.7 %), London 59/80 (73.75 %), Bologna
+  1,058/1,201 (88.1 %, imputed-count only) now carry real (Madrid) or imputed-count (Lyon/London/Bologna)
+  dwelling partitioning, not massing-box fallback. The finding still applies verbatim to the residual
+  fallback share of each district (50/15/21/143 buildings respectively). No EUI in this document is a
+  100 %-dwelling-partitioned fleet figure; each is stated with its `geometry_outcome` split.
+- **`FINDING EU-S2-08`** — vertex order alone moved total heating 11.8 % with every reported area/volume
+  byte-identical in the reference case. The corrected orientation from `s2_campaign_v3` is unchanged in this
+  campaign's geometry writer.
+- 🔴 **`FINDING 210` / `D-EU-42` / `D-EU-43` (new, `EU-16` T09, extends `FINDING 187`/`190` to geometry
+  *validity*)** — a cross-platform/GEOS-build vertex-precision fragility in boolean-op-derived
+  dwelling/circulation rings killed tasks at `GetSurfaceData`/before warmup, before any Speed number could be
+  measured (`docs/docs_EXPLANATION/OpenUBEM_debug_References.md`, "European locations EU-16"). Not
+  reproducible on Windows/GEOS by design (two independent local rebuilds of each named example were
+  byte-identical and internally consistent). Fixed via `_stabilize_ring_coords`
+  (`openubem/geometry/european_residential.py`) and re-wired through `scripts/run_eu_s2_district_campaign.py`
+  `_geometry()`'s own re-orientation step, which had been silently discarding the fix on its first attempt
+  (deviation, see the T09 progress-log entry). A second, overlapping session diagnosed a further downstream
+  cause (`geomeppy`'s `intersect_match` inserting new boundary vertices post-extrusion) and submitted a third
+  wave (v3) with a second, complementary fix; its own "0/52 mismatches" claim was independently found to be
+  false against the actual Speed result (re-verified via `sacct` + `.err`, corrected in place here and in
+  `OpenUBEM_debug_References.md`) — v3 recovered only 12/52 stems, with 9 `CANCELLED` before ever running.
+  Combined across both fixes, the true final residual is **34 Madrid + 16 Lyon + 1 London Speed-failed rows,
+  still blank `heating_kwh`**, mostly the same `FINDING 210` signature plus a "CalcCoordinateTransformation:
+  Invalid dot product" variant — never smoothed into the pooled EUI above. **Bologna's 177 wave-1 fatals were
+  never in scope for any of the three waves** (its wave 1 was still running when the fix fleets were built)
+  and remain fully unaddressed.
+- **Speed ≠ Windows (`FINDING 187`/`FINDING 190`)** — Lyon's 530 residential buildings were re-run on Speed
+  inside this campaign specifically because the Windows-produced `s2_campaign_v3` figure (60.7087 kWh/m²,
+  31 buildings) cannot be carried across platforms. Every row in every manifest above carries its observed
+  `platform` and `energyplus_version` string.
+- **S2 is not S0** — this is the real-footprint perimeter with its own gates. It does not extend, re-open,
+  re-score or re-run the frozen 149-cell S0 archetype campaign; no number here is compared to
+  `it = 108.25 kWh/m² ± 0.16 %` without stating the perimeter, geometry and weather-year differences.
+- **`GetSurfaceData` RoofCeiling vertex-mismatch fatal** — post-`EU-13B` T09 and `EU-14B` T05 (all four
+  districts now on the ruled-grid geometry), 65 of 2,516 EU-11 Speed runs (38 Madrid, 6 Lyon, 4 London, 17
+  Bologna, including the previously-known `b2d90c2cba300225`/`BATIMENT0000000240879534_part0`) terminate
+  before simulation begins on this symptom — up sharply from 14 pre-ruled-grid (4/7/1/2) because the
+  T04/T05 ruled-grid geometry creates far more interzone ceiling/floor surface pairs per building, giving
+  this pre-existing float-precision defect more chances to trigger (an increased-exposure effect, not a new
+  defect; see `OpenUBEM_debug_References.md` ch.1 "Recurrence 3"). Bologna's own share (2→17) is the
+  largest relative jump of the four, consistent with its 66.1 %→88.1 % partitioned-share increase being the
+  largest too. Not fixed, deliberately — each is reported as a real `EPLUS_FATAL` row with blank result
+  fields, never smoothed into the pooled EUI.
+- **`FINDING 198` (Lyon, new)** — the shift to 80.5 % dwelling-partitioned geometry did not move Lyon's
+  pooled EUI toward DR14's own dwelling-partitioned reference mean the way a population-weighted blend would
+  predict; see the Lyon section above and the DR12–16 table below. Recorded, not corrected.
+- **`FINDING 199` (Bologna)** — Bologna's pooled EUI falls in DR16's own pre-registered INCOMPATIBLE (Too
+  Low) range for its asset-rating protocol. 🔴 Deepened, not resolved, by `EU-14B` T05's resimulation: the
+  ruled-grid geometry moved the figure from 55.5346 to 47.4921 kWh/m², further *below* the 95.0
+  INCOMPATIBLE floor, not toward it. Bologna is the only district of the four whose ruled-grid resimulation
+  moved its DR-band gap the wrong way (Madrid/Lyon stayed in the same bands, London's `FINDING 205` moved
+  it into a *different* band, not further from all bands). See the Bologna section and DR12–16 table below.
+  Recorded, not corrected.
+- 🔴 **`FINDING 205` (London, new, `EU-13B` T09)** — the ruled-grid geometry fix moved London's pooled EUI
+  from 74.7151 to 86.8703 kWh/m², crossing DR15's CONSISTENT ceiling (85.0) into its own pre-registered
+  WORTH INVESTIGATING upper tail (85.0–105.0). London was the only district whose DR-band verdict changed
+  under T09 (Madrid and Lyon stayed in the same bands as before, `FINDING 198` unchanged). Recorded, not
+  corrected — see the London section above and the DR12–16 table below.
+- **Heating only, `f = 0` only, one pinned weather year per district.** No end use besides heating was
+  simulated; occupancy-load sensitivity (`f > 0`) is blocked upstream by `D-EU-09` and out of scope.
+
+## Population accounting note
+
+"Attempted" above is the residential population counted from `02_residential_manifest.gpkg` per the
+executor prompt's perimeter table. "Prep-excluded" is `population_attempted − population_prepared` from
+each district's `summary_prerun.json`; every exclusion reason and count is measured, none imputed. "Run on
+Speed" = "prepared" for all four districts (every prepared IDF reached an array task; `out/`
+task-directory counts on Speed equal `fleet.lst` line counts for all four). No number in this document
+appears without its population.
+
+## External validation (DR12–16)
+
+Five independent deep-research dossiers ([`DeepResearch/DR12_eui_external_validation.md`](DeepResearch/DR12_eui_external_validation.md)
+general methodology + [`DR13`](DeepResearch/DR13_madrid_berruguete_validation.md)/[`DR14`](DeepResearch/DR14_lyon_croixrousse_validation.md)/[`DR15`](DeepResearch/DR15_london_stdunstans_validation.md)/[`DR16`](DeepResearch/DR16_bologna_galvani2_validation.md)
+per district) built published-benchmark acceptance bands for each district's pooled EUI, correcting national/regional
+statistics for system efficiency, DHW/cooking disaggregation, floor-area convention, and the actual simulated weather
+year. Each dossier also pre-registers its own `CONSISTENT` / `WORTH INVESTIGATING` / `INCOMPATIBLE` bands before
+the harvested figure is checked against them.
+
+🔴 Figures below are the `EU-15`/`EU-16` T09 resimulation (2026-08-30/31, wave 1 + `D-EU-42` + `D-EU-43`),
+**superseding** the `EU-13B`/`EU-14B` row previously shown here (kept as `EU-13B/EU-14B` in the note column
+for comparison). Band membership is a mechanical range check against each DR dossier's own pre-registered
+numbers — reported per plan hard rule 3 ("report the number and the band it falls in"), not an acceptability
+judgment; **whether these figures are accepted as the arc's figures is the owner's call (stop-and-report
+3/4), not stated here.**
+
+| District | harvested EUI | DR band checked | band membership | note |
+|---|---:|---|---|---|
+| Madrid `ES-MAD-BERRUGUETE` | 72.2892 | DR13: CONSISTENT 85.0–135.0, WORTH INVESTIGATING 70.0–84.9 / 135.1–150.0, INCOMPATIBLE <70.0 / >150.0 | WORTH INVESTIGATING (low) — same band as `EU-13B` (81.5325) | Moved down 9.2433 (-11.3 %) from `EU-13B`'s 81.5325 kWh/m². 927/961 (96.5 %) now run successfully (was 914/952 pre-T09); 34 Speed-failed rows carry blank `heating_kwh` (disclosed below), never pooled. |
+| Lyon `FR-LYO-HAUTCOEURPENTES` | 62.4470 | DR14 two-track table (§7): Dwelling-Partitioned CONSISTENT 100.0–140.0 / Massing-Box-Persists CONSISTENT 55.0–80.0 — neither track is designed for a >90 % mixed population | inside the *massing-box-persists* CONSISTENT band, same as `EU-13B` (69.5235) — `FINDING 198` still applies | Moved down 7.0765 (-10.2 %) from `EU-13B`'s 69.5235 kWh/m². 281/297 (94.6 %) success; 16 Speed-failed rows blank, never pooled. |
+| London `GB-LDN-STDUNSTANS` | 78.3505 | DR15: CONSISTENT 45.0–85.0, WORTH INVESTIGATING 35.0–45.0 / 85.0–105.0, INCOMPATIBLE <35.0 / >105.0 | **CONSISTENT — band membership moved back from `EU-13B`'s WORTH INVESTIGATING (upper tail, `FINDING 205`)** | Moved down 8.5198 (-9.8 %) from `EU-13B`'s 86.8703 kWh/m², back inside the 45.0–85.0 CONSISTENT range. 81/82 (98.8 %) success; 1 Speed-failed row blank. |
+| Bologna `IT-BOL-GALVANI2` 🔴 imputed period | 48.9253 | DR16 asset-rating protocol: CONSISTENT 115.0–165.0, WORTH INVESTIGATING (Low) 95.0–114.9, INCOMPATIBLE (Too Low) <95.0 | INCOMPATIBLE (Too Low) — same band as `EU-13B`/`EU-14B` (47.4921), `FINDING 199` still applies | Moved up 1.4332 (+3.0 %) from `EU-14B`'s 47.4921 kWh/m², still far below the 95.0 floor. **Only 1,014/1,204 (84.2 %) of the attempted-and-prepared population is pooled** — 190 Speed-failed rows blank, including 177 wave-1 fatals never covered by any fix wave (`D-EU-42`/`D-EU-43` were scoped to Madrid/Lyon only — Bologna's wave 1 was still running when both were built), disclosed not corrected. |
+
+Net sign per `RULES_context_geometry_simulation_2026-08-30.md` §3 criterion 5: shading (added by `EU-16` T06)
+lowers solar gain (heating **up**); adiabatic party walls (`EU-16` T07) remove a loss path (heating
+**down**); `EU-15`'s carved circulation cores (T05) add unconditioned floor area inside the same footprint,
+which does not act in a single predictable direction on the *pooled per-m²* EUI. **These three effects were
+not run as a controlled ablation (shading-only / adiabatic-only / cores-only) — this harvest cannot isolate
+which one dominates the net move in any district, and none is fabricated here.** Madrid/Lyon/London all moved
+**down** (net); Bologna moved **up** (net) — the sign is not uniform across districts, consistent with the
+rule's own statement that the net is not predictable in advance. No verdict above authorises any change to a
+harvested figure — DR12–16 are external checks against published literature, not a correction applied to the
+manifests or `RESULTS_EU-11.md` numbers above.

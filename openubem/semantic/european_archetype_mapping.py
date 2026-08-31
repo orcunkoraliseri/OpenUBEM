@@ -57,6 +57,7 @@ class EuropeanArchetypeMappingDecision:
     reason: str
     layout_ready: bool
     type_provenance: str
+    dwellings_provenance: str
 
 
 def _registry_records(country_stock_code: str) -> list[dict[str, Any]]:
@@ -82,7 +83,25 @@ def _observed_year(row: pd.Series) -> int | None:
 
 
 def _observed_dwellings(row: pd.Series) -> int | None:
-    """Read the BD TOPO dwelling count carried in ``surplus_tags`` (a JSON string)."""
+    """Read an observed dwelling count for this building.
+
+    Two sources, in order.  ``observed_dwellings`` is the explicit column an
+    attribute sidecar supplies (Madrid Catastro `numberOfDwellings`, joined by
+    `openubem/acquisition/catastro_inspire_fetcher.py`); when it is absent the
+    BD TOPO count carried inside ``surplus_tags`` (a JSON string) is read, which
+    is where France's `nombre_de_logements` lives.  Neither is defaulted: a
+    count that is missing, non-integer or ``<= 0`` returns ``None`` so the
+    caller records `MISSING_OBSERVED_DWELLING_COUNT`.
+    """
+    explicit = row.get("observed_dwellings")
+    if explicit is not None and not (isinstance(explicit, float) and pd.isna(explicit)):
+        try:
+            numeric = float(explicit)
+        except (TypeError, ValueError):
+            numeric = None
+        if numeric is not None and numeric.is_integer() and numeric > 0:
+            return int(numeric)
+        return None
     raw = row.get("surplus_tags")
     if not isinstance(raw, str) or not raw:
         return None
@@ -100,6 +119,17 @@ def _observed_dwellings(row: pd.Series) -> int | None:
     if not numeric.is_integer() or numeric <= 0:
         return None
     return int(numeric)
+
+
+def _dwellings_provenance(row: pd.Series, dwellings: int | None) -> str:
+    """Name the source that supplied the dwelling count, or say it is missing."""
+    if dwellings is None:
+        return "MISSING"
+    explicit = row.get("observed_dwellings")
+    if explicit is not None and not (isinstance(explicit, float) and pd.isna(explicit)):
+        stamp = row.get("provenance_dwellings")
+        return str(stamp) if isinstance(stamp, str) and stamp else "SIDECAR_OBSERVED"
+    return "BDTOPO_SURPLUS_TAGS_OBSERVED"
 
 
 def _observed_storeys(row: pd.Series) -> int | None:
@@ -188,10 +218,12 @@ def map_observed_building_to_tabula(
     tag = str(row.get("building_tag", "")).strip().casefold()
     building_type = OBSERVED_TAG_TO_TABULA_TYPE.get(tag)
     type_provenance = "OBSERVED_TAG"
+    observed_dwellings = _observed_dwellings(row)
+    dwellings_provenance = _dwellings_provenance(row, observed_dwellings)
     derived_dwellings: int | None = None
     derived_exclusion: str | None = None
     if building_type is None and country == "FR":
-        derived_dwellings = _observed_dwellings(row)
+        derived_dwellings = observed_dwellings
         storeys = _observed_storeys(row)
         is_attached_raw = row.get("is_attached")
         is_attached = None if is_attached_raw is None else bool(is_attached_raw)
@@ -219,6 +251,7 @@ def map_observed_building_to_tabula(
             reason=";".join(missing),
             layout_ready=False,
             type_provenance=type_provenance,
+            dwellings_provenance=dwellings_provenance,
         )
     try:
         archetype = select_tabula_archetype(
@@ -239,8 +272,32 @@ def map_observed_building_to_tabula(
             reason=str(error).split(":", 1)[0],
             layout_ready=False,
             type_provenance=type_provenance,
+            dwellings_provenance=dwellings_provenance,
         )
-    if type_provenance == "DERIVED_BDTOPO_TWO_SIGNAL" and derived_dwellings is not None:
+    # Layout readiness is a statement about the layout generator's own inputs,
+    # not about how the type was obtained.  France reaches it through the ruled
+    # two-signal derivation (`D-EU-04-G` G1), which can only fire when both
+    # counts are present; Madrid reaches it through the ruled observed tag plus
+    # the Catastro dwelling count ingested under `D-EU-23` G1, where the storey
+    # count is a separate signal and can be absent.  The requirement is the
+    # same either way and is checked here rather than assumed: a type, an
+    # observed year, an observed dwelling count and an observed storey count,
+    # because `allocate_european_dwellings` needs all four.
+    if observed_dwellings is not None and _observed_storeys(row) is None:
+        return EuropeanArchetypeMappingDecision(
+            neighbourhood_id=neighbourhood_id,
+            building_id=building_id,
+            country_stock_code=country,
+            building_type=building_type,
+            year_built=year_built,
+            archetype_id=archetype["archetype_id"],
+            mapping_status="MAPPED_LAYOUT_BLOCKED_MISSING_STOREY_COUNT",
+            reason=MISSING_OBSERVED_STOREY_COUNT,
+            layout_ready=False,
+            type_provenance=type_provenance,
+            dwellings_provenance=dwellings_provenance,
+        )
+    if observed_dwellings is not None:
         return EuropeanArchetypeMappingDecision(
             neighbourhood_id=neighbourhood_id,
             building_id=building_id,
@@ -252,6 +309,7 @@ def map_observed_building_to_tabula(
             reason="",
             layout_ready=True,
             type_provenance=type_provenance,
+            dwellings_provenance=dwellings_provenance,
         )
     return EuropeanArchetypeMappingDecision(
         neighbourhood_id=neighbourhood_id,
@@ -264,21 +322,69 @@ def map_observed_building_to_tabula(
         reason="MISSING_OBSERVED_DWELLING_COUNT",
         layout_ready=False,
         type_provenance=type_provenance,
+        dwellings_provenance=dwellings_provenance,
     )
+
+
+def apply_attribute_sidecar(gdf: gpd.GeoDataFrame, sidecar: pd.DataFrame) -> gpd.GeoDataFrame:
+    """Overlay an attribute sidecar onto a footprint manifest, in memory only.
+
+    `EU-02` ingested footprints; `D-EU-10` pins a separate authoritative
+    *attribute* source per city.  This joins the second onto the first by
+    ``osm_id`` without ever writing the manifest back, which is why an
+    ingestion defect cannot corrupt an audited footprint.  Only rows the
+    sidecar actually carries a value for are overwritten.
+    """
+    required = {"building_id", "year_built", "n_dwellings"}
+    missing = required.difference(sidecar.columns)
+    if missing:
+        raise ValueError(f"Attribute sidecar is missing columns: {sorted(missing)}")
+    lookup = sidecar.set_index(sidecar["building_id"].astype(str))
+    if lookup.index.duplicated().any():
+        raise ValueError("Attribute sidecar must hold one row per building_id")
+    keys = gdf["osm_id"].astype(str)
+    merged = gdf.copy()
+    year = keys.map(lookup["year_built"])
+    dwellings = keys.map(lookup["n_dwellings"])
+    merged["year_built"] = year.where(year.notna(), merged.get("year_built"))
+    merged["provenance_year_built"] = keys.map(
+        lookup.get(
+            "provenance_year_built",
+            pd.Series("SIDECAR_OBSERVED", index=lookup.index),
+        )
+    ).where(year.notna(), merged.get("provenance_year_built"))
+    merged["observed_dwellings"] = dwellings
+    merged["provenance_dwellings"] = keys.map(
+        lookup.get(
+            "provenance_dwellings",
+            pd.Series("SIDECAR_OBSERVED", index=lookup.index),
+        )
+    ).where(dwellings.notna(), None)
+    return merged
 
 
 def write_eu02_archetype_mapping_readiness(
     manifests_root: Path | str,
     output_dir: Path | str,
+    *,
+    attribute_sidecars: dict[str, Path | str] | None = None,
 ) -> tuple[pd.DataFrame, dict[str, Any]]:
-    """Write a reproducible mapping/exclusion record for the four EU-02 sites."""
+    """Write a reproducible mapping/exclusion record for the four EU-02 sites.
+
+    ``attribute_sidecars`` maps a site id to a sidecar CSV written by an
+    attribute adapter (`D-EU-10`).  Omitting it reproduces the pre-ingestion
+    readiness exactly, which is how the `S2`-era artefact stays reproducible.
+    """
     root = Path(manifests_root)
+    sidecar_paths = {str(key): Path(value) for key, value in (attribute_sidecars or {}).items()}
     decisions: list[EuropeanArchetypeMappingDecision] = []
     for site_id, country in EU02_SITE_COUNTRY.items():
         manifest = root / site_id / "02_residential_manifest.gpkg"
         if not manifest.is_file():
             raise ValueError(f"Missing audited residential manifest: {manifest}")
         gdf = gpd.read_file(manifest)
+        if site_id in sidecar_paths:
+            gdf = apply_attribute_sidecar(gdf, pd.read_csv(sidecar_paths[site_id]))
         if country == "FR":
             gdf = gdf.assign(is_attached=compute_footprint_adjacency(gdf))
         for _, row in gdf.sort_values("osm_id", kind="stable").iterrows():
@@ -311,6 +417,15 @@ def write_eu02_archetype_mapping_readiness(
             key: int(value)
             for key, value in frame["type_provenance"].value_counts(sort=True).items()
         },
+        "dwellings_provenance_counts": {
+            key: int(value)
+            for key, value in frame["dwellings_provenance"].value_counts(sort=True).items()
+        },
+        "layout_ready_by_site": {
+            site: int(((frame["neighbourhood_id"] == site) & frame["layout_ready"]).sum())
+            for site in EU02_SITE_COUNTRY
+        },
+        "attribute_sidecars_applied": sorted(sidecar_paths),
         "derived_type_counts": {
             site: {
                 key: int(value)

@@ -62,6 +62,8 @@ Artifacts: 11 scripts in `scripts/analysis/`, 12 CSVs in `openubem/outputs/compa
 `MEASUREMENT_*.md` in `openings/extra/`. Full item-by-item outcome: the **2026-08-21 entry in §7** of
 `INVESTIGATION_open-items-register-II.md`.
 
+✅ **Closed-arc citation sweeps completed outside their own arcs, 2026-08-26 — ruled `D-SWEEP` option 3 (KEEP AND LOG) on 2026-08-27.** While repairing citations for the European-locations arc, the director also rewrote citations in **58 documents belonging to already-closed arcs** (`docs_DONE/SETUP` 27, `VISUALS` 7, `INPUTS` 7, `LOADS` 5, `BUGS` 4, `docs_TODO/layoutgenerator` 2, `docs_main/docs_step2`+`docs_step3` 2, other 4). Nobody asked for those files; the edits are committed inside `8d816be` and cannot be reverted separately from the EU work. **They were kept** because reverting re-breaks 56 citations that resolve today in order to restore 2. Two genuinely broken paths the sweep left behind were repaired at the ruling (`layoutAssigner/implementation_plan.md` — renamed by its own move — in 4 files, and a missing `docs_main/` prefix in 2). **16 of 86 live citations in those 58 files still do not resolve; that breakage is pre-existing, was not touched by the sweep, and is deliberately left open** rather than widen the scope again. Record: `docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_D-SWEEP_citation_sweep_scope_2026-08-26.md`.
+
 Three results contradict something previously asserted, and are flagged here because they change what
 this file and the register may claim:
 - **OPEN-53** — the harvest is meter-only **everywhere**: 39,926/39,926 readable `.sql` carry 0 ABUPS

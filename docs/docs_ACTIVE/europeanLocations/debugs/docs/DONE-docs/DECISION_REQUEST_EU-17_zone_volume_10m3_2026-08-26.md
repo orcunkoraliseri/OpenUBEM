@@ -2,7 +2,7 @@
 
 - **Date:** 2026-08-26
 - **Arc:** European locations × Step 8 boundary closure
-- **Record:** `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md` §12.17
+- **Record:** `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md` §12.17
 - **Finding:** **EU-S2-07** (new), caveat **C-20**
 - **Found while:** executing your Q3 ruling on G8.15 — by reading what the six approved warning kinds say
 - **Blocks:** any use of the S2 heating number; does **not** block the boundary specification
@@ -160,7 +160,7 @@ missing.
 | `openubem/outputs/eu_evidence/EU-04/s2_campaign/*/*.idf` | `ZONEVENTILATION:DESIGNFLOWRATE` with `AirChanges/Hour` = 0.567, and `Zone` with `autocalculate` volume |
 | `openubem/outputs/eu_evidence/EU-10/s2_dossier/s2_dossier.json` | The 31.2144 kWh/m² headline this affects |
 | `openubem/data/campaign/eu_boundary_caveats_v1.0.json` | C-20, and the amendment on C-08 |
-| `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md` §12.17 | FINDING EU-S2-07 |
+| `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md` §12.17 | FINDING EU-S2-07 |
 
 **Answer:** **(a) Repair, re-run, restate** ☑   **(b) Repair, withdraw the number** ☐   **(c) Record and ship** ☐
 

@@ -2,7 +2,7 @@
 
 **Slug:** `eu-boundary-closure`
 **Date opened:** 2026-08-26
-**Authority:** `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md` (§9.4, §9.6, §9.8, §9.11, §9.12, §10.5)
+**Authority:** `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md` (§9.4, §9.6, §9.8, §9.11, §9.12, §10.5)
 **Director prompt:** `docs/docs_ACTIVE/europeanLocations/prompts/DIRECTOR_PROMPT_european_locations.md` (§19.5 slice ledger, §19.6 restart checklist)
 **Owner ruling that opened this plan:** 2026-08-26 — the owner approved closure at the boundary contract rather than at the full §9.12 definition of done.
 
@@ -107,7 +107,7 @@ openubem/data/weather/gb_london_2014_2015.epw                  (T06)
 openubem/data/weather/it_bologna_2013_2014.epw                 (T06)
 openubem/outputs/eu_evidence/EU-07/eu_folds_weather_gates_2026-08-26.md   (T06)
 openubem/data/campaign/eu_campaign_cell_spec_v1.0.json         (T08)
-docs/docs_ACTIVE/europeanLocations/CLOSURE_eu_boundary_contract_v1.0.md   (T08)
+docs/docs_ACTIVE/europeanLocations/DONE/CLOSURE_eu_boundary_contract_v1.0.md   (T08)
 ```
 
 Modified:
@@ -115,7 +115,7 @@ Modified:
 ```
 openubem/data/weather/weather_registry.json                              (T06)
 docs/docs_ACTIVE/europeanLocations/content/walkthrough_progress_log.csv  (every task)
-docs/docs_ACTIVE/europeanLocations/WALKTHROUGH_european_locations.md     (Table 4, every task)
+docs/docs_ACTIVE/europeanLocations/previous/WALKTHROUGH_european_locations.md     (Table 4, every task)
 docs/docs_ACTIVE/europeanLocations/previous/PLAN_eu-boundary-closure-2026-08-26.md (§8, every task)
 docs/docs_EXPLANATION/OpenUBEM_debug_References.md                       (only when an error is solved)
 tests/test_eu_physics_energyplus.py                                      (T07 only)
@@ -341,7 +341,7 @@ Every one of these already has a passing unit-test log under
 ### T08 — Freeze the boundary and write the closure record  🔴 CP-C
 
 - **What:** write `openubem/data/campaign/eu_campaign_cell_spec_v1.0.json` and
-  `docs/docs_ACTIVE/europeanLocations/CLOSURE_eu_boundary_contract_v1.0.md`.
+  `docs/docs_ACTIVE/europeanLocations/DONE/CLOSURE_eu_boundary_contract_v1.0.md`.
 - **Why:** `MVP_european_locations.md:596` requires the boundary to be **versioned and immutable**.
   This is the artifact the other project consumes.
 - **How:** the spec file carries the frozen `cell_id` grammar, the full required-key list with types,

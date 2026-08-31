@@ -651,11 +651,17 @@ def _force_reroute_room_layout_to_one_zone_per_floor(
     A hole-free reconstructed footprint (L/U/T/cross) becomes one block per floor. A
     holed reconstruction (courtyard) must NOT become a single holed block — that is the
     donut E+ Fatal _split_donut exists to avoid — so it is left untouched (re-raise).
+
+    EU-13B (T09): the ruled-grid dwelling partitioner (`european_dwelling_layout` mode,
+    `openubem/geometry/european_residential.py`) emits the same shape of problem — many
+    per-storey dwelling sub-zones per footprint, no coreperim naming — so it shares this
+    safety net rather than getting its own; both modes reduce to the same "union the
+    floor-0 sub-zones back into one footprint" reconstruction.
     """
     import shapely
     from shapely.ops import unary_union
 
-    rl_zones = [z for z in zones if z.get("mode") == "room_layout"]
+    rl_zones = [z for z in zones if z.get("mode") in ("room_layout", "european_dwelling_layout")]
     if not rl_zones:
         return False
 
@@ -665,6 +671,12 @@ def _force_reroute_room_layout_to_one_zone_per_floor(
     archetype_id = sample.get("archetype_id", "")
     floor_indices = {_get_floor_idx(z["name"]) for z in rl_zones if _get_floor_idx(z["name"]) is not None}
     n = len(floor_indices) if floor_indices else 1
+    # european_dwelling_layout groups can span >1 physical storey (T02 floor
+    # absorption), so a group's own height_m is not always one storey's height —
+    # derive total_height from the actual z-extent when every zone carries it.
+    z_floors = [z["z_floor"] for z in rl_zones if "z_floor" in z]
+    z_ceilings = [z["z_ceiling"] for z in rl_zones if "z_ceiling" in z]
+    total_height_from_z = (max(z_ceilings) - min(z_floors)) if (z_floors and z_ceilings) else None
 
     from shapely.geometry import Polygon
 
@@ -697,7 +709,7 @@ def _force_reroute_room_layout_to_one_zone_per_floor(
         return False
 
     coords = list(footprint.exterior.coords)[:-1]
-    total_height = n * floor_h
+    total_height = total_height_from_z if total_height_from_z is not None else n * floor_h
 
     logger.warning(
         "rerouting room_layout to one_zone_per_floor (%s): osm_id=%s, n_floors=%d", reason, osm_id, n,
