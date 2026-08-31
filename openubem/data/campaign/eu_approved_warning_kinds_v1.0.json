@@ -1,44 +1,116 @@
 {
   "schema_version": "eu-approved-warning-kinds/1.0",
-  "ruled": "D-EU-13 closure question Q3, option (a), 2026-08-26",
+  "ruled": "D-EU-13 closure question Q3, option (a), 2026-08-26 (s2_bundle); D-EU-29 Option A, 2026-08-28 (campaign_149)",
   "rule": "G8.15 approves warning KINDS, never a warning COUNT. A kind enters this list only after someone has read what EnergyPlus actually writes under it and can state why the simulation is still valid. A kind may be added by a ruling; none may be removed silently.",
-  "applies_to": "European locations arc (EU-04 S2 and EU-01 S1 evidence bundles)",
-  "n_approved": 4,
+  "applies_to": "European locations arc. TWO perimeters, ruled separately: 's2_bundle' (EU-04 S2 and EU-01 S1 evidence bundles, D-EU-13 Q3, 2026-08-26) and 'campaign_149' (the D-EU-28 perimeter of 149 marker-free certified archetype cells of the 510-cell campaign, D-EU-29 Option A, 2026-08-28). A kind approved on one perimeter is NOT approved on the other unless listed with that perimeter.",
+  "n_approved_entries": 12,
   "approved": [
     {
       "kind": "calculated design cooling load for zone",
-      "reading": "Design cooling load is reported for zones with no cooling equipment. Consistent with C-01: heating is the only requested end use, so a sizing-only cooling figure has no effect on the reported result."
+      "reading": "Design cooling load is reported for zones with no cooling equipment. Consistent with C-01: heating is the only requested end use, so a sizing-only cooling figure has no effect on the reported result.",
+      "perimeter": "s2_bundle"
     },
     {
       "kind": "managesizing",
-      "reading": "Plant sizing is skipped because there is no Sizing:Plant object. There is no plant loop in these models, so nothing is left unsized."
+      "reading": "Plant sizing is skipped because there is no Sizing:Plant object. There is no plant loop in these models, so nothing is left unsized.",
+      "perimeter": "s2_bundle"
     },
     {
       "kind": "processscheduleinput",
-      "reading": "Schedule:Constant EU_ALWAYSON carries no Schedule Type Limits name, so its values are not range-validated. The schedule is a literal constant written by the generator, not user input, so the missing validation cannot admit an out-of-range value."
+      "reading": "Schedule:Constant EU_ALWAYSON carries no Schedule Type Limits name, so its values are not range-validated. The schedule is a literal constant written by the generator, not user input, so the missing validation cannot admit an out-of-range value.",
+      "perimeter": "s2_bundle"
     },
     {
       "kind": "gethtsurfacedata",
-      "reading": "Ground-coupled surfaces with no Ground Temperatures input. EnergyPlus states: 'Defaults, constant throughout the year of (18.0) will be used'. Benign as a warning, but 18.0 C year-round ground temperature is an ASSUMPTION a heating study must state rather than inherit silently. Approved as a warning kind, recorded as an assumption."
+      "reading": "Ground-coupled surfaces with no Ground Temperatures input. EnergyPlus states: 'Defaults, constant throughout the year of (18.0) will be used'. Benign as a warning, but 18.0 C year-round ground temperature is an ASSUMPTION a heating study must state rather than inherit silently. Approved as a warning kind, recorded as an assumption.",
+      "perimeter": "s2_bundle"
+    },
+    {
+      "kind": "calculated design cooling load for zone",
+      "perimeter": "campaign_149",
+      "observed": "149/149",
+      "reading": "Cooling is not a requested end use; a zero sizing-only cooling figure cannot reach the reported heating number. Same reading as the s2_bundle approval."
+    },
+    {
+      "kind": "processscheduleinput",
+      "perimeter": "campaign_149",
+      "observed": "149/149",
+      "reading": "EU_ALWAYSON is a literal constant written by the generator, so the missing type-limits validation cannot admit an out-of-range value. Same reading as the s2_bundle approval."
+    },
+    {
+      "kind": "managesizing",
+      "perimeter": "campaign_149",
+      "observed": "149/149",
+      "reading": "There is no plant loop in these models, so nothing is left unsized. Same reading as the s2_bundle approval."
+    },
+    {
+      "kind": "getvertices",
+      "perimeter": "campaign_149",
+      "observed": "149/149",
+      "reading": "'Floor is upside down! Tilt angle=[0.0]'. REFUSED on the s2_bundle perimeter, where it was the cause of FINDING EU-S2-07 and was repaired. APPROVED here, and only here, because the S0 equivalent envelope is a different object: it emits independently sized, non-overlapping faces rather than a closed prism (openubem/idf/european_box.py:46-57, the EquivalentEnvelope contract). Flipping the S0 floor normals was tried and REVERTED - it cleared the warning and turned a three-of-three identical cell into one fatal in three. The heating result comes from the Zone Ideal Loads variable against surface areas and the equivalent H, none of which depends on the floor normal's sign. The s2_bundle refusal is neither inherited nor overturned; it stands on its own perimeter.",
+      "status": "STATED DESIGN ASSUMPTION, NOT BENIGN"
+    },
+    {
+      "kind": "getsurfacedata",
+      "perimeter": "campaign_149",
+      "observed": "149/149",
+      "reading": "'Entered Zone Floor Area(s) differ more than 5% from the sum of the Space Floor Area(s).' A Space/Zone bookkeeping mismatch inherent to the single-zone equivalent envelope. The area used for EUI comes from the archetype record, not from the Space sum.",
+      "status": "STATED DESIGN ASSUMPTION"
+    },
+    {
+      "kind": "calculatezonevolume",
+      "perimeter": "campaign_149",
+      "observed": "149/149",
+      "reading": "'1 zone is not fully enclosed.' The equivalent envelope is deliberately not a closed solid. This is the METHOD, not a defect, and it is the same open question as FINDING 181.",
+      "status": "STATED DESIGN ASSUMPTION, NOT BENIGN"
+    },
+    {
+      "kind": "fixviewfactors",
+      "perimeter": "campaign_149",
+      "observed": "35/149, it only (9 archetypes)",
+      "reading": "'View factors not complete ... unenclosed zone.' The consequence of calculatezonevolume for LONGWAVE RADIANT EXCHANGE: EnergyPlus cannot complete the view-factor matrix and applies its own correction, so radiant exchange in these cells is EnergyPlus-corrected, not modelled. The least benign of the eight, and it falls entirely on 'it', the only fold quotable at fold level after the D-EU-26 uk bar and the D-EU-28 es bar. This caveat must be stated wherever the it 108.25 kWh/m2 figure appears.",
+      "status": "STATED DESIGN ASSUMPTION, NOT BENIGN"
+    },
+    {
+      "kind": "entered zone volumes differ from calculated zone volume(s).",
+      "perimeter": "campaign_149",
+      "observed": "13/149, it only (3 archetypes)",
+      "reading": "The entered volume (the generator's) is used and differs from what EnergyPlus recomputes for an unenclosed zone. It is calculatezonevolume seen from the volume side. It is NOT the refused 'indicated zone volume <' kind, which is ABSENT from all 149.",
+      "status": "STATED DESIGN ASSUMPTION"
     }
   ],
   "refused": [
     {
       "kind": "indicated zone volume <",
       "reason": "NOT BENIGN. FINDING EU-S2-07: EnergyPlus computed a negative volume in 103 of 103 zones and substituted 10.0 m3, understating ventilation heat loss 57.74x. Ruled D-EU-17 (a): repaired, not approved. After the repair this kind must be ABSENT, not approved.",
-      "outcome": "REPAIRED, NOT APPROVED. Absent from all 31 error files in the authoritative run openubem/outputs/eu_evidence/EU-04/s2_campaign_v3/."
+      "outcome": "REPAIRED, NOT APPROVED. Absent from all 31 error files in the authoritative run openubem/outputs/eu_evidence/EU-04/s2_campaign_v3/.",
+      "perimeter": "s2_bundle",
+      "campaign_149": "ABSENT from all 149 error files of openubem/outputs/eu_certified_rerun_2026-08-28/ (0 matches, all three replicates). The S2 defect is not present in the campaign corpus; the refusal is not tested here."
     },
     {
       "kind": "getvertices",
       "reason": "NOT BENIGN. The same defect seen from the other side - 'Floor is upside down! Tilt angle=[0.0], should be near 180'. It is the cause of the negative volume above. Repaired under D-EU-17 (a), not approved.",
-      "outcome": "REPAIRED, NOT APPROVED. Absent from all 31 error files in the authoritative run openubem/outputs/eu_evidence/EU-04/s2_campaign_v3/."
+      "outcome": "REPAIRED, NOT APPROVED. Absent from all 31 error files in the authoritative run openubem/outputs/eu_evidence/EU-04/s2_campaign_v3/.",
+      "perimeter": "s2_bundle",
+      "campaign_149": "PRESENT 149/149 and APPROVED on the campaign_149 perimeter only, as a stated design assumption - see the approved entry. The refusal above stands unchanged for s2_bundle."
     }
   ],
-  "note": "The Q3 ruling approved six observed kinds. Executing it revealed that two of the six are the same defect and that the defect changes the reported number, so the approval is recorded here for the four benign kinds only and the other two are repaired instead. G8.15 was never marked PASS over an unread warning.",
+  "note": "The Q3 ruling approved six observed kinds. Executing it revealed that two of the six are the same defect and that the defect changes the reported number, so the approval is recorded here for the four benign kinds only and the other two are repaired instead. G8.15 was never marked PASS over an unread warning. Extended 2026-08-28 under D-EU-29 Option A to a SECOND perimeter, campaign_149. The two perimeters are kept apart on purpose: 'getvertices' is REFUSED on s2_bundle and APPROVED on campaign_149, because the S2 building and the S0 equivalent envelope are different objects. Read the 'perimeter' field before using any entry.",
   "gate_result": {
     "authoritative_run": "openubem/outputs/eu_evidence/EU-04/s2_campaign_v3/",
     "G8.15": "PASS 31/31",
     "untriaged_kinds_remaining": [],
     "note": "Scored against the four approved kinds only. The two refused kinds are ABSENT, not present-and-approved: the gate was passed, not bought. On the intermediate run s2_campaign_v2/ the same scoring gave FAIL 31/31 on 'getvertices' alone, which is what forced the second repair and exposed FINDING EU-S2-08 (caveat C-21)."
+  },
+  "gate_result_campaign_149": {
+    "authoritative_run": "openubem/outputs/eu_certified_rerun_2026-08-28/ (rep1, rep2, rep3)",
+    "perimeter": "D-EU-28: 149 marker-free certified cells (uk 75, it 74, es 0)",
+    "G8.15": "PASS 149/149",
+    "untriaged_kinds_remaining": [],
+    "note": "8 distinct kinds observed, all 8 read and approved under D-EU-29 Option A, four of them recorded as stated design assumptions rather than benign notices. No cell's warning-kind set differs across its three replicates (0 of 149 divergent). Severe and fatal are 0 by the perimeter definition. This ruling re-scores G8.15 only: the perimeter stays 149, the five-f set stays 15 pairs, and every idf_sha256 stands."
+  },
+  "n_approved_by_perimeter": {
+    "s2_bundle": 4,
+    "campaign_149": 8
   }
 }

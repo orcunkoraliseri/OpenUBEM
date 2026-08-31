@@ -2,7 +2,7 @@
 
 - **Date:** 2026-08-26
 - **Arc:** European locations × Step 8 boundary closure
-- **Record:** `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md` §12.14
+- **Record:** `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md` §12.14
 - **Findings:** EU-S2-03, EU-S2-04 (closed), **EU-S2-05** (new)
 - **Blocks:** the §9.4 signature — nothing else
 - **Related:** `DECISION_REQUEST_EU-13_G8.13_scorer_index_2026-08-26.md` (ruled (a), closed)
@@ -154,7 +154,7 @@ twelve gate verdicts that make the ruling cheap to act on.
 | `openubem/data/campaign/eu_campaign_cell_spec_v1.0_DRAFT.json` | 510 cells, all `RULED_NOT_PINNED`, all `PENDING_EU07_WEATHER` |
 | `openubem/data/campaign/eu_boundary_caveats_v1.0.json` | C-16, C-17, C-18, C-19 |
 | `openubem/data/weather/weather_registry.json` | `diary_window: null` for es / uk / it |
-| `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md` §12.12e, §12.14 | The finding and this decision, in the authoritative record |
+| `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md` §12.12e, §12.14 | The finding and this decision, in the authoritative record |
 
 ---
 

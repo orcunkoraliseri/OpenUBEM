@@ -57,7 +57,19 @@ def test_template_write_refuses_to_replace_an_acquired_registry(tmp_path: Path):
 def test_committed_registry_preserves_template_targets_and_records_lyon_promotion():
     committed = Path(__file__).parents[1] / "openubem" / "data" / "weather" / "weather_registry.json"
     registry = json.loads(committed.read_text(encoding="utf-8"))
-    assert registry["status"] == "PARTIALLY_PINNED"
+    # FINDING EU-S2-09: the top-level status moves every time a fold is promoted, so
+    # pinning its literal value couples this test to a mutable ruled data file. Assert
+    # the invariant instead -- the label must agree with the per-fold statuses it
+    # summarises. This is stricter than the literal, not weaker: it also fails on a
+    # stale label, which a literal assertion silently permits after a promotion.
+    pinned_statuses = {"RULED_PINNED", "RULED_PINNED_EXCEPTION"}
+    pinned = [t for t in registry["targets"] if t["status"] in pinned_statuses]
+    if len(pinned) == len(registry["targets"]):
+        assert registry["status"] == "FULLY_PINNED"
+    elif pinned:
+        assert registry["status"] == "PARTIALLY_PINNED"
+    else:
+        assert registry["status"] == "RULED_NOT_PINNED"
     assert [target["fold"] for target in registry["targets"][:3]] == ["fr", "es", "uk"]
     lyon = registry["targets"][0]
     assert lyon["status"] == "RULED_PINNED_EXCEPTION"

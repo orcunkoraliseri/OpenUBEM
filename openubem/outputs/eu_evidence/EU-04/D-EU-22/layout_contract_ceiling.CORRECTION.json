@@ -1,0 +1,65 @@
+{
+  "evidence_scope": "correction_to_layout_contract_ceiling_json_after_the_es_ingestion",
+  "corrects": "openubem/outputs/eu_evidence/EU-04/D-EU-22/layout_contract_ceiling.json",
+  "correction_date": "2026-08-27",
+  "why_this_file_exists": "layout_contract_ceiling.json says of its own calibration: 'it must be replaced by a measured census the moment any other site's attributes are ingested.' The D-EU-23 G1 ingestion did exactly that. The original artefact is left byte-identical; this sidecar carries what is now measured.",
+  "corrected_claims": [
+    {
+      "claim": "calibration.emitted = 18 and survival_rate_of_geometric_clearers = 0.643",
+      "status": "WITHDRAWN",
+      "measured_now": "Lyon emits 28 of the same 297 attribute-ready rows, and 28 of its 28 geometric clearers emit (1.00).",
+      "cause": "The same 297 buildings were re-measured with the same two imported predicates. Outcomes are identical row-for-row except the 10 rows that s1_layout_reachability_census.csv recorded as PARTITION_AUDIT_FAILED, all 10 of which now emit. generate_european_dwelling_layout rotates about the footprint centroid and audits against EUROPEAN_TOPOLOGY_TOLERANCE_FRACTION (a relative tolerance); the S1-era census predates both. The 18 was true when written and is false now.",
+      "consequence_for_the_ruling": "NONE. D-EU-23 was ruled G1 and stands. A dwelling-partitioned-only S3 of 96 is still not formable: 79 buildings emit across the whole ingested FR + ES corpus of 1,255 attribute-ready rows, and only 12 of them fall inside the ladder-selected 96."
+    },
+    {
+      "claim": "calibration is the only one that exists, because Lyon is the only site where emission has been measured",
+      "status": "SUPERSEDED",
+      "measured_now": "Madrid's emission is now measured too, on 958 attribute-ready rows ingested under D-EU-23 G1."
+    },
+    {
+      "claim": "projection_if_lyon_rate_holds.ES-MAD-BERRUGUETE = 40",
+      "status": "REPLACED BY MEASUREMENT",
+      "measured_now": 51
+    }
+  ],
+  "measured_census": {
+    "source": "openubem/outputs/eu_evidence/EU-04/s3/s3_scope_measurement.csv",
+    "FR-LYO-HAUTCOEURPENTES": {
+      "attribute_ready_rows": 297,
+      "simple_convex_rows": 41,
+      "emitted": 28,
+      "fallback_reasons": {
+        "NON_CONVEX_TOPOLOGY_UNSUPPORTED": 200,
+        "NARROW_FOOTPRINT_LT_8M": 58,
+        "COURTYARD_TOPOLOGY_UNSUPPORTED": 11
+      },
+      "partition_audit_failed": 0
+    },
+    "ES-MAD-BERRUGUETE": {
+      "attribute_ready_rows": 958,
+      "simple_convex_rows": 76,
+      "emitted": 51,
+      "fallback_reasons": {
+        "NON_CONVEX_TOPOLOGY_UNSUPPORTED": 609,
+        "NARROW_FOOTPRINT_LT_8M": 183,
+        "COURTYARD_TOPOLOGY_UNSUPPORTED": 115
+      },
+      "partition_audit_failed": 0
+    },
+    "both_sites": {
+      "attribute_ready_rows": 1255,
+      "emitted": 79,
+      "emitted_pct": 6.3
+    }
+  },
+  "still_projections_not_measurements": {
+    "GB-LDN-STDUNSTANS": "clears_geometric_half = 49 stands as a footprint-only predicate; emission is UNMEASURED because London is credential-blocked and no attribute was ingested.",
+    "IT-BOL-GALVANI2": "clears_geometric_half = 40 stands as a footprint-only predicate; emission is UNMEASURED and Italy contributes zero to S3 on typology regardless."
+  },
+  "unchanged_by_this_correction": [
+    "every clears_geometric_half count in the original file - those are footprint-only predicates over all footprints and were not affected",
+    "all_four_sites_clearing = 204",
+    "the conclusion that the binding ceiling is geometry rather than attributes: 1,183 of 1,194 Madrid footprints recover both attribute signals and 51 of them produce a dwelling layout"
+  ],
+  "lesson": "Third instance in this arc of a recorded blocker outliving the blockage. The S1 partition-audit refusal was real on 2026-08-25, was quoted as evidence in the D-EU-23 request on 2026-08-27, and was already false when quoted."
+}

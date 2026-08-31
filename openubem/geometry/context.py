@@ -3,6 +3,31 @@ import pandas as pd
 import geopandas as gpd
 import shapely
 
+EUROPEAN_CONTEXT_FLOOR_TO_FLOOR_M = 3.0
+
+
+def resolve_european_context_height(
+    height_m: object,
+    levels: object,
+    district_median_height_m: float,
+    *,
+    floor_to_floor_m: float = EUROPEAN_CONTEXT_FLOOR_TO_FLOOR_M,
+) -> tuple[float, str]:
+    """European (D-EU-40 R4) context-building height precedence, fail-soft:
+
+    ``height_m`` -> ``levels * floor_to_floor_m`` (3.0 m, the European
+    floor-to-floor, not the 3.5 m NA default this module otherwise uses) ->
+    the district's median residential height. Returns (height, tier) so the
+    caller can count which tier each context building used. Does not alter
+    ``discover_context`` -- callers override its returned ``"height"`` entry
+    with this result.
+    """
+    if pd.notna(height_m) and float(height_m) > 0.0:
+        return float(height_m), "height_m"
+    if pd.notna(levels) and float(levels) > 0.0:
+        return float(levels) * floor_to_floor_m, "levels_x_floor_to_floor_m"
+    return float(district_median_height_m), "district_median_residential_height"
+
 
 def discover_context(
     target_row: pd.Series,

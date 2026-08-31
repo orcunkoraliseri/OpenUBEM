@@ -22,7 +22,9 @@ if [ -z "$FLEET_DIR" ]; then
     exit 1
 fi
 
-OSM_STEM=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "${FLEET_DIR}/fleet.lst")
+# Fleet lists can be prepared on Windows.  Strip CR so a CRLF line ending
+# never becomes part of the POSIX filename passed to EnergyPlus.
+OSM_STEM=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "${FLEET_DIR}/fleet.lst" | tr -d '\r')
 if [ -z "$OSM_STEM" ]; then
     echo "ERROR: no stem at line ${SLURM_ARRAY_TASK_ID} of fleet.lst" >&2
     exit 1
@@ -42,6 +44,11 @@ echo "EnergyPlus: ${EP_DIR}/energyplus"
 echo "IDF: $IDF"
 echo "EPW: $EPW"
 echo "OUTDIR: $OUTDIR"
+"${EP_DIR}/energyplus" --version > "${OUTDIR}/energyplus_version.txt" 2>&1 || true
+{
+    echo "hostname=$(hostname)"
+    echo "kernel=$(uname -sr)"
+} > "${OUTDIR}/platform.txt"
 
 # Copy IDD and run ExpandObjects (required for HVACTemplate objects)
 cp "${EP_DIR}/Energy+.idd" "$OUTDIR/"
@@ -53,8 +60,10 @@ else
     RUN_IDF="$OUTDIR/in.idf"
 fi
 echo "Running EnergyPlus on: $RUN_IDF"
+set +e
 "${EP_DIR}/energyplus" -w "$EPW" -d "$OUTDIR" "$RUN_IDF"
 RC=$?
+set -e
 echo $RC > "${OUTDIR}/task.rc"
 echo "Task ${SLURM_ARRAY_TASK_ID} finished with rc=${RC}"
 

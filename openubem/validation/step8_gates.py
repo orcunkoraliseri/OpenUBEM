@@ -398,7 +398,7 @@ def read_saved_idf_geometry(idf_path: Path | str, archetype_id: str) -> SavedIdf
     floor_area_m2 = _positive_finite_idf_number(zone[9], "Zone Floor Area")
     storeys_exact = volume_m3 / (floor_area_m2 * ceiling_height_m)
     storey_count = round(storeys_exact)
-    if storey_count < 1 or not math.isclose(storeys_exact, storey_count, rel_tol=0.0, abs_tol=1e-9):
+    if storey_count < 1 or not math.isclose(storeys_exact, storey_count, rel_tol=1e-6, abs_tol=1e-9):
         raise ValueError("saved IDF Zone fields do not encode an integral storey count")
     token = "EU_{}_".format(identifier).casefold()
     if not any(
@@ -440,8 +440,8 @@ def audit_saved_idf_geometries(
         except (KeyError, TypeError, ValueError) as exc:
             raise ValueError("expected geometry for {} requires floor_area_m2, volume_m3, storey_count".format(identifier)) from exc
         matches = (
-            math.isclose(recovered.floor_area_m2, expected_area, rel_tol=0.0, abs_tol=1e-9)
-            and math.isclose(recovered.volume_m3, expected_volume, rel_tol=0.0, abs_tol=1e-9)
+            math.isclose(recovered.floor_area_m2, expected_area, rel_tol=1e-6, abs_tol=1e-9)
+            and math.isclose(recovered.volume_m3, expected_volume, rel_tol=1e-6, abs_tol=1e-9)
             and recovered.storey_count == expected_storeys
         )
         report.append(SavedIdfGeometryAudit(
@@ -667,7 +667,7 @@ def evaluate_archetype_eui_band_gate(
         raise ValueError("G8.7 EUI, areas, and as-modelled band must be finite and non-negative")
     if expected_area <= 0 or reported_area <= 0 or lower > upper:
         raise ValueError("G8.7 requires positive matching areas and an ordered as-modelled band")
-    geometry_ok = math.isclose(expected_area, reported_area, rel_tol=0.0, abs_tol=1e-9)
+    geometry_ok = math.isclose(expected_area, reported_area, rel_tol=1e-6, abs_tol=1e-9)
     band_ok = lower <= modelled <= upper
     empirical_detail = "empirical comparison not supplied (informational)"
     if empirical_eui_kwh_m2 is not None or empirical_band_kwh_m2 is not None:

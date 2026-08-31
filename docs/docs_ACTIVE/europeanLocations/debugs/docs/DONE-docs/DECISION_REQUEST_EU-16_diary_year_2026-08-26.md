@@ -2,7 +2,7 @@
 
 - **Date:** 2026-08-26
 - **Arc:** European locations × Step 8 boundary closure
-- **Record:** `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md` §12.16
+- **Record:** `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md` §12.16
 - **Follows:** closure question Q1, ruled option (b) — *derive the fieldwork windows first, then rule*
 - **Blocks:** the signed `v1.0` — this is the last input the specification needs
 
@@ -82,7 +82,7 @@ accelerated.
 |---|---|
 | `openubem/data/weather/weather_registry.json` | `diary_window: null`, `raw_era5_window` per fold |
 | `openubem/outputs/eu_evidence/EU-07/t06_es_2009_six_gates.json` / `..._2010_...` | Both Madrid years, all six gates |
-| `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md` §12.16 | Table 29, the fieldwork derivation |
+| `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md` §12.16 | Table 29, the fieldwork derivation |
 
 **Answer:** **(a) Dominant-fieldwork year** ☑   **(b) First year** ☐   **(c) Other** ☐
 

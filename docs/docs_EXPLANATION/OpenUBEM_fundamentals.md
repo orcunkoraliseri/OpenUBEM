@@ -407,6 +407,98 @@ It is built and validated on the **nyc_centre** pilot first, then batch-generate
 (NYC / LA / Austin × Centre / Urban / Suburban / Rural). Full engineering detail:
 `docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md`.
 
+### 8.5 The result-parameter model, and the European district viewers *(added 2026-08-28)*
+
+A viewer carries **two independent things**: the *geometry channel* (always present) and one or more *result
+channels* (present only when a run produced them). The four European district viewers
+(`openubem/outputs/3D/eu_<neighbourhood>_viewer.html`, mirrored to
+`docs/docs_ACTIVE/europeanLocations/outputs_3D/`) are the reference case for what happens when the second is
+missing, and they are the model to copy for any new result parameter.
+
+| Channel | Bound from | Behaviour when absent |
+|---|---|---|
+| **Geometry** | `02_residential_manifest.gpkg` + `02_excluded_manifest.gpkg` (Step-2 footprints, OSM / IGN BD TOPO / municipal cadastre) | never absent — a viewer without geometry is not built |
+| **Height** | `height_m`, else `levels` × 3.0 m, else 9.0 m | never silently defaulted: every building states which of the three it used, and the panel counts them |
+| **EUI** | Step-5 `05_results.csv`, or an `S2` per-building campaign manifest | **the control renders, disabled**, with the reason on the face of the panel; where only *some* buildings are bound, the rest stay grey and read `not simulated` |
+| **Layout / Floor Plan** | Procedural side-car (`EU-11/<DISTRICT>/layouts/<building_id>.json`), multi-angle sweep / radial sector partition | clicking any building opens a **2D floor-plan pop-up modal** with storey selector, metric scale bar, and North arrow; fallback buildings show footprint outline with named reason (`FINDING EU-S2-01`); unsimulated/excluded show unsimulated notice |
+
+**Rule: a result parameter is wired, not conditional.** The EUI colouring and its range filter exist in every
+viewer. When no results are bound the button is disabled, the filter reads `not bound`, and the panel states
+*"This district stops at Step 2 — no `05_results.csv` and no per-building EUI exist for it."* Nothing is
+interpolated, defaulted, or borrowed from another district or from an archetype campaign. This is §8.1's
+first constraint applied to a whole channel rather than to a single field: **an absent result is shown as
+absent.** A new result parameter (peak demand, comfort hours, retrofit delta) is added the same way — one
+colour mode, one range filter, one honest disabled state.
+
+**Floor plans, dwelling layouts, and multi-storey stacking (EU-12 / EU-13).** Clicking any building opens an offline **2D floor-plan pop-up**
+drawn to scale with an interactive storey selector, metric scale bar, and North arrow.
+- **Multi-Storey Stacking (`FINDING EU-12-01` Resolved)**: Emitted layouts repeat the in-plane dwelling partition across every floor index ($s = 0 \dots N-1$) with explicit $Z$ bounds ($z_{\text{floor}} = s \times 3.0\text{ m}, z_{\text{ceiling}} = (s+1) \times 3.0\text{ m}$), enabling per-floor exploration in the viewer pop-up.
+- **General Partitioning (`D-EU-33`)**: The geometric partition combines multi-angle sweep (equal-width and equal-area continuous cutting) and radial sector partitioning for courtyard/ring shapes, lifting coverage across non-convex and courtyard topologies without relaxing `audit_european_floor_partition` tolerances (99.08% pass rate across broad footprints).
+- **Four-Tier Dwelling Imputation**: Where observed dwelling counts are absent (Lyon, London, 3 in Madrid), counts are derived via the four-tier cascade and tagged as `DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT` with explicit provenance (e.g. `IMPUTED_TIER4_STATISTICAL_TABULA`), visibly badged in the UI.
+- **Massing-Box Fallbacks**: Narrow footprints ($< 8.0\text{ m}$) and the 10 surviving audit failures display the footprint outline alone alongside their explicit fail-closed reason (e.g. `NARROW_FOOTPRINT_LT_8M`, `PARTITION_AUDIT_FAILED`, `INSUFFICIENT_EXTERIOR_FACADE_LT_2_50M`).
+
+**Partial binding — the EU-11 full-district campaign.** Three of the four districts are **partly bound**,
+and `IT-BOL-GALVANI2` remains unbound:
+- `ES-MAD-BERRUGUETE`: bound on **957 of 1,194** residential buildings from `es_mad_berruguete_manifest.csv`
+  (Catastro years, ERA5 Madrid 2010 weather, EnergyPlus 23.1 on Speed; 4 `EPLUS_FATAL` excluded),
+  area-pooling to **79.0862 kWh/m² heating over 999,191.1457 m²** (geometry: 189 `FALLBACK_PENDING_LAYOUT`,
+  2 `FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT`, 769 `DWELLING_LAYOUT_EMITTED`, 1
+  `DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT`). The remaining 233 buildings render grey as `not simulated`.
+- `FR-LYO-HAUTCOEURPENTES`: bound on **290 of 530** residential buildings from `fr_lyo_hautcoeurpentes_manifest.csv`
+  (IGN BD TOPO years, ERA5 2023 Lyon-Bron weather, EnergyPlus 23.1 on Speed; 7 `EPLUS_FATAL` excluded),
+  area-pooling to **70.0619 kWh/m² heating over 394,414.574 m²** (58 narrow massing-box fallbacks, 239
+  dwelling layouts with imputed count). 🔴 **Not comparable to `s2_campaign_v3` (60.7087 kWh/m², 31-building
+  Windows sample)** — per `FINDING 187`/`FINDING 190` the Speed Linux engine is a distinct binary/platform.
+  The other 233 buildings render grey as `not simulated`; **226 of those 233 are excluded by the ruled
+  `D-EU-04-G` typology table rather than by any missing datum** (`TYPOLOGY_SIGNALS_DISAGREE` 189,
+  `TYPOLOGY_DWELLINGS_IN_REGISTRY_GAP_13_14` 37) — see `FINDING 203`.
+- `GB-LDN-STDUNSTANS`: bound on **81 of 1,242** residential buildings from `gb_ldn_stdunstans_manifest.csv`
+  (EPC age bands, ERA5 London 2015 weather, EnergyPlus 23.1 on Speed; 1 `EPLUS_FATAL` excluded),
+  area-pooling to **74.7151 kWh/m² heating over 90,790.3794 m²** (13 massing-box fallbacks, 69 dwelling
+  layouts with imputed count). The other 1,160 buildings render grey as `not simulated`.
+
+**Bologna, and the `construction_period_provenance` field (`EU-14`, `D-EU-34`).** `IT-BOL-GALVANI2` was
+bound on **1,202 of 1,220** residential buildings, area-pooling to **55.5346 kWh/m² heating over
+2,520,390.9432 m²** (796 `DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT`, 408
+`FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT`, 2 `EPLUS_FATAL` excluded, 16 excluded pre-run).
+
+🔴 **It is bound on an imputed construction period, and the manifest says so on every row.** No
+per-building observed construction year exists in any open source for Bologna — the sweep in
+`docs/docs_ACTIVE/europeanLocations/implementation/EU11_Bologna_construction_year_investigation.md` stands,
+and the INSPIRE Buildings WFS retry required by `PROMPT_EU-14` §1 failed again on all nine endpoints
+(DNS / 404 / 500, evidence in `openubem/outputs/eu_evidence/EU-14/inspire_wfs_probe_evidence.json`).
+`D-EU-34` therefore authorises a **tagged** imputation: each footprint's TABULA period is the dominant
+ISTAT 2011 construction-period band of the census section containing its centroid.
+
+This adds one field to the result-parameter model, and it is the template for any future imputed input:
+
+| Field | Where | Values | Rule |
+|---|---|---|---|
+| `construction_period_provenance` | per-building campaign manifest (`MANIFEST_COLUMNS`, `scripts/cluster/harvest_eu11_district.py`) and `prepared_buildings.csv` | `IMPUTED_CENSUS_SECTION_CONSTRUCTION_PERIOD`, or empty where the period came from an observed year | **an imputed input is tagged at the row, not in a footnote** — the tag travels with every number derived from it |
+
+**Rule: a tagged input may be used, but never untagged.** The Bologna figure may be quoted only with
+`IMPUTED_CENSUS_SECTION_CONSTRUCTION_PERIOD` stated in the same sentence, and may never be merged into a
+pooled figure with the three observed-year districts without it. This is §8.1's constraint applied to an
+*input* rather than a result: **an imputed input is shown as imputed.** Full record:
+`openubem/outputs/eu_evidence/EU-14/RESULTS_EU-14.md`.
+
+⚠ **Bologna has no floor-plan pop-ups — 0 layout side-cars.** `scripts/emit_eu11_layout_sidecars.py` is
+incompatible with the ISTAT-imputed path and must not be run against Bologna until `EU-14B` repairs it; the
+pop-up correctly shows the footprint outline and a named reason instead.
+
+**Every viewer ships with its data folder.** A generated `.html` is never the only artefact: beside it sits
+`eu_<neighbourhood>_data/`, linked from the panel's **Data folder** row, holding `buildings.csv` (one row per
+building: class, tag, footprint, storeys, height and *which of the three height sources produced it*, year,
+EUI and its status), `results.csv` plus the untouched `results_source.csv` **only where a run exists**,
+`layouts/` holding per-building side-car JSONs, `sources.json` (the repo-relative path and **sha256 of every input artefact read**, the Speed platform/engine
+metadata, and the layout and EUI coverage fractions), and an `index.html` restating the binding status. The rule: **a self-contained
+page for reading, an open folder for checking** — nothing in the viewer is unreachable from the files next to it,
+and an absent `results.csv` is absent on purpose, not empty by accident.
+
+**Note on the engine.** These four use a small dependency-free canvas renderer rather than the vendored
+three.js shell of §8.4, because that shell builds its geometry from **per-building IDFs**, which a Step-2
+district does not have. Both obey §8.1: self-contained, offline, and faithful to what exists.
+
 ---
 
 ## 9. Two properties worth knowing

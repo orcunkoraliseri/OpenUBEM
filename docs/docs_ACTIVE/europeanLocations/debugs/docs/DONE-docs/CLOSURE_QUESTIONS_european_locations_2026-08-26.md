@@ -2,7 +2,7 @@
 
 - **Purpose:** the four decisions that stand between today's state and a closed arc, each with the full
   context needed to answer it. Nothing here is a status report; every section ends in a question.
-- **Record:** `docs/docs_ACTIVE/europeanLocations/MVP_european_locations.md` §12 (authoritative)
+- **Record:** `docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md` §12 (authoritative)
 - **Rulings already taken today:** D-EU-13 (a), D-EU-14 (b), D-EU-15 (a)
 - **Answer by:** ticking one box per section and filling the ruling line. Q1 and Q4 are the load-bearing
   ones; Q2 and Q3 can be deferred without blocking them.

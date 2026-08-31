@@ -1,0 +1,153 @@
+{
+  "evidence_scope": "es_gb_it_year_and_typology_availability_diagnosis_only",
+  "measured_at_utc": "2026-08-27T21:10:00+00:00",
+  "ruling": "D-EU-21 option E1 (diagnose the three empty sites before ruling S3 composition)",
+  "modelled_on": "openubem/outputs/eu_evidence/EU-04/fr_bdtopo_year_availability_diagnosis.json",
+  "live_probe": {
+    "performed": false,
+    "reason": "E1 asks whether the ingested raw sources carry years that parsing discarded. That question is answerable entirely from the retained artefacts on disk, because the OSM and Bologna adapters persist every unmapped source attribute in surplus_tags. No live retrieval was authorised and none was run."
+  },
+  "sites": {
+    "ES-MAD-BERRUGUETE": {
+      "source_endpoint": "https://overpass-api.de/api/interpreter",
+      "source_layer": "OpenStreetMap building features",
+      "clean_rows": 2381,
+      "residential_rows": 1194,
+      "year_built_non_null_clean": 0,
+      "year_built_non_null_manifest": 0,
+      "provenance_year_built": {
+        "OSM_MISSING": 2381
+      },
+      "surplus_tag_keys_distinct": 67,
+      "construction_year_keys_found": [],
+      "date_like_keys_found_but_not_construction": {
+        "check_date": 13,
+        "source:date:addr": 4,
+        "source:date:phone": 4,
+        "source:date:url": 4,
+        "source:date:email": 2,
+        "check_date:opening_hours": 1,
+        "source:date": 1
+      },
+      "verdict": "NO_CONSTRUCTION_YEAR_IN_INGESTED_SOURCE"
+    },
+    "GB-LDN-STDUNSTANS": {
+      "source_endpoint": "https://overpass-api.de/api/interpreter",
+      "source_layer": "OpenStreetMap building features",
+      "clean_rows": 2406,
+      "residential_rows": 1242,
+      "year_built_non_null_clean": 5,
+      "year_built_non_null_manifest": 1,
+      "provenance_year_built": {
+        "OSM_MISSING": 2401,
+        "OSM_OBSERVED": 5
+      },
+      "observed_years": [
+        1961,
+        1953,
+        1839,
+        1928,
+        1887
+      ],
+      "observed_ids": [
+        "way/29098977",
+        "way/182920984",
+        "way/200513488",
+        "way/396595550",
+        "relation/16340161"
+      ],
+      "surplus_tag_keys_distinct": 139,
+      "construction_year_keys_found": [
+        "start_date (already consumed into year_built on 5 rows)"
+      ],
+      "date_like_keys_found_but_not_construction": {
+        "check_date": 18,
+        "check_date:opening_hours": 1,
+        "inscription_date": 1
+      },
+      "verdict": "NO_CONSTRUCTION_YEAR_IN_INGESTED_SOURCE_BEYOND_THE_5_ALREADY_READ"
+    },
+    "IT-BOL-GALVANI2": {
+      "source_endpoint": "https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/rifter_edif_pl/exports/geojson?limit=-1",
+      "source_layer": "Comune di Bologna - rifter_edif_pl",
+      "clean_rows": 1631,
+      "residential_rows": 1220,
+      "year_built_non_null_clean": 0,
+      "year_built_non_null_manifest": 0,
+      "provenance_year_built": {
+        "BOLOGNA_RIFTER_MISSING": 1631
+      },
+      "surplus_tag_keys_distinct": 8,
+      "surplus_tag_keys": [
+        "perimetro",
+        "area_ogg",
+        "data_istit",
+        "data_varia",
+        "geo_point_2d",
+        "partkey",
+        "foglio",
+        "mappale"
+      ],
+      "construction_year_keys_found": [],
+      "date_like_keys_found_but_not_construction": {
+        "data_istit": "cadastral record instantiation date; 1485 of 1631 are the sentinel 1900-01-01, remainder 2003-2015",
+        "data_varia": "cadastral record amendment date; 1456 of 1631 are the sentinel 1900-01-01, remainder 2003-2015"
+      },
+      "adapter_note": "openubem/acquisition/bologna_fetcher.py:99 and :131 assign year_built = NA unconditionally on BOTH the rifter and the CTC path. The Bologna source cannot yield a construction year by construction, not by parse failure.",
+      "verdict": "NO_CONSTRUCTION_YEAR_IN_INGESTED_SOURCE"
+    }
+  },
+  "parser_check": {
+    "question": "Is there an ES/GB/IT analogue of the France defect at bdtopo_fetcher.py:94?",
+    "answer": "No.",
+    "evidence": "openubem/acquisition/osm_fetcher.py:190 _parse_year matches a leading 4-digit run (^\\d{4}) and additionally decodes C19/C20 century notation. It does not route through pd.to_datetime, so neither the bare-zone-suffix failure nor the pre-1677 datetime64[ns] overflow that destroyed France's years can occur. Bologna never parses a year at all.",
+    "consequence": "Scenario A of the D-EU-21 ruling - years present but discarded at parse time - is REFUTED for all three sites."
+  },
+  "scenario_b_is_also_not_established": {
+    "claim_that_would_be_wrong": "The construction years for Madrid, London and Bologna are structurally absent and cannot be obtained.",
+    "why_it_is_wrong": "D-EU-10 (CLOSED, data half; MVP_european_locations.md:1236) already pinned a PRIMARY ATTRIBUTE DATASET per city - Madrid Catastro INSPIRE BU + CM CEE registry; London MHCLG EPC + OS Open UPRN; Bologna Comune DBT + SACE + ISTAT - and recorded the period crosswalks as clean 1:1 on exact year for ES/FR/IT and 6-of-12 straddling EPC bands for GB. Those sources carry the year. They were never ingested.",
+    "what_was_ingested_instead": "EU-02 ingested a FOOTPRINT source per site (OSM for ES/GB, rifter_edif_pl for IT). France is the one site whose ruled attribute source and its ingested footprint source are the same file - IGN BD TOPO - which is exactly why France's failure was a parse defect and these three are not.",
+    "verdict": "NEITHER_SCENARIO_A_NOR_SCENARIO_B; the gap is an UNINGESTED RULED SOURCE"
+  },
+  "second_blocker_found": {
+    "statement": "Restoring the construction year would still not make S3 formable as Table 10 defines it, because typology is independently missing.",
+    "measured_from": "openubem/outputs/eu_evidence/EU-04/observed_archetype_mapping_readiness.csv",
+    "rows_that_would_clear_if_year_were_restored": {
+      "ES": 1113,
+      "GB": 199,
+      "IT": 0
+    },
+    "why": {
+      "ES": "81 of 1,194 additionally carry UNMAPPABLE_RESIDENTIAL_TYPE (building_type empty).",
+      "GB": "1,042 of 1,242 additionally carry UNMAPPABLE_RESIDENTIAL_TYPE; only 182 AB + 18 TH are typed.",
+      "IT": "1,220 of 1,220 carry UNMAPPABLE_RESIDENTIAL_TYPE. The rifter layer's sole residential value is 'Edificio generico', which encodes no typology. Italy contributes ZERO regardless of what happens to the year."
+    },
+    "france_contrast": "France's 302 typed rows came from type_provenance = DERIVED_BDTOPO_TWO_SIGNAL, a two-signal derivation with no analogue in the other three ingested sources; only 228 came from OBSERVED_TAG."
+  },
+  "corpus_state_at_diagnosis": {
+    "total_rows": 4186,
+    "layout_ready": 297,
+    "layout_ready_all_french": true,
+    "per_site_residential": {
+      "ES-MAD-BERRUGUETE": 1194,
+      "GB-LDN-STDUNSTANS": 1242,
+      "IT-BOL-GALVANI2": 1220,
+      "FR-LYO-HAUTCOEURPENTES": 530
+    },
+    "per_site_layout_ready": {
+      "ES-MAD-BERRUGUETE": 0,
+      "GB-LDN-STDUNSTANS": 0,
+      "IT-BOL-GALVANI2": 0,
+      "FR-LYO-HAUTCOEURPENTES": 297
+    }
+  },
+  "not_claimed": [
+    "no fix applied",
+    "no adapter written or modified",
+    "no manifest rebuilt",
+    "no building promoted to layout-ready",
+    "no S3 sample formed or frozen",
+    "no live retrieval performed against any endpoint",
+    "the ruled attribute datasets were NOT probed - whether Catastro/EPC/DBT actually cover these three bboxes at these row counts is UNMEASURED and needs an authorised live probe"
+  ]
+}

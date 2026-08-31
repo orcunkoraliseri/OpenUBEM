@@ -127,6 +127,18 @@ def test_allow_unpinned_writes_draft_with_510_cells(tmp_path, monkeypatch):
     monkeypatch.setattr(
         freeze_mod, "DEFAULT_OUTPUT_PATH", tmp_path / "eu_campaign_cell_spec_v1.0.json"
     )
+    unpinned_registry = _synthetic_registry_with_statuses(
+        tmp_path,
+        {"es": "RULED_PINNED", "uk": "RULED_PINNED_EXCEPTION", "it": "RULED_NOT_PINNED"},
+    )
+    real_build_spec = freeze_mod.build_spec
+    monkeypatch.setattr(
+        freeze_mod,
+        "build_spec",
+        lambda **kwargs: real_build_spec(
+            weather_registry_path=unpinned_registry, **kwargs
+        ),
+    )
     rc = main(["--allow-unpinned"])
     assert rc == 0
     assert draft_path.is_file()

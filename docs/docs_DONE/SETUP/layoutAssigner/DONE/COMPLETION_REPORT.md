@@ -74,6 +74,6 @@ Results doc §2 (per-archetype scaling matrix) now carries these 6 real numbers;
 
 ## 6. Files touched (repo)
 
-`openubem/config.py`, `openubem/geometry/layout_assigner.py` (new), `openubem/geometry/zoning.py` (pre-existing wiring, untouched this run), `openubem/idf/builder.py`, `tests/test_layout_assigner.py` (new), `scripts/analysis/compare_layout_assign.py`, `docs/docs_ACTIVE/simulation-Resolution/layoutAssigner/implementation_plan.md`, `docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`, `openubem/outputs/comparisons/layout_assign_vs_resolution_modes.csv`. Library-side (outside repo): new sibling `C:\Users\o_iseri\Desktop\idf_reader\Content\00.BaselineBuildings_NUs_v231\` (25 E+ 23.1 files); original 31-file `00.BaselineBuildings_NUs` untouched.
+`openubem/config.py`, `openubem/geometry/layout_assigner.py` (new), `openubem/geometry/zoning.py` (pre-existing wiring, untouched this run), `openubem/idf/builder.py`, `tests/test_layout_assigner.py` (new), `scripts/analysis/compare_layout_assign.py`, `docs/docs_DONE/SETUP/layoutAssigner/DONE/DONE-implementation_plan.md`, `docs/docs_DONE/SETUP/layoutAssigner/figures/OpenUBEM_results_LayoutAssigner.md`, `openubem/outputs/comparisons/layout_assign_vs_resolution_modes.csv`. Library-side (outside repo): new sibling `C:\Users\o_iseri\Desktop\idf_reader\Content\00.BaselineBuildings_NUs_v231\` (25 E+ 23.1 files); original 31-file `00.BaselineBuildings_NUs` untouched.
 
 No git commits were made (git is handled externally, per project convention).
