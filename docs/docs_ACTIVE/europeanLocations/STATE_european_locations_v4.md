@@ -4,12 +4,13 @@
 pointer, not restated.
 
 🔴 **v3 is cancelled and superseded — this document is the read-first state of the arc.** Owner ruling
-`D-EU-53`, 2026-08-31: the Speed runs and the v3 tasks are stopped. `STATE_european_locations_v3.md` and
-`BRIEF_european_locations_v3.md` are historical from that moment; they are not executed, not appended to,
+`D-EU-53`, 2026-08-31: the Speed runs and the v3 tasks are stopped. `previous/STATE_european_locations_v3.md` and
+`previous/BRIEF_european_locations_v3.md` (moved to `previous/` 2026-08-31) are historical from that moment; they are not executed, not appended to,
 and not deleted. `prompts/DIRECTOR_PROMPT_european_locations.md` still points at v3 and must be repointed
 at v4 in the next pass.
 
 - Plain-language brief: [`BRIEF_european_locations_v4.md`](BRIEF_european_locations_v4.md)
+- Progress checklist, work-package view: [`CHECKLIST_european_locations_v4.md`](CHECKLIST_european_locations_v4.md)
 - Arc-local error index (new, `D-EU-52`): [`debugs/DEBUG_REFERENCES_european_locations.md`](debugs/DEBUG_REFERENCES_european_locations.md)
 - Rules an executor is validated against: [`rules/`](rules/) — dwelling layout, and context geometry.
 - History: `previous/STATE_european_locations_v2.md`, `previous/MVP_european_locations.md`,
@@ -22,8 +23,9 @@ below it.
 
 ## 0. Identifier bookkeeping — read before allocating anything
 
-v4 claims **`D-EU-49` … `D-EU-53`** and **`FINDING 211` … `FINDING 214`**.
-**Next free: `D-EU-54`, `FINDING 215`.** ⚠ Anything the cancelled v3 session allocated after `D-EU-48`
+v4 claims **`D-EU-49` … `D-EU-58`** and **`FINDING 211` … `FINDING 214`**, plus **`FINDING 220`** (T10/T14,
+population loss root cause; `FINDING`s 215-219 were never allocated — skip them, do not backfill).
+**Next free: `D-EU-59`, `FINDING 221`.** ⚠ Anything the cancelled v3 session allocated after `D-EU-48`
 must be reconciled against this range before the next identifier is issued — check
 `content/walkthrough_progress_log.csv` and `debugs/docs/` once, then close the question.
 
@@ -253,7 +255,8 @@ Standing working method from now on, every campaign, not once:
   polygons, circulation ring, scheme name, storey index, dwelling count, gross and conditioned area.
   🔴 **Drawn from the emitted IDF's zone polygons, never from the side-car** — a viewer that redraws the
   generator's intent cannot detect `FINDING 213`. Separate files from the existing
-  `outputs_3D/eu_*_viewer.html`; the 3D viewers are not modified by this.
+  `outputs_3D/eu_*_viewer.html`; the 3D viewers are not modified by this. Destination and content are
+  fixed by `D-EU-54` below.
 - **(b) The parity gate.** For every building: the IDF's zone-name set equals the side-car's, the IDF's
   circulation-zone presence equals `has_unconditioned_core`, and any reroute is written back into
   `geometry_outcome`. The gate **fails closed** — a divergence stops the campaign; it is never reported
@@ -296,6 +299,87 @@ CLAUDE.md hard rule still applies; the arc file is the arc-scoped view and route
 4. Before `EU-19` is prepared, confirm this arc has **no job left in the Speed queue** — a
    report-only `squeue -u o_iseri` / `sacct` check, delegated, never a login-node computation.
 
+**`D-EU-54` — the plans are published as their own pages, in `plans3D/`, carrying no simulation data.**
+> *"des que nous voyons 95 percent de la batiment consisutent des plannes des etages seoln nos regles,
+> c'est la moments nous allons commencer des simulations. je veux voir des version visualizations ici
+> …\plans3D seulement des plannes des batiments selon nos regles, pas simualtions pas des donnees de
+> simualtions"*
+
+1. **Destination.** `docs/docs_ACTIVE/europeanLocations/plans3D/` — created by the owner 2026-08-31,
+   empty as of this writing. One page per district, `plans3D/PLANS_<district>.html`, plus one
+   `plans3D/index.html` listing the four. Nothing else writes into that folder.
+2. **Geometry only — this is a hard content rule, not a preference.** A page may carry: footprint,
+   per-storey plan, dwelling polygons, circulation ring, scheme name, storey index, dwelling count,
+   gross and conditioned area, and the refusal reason where a building is refused. A page may **not**
+   carry EUI, heating or cooling demand, any E+ output variable, RC / severe / fatal counts, run ids,
+   job ids or weather — no simulation output of any kind, including in tooltips and hidden fields.
+3. **Source is the emitted IDF** (`D-EU-51`(a)), never the side-car. Every page states, in its header,
+   the IDF tree and build date it was drawn from.
+4. **This is the trigger.** When every district reads **≥ 95 % ruled measured on the IDFs** and these
+   pages are accepted by the owner, `EU-19` starts. Before that, no `sbatch` file is prepared and no
+   simulation is run.
+5. **The pages come first, before the relaxation, not after it.** Owner, 2026-08-31: *"a la fin nous
+   allons voir des .html ici …\plans3D je vais donner mon confirmation, apres tu vas continuer la
+   simulation. donc la premiere part des .html"*. So the first thing built is the atlas **of the IDFs
+   that exist today** — refusals and massing boxes shown as what they are — and the owner's confirmation
+   is read on the regenerated pages at the end. The percentage is not the deliverable; the pages are.
+6. **"According to our rules" means `rules/`.** A plan is compliant when it satisfies
+   `rules/RULES_dwelling_layout_scheme_2026-08-28.html`, the five acceptance conditions of
+   `rules/EXAMPLE_dwelling_layout_validation_2026-08-28.md` §6 on its eight named buildings, and
+   `rules/RULES_context_geometry_simulation_2026-08-30.md` R1–R9 — not merely when the code emitted it
+   without raising. Every page states, per building, the circulation share and the `FINDING 204`
+   out-of-band tag, so the pages are also the instrument for that unruled decision.
+
+**`D-EU-55` — no simulation starts without the owner's explicit permission.**
+> *"ne jamais commencer des simulations sauf que mon permission, donc commencer des plans. jusqu'a la fin"*
+
+1. It covers **every** EnergyPlus run without exception: the Speed campaign, a single-district rerun, a
+   one-building probe, and the `D-EU-51`(c) local sample battery alike. Building IDFs, running censuses,
+   drawing the `plans3D/` pages, the parity gate and the pytest suite are **geometry work, not
+   simulation** — they proceed without asking.
+2. Permission is **per wave and verbatim**. Approving a plan, signing a checkpoint, or relaying
+   "continue" is not permission to run. An executor that reaches a simulation task **stops and reports
+   the exact command it would run**, and never prepares-then-runs in the same breath.
+3. `EU-19` now has two gates: ≥ 95 % ruled on the IDFs with the `plans3D/` pages read (`D-EU-54`), **and**
+   the owner's own sentence authorising the run (this ruling). `EU-18`(c) has the second gate too.
+4. Work order set by the same instruction — *"donc commencer des plans. jusqu'a la fin"*: the plans are
+   built to completion first, and the simulation question is only asked afterwards.
+
+**`D-EU-56` — the geometry arc runs to the end in one session; only two gates survive.**
+> *"je vais ouvrir une autre session de l'execution jusqu'a la visualisation des plans ici …\plans3D en
+> avant des simulations … je laisse lui continuer jusqu'a la visualtizions"* (2026-08-31, night)
+
+1. `EU-18a` (T01–T03), `EU-17` (T04–T11) and `EU-18b` (T12) are executed **continuously**. The plan's
+   stop-and-report 1 and 2 become **director-audited checkpoints**: the session audits the return, writes
+   the progress-log entry, and dispatches the next slice without waiting for the owner.
+2. Two gates survive, both owner-held and neither inferable from silence: stop-and-report 3 — the owner
+   reads `plans3D/` and confirms (`D-EU-54`) — and the simulation permission (`D-EU-55`).
+3. T02's pages are the evidence of the starting state and are **not overwritten**: T12 moves them to
+   `plans3D/previous/` before regenerating, so the owner sees before and after side by side.
+4. Nothing else moves: the ≥ 95 %-on-IDFs bar, the `rules/` acceptance list and the geometry-only content
+   rule stand exactly as written.
+
+**`D-EU-57` — root-cause the T10 STOP before T12/T13 run (2026-09-01, option (a)).**
+
+T10 (`EU-17`) collapsed coverage on rebuild: 633/2,544 buildings lost (`interzone_vertex_mismatch_unresolved`)
+plus a 0/8 rules-regression on the named acceptance buildings (`FINDING 220`). The owner ruled to diagnose
+first, via a new task T14, before any of T12/T13/`EU-19` runs on a generator in this state. See
+`implementation/PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md` §6 `EU-17a`/T14.
+
+**`D-EU-58` — tolerate a structurally-boxed building instead of raising it as a population loss
+(2026-09-01, owner: continue with option (a), "vas-y").**
+
+T14 traced all 41 sampled T10 losses to the same gap in `scripts/run_eu_s2_campaign.py:516-534`: the
+raw `find_mismatched_interzone_pairs` check never fires on any of them; only the near-duplicate-vertex
+check does, and the reroute safety net then correctly declines to touch them (38/41 — no room-layout
+zone left to reroute; 3/41 — the courtyard-hole guard correctly refusing an illegal collapse). Today
+both cases `raise RuntimeError` and the whole building is lost, even though its already-emitted
+box/courtyard geometry is valid. Owner ruling: add a narrow fallback tier (new task T15) so these
+buildings are retained as boxes, disclosed via an explicit manifest `fallback_reason`, instead of being
+discarded — never suppress a genuine `mismatched` (raw interzone) hit, which still raises exactly as
+before. Their box-approximated EUI stays subject to the existing `D-EU-55` simulation gate like any
+other box building in the fleet — this ruling changes what is *retained*, not what is *simulated*.
+
 ⚡ **Compute rule, unchanged and reinforced.** Speed only, `sbatch --array` fire-and-forget, never the
 login node; EnergyPlus 23.1.0 Ubuntu20 under `/speed-scratch/o_iseri/openubem/tools/`; waves under the
 ~20k task cap. **`--time=7-00:00:00` minimum on every submission** — the cancelled v3 wave recorded a
@@ -316,9 +400,10 @@ Lyon resubmit timing out twice at 3 h. A Speed number and a Windows number are n
 5. Area conservation holds per building (conditioned + circulation = gross, ≤ 1 × 10⁻⁶ relative), and
    the EUI denominator question of `FINDING 214` is settled explicitly, in writing, either way.
 
-`EU-18` is done when the atlas exists for all four districts, the parity gate returns zero divergences,
-and the sample battery returns RC 0 with zero fatals on every sampled non-box building — reported per
-building, never pooled.
+`EU-18` is done when the atlas exists for all four districts **under `plans3D/`, geometry-only per
+`D-EU-54`**, the parity gate returns zero divergences, and the sample battery returns RC 0 with zero
+fatals on every sampled non-box building — reported per building, never pooled. The owner reads the
+`plans3D/` pages; that reading, together with the ≥ 95 % census, is what starts `EU-19`.
 
 ---
 
@@ -337,7 +422,8 @@ building, never pooled.
 | Side-car emitter (viewer layer) | `scripts/emit_eu11_layout_sidecars.py` |
 | Emitted IDFs + `prepared_buildings.csv` | `openubem/outputs/eu_evidence/EU-11/<district>/` |
 | Side-cars / viewers (mirror) | `outputs_3D/eu_*_data/layouts/`, `outputs_3D/eu_*_viewer.html` |
-| Superseded v3 (historical, not executed) | `STATE_european_locations_v3.md`, `BRIEF_european_locations_v3.md`, `prompts/DIRECTOR_PROMPT_european_locations.md` (still points at v3 — repoint) |
+| Floor-plan pages, geometry only (`D-EU-54`) | `plans3D/` — empty until `EU-18`; owner-created 2026-08-31 |
+| Superseded v3 (historical, not executed) | `previous/STATE_european_locations_v3.md`, `previous/BRIEF_european_locations_v3.md`, `prompts/DIRECTOR_PROMPT_european_locations.md` (still points at v3 — repoint) |
 | Append-only progress log | `content/walkthrough_progress_log.csv` |
 
 **Suite baseline:** `pytest -q -n 8 tests/` → **2,345 passed / 55 skipped** in ~7 min. Cite the enumerated
@@ -348,10 +434,19 @@ building, never pooled.
 
 ## 7. What happens next
 
-1. Write `implementation/PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md` — `EU-17` then `EU-18`, tasks with
-   What / Why / How / How to test, stop-and-report after the coverage census and after the atlas.
-2. Dispatch `EU-17` to a fresh Sonnet session. Nothing reaches Speed until `EU-18` (c) is read.
-3. Housekeeping, one pass, not urgent: repoint `prompts/DIRECTOR_PROMPT_european_locations.md` at v4,
-   move the three cancelled `PROMPT_*` files and the v3 `STATE`/`BRIEF` to `previous/` with the citation
-   sweep the archiving rule requires, reconcile the identifier ledger (§0), and confirm the Speed queue
-   is empty (`D-EU-53` item 4).
+1. ✅ `implementation/PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md` — written 2026-08-31, 440 lines,
+   13 tasks in the owner's order: `EU-18a` (T01–T03, the `plans3D/` pages from today's IDFs) →
+   `EU-17` (T04–T11, relax the box rule) → `EU-18b` (T12 regenerate, T13 sample battery **blocked on
+   permission**). Three stop-and-report points; no simulation task ahead of the owner's own sentence
+   (`D-EU-55`).
+2. ✅ `prompts/DIRECTOR_PROMPT_european_locations.md` repointed at v4 and cut to a lean handoff
+   (2026-08-31, night); the v3 version is archived at
+   `prompts/previous/DIRECTOR_PROMPT_european_locations_2026-08-31_v3.md`. The three cancelled v3
+   `PROMPT_*` files are already in `prompts/previous/`.
+3. Dispatch **T01–T03** to a fresh Sonnet session, then T04, then T05–T09, T10–T11, T12 — one slice per
+   session, audited between slices, **without stopping for the owner** (`D-EU-56`). A first T01–T02
+   dispatch was opened and stopped on 2026-08-31 before it wrote anything: no artefact exists, T01 starts
+   clean. Nothing simulates, Speed or local, until the owner says so in their own words (`D-EU-55`).
+4. Housekeeping, one pass, not urgent: reconcile the identifier ledger (§0) against
+   `content/walkthrough_progress_log.csv`, and confirm the Speed queue is empty (`D-EU-53` item 4,
+   `squeue` only — login node, no compute).

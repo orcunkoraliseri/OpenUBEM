@@ -528,10 +528,32 @@ def build_idf_for_building(
         else:
             residual_near_dup = _has_near_duplicate_vertex_surfaces(idf)
         if mismatched or residual_near_dup:
-            raise RuntimeError(
-                f"interzone_vertex_mismatch_unresolved: mismatched={mismatched} "
-                f"near_duplicate_vertex={residual_near_dup}"
-            )
+            # T15 (D-EU-58, owner 2026-09-01): T14 traced every one of the 41 sampled
+            # population losses to the identical pattern -- `mismatched` (the raw
+            # interzone vertex-count check) never fires, only the near-duplicate-vertex
+            # heuristic does, and the one safety net wired to it (`_force_reroute_room_
+            # layout_to_one_zone_per_floor`) correctly declines to help for one of two
+            # by-design reasons: no room-layout zones left to reroute, or a genuine
+            # courtyard hole (surfaces.py:640-696, unedited -- T14 confirmed that
+            # function is correct per its own docstring). That is already-valid geometry
+            # being discarded, not a defect being masked. When the reroute declined
+            # (`did_reroute is False`) and the raw mismatch check never fired at any
+            # point (`mismatched` is the same variable pre- and post-reroute-attempt
+            # when no reroute ran), retain the building's already-emitted geometry as-is
+            # instead of losing it outright, and disclose the tolerance on every zone so
+            # the district-campaign manifest can surface it (hard rule 4: fail closed and
+            # name the reason -- this is a disclosed tolerance, not a relabelled refusal).
+            # Any building where `mismatched` is truthy at any point still raises exactly
+            # as before this change; the `did_reroute is True` success branch is
+            # untouched.
+            if not did_reroute and not mismatched:
+                for _z in zones:
+                    _z["fallback_reason"] = "near_duplicate_vertex_tolerated_box"
+            else:
+                raise RuntimeError(
+                    f"interzone_vertex_mismatch_unresolved: mismatched={mismatched} "
+                    f"near_duplicate_vertex={residual_near_dup}"
+                )
     apply_adiabatic_party_walls(idf, context or [])
     write_zone_volumes(idf, zones)
 

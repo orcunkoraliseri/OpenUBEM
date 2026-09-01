@@ -2,7 +2,7 @@
 
 - **Validates**: the per-district heating EUIs produced by work package `EU-11` (four European residential
   districts, real footprints, TABULA archetypes, pinned ERA5-derived weather, EnergyPlus 23.1 on Speed).
-  See [`../STATE_european_locations_v3.md`](../STATE_european_locations_v3.md) §3 head and
+  See [`../previous/STATE_european_locations_v3.md`](../previous/STATE_european_locations_v3.md) §3 head and
   [`../prompts/PROMPT_EU-11_full_district_campaign_speed.md`](../prompts/PROMPT_EU-11_full_district_campaign_speed.md).
 - **Report to be saved as**: `DR12_eui_external_validation.md`, next to this brief, unchanged.
 - **Date of brief**: 2026-08-28.

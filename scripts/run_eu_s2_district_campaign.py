@@ -390,6 +390,12 @@ def prepare(district: str, archetypes: Path | None, epw: Path | None, crs: str |
             # mismatch. Disclose that here rather than leave `outcome` stale.
             if any(z.get("generation_status_note") == "room_layout_intersect_fallback" for z in zones):
                 outcome = "DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED"
+            # T15 (D-EU-58): scripts/run_eu_s2_campaign.py's post-extrude at-risk gate
+            # tags every zone with `fallback_reason` when it retains an already-emitted
+            # geometry instead of raising. Surface it as its own manifest column so it
+            # is auditable (never folded into `geometry_outcome`, which keeps its
+            # existing meaning unchanged).
+            fallback_reason = next((z["fallback_reason"] for z in zones if z.get("fallback_reason")), "")
             # The accepted S2 emitter uses absolute Schedule:File paths.  Copy
             # the byte-identical schedules into the fleet and retarget only the
             # path to a POSIX-relative location visible from out/<stem>.
@@ -416,7 +422,13 @@ def prepare(district: str, archetypes: Path | None, epw: Path | None, crs: str |
                              "floor_area_m2": gross_footprint_area_m2,
                              "gross_footprint_area_m2": gross_footprint_area_m2,
                              "conditioned_floor_area_m2": conditioned_floor_area_m2,
-                             "context_building_count": len(context)})
+                             # T11 / FINDING 214 / D-EU-39 §3: the EUI denominator moves to the
+                             # conditioned area. floor_area_m2 above keeps its existing (gross)
+                             # meaning unchanged; this is a new, additional column only. No EUI
+                             # is computed or recomputed here (D-EU-55: nothing simulates).
+                             "eui_denominator_m2": conditioned_floor_area_m2,
+                             "context_building_count": len(context),
+                             "fallback_reason": fallback_reason})
         except ValueError as exc:
             geometry_exclusions[str(exc)] += 1
         except (RuntimeError, ZeroDivisionError, IndexError) as exc:
@@ -427,6 +439,21 @@ def prepare(district: str, archetypes: Path | None, epw: Path | None, crs: str |
             # rather than aborting the whole district's regeneration.
             geometry_exclusions[f"IDF_ASSEMBLY_FAILED_{type(exc).__name__}"] += 1
     pd.DataFrame(prepared).to_csv(out / "prepared_buildings.csv", index=False)
+    # T10 / dependency decision §4.8: "That script builds IDFs and a manifest
+    # and does not simulate." EU-11's <slug>_manifest.csv is written post-hoc
+    # by the Speed harvest (scripts/cluster/harvest_eu11_district.py) once
+    # eplus_return_code/heating_kwh/etc. are known; a fresh EU-17 rebuild is
+    # never simulated (D-EU-55), so those columns are written blank here --
+    # same manifest layout as EU-11 (same filename, same MANIFEST_COLUMNS),
+    # so scripts.eu_idf_plan_reader.read_district (which reads
+    # geometry_outcome from this file, not from prepared_buildings.csv) and
+    # scripts.emit_eu11_layout_sidecars work unmodified against this tree.
+    manifest_slug = district.lower().replace("-", "_") + "_manifest.csv"
+    manifest_rows = [
+        {col: p.get(col, pd.NA) for col in MANIFEST_COLUMNS}
+        for p in prepared
+    ]
+    pd.DataFrame(manifest_rows, columns=MANIFEST_COLUMNS).to_csv(out / manifest_slug, index=False)
     with (out / "fleet.lst").open("w", encoding="utf-8", newline="\n") as stream:
         stream.write("\n".join(x["stem"] for x in prepared) + ("\n" if prepared else ""))
     summary = {"district": district, "population_attempted": len(gdf), "population_prepared": len(prepared),

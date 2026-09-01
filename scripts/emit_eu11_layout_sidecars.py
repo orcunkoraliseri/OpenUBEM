@@ -35,6 +35,7 @@ from scripts.run_eu_s2_district_campaign import (
     _records, _valid_storeys, DISTRICTS, ES_SIDECAR, GB_EPC, GB_EPC_BANDS,
     _gb_rows, _it_rows, _mapped_rows, FLOOR_TO_FLOOR_M, ZONE_WINDING_SIGN
 )
+from scripts.eu_idf_plan_reader import read_district
 
 REPO_ROOT = Path("C:/Users/o_iseri/Desktop/OpenUBEM")
 
@@ -133,9 +134,14 @@ def safe_update_manifest_columns(
     return new_df
 
 
-def emit_layouts_for_district(district: str) -> dict[str, Any]:
+def emit_layouts_for_district(district: str, evidence_root: Path | None = None) -> dict[str, Any]:
+    """``evidence_root`` overrides the EU-11 default (T10/T12: point at the
+    EU-17 rebuild tree, same layout as EU-11 per dependency decision §4.8).
+    Default unchanged so every existing EU-11 call site behaves identically."""
     cfg = DISTRICTS[district]
-    dist_dir = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11" / district
+    dist_dir = (evidence_root if evidence_root is not None else (
+        REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11" / district
+    )).resolve()
     layouts_dir = dist_dir / "layouts"
     layouts_dir.mkdir(parents=True, exist_ok=True)
 
@@ -160,6 +166,22 @@ def emit_layouts_for_district(district: str) -> dict[str, Any]:
 
     manifest_df = pd.read_csv(manifest_path)
     simulated_ids = set(manifest_df["building_id"].astype(str))
+
+    # T09(b) / FINDING 213: this emitter recomputes a layout from the raw
+    # footprint (below) and has no way to know `build_idf_for_building`
+    # rerouted that same building to one_zone_per_floor inside geomeppy --
+    # the ``DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED`` outcome
+    # write-back (`run_eu_s2_district_campaign.py:391-392`) only exists on
+    # `prepared_buildings.csv` rows built after 2026-08-31 and is therefore
+    # stale on most of the fleet's already-built IDFs. Read the actual IDF
+    # zone kinds instead of trusting that column -- ground truth, not a
+    # second independent recomputation of what the layout *should* be.
+    try:
+        idf_plans_by_id = {plan.building_id: plan for plan in read_district(district, dist_dir)}
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"[{district}] WARNING: could not read IDF plans for parity check ({exc}); "
+              f"proceeding without reroute disclosure for this run.")
+        idf_plans_by_id = {}
 
     # Read Step 2 manifest
     step2_manifest = REPO_ROOT / f"openubem/outputs/eu02/{district}/02_residential_manifest.gpkg"
@@ -192,6 +214,7 @@ def emit_layouts_for_district(district: str) -> dict[str, Any]:
     density_exceeded_count = 0
     regularization_fallback_count = 0
     other_fallback_count = 0
+    idf_reroute_divergence_count = 0
     scheme_histogram: Counter = Counter()
     strip_cutter_reason_counter: Counter = Counter()
     regularization_deltas: list[float] = []
@@ -239,7 +262,21 @@ def emit_layouts_for_district(district: str) -> dict[str, Any]:
             floor_allocations=allocation.floor_allocations,
         )
 
-        if building_layout.dwelling_layout_emitted:
+        # T09(b): the IDF actually built for this building is the ground
+        # truth (rule 3). If every zone the IDF carries is a `whole` (massing
+        # box) zone while this independent recompute would have emitted a
+        # ruled layout, the IDF was rerouted inside geomeppy after this
+        # generator ran (FINDING 210/213) -- the side-car must describe what
+        # was simulated, not what the generator alone would have produced.
+        idf_plan = idf_plans_by_id.get(bid)
+        idf_reroute_divergence = (
+            building_layout.dwelling_layout_emitted
+            and idf_plan is not None
+            and bool(idf_plan.zones)
+            and all(z.kind == "whole" for z in idf_plan.zones)
+        )
+
+        if building_layout.dwelling_layout_emitted and not idf_reroute_divergence:
             outcome = "DWELLING_LAYOUT_EMITTED" if is_observed else "DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT"
             if is_observed:
                 observed_emitted_count += 1
@@ -260,6 +297,34 @@ def emit_layouts_for_district(district: str) -> dict[str, Any]:
                 building_id=row["building_id"],
                 height_m=FLOOR_TO_FLOOR_M,
             )
+        elif idf_reroute_divergence:
+            # T09(b) / FINDING 213 -> 0: the ruled layout generated cleanly
+            # but the IDF that actually simulates this building was rerouted
+            # to one_zone_per_floor after that (FINDING 210's safety net).
+            # This is not a refusal (fallback_reason counters below do not
+            # apply -- the layout was never rejected) and it is not a ruled
+            # emission either: name it as its own, loud outcome so no layer
+            # can advertise a layout that did not run.
+            #
+            # D-EU-62 (2026-09-01): P00 proved these layouts are
+            # geometrically sound on their own (max interzone overlap
+            # 5.0e-10 m2, area conserved to <=0.01 %) -- only the IDF that
+            # would simulate them was demoted. The deliverable of this arc is
+            # a drawn floor plan, not a simulation result, so the ruled
+            # geometry is carried through exactly as the
+            # DWELLING_LAYOUT_EMITTED branch above computes it; the loud
+            # ..._REROUTED outcome plus idf_reroute_divergence=True on the
+            # payload keep this from ever being read as simulated/certified.
+            outcome = "DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED"
+            fb_reason = None
+            scheme_by_storey = list(building_layout.scheme_by_storey)
+            scheme_str = scheme_by_storey[0] if scheme_by_storey else None
+            zones = european_building_layout_to_zone_specs(
+                building_layout,
+                building_id=row["building_id"],
+                height_m=FLOOR_TO_FLOOR_M,
+            )
+            idf_reroute_divergence_count += 1
         else:
             outcome = "FALLBACK_PENDING_LAYOUT"
             fb_reason = building_layout.fallback_reason
@@ -289,10 +354,22 @@ def emit_layouts_for_district(district: str) -> dict[str, Any]:
         has_unconditioned_core = False
         gross_footprint_area_m2 = round(float(footprint.area), 4)
         conditioned_floor_area_m2 = gross_footprint_area_m2
-        if building_layout.dwelling_layout_emitted:
+        if idf_reroute_divergence:
+            # Ground truth per rule 3: the IDF's own extruded (whole) zone
+            # areas, never the ruled-route sums this building never actually
+            # simulated.
+            gross_footprint_area_m2 = round(idf_plan.gross_area_m2, 4)
+            conditioned_floor_area_m2 = round(idf_plan.conditioned_area_m2, 4)
+        elif building_layout.dwelling_layout_emitted:
             gross_sum, conditioned_sum = european_building_layout_area_summary(building_layout)
             gross_footprint_area_m2 = round(gross_sum, 4)
             conditioned_floor_area_m2 = round(conditioned_sum, 4)
+
+        if building_layout.dwelling_layout_emitted:
+            # D-EU-62: also runs when idf_reroute_divergence is True (the
+            # ruled layout's own geometry populates floors[] for the viewer
+            # even though this building's IDF was rerouted); the area totals
+            # above stay the IDF's ground truth in that case regardless.
             for group in building_layout.storey_groups:
                 storey_layout = group.layout
                 g_zones = []
@@ -313,7 +390,16 @@ def emit_layouts_for_district(district: str) -> dict[str, Any]:
                 storey_has_core = storey_layout.circulation_polygon is not None
                 has_unconditioned_core = has_unconditioned_core or storey_has_core
                 if storey_layout.circulation_polygon is not None:
-                    circ_poly = orient(storey_layout.circulation_polygon, sign=ZONE_WINDING_SIGN)
+                    circ_source = storey_layout.circulation_polygon
+                    if circ_source.geom_type == "MultiPolygon":
+                        # P01c 2026-09-01: a scheme's circulation remainder can
+                        # come back split into disjoint pieces (e.g. a
+                        # courtyard perimeter band's two corridor segments) --
+                        # take the largest by area for display, same choice
+                        # made in _stabilize_ring_coords for this class of
+                        # non-simple circulation ring.
+                        circ_source = max(circ_source.geoms, key=lambda g: g.area)
+                    circ_poly = orient(circ_source, sign=ZONE_WINDING_SIGN)
                     circ_ring = list(circ_poly.exterior.coords)[:-1]
                 for s_idx in range(group.start_storey_index, group.start_storey_index + group.storey_span):
                     floors_list.append({
@@ -359,16 +445,23 @@ def emit_layouts_for_district(district: str) -> dict[str, Any]:
         except ValueError:
             regularization_record = None
 
+        # T09(b): facade/audit stats describe the ruled route this building
+        # never actually simulated once rerouted -- never publish them
+        # alongside the IDF's own (whole-zone) truth.
         combined_facade = tuple(
             length for group in building_layout.storey_groups for length in group.layout.facade_contact_lengths_m
-        )
-        combined_audit_passed = all(
-            group.layout.partition_audit is not None and group.layout.partition_audit.passed
-            for group in building_layout.storey_groups
-        ) if building_layout.dwelling_layout_emitted else None
+        ) if not idf_reroute_divergence else ()
+        combined_audit_passed = (
+            all(
+                group.layout.partition_audit is not None and group.layout.partition_audit.passed
+                for group in building_layout.storey_groups
+            ) if building_layout.dwelling_layout_emitted else None
+        ) if not idf_reroute_divergence else None
         combined_area_error = (
-            max((g.layout.partition_audit.area_error_fraction for g in building_layout.storey_groups if g.layout.partition_audit), default=0.0)
-            if building_layout.dwelling_layout_emitted else None
+            (
+                max((g.layout.partition_audit.area_error_fraction for g in building_layout.storey_groups if g.layout.partition_audit), default=0.0)
+                if building_layout.dwelling_layout_emitted else None
+            ) if not idf_reroute_divergence else None
         )
 
         sidecar = {
@@ -376,6 +469,10 @@ def emit_layouts_for_district(district: str) -> dict[str, Any]:
             "archetype_id": str(row["archetype_id"]),
             "building_type": str(row["building_type"]),
             "geometry_outcome": outcome,
+            # D-EU-62: loud per-building flag so no downstream layer can
+            # read a rerouted building's floors[] as a simulated/certified
+            # plan -- always present, true only for the reroute outcome.
+            "idf_reroute_divergence": idf_reroute_divergence,
             "scheme": scheme_str,
             "scheme_by_storey": scheme_by_storey,
             "storeys": n_storey,
@@ -419,7 +516,7 @@ def emit_layouts_for_district(district: str) -> dict[str, Any]:
         sidecar_out_path.parent.mkdir(parents=True, exist_ok=True)
         sidecar_out_path.write_text(json.dumps(sidecar, indent=2), encoding="utf-8")
 
-        repo_rel_path = f"openubem/outputs/eu_evidence/EU-11/{district}/layouts/{rel_sidecar_file}".replace("\\", "/")
+        repo_rel_path = str((dist_dir / "layouts" / rel_sidecar_file).relative_to(REPO_ROOT)).replace("\\", "/")
         layout_paths[bid] = repo_rel_path
 
     # EU-14B T01: only the columns this emitter owns (geometry_outcome,
@@ -453,6 +550,7 @@ def emit_layouts_for_district(district: str) -> dict[str, Any]:
         "density_exceeded_gt_8": density_exceeded_count,
         "regularization_fallback": regularization_fallback_count,
         "other_fallback": other_fallback_count,
+        "idf_reroute_divergence": idf_reroute_divergence_count,
         "not_simulated": not_simulated_count,
         "outcomes": dict(outcome_counter),
         "fallback_reasons": dict(fallback_counter),
@@ -467,10 +565,28 @@ def emit_layouts_for_district(district: str) -> dict[str, Any]:
 
 
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="EU-13/T09(b)/T10: emit dwelling-layout side-cars.")
+    parser.add_argument("--district", action="append", choices=sorted(DISTRICTS), default=None)
+    parser.add_argument(
+        "--evidence-root",
+        action="append",
+        default=None,
+        help="DISTRICT=path override (T10/T12: point at the EU-17 rebuild tree).",
+    )
+    args = parser.parse_args()
+
+    roots: dict[str, Path] = {}
+    for entry in args.evidence_root or []:
+        district, _, path = entry.partition("=")
+        roots[district] = Path(path)
+
+    targets = args.district if args.district else list(DISTRICTS)
     results = {}
-    for district in DISTRICTS:
+    for district in targets:
         print(f"\n=== Emitting layout side-cars for {district} ===")
-        results[district] = emit_layouts_for_district(district)
+        results[district] = emit_layouts_for_district(district, roots.get(district))
 
     print("\n=== Summary of Layout Emission across all 4 districts ===")
     print(json.dumps(results, indent=2))
