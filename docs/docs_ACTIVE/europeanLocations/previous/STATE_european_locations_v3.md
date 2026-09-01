@@ -164,6 +164,11 @@ EnergyPlus 23.1.0 Ubuntu20 under `/speed-scratch/o_iseri/openubem/tools/`, patte
 `scripts/cluster/submit_fleet_t08.sbatch`, waves under the ~20k task cap. A Speed number and a Windows
 number are not the same measurement (`FINDING 187`, `FINDING 190`).
 
+⚡ **Walltime, new 2026-08-31.** Every submission requests `--time=7-00:00:00` minimum (partition `ps`
+max; SLURM bills actual usage, not requested time) — never a short hours-based guess, overridden on the
+CLI, never baked into the shared `.sbatch` script. Cause: D-EU-48's Lyon resubmit at `--time=03:00:00`
+timed out a second time on 6/9 stems. See `CLAUDE.md` §CLUSTER.
+
 ---
 
 ## 5. Where things are
