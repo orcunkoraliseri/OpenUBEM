@@ -85,6 +85,16 @@ All counts measured 2026-08-31 over the 2,544 side-cars in `outputs_3D/eu_*_data
   15.76 % → 97.05 % over the same 2,544 buildings with no other change. 🔴 A reason token emitted by
   fall-through is not evidence of that failure mode — check the cell count before believing the token.
   *(rules/EXAMPLE_dwelling_layout_validation_2026-08-28.md §8)*
+- **`TRACE_ERROR:'NoneType' object has no attribute 'dwelling_layout_emitted'` on every L-shape/courtyard
+  building whose allocated wings included a 1-dwelling wing, while re-deriving the true (unmasked)
+  refusal cause (`EU-17` T04)** — `_trace_storey`'s `dwelling_count == 1` branch (`scripts/eu17_refusal_census.py`)
+  returned `"layout": None` instead of an actual `EuropeanGridLayout`, since a single dwelling can never
+  itself refuse; `_combine_wing_results` (`european_residential.py:611`) still needs a real layout object
+  for *every* wing, including a 1-dwelling one, and crashed reading `.dwelling_layout_emitted` off `None`.
+  Fix: the branch now builds the same `EuropeanGridLayout` the real `generate_european_ruled_storey_layout`
+  constructs for `dwelling_count == 1` (`european_residential.py:873-888`), audit and facade lengths
+  included. Fixed before the census ran fleet-wide; 0 `TRACE_ERROR` rows in the final
+  `refusal_census.csv`. *(EU-17 T04, PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md)*
 - **Published layout coverage (93.6 % / 88.1 %) is far above the ruled coverage on disk** —
   `geometry_outcome = DWELLING_LAYOUT_EMITTED*` counted the non-ruled `equal_strip_multi_angle_sweep`
   strip cutter as a success, hiding 843 buildings. Fix: `D-EU-39` §2 retired the strip cutter as a
@@ -92,6 +102,51 @@ All counts measured 2026-08-31 over the 2,544 side-cars in `outputs_3D/eu_*_data
   `dwelling_layout_emitted=False`); confirmed 2026-08-31 — **0 side-cars carry the strip scheme**. The
   refusals it produced did **not** become ruled layouts: coverage went 57.81 % → 56.92 %.
   *(`FINDING 207` → `FINDING 211`)*
+- **A courtyard combine fails `AREA_GAP`/`OUTSIDE_FOOTPRINT` (≈ 0.1–2.3 % relative) even though every
+  wing individually emits cleanly, on both a real building (`relation/12582232`, gap 0.284 m² of 272.3 m²)
+  and a clean synthetic square-ring fixture (gap 7.56 m² of 336 m²)** — `_courtyard_wings_and_nodes`
+  (`european_residential.py:761`) centres each corner circulation node box **on the void's own inner
+  corner**, so roughly half of every node box sits inside the void (never real footprint area); nodes are
+  still subtracted correctly from the wings (a void-only sliver was never part of any wing to begin with),
+  but `_combine_wing_results`' `circulation_area_total = sum(polygon.area for polygon in all_circulation)`
+  (`:628`) summed the **raw, void-including** node areas, overstating carved circulation and breaking the
+  `gross − void = conditioned + circulation` identity `EU-17` T06 requires. Fix: `nodes_aligned` is now
+  clipped to `aligned_footprint` before being returned (`european_residential.py:786-797`) — this changes
+  nothing about the wings (subtracting a void-extending box or its footprint-clipped remainder from a
+  piece already confined to the footprint is identical) but makes the reported circulation area the area
+  actually carved (`FINDING 217`, fixed). *(`EU-17` T06, `PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md` §6 T06,
+  `tests/test_eu17_relaxed_layout.py::test_t06_gross_minus_void_equals_conditioned_plus_circulation`)*
+- **[OPEN] Even after the node-clip fix above, a real courtyard building's wing combine still fails
+  `AREA_GAP` (0.11 % relative, `relation/12582232`) regardless of which per-wing dwelling-count split is
+  tried, including the only mathematically possible one (4 wings, 4 dwellings, 1 each)** — every wing
+  individually audits clean (facade contact ≥ 3.39 m, area error ~0); the residual gap sits at the
+  wing-boundary tiling itself, on a real (non-axis-aligned, GIS-noisy) void and footprint, not in
+  allocation. `EU-17` T06's own "How" only asks to reuse T05's re-allocation search
+  (`_wing_count_candidates`) here — reallocation cannot close a gap that exists identically for every
+  candidate split, so this is a distinct, deeper defect in the wing-tiling geometry itself. Measured
+  fleet-wide 2026-08-31: 0 of 249 true courtyard refusals recovered by T06 (`L_SHAPE_DECOMPOSITION_FAILED`
+  recovered 29 of 739 over the same measurement). Fix: not fixed — needs its own investigation, out of
+  `EU-17` T06's scoped "How" (`FINDING 218`, `[OPEN]`). *(`EU-17` T06, same source)*
+- **`AttributeError: 'NoneType' object has no attribute 'intersection'` inside `_facade_contact_lengths`,
+  raised from a dwelling polygon produced by EU-21 S1's ray-sector cut** (`courtyard_perimeter_band`) —
+  `_ray_sector_cuts` (`european_residential.py:1362`) intersected the band with a pie-slice wedge polygon
+  and, on a self-intersecting wedge (a near-zero-width sliver at the bisection's last step), got back a
+  degenerate/invalid geometry whose `.boundary` is `None`; the pre-existing `MultiPolygon` handling never
+  saw it because the result wasn't a `MultiPolygon` either. Fix: `_ray_sector_cuts` now repairs an invalid
+  wedge with `.buffer(0)` before intersecting and raises `ValueError` on any segment that is not a
+  strictly positive-area `Polygon`, so the caller's existing `except (ValueError, IndexError)` folds it
+  into a normal `PARTITION_AUDIT_FAILED` refusal instead of crashing (`european_residential.py:1396-1403`).
+  *(`PLAN_eu21-group-schemes-2026-09-01.md` P02)*
+- **`AttributeError: 'MultiPolygon' object has no attribute 'exterior'` inside
+  `regularize_footprint_orthogonal`, raised from a wing produced by EU-21 S3's morphological opening**
+  (`wing_spine_decomposition`) — the small-wing merge (`european_residential.py:1631-1635`) unions a
+  sub-threshold component into its nearest surviving wing by centroid distance, but "nearest" does not
+  imply "touching": when the opening leaves a real gap, `unary_union` of two disjoint polygons returns a
+  `MultiPolygon`, which the recursive call into `generate_european_ruled_storey_layout` cannot accept.
+  Fix: after each merge, a `MultiPolygon` result is reduced to its largest component
+  (`european_residential.py:1636-1642`); the untouched sliver is simply excluded from every wing and
+  falls into the junction (circulation) area instead, which is conservative, not a correctness loss.
+  *(`PLAN_eu21-group-schemes-2026-09-01.md` P04)*
 
 ---
 
@@ -149,6 +204,120 @@ All counts measured 2026-08-31 over the 2,544 side-cars in `outputs_3D/eu_*_data
   `ExpandObjects.exe` + `energyplus.exe` 23.1.0 locally on at least one building per failure signature
   and report RC and severe/fatal counts. *(prompts/previous/PROMPT_D-EU-47_bologna_rebuild_resubmit.md
   §Task item 3)*
+- **[OPEN] `idf.intersect_match()` raises `ZeroDivisionError` outright (not a vertex-count mismatch
+  after a successful match) on a real, non-degenerate multi-storey ruled layout — reproduced locally,
+  no fatal geometry (no near-zero edges, min edge length 2.89 m) on `relation/12582233`
+  (stem `c6e90803c98dba87`, Madrid, 7 storeys, `ruled_grid_2x1`), caught by the existing
+  `try/except (IndexError, Exception)` around `idf.intersect_match()`
+  (`openubem/idf/surfaces.py:865-884`, inside `extrude_geometry`) and rerouted via
+  `_force_reroute_room_layout_to_one_zone_per_floor`** — investigated for `EU-17` T09(a): the dwelling
+  and circulation zones on this building are genuine non-axis-aligned octagons/hexagons (the plate's long
+  axis sits at an angle, not orthogonal to the UTM grid), stacked identically across 7 physical storeys;
+  geomeppy's `intersect_match` is documented (chapter 2, `FINDING 210` entry above) to derive interzone
+  intersection vertices **independently per storey pair**, and this is the same mechanism failing harder
+  (an exception, not just a divergent vertex count) on rotated non-rectangular multi-storey stacks. Fix:
+  **not fixed** — this is a geomeppy-internal numerical fragility on rotated polygon intersection, not a
+  ring-construction defect this task's file list can reach (`openubem/idf/builder.py`, where the block is
+  actually assembled from these coordinates, is not in `EU-17`'s editable set; a change to the geometry
+  feeding it cannot be verified without EnergyPlus, which `D-EU-55` forbids this task from running). A
+  Python-only fix attempted here without that proof would repeat exactly the false-green this arc has
+  already had once (`T09-FINDING210-ROOTCAUSE-FIX-V2`, entry above) — left as a disclosed residual for
+  `T13`, whose "How" already routes EnergyPlus-level proof of this class there
+  (`FINDING 219`, `[OPEN]`).
+  *(`EU-17` T09, `PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md` §6 T09)*
+- **`FINDING 221` (P01) confirms `FINDING 219` fleet-wide and shows the prescribed fix does not reach it.**
+  941 buildings carrying `DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED` were assumed (P00
+  diagnosis, `PLAN_eu21-group-schemes-2026-09-01.md` §8) to be an over-broad ring-construction mismatch,
+  since the discarded polygons were independently confirmed geometrically sound (max overlap 1e-10, area
+  conserved to ≤0.01%). Reproducing `relation/12582233` (stem `c6e90803c98dba87`) with the blanket
+  `except (IndexError, Exception)` (`openubem/idf/surfaces.py:867`) bypassed confirmed the exact
+  `FINDING 219` signature — `ZeroDivisionError: division by zero` in
+  `geomeppy/geom/vectors.py:105 Vector3D.set_length` via `minimal_set`/`normal_vector`
+  (`geomeppy/geom/surfaces.py:147,164`), not the `IndexError` the code comment at `surfaces.py:863-864`
+  names — but a district rebuild also shows the *other* raw signature, `IndexError` out of
+  `break_polygons`, occurring in the same population (e.g. Lyon `f07c2c6a5deab600`). Root cause,
+  confirmed by instrumenting `minimal_set`: a group of coplanar candidate surfaces at one storey
+  boundary includes near-zero-area sliver fragments (~1e-9–1e-15 m²) produced when geomeppy's own
+  `intersect()`/`polygonize` clips two adjacent zones' 3D-projected surfaces that are not bit-identical
+  at their shared edge — confirmed **not** an input-coordinate defect (the raw `coords_m` per zone
+  were already bit-identical at every shared vertex before extrusion; a global cross-zone vertex-snap
+  pass at the `_stabilize_ring_coords` 1 mm grid, `_snap_shared_interzone_vertices`,
+  `openubem/idf/surfaces.py:775-817`, `:822`, found nothing to unify on this building and moved the
+  fleet-wide `..._REROUTED` count only 941→939 across all four `EU-21` districts). This matches
+  `FINDING 219`'s own conclusion: the divergence is introduced by geomeppy's own downstream
+  intersection arithmetic, not by ring construction, and is not reachable by a Python-only fix without
+  EnergyPlus-level proof (`D-EU-55` forbids running it here). Fix: `_snap_shared_interzone_vertices`
+  kept (additive, harmless, resolves a small residual where raw coordinates genuinely do diverge) but
+  does not meet `P01`'s own ≥1,450-ruled acceptance bar (actual: 543 ruled, 939 still `..._REROUTED`
+  fleet-wide). Per-storey scoping of the safety net (P01 T3) is separately blocked —
+  `geomeppy/idf.py:247-260 add_block()` stacks `num_stories` only from a ground-relative origin, with no
+  parameter to reinsert one interior storey's box at its true z while leaving the storeys above and below
+  untouched — and `_purge_idf_geometry` (`surfaces.py:305-314`) clears the whole per-building IDF, so a
+  true single-storey retry would require rebuilding all storeys' geometry on every attempt, not a
+  targeted patch. Left `[OPEN]`, same disposition as `FINDING 219`/`220`. *(`P01`,
+  `PLAN_eu21-group-schemes-2026-09-01.md` §8)*
+- **[OPEN] The same class as `FINDING 219` above, but the reroute's own re-check still finds a mismatch
+  and the *whole building* is lost, not just rerouted — `RuntimeError: interzone_vertex_mismatch_
+  unresolved: mismatched=[] near_duplicate_vertex=True`, raised at `scripts/run_eu_s2_campaign.py:531`
+  after `_force_reroute_room_layout_to_one_zone_per_floor` has already run once (`:512-513`) and
+  `idf.intersect_match()` + the roof/horizontal/interfloor repair passes have already been re-applied
+  (`:514-517`) — the residual `near_duplicate_vertex` (or, rarely, `mismatched`) check still fires, so no
+  IDF is written for that building at all; `prepare()`'s outer `except (RuntimeError, ZeroDivisionError,
+  IndexError)` (`scripts/run_eu_s2_district_campaign.py`) catches it as `IDF_ASSEMBLY_FAILED_RuntimeError`
+  and the building is silently absent from `prepared_buildings.csv` — a full population loss, not a
+  refusal-to-box.** Discovered rebuilding all four districts for `EU-17` T10 with today's T05-T09
+  geometry (`openubem/outputs/eu_evidence/EU-17/<district>/`, 2026-08-31): **633 of 2,544 buildings
+  (24.9 %) lost fleet-wide** — Madrid 284/961 (29.6 %), Lyon 28/297 (9.4 %), London 9/82 (11.0 %),
+  Bologna 312/1,204 (25.9 %) — versus **0** such losses when these same four districts were built by the
+  pre-T05 generator (EU-11's `summary.json` per district: `population_prepared` 961/297/82/1,204 exactly,
+  `speed_failure_kinds: {}`). Confirmed not confined to newly-recovered ruled layouts: `relation/3730743`
+  (Madrid, the `EXAMPLE_…md` §6 acceptance building that is *supposed* to refuse cleanly to a `whole`-zone
+  box at the density cap, touching no ruled route at all) is lost to this exact `RuntimeError` too — the
+  fragility is in extrusion/interzone-pairing of the real (rotated, GIS-noisy) footprint itself, not
+  specific to the wider L-shape/courtyard wing search T05/T06 added. Not fixed, for the same reason as the
+  `FINDING 219` entry above: no ring-construction defect reachable from `EU-17`'s editable file list, and
+  a Python-only change cannot be verified without EnergyPlus (`D-EU-55`). Routed to `T13` alongside
+  `FINDING 219` (`FINDING 220`, `[OPEN]`). *(`EU-17` T10, `PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md` §6 T10)*
+- **`FINDING 220` root cause, on a 47-building sample (8 named
+  rules-regression buildings + a stratified 39-per-district loss sample): `_force_reroute_room_layout_
+  to_one_zone_per_floor` is never the bug — on every one of the 44 reroute calls observed, its actual
+  return value matched a read-only, independent replica of its own footprint-reconstruction test
+  (`openubem/idf/surfaces.py:681-709`), 100 % agreement. The gap is architectural, one file outside
+  `EU-17`'s editable list: `build_idf_for_building`'s post-extrude at-risk gate
+  (`scripts/run_eu_s2_campaign.py:516-534`) raises `RuntimeError` whenever `_has_near_duplicate_vertex_
+  surfaces` fires (never `find_mismatched_interzone_pairs` — confirmed 0/41 in the sample) **and** the one
+  safety net wired to it correctly declines to help, for one of two reasons that are both by-design, not
+  bugs: (a) 38/41 — `zones` carries no `room_layout`/`european_dwelling_layout` mode zone at all (the
+  building is already a plain `one_zone_per_floor` box before extrusion, either a clean generator
+  refusal or, for two of the eight named buildings, the acceptance-correct outcome itself), so there is
+  structurally nothing left to reroute; (b) 3/41 (all Madrid, all `DWELLING_LAYOUT_EMITTED`) — the
+  courtyard-hole guard (`:693`) correctly refuses to collapse a genuine void (interior ring ≥ 1.0 m²,
+  independently re-derived) into an illegal single holed block. Neither branch is a bug — both match the
+  function's own docstring (`:651-653`, `:692-694`) exactly; 0/41 fail the reroute's own geometric
+  reconstruction. `_has_near_duplicate_vertex_surfaces` itself is new — added the same day as this
+  `FINDING 219`/`220` work (comment dated 2026-08-31, `scripts/run_eu_s2_campaign.py:71-91`) — so EU-11's
+  zero losses predate the check that produces these losses; it is not evidence EU-11's geometry was any
+  cleaner. Two of the eight named buildings (`BATIMENT0000000240879941_part0`,
+  `BATIMENT0000000240880045_part0`, Lyon) are **not** part of this defect class at all: both are excluded
+  upstream of `_geometry()` entirely, at `_mapped_rows`'s archetype-mapping gate
+  (`TYPOLOGY_SIGNALS_DISAGREE` and `MISSING_OBSERVED_YEAR_BUILT` respectively) — confirmed by replaying
+  the gate directly against `02_residential_manifest.gpkg`. Not fixed — the fix would be a new fallback
+  tier (tolerate the box/courtyard geometry instead of raising) inside a file outside `EU-17`'s editable
+  set, and per the `FINDING 219` entry's own precedent a Python-only argument is not proof it is safe;
+  `D-EU-55` forbids the EnergyPlus proof that would be. The specific decision (tolerate vs. keep raising)
+  is reported to the director/owner, not invented. **Fixed** (owner ruling `D-EU-58`, 2026-09-01, "vas-y",
+  option (a)): the post-extrude at-risk gate (`scripts/run_eu_s2_campaign.py:530-556`) now retains the
+  building's already-emitted geometry instead of raising when `did_reroute is False` **and** `mismatched`
+  never fired at any point — exactly the pattern this entry traced on 41/41 sampled losses — and tags every
+  zone with `fallback_reason="near_duplicate_vertex_tolerated_box"`, surfaced as its own column in
+  `prepared_buildings.csv` (`scripts/run_eu_s2_district_campaign.py:391-398`, `:430-431`). Any building
+  where `mismatched` is truthy at any point still raises, unchanged. Verified on the full four-district
+  rebuild: all 633 buildings lost in T10's run recovered exactly (ES 284, FR 28, GB 9, IT 312), 0 residual
+  `IDF_ASSEMBLY_FAILED_RuntimeError`/`interzone`-class losses remain in any `summary.json`, and 0 of a
+  39-building spot-check of the tolerated population independently re-fails
+  `find_mismatched_interzone_pairs`. `pytest -q tests/` (serial) unaffected: 2540 passed / 55 skipped / 5
+  failed, same named failures as the T05/T10/T14 baseline. *(`EU-17a` T14 / `EU-17b` T15, `PLAN_eu17-eu18-
+  boxrule-atlas-2026-08-31.md` §6 T14/T15, `scripts/eu17_reroute_trace.py`)*
 
 ---
 
@@ -167,8 +336,22 @@ symptom: the pop-up shows geometry that never ran.**
   2026-08-30 were built; and the side-car emitter regenerates the layout from the footprint
   (`scripts/emit_eu11_layout_sidecars.py`), so it never learns of the reroute at all. Fleet effect:
   **1,555 of 2,544 IDFs (61.1 %) are one zone per floor** while the side-cars report 43.1 % refused.
-  Fix: not fixed — `EU-18`'s parity gate. Diagnostic in one command:
-  `grep -lE "_F[0-9]+_whole,[ ]*!- Name" <district>/idfs/*.idf | wc -l`. *(STATE v4 §3 `FINDING 213`)*
+  Fix (partial, `EU-17` T09(b)) — the side-car emitter now reads the IDF's own zone kinds (T01's
+  `scripts/eu_idf_plan_reader.py::read_district`), not just the independently-recomputed footprint layout:
+  when the generator would emit a ruled layout but the built IDF carries only `whole`-kind zones, the
+  side-car (and the manifest's `geometry_outcome`, via the existing `updated_outcomes` write-back) is
+  overridden to `DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED` with no circulation and IDF-measured
+  (not ruled-route) areas (`scripts/emit_eu11_layout_sidecars.py`, the `idf_reroute_divergence` branch).
+  This closes the mechanism (no side-car can advertise a layout the IDF does not carry) but was verified
+  only in isolation against the read-only EU-11 tree (rule 3 forbids writing there) — confirmed correctly
+  flags the known example below and does **not** flag a genuine `DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_8`
+  refusal (`relation/12582232`) as a false positive. The **459/518 count itself is not closed** until
+  `T10` rebuilds fresh IDFs with today's generator and re-runs this emitter against them — running it now
+  against EU-11's existing (pre-`EU-17`) IDFs would both violate the EU-11 read-only rule and compare
+  today's improved generator against yesterday's IDFs, inflating the count with recoveries `T05`/`T06`/
+  `T08` made possible rather than genuine `FINDING 213` cases. Diagnostic in one command (unchanged):
+  `grep -lE "_F[0-9]+_whole,[ ]*!- Name" <district>/idfs/*.idf | wc -l`. *(STATE v4 §3 `FINDING 213`;
+  `EU-17` T09, `PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md` §6 T09)*
 - **`geometry_outcome` is computed before the IDF is built, so any in-build reroute leaves it stale** —
   `scripts/run_eu_s2_campaign.py:681-692` records the outcome from `build_geometry_for_row` and only then
   calls `build_idf_for_building`, which may reroute. Fix: the district path now re-derives the outcome
@@ -192,6 +375,37 @@ symptom: the pop-up shows geometry that never ran.**
   covers the ruled-grid (non-null) and `l_shape_decomposition` (`None`, pinned) cases; all four districts
   regenerated and mirror-verified. `FINDING 206`, fixed 2026-08-30.
   *(debugs/docs/INVESTIGATION_viewer-circulation-not-drawn_2026-08-30.md)*
+- **[OPEN] `FINDING 215` — `EU-18a` T03's parity gate does not reproduce `FINDING 213`'s pinned 459 -- it finds 518
+  (Madrid 234, Lyon 52, London 18, Bologna 214) -- a fourth, previously undocumented mechanism, isolated
+  to Madrid and disjoint from the 175 already-known `FINDING 213` buildings** — a side-car's absorbed
+  floor group (`storey_span > 1`, `european_residential.py:1857-1880`) declares a group height that
+  reaches the side-car's own `storeys` total (verified self-consistent: `Σ storey_span` over its own
+  `floors[]` groups equals `storeys` on every checked building), but the *IDF's own emitted zone* for
+  that same group is shorter — its tallest surface's Z-coordinate implies **fewer** physical storeys than
+  the side-car declares (measured off `parse_idf_floor_zones`'s `zone_max_z` / `FLOOR_TO_FLOOR_M = 3.0`).
+  59 of 961 Madrid buildings, mostly off by exactly one storey (50), the rest off by 2-4 (5 / 2 / 2).
+  Example: `way/289979823` (stem `010460eeb4131522`) -- side-car `storeys: 4`, its own `floors[]` shows a
+  3rd group at `storey_index 2-3` with `storey_span: 2` (implying the group's zone should extrude 6.0 m
+  to 12.0 m), but the IDF's `010460eeb4131522_F2_dwelling_0` zone only reaches Z = 9.0 m (`storey_span`
+  of 1, not 2) -- 3 `ZONE` objects total (`F0`, `F1`, `F2`), not the 4 physical storeys the side-car
+  declares. `scheme_consistent`, `zone_names_equal` and `circulation_presence_equal` all pass on these 59
+  (the group's dwelling/circulation split is internally fine); only the storey count is short. Fix: not
+  fixed -- root cause not yet located (candidate: `n_storey` computed differently between
+  `scripts/run_eu_s2_district_campaign.py:_geometry` and `scripts/emit_eu11_layout_sidecars.py` for these
+  59 specifically, contradicting fact 8's premise that both layers call the generator identically).
+  *(EU-18a T03, `openubem/outputs/eu_evidence/EU-18/parity_ES-MAD-BERRUGUETE.csv`,
+  `PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md` §6 T03)*
+- **`eu18_parity_gate.py` reports 100 % `NO_SIDECAR` divergence (every building) on a freshly rebuilt
+  `EU-17/<district>/` tree** — `run_eu_s2_district_campaign.py` writes `idfs/`, `prepared_buildings.csv`
+  and the manifest, but never a `layouts/` side-car directory; that is a separate step
+  (`scripts/emit_eu11_layout_sidecars.py`), and T15's rebuild (`D-EU-58`) invoked only the campaign
+  script, not the side-car emitter, so `layouts/` was absent from the tree it left behind (unlike T10's
+  own rebuild, which had run both). Fix: none needed in code — re-run
+  `python -m scripts.emit_eu11_layout_sidecars --evidence-root <D>=<abs path>` per district (mirrors
+  T10's own precedent) before `eu18_emit_plan_pages.py` / `eu18_parity_gate.py`; this populates
+  `layouts/` (961/297/82/1204 files, matching the census) and the gate then measures the real
+  `FINDING 213`/`FINDING 215` divergence instead of `NO_SIDECAR` noise. *(EU-18b T12,
+  `PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md` §6 T12)*
 
 ---
 
@@ -248,6 +462,12 @@ symptom: the pop-up shows geometry that never ran.**
   (conditioned + circulation − gross ≤ 1.2 × 10⁻⁶ relative, measured fleet-wide) but the name invites a
   per-floor reading and a spurious ×storeys conservation failure. Diagnostic: check
   `conditioned + circulation == gross` **without** multiplying by `storeys`. *(STATE v4 §3)*
+- **Shoelace area from raw IDF `BuildingSurface:Detailed` vertices disagreed with an independent shapely
+  oracle by up to 3.6 × 10⁻⁵ relative, failing a 1 × 10⁻⁶ parity test** — the vertices are absolute UTM
+  metres (~4.4 × 10⁵ / 4.5 × 10⁶); `Σ(x1·y2 − x2·y1)` on coordinates of that magnitude cancels ~5-6
+  significant digits against a zone area of only ~10¹-10² m², a catastrophic-cancellation loss double
+  precision cannot recover. Fix: `_ring_area` in `scripts/eu_idf_plan_reader.py` shifts every ring to its
+  own first vertex before summing. *(EU-18a T01, `tests/test_eu_idf_plan_reader.py`)*
 
 ---
 
@@ -260,7 +480,7 @@ symptom: the pop-up shows geometry that never ran.**
   (`sbatch --time=… --array=…`). 🔴 **A 3 h override was then observed to time out twice as well**, so the
   standing rule is `--time=7-00:00:00` minimum on every submission: SLURM bills actual usage, a generous
   request costs nothing, and it removes the resubmit cycle entirely.
-  *(debugs/docs/INVESTIGATION_lyon-timeout-classification_2026-08-31.md; BRIEF_european_locations_v3.md §5;
+  *(debugs/docs/INVESTIGATION_lyon-timeout-classification_2026-08-31.md; previous/BRIEF_european_locations_v3.md §5;
   CLAUDE.md §CLUSTER)*
 - **A harvest finds nothing under `openubem/fleets/EU11R2_<district>/`** — those are **upload staging**
   entries (`.tgz` + `.submit.sbatch`) only; a missing one is harmless. The arrays run

@@ -256,7 +256,7 @@ has failed the disclosure that goes with the bar.
 | fleet coverage census | `scratchpad/coverage_census.py` → `coverage_census.json` |
 | plan sheets | `openubem/outputs/eu13b_sample_plan_*.svg`, mirrored to `content/` |
 | interactive board | <https://claude.ai/code/artifact/3fe940e8-231d-459c-b46f-fb9daa1995ce> |
-| defects this addresses | `FINDING 200`–`FINDING 203`, `previous/STATE_european_locations_v2.md` §3; superseded by `STATE_european_locations_v3.md` §3 |
+| defects this addresses | `FINDING 200`–`FINDING 203`, `previous/STATE_european_locations_v2.md` §3; superseded by `previous/STATE_european_locations_v3.md` §3 |
 | execution plan | `prompts/PROMPT_EU-13B_dwelling_layout_scheme_conformance.md` |
 | method of record | `previous/MVP_european_locations.md` §4.2–§4.4 |
 

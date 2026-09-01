@@ -16,7 +16,7 @@ from typing import Iterable
 import geopandas as gpd
 import pandas as pd
 from shapely import affinity, set_precision
-from shapely.geometry import LineString, Polygon, box
+from shapely.geometry import LineString, Point, Polygon, box
 from shapely.geometry.base import BaseGeometry
 from shapely.geometry.polygon import orient
 from shapely.ops import split, unary_union
@@ -276,6 +276,11 @@ class EuropeanGridLayout:
     partition_audit: EuropeanFloorPartitionAudit | None
     fallback_reason: str | None
     dwelling_layout_emitted: bool
+    # EU-21 P05 / S4 (``regularized_envelope_grid``): the fraction of the
+    # footprint outside the largest inscribed envelope, folded into
+    # circulation. ``None`` for every other scheme -- never reported as if
+    # it were a ruled grid.
+    residual_fraction: float | None = None
 
 
 def generate_european_grid_layout(
@@ -284,6 +289,7 @@ def generate_european_grid_layout(
     dwelling_count: int,
     minimum_facade_contact_m: float = 2.5,
     axis_angle_deg: float | None = None,
+    carve_circulation: bool = True,
 ) -> EuropeanGridLayout:
     """Report Sec 5: the ruled ``n_u x n_v`` point-block grid, primary scheme.
 
@@ -306,7 +312,7 @@ def generate_european_grid_layout(
         plate_for_cutting = plate
         circulation_polygon = None
         circulation_area = 0.0
-        wants_circulation = dwelling_count >= CIRCULATION_MIN_DWELLINGS_FOR_CIRCULATION
+        wants_circulation = carve_circulation and dwelling_count >= CIRCULATION_MIN_DWELLINGS_FOR_CIRCULATION
         if wants_circulation:
             target_area = CIRCULATION_FRACTION_OF_PLATE * plate.area
             circulation_polygon = _centred_circulation_region(plate, axis_angle_deg=angle, origin=origin, area_m2=target_area)
@@ -474,28 +480,17 @@ def classify_building_morphology(footprint: BaseGeometry) -> EuropeanMorphologyR
     )
 
 
-def _split_at_reflex_vertex(
-    footprint: BaseGeometry, *, tolerance_m: float = 0.15
-) -> tuple[BaseGeometry, BaseGeometry]:
-    """Report Sec 6.2: split a non-convex plate along the reflex orthogonal axis.
-
-    Tries both axis-aligned lines through the (first) reflex vertex and keeps
-    whichever produces exactly two polygon wings with the better combined
-    rectangularity (``piece.area / piece.minimum_rotated_rectangle.area``),
-    which is what "convex lobes" means in practice for an orthogonal plate.
-    Pre-simplifies at ``tolerance_m`` (the pipeline's own regularization
-    tolerance, not the coarser 0.5 m ``classify_building_morphology`` uses
-    for its routing decision) so the cut line matches what regularization
-    elsewhere would keep, and slivers/near-collinear GIS noise below that
-    tolerance never register as a spurious second reflex vertex here.
-    """
+def _reflex_vertices(footprint: BaseGeometry, *, tolerance_m: float = 0.15) -> list[tuple[float, float]]:
+    """Every reflex (re-entrant) vertex of the (denoised) footprint, in
+    perimeter traversal order -- one candidate split point per corner, not
+    just the first one encountered."""
     denoised = footprint.simplify(tolerance_m, preserve_topology=True)
     if denoised.is_empty or not denoised.is_valid or denoised.geom_type != "Polygon" or denoised.area <= 0.0:
         denoised = footprint
     oriented = orient(denoised, sign=1.0)
     coords = list(oriented.exterior.coords)[:-1]
     n = len(coords)
-    reflex_point = None
+    points: list[tuple[float, float]] = []
     for i in range(n):
         a, b, c = coords[i - 1], coords[i], coords[(i + 1) % n]
         dir_in = (b[0] - a[0], b[1] - a[1])
@@ -504,10 +499,33 @@ def _split_at_reflex_vertex(
         dot = dir_in[0] * dir_out[0] + dir_in[1] * dir_out[1]
         turn = math.degrees(math.atan2(cross, dot))
         if 180.0 - turn > 185.0:
-            reflex_point = b
-            break
-    if reflex_point is None:
+            points.append(b)
+    return points
+
+
+def _split_at_reflex_vertex(
+    footprint: BaseGeometry, *, tolerance_m: float = 0.15, reflex_vertex_index: int = 0
+) -> tuple[BaseGeometry, BaseGeometry]:
+    """Report Sec 6.2: split a non-convex plate along a reflex orthogonal axis.
+
+    T05: every reflex vertex is a candidate split point, not just the first
+    one found -- ``reflex_vertex_index`` selects which one (in perimeter
+    order) this call splits at, so a caller can try each in turn on a plate
+    with more than one re-entrant corner (U, T, cross). For the chosen
+    vertex, tries both axis-aligned lines through it and keeps whichever
+    produces exactly two polygon wings with the better combined
+    rectangularity (``piece.area / piece.minimum_rotated_rectangle.area``),
+    which is what "convex lobes" means in practice for an orthogonal plate.
+    Pre-simplifies at ``tolerance_m`` (the pipeline's own regularization
+    tolerance, not the coarser 0.5 m ``classify_building_morphology`` uses
+    for its routing decision) so the cut line matches what regularization
+    elsewhere would keep, and slivers/near-collinear GIS noise below that
+    tolerance never register as a spurious second reflex vertex here.
+    """
+    reflex_points = _reflex_vertices(footprint, tolerance_m=tolerance_m)
+    if not reflex_points or reflex_vertex_index >= len(reflex_points):
         raise ValueError("footprint has no reflex vertex to split at")
+    reflex_point = reflex_points[reflex_vertex_index]
     min_x, min_y, max_x, max_y = footprint.bounds
     span = max(max_x - min_x, max_y - min_y) * 2.0 + 1.0
     candidates = [
@@ -531,34 +549,66 @@ def _split_at_reflex_vertex(
     return best
 
 
+def _split_wing_best_of_all_reflex_vertices(
+    wing: BaseGeometry, *, tolerance_m: float
+) -> tuple[BaseGeometry, BaseGeometry] | None:
+    """T05: try every reflex vertex on ``wing`` (not only the first), keep
+    the split with the best combined rectangularity across all of them.
+
+    A U/T/cross plate carries more than one re-entrant corner; splitting at
+    whichever one happens to be first in perimeter order is not always the
+    cut that leaves the cleanest two lobes to recurse on.
+    """
+    reflex_points = _reflex_vertices(wing, tolerance_m=tolerance_m)
+    best: tuple[BaseGeometry, BaseGeometry] | None = None
+    best_score = -1.0
+    for index in range(len(reflex_points)):
+        try:
+            larger, smaller = _split_at_reflex_vertex(wing, tolerance_m=tolerance_m, reflex_vertex_index=index)
+        except ValueError:
+            continue
+        score = (larger.area / larger.minimum_rotated_rectangle.area) + (
+            smaller.area / smaller.minimum_rotated_rectangle.area
+        )
+        if score > best_score:
+            best_score = score
+            best = (larger, smaller)
+    return best
+
+
 def _l_shape_wings(
-    footprint: BaseGeometry, *, tolerance_m: float = 0.15, max_wings: int = 4
+    footprint: BaseGeometry, *, tolerance_m: float = 0.15, max_wings: int = 6
 ) -> list[BaseGeometry]:
-    """T03: recurse ``_split_at_reflex_vertex`` on the larger lobe.
+    """T03/T05: recurse the best available reflex-vertex split on whichever
+    wing still carries one.
 
     A single clean L-shape (one real reflex vertex at ``tolerance_m``) still
-    returns the plain two-wing split. A noisy real footprint whose main lobe
-    itself carries a residual reflex vertex at this tighter tolerance keeps
-    splitting that lobe (always the larger of the two most-recently produced
-    pieces, since ``_split_at_reflex_vertex`` already orders its return by
-    area) until no wing has one left or ``max_wings`` is reached.
+    returns the plain two-wing split. A U-shape (two re-entrant corners)
+    keeps splitting -- each split is chosen from *every* reflex vertex still
+    present on that wing (``_split_wing_best_of_all_reflex_vertices``), not
+    only the first one found, so a T or cross plate (three or four
+    re-entrant corners) converges to more wings than a single-vertex search
+    would reach -- until no wing has a reflex vertex left or ``max_wings`` is
+    reached (raised from 4 to 6 for T05 to make room for a cross plate's
+    five lobes).
     """
     wings = [footprint]
     while len(wings) < max_wings:
         split_index = None
+        split_result: tuple[BaseGeometry, BaseGeometry] | None = None
         for index, wing in enumerate(wings):
             denoised = wing.simplify(tolerance_m, preserve_topology=True)
             if denoised.is_empty or not denoised.is_valid or denoised.geom_type != "Polygon" or denoised.area <= 0.0:
                 denoised = wing
             if _reflex_vertex_count(denoised) > 0:
-                split_index = index
-                break
-        if split_index is None:
+                candidate = _split_wing_best_of_all_reflex_vertices(wing, tolerance_m=tolerance_m)
+                if candidate is not None:
+                    split_index = index
+                    split_result = candidate
+                    break
+        if split_index is None or split_result is None:
             break
-        try:
-            larger, smaller = _split_at_reflex_vertex(wings[split_index], tolerance_m=tolerance_m)
-        except ValueError:
-            break
+        larger, smaller = split_result
         wings = wings[:split_index] + [larger, smaller] + wings[split_index + 1:]
     return wings
 
@@ -589,6 +639,57 @@ def _allocate_wing_dwelling_counts(wing_areas: list[float], dwelling_count: int)
     if diff != 0 or any(count <= 0 for count in counts):
         raise ValueError("wing area fractions could not conserve dwelling_count")
     return counts
+
+
+def _wing_count_candidates(
+    wing_areas: list[float],
+    dwelling_count: int,
+    max_per_wing: int,
+    *,
+    max_candidates: int = 16,
+    max_transfer_depth: int = 3,
+) -> list[tuple[int, ...]]:
+    """T05/T06: an ordered, bounded search of per-wing count vectors.
+
+    Starts at the area-proportional baseline (``_allocate_wing_dwelling_counts``)
+    and explores single-dwelling transfers between wings (donor keeps >= 1,
+    receiver stays <= ``max_per_wing``) up to ``max_transfer_depth`` hops,
+    breadth-first so nearer-to-baseline vectors are tried first. Never
+    changes ``dwelling_count`` -- every candidate sums to it exactly.
+    """
+    baseline = tuple(_allocate_wing_dwelling_counts(wing_areas, dwelling_count))
+    seen = {baseline}
+    candidates = [baseline]
+    frontier = [baseline]
+    n = len(wing_areas)
+    depth = 0
+    while frontier and len(candidates) < max_candidates and depth < max_transfer_depth:
+        next_frontier: list[tuple[int, ...]] = []
+        for counts in frontier:
+            for i in range(n):
+                if counts[i] <= 1:
+                    continue
+                for j in range(n):
+                    if i == j or counts[j] >= max_per_wing:
+                        continue
+                    new_counts = list(counts)
+                    new_counts[i] -= 1
+                    new_counts[j] += 1
+                    key = tuple(new_counts)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+                    candidates.append(key)
+                    next_frontier.append(key)
+                    if len(candidates) >= max_candidates:
+                        break
+                if len(candidates) >= max_candidates:
+                    break
+            if len(candidates) >= max_candidates:
+                break
+        frontier = next_frontier
+        depth += 1
+    return candidates
 
 
 def _combine_wing_results(
@@ -689,10 +790,25 @@ def _courtyard_wings_and_nodes(
     ]
     circulation_area_each = circulation_area_total_m2 / len(inner_corners) if inner_corners else 0.0
     node_side = math.sqrt(circulation_area_each) if circulation_area_each > 0.0 else 0.0
-    nodes_aligned = [
-        box(cx - node_side / 2.0, cy - node_side / 2.0, cx + node_side / 2.0, cy + node_side / 2.0)
-        for cx, cy in inner_corners
-    ]
+    # T06: a node box centred exactly on the void's own inner corner has half
+    # its area sitting inside the void -- never real footprint area, so
+    # summing the *raw* box areas as "circulation" overstates it (discovered
+    # while proving T06's own conservation identity, "gross - void =
+    # conditioned + circulation"). Clipping each node to the aligned
+    # footprint before it is returned changes nothing about the wings
+    # (subtracting a void-extending box or its footprint-clipped remainder
+    # from a piece that is already confined to the footprint is identical --
+    # the void-only sliver was never part of any wing to begin with) but
+    # makes the reported circulation area the area actually carved.
+    nodes_aligned: list[BaseGeometry] = []
+    for cx, cy in inner_corners:
+        raw_node = box(cx - node_side / 2.0, cy - node_side / 2.0, cx + node_side / 2.0, cy + node_side / 2.0)
+        clipped = raw_node.intersection(aligned_footprint)
+        if clipped.geom_type == "MultiPolygon":
+            clipped = max(clipped.geoms, key=lambda geom: geom.area)
+        if clipped.is_empty or clipped.geom_type != "Polygon" or clipped.area <= 0.0:
+            clipped = raw_node
+        nodes_aligned.append(clipped)
 
     wing_boxes = [
         box(fx0 - pad, vy0, vx0, vy1),
@@ -727,45 +843,60 @@ def generate_european_courtyard_layout(
     dwelling_count: int,
     minimum_facade_contact_m: float = 2.5,
     regularization_tolerance_m: float = 0.15,
+    carve_circulation: bool = True,
 ) -> EuropeanGridLayout:
     """Report Sec 6.4: courtyard / U-shape unfolding, the ``courtyard_secondary``
-    route's actual implementation (T02). Subtracts the courtyard void, places
-    a circulation node at each inner corner, then partitions each remaining
-    wing by its own area fraction of ``dwelling_count`` -- recursing through
-    ``generate_european_ruled_storey_layout`` exactly as the L-shape route's
-    wings already do. Never approximates: any wing, audit or habitability
-    failure raises so the caller falls back to the secondary route.
+    route's actual implementation (T02/T06). Subtracts the courtyard void
+    (kept as a hole in the plate, never counted as dwelling area -- the wing
+    boxes only ever intersect the real footprint, so the void is excluded
+    structurally whether it is a true interior ring or an open U/C notch),
+    places a circulation node at each inner corner, then partitions each
+    remaining wing by its own area fraction of ``dwelling_count`` --
+    recursing through ``generate_european_ruled_storey_layout`` exactly as
+    the L-shape route's wings already do. T06: reuses T05's bounded
+    ``_wing_count_candidates`` rebalance search instead of only the single
+    area-proportional baseline split, so a wing that cannot host its
+    proportional share (corner wings stay >= 1 dwelling throughout) no
+    longer fails the whole courtyard on that split alone. Never
+    approximates: any wing, audit or habitability failure across every
+    candidate raises so the caller falls back to the secondary route.
     """
-    wants_circulation = dwelling_count >= CIRCULATION_MIN_DWELLINGS_FOR_CIRCULATION
+    wants_circulation = carve_circulation and dwelling_count >= CIRCULATION_MIN_DWELLINGS_FOR_CIRCULATION
     target_circulation_area = CIRCULATION_FRACTION_OF_PLATE * footprint.area if wants_circulation else 0.0
     wings, nodes = _courtyard_wings_and_nodes(footprint, circulation_area_total_m2=target_circulation_area)
     wing_areas = [wing.area for wing in wings]
-    counts = _allocate_wing_dwelling_counts(wing_areas, dwelling_count)
-    wing_results = [
-        generate_european_ruled_storey_layout(
-            wing, dwelling_count=count, minimum_facade_contact_m=minimum_facade_contact_m,
-            regularization_tolerance_m=regularization_tolerance_m,
+    extra_circulation = nodes if wants_circulation else None
+    for counts in _wing_count_candidates(wing_areas, dwelling_count, RULED_GRID_MAX_DWELLINGS_PER_FLOOR):
+        try:
+            wing_results = [
+                generate_european_ruled_storey_layout(
+                    wing, dwelling_count=count, minimum_facade_contact_m=minimum_facade_contact_m,
+                    regularization_tolerance_m=regularization_tolerance_m, carve_circulation=carve_circulation,
+                )
+                for wing, count in zip(wings, counts)
+            ]
+        except (ValueError, IndexError):
+            continue
+        combined = _combine_wing_results(
+            footprint, wing_results, dwelling_count=dwelling_count,
+            minimum_facade_contact_m=minimum_facade_contact_m, scheme="courtyard_wing_unfold",
+            extra_circulation=extra_circulation, keep_circulation_polygon=True,
         )
-        for wing, count in zip(wings, counts)
-    ]
-    combined = _combine_wing_results(
-        footprint, wing_results, dwelling_count=dwelling_count,
-        minimum_facade_contact_m=minimum_facade_contact_m, scheme="courtyard_wing_unfold",
-        extra_circulation=nodes, keep_circulation_polygon=True,
-    )
-    if combined is None:
-        raise ValueError("courtyard wing partition failed audit or habitability")
-    outside_band = combined.circulation_outside_ruled_absolute_band or (
-        wants_circulation
-        and not (CIRCULATION_ABSOLUTE_BAND_M2[0] <= combined.circulation_area_m2 <= CIRCULATION_ABSOLUTE_BAND_M2[1])
-    )
-    if outside_band != combined.circulation_outside_ruled_absolute_band:
-        combined = EuropeanGridLayout(**{**combined.__dict__, "circulation_outside_ruled_absolute_band": outside_band})
-    return combined
+        if combined is None:
+            continue
+        outside_band = combined.circulation_outside_ruled_absolute_band or (
+            wants_circulation
+            and not (CIRCULATION_ABSOLUTE_BAND_M2[0] <= combined.circulation_area_m2 <= CIRCULATION_ABSOLUTE_BAND_M2[1])
+        )
+        if outside_band != combined.circulation_outside_ruled_absolute_band:
+            combined = EuropeanGridLayout(**{**combined.__dict__, "circulation_outside_ruled_absolute_band": outside_band})
+        return combined
+    raise ValueError("courtyard wing partition failed audit or habitability")
 
 
 def generate_european_linear_gallery_layout(
     plate: BaseGeometry, *, dwelling_count: int, minimum_facade_contact_m: float = 2.5,
+    carve_circulation: bool = True,
 ) -> EuropeanGridLayout:
     """Report Sec 6.3: I-shape linear gallery, double-loaded corridor spine.
 
@@ -780,7 +911,7 @@ def generate_european_linear_gallery_layout(
     origin = plate.centroid
     angle = _long_axis_angle_degrees(plate)
     grid_name = _grid_for_count(dwelling_count)[2]
-    wants_circulation = dwelling_count >= CIRCULATION_MIN_DWELLINGS_FOR_CIRCULATION
+    wants_circulation = carve_circulation and dwelling_count >= CIRCULATION_MIN_DWELLINGS_FOR_CIRCULATION
 
     aligned = affinity.rotate(plate, -angle, origin=origin)
     min_x, min_y, max_x, max_y = aligned.bounds
@@ -852,20 +983,116 @@ def generate_european_linear_gallery_layout(
     )
 
 
+NARROW_PLATE_SCHEME = "narrow_plate_corridor_free"
+
+
+def generate_european_narrow_plate_layout(
+    plate: BaseGeometry, *, dwelling_count: int, minimum_facade_contact_m: float = 2.5,
+    carve_circulation: bool = True,
+) -> EuropeanGridLayout:
+    """T07: a plate whose minimum rotated width is below
+    ``NARROW_FOOTPRINT_THRESHOLD_M`` cannot host MVP Sec 4.3's 1.80 m
+    ``CORRIDOR_SPINE_WIDTH_M`` double-loaded corridor (fact 12's conflict in
+    its sharpest form). Rather than inventing a resolution, this scheme
+    partitions the plate dual-aspect across its own long axis with **no**
+    corridor spine -- disclosed by its own ``scheme`` name
+    (``narrow_plate_corridor_free``, reported at Stop-and-report 3 as
+    ``CIRCULATION_SPINE_OMITTED_NARROW_PLATE``), never a silently-relabelled
+    gallery layout. A centroidal stair core is still carved at
+    ``CIRCULATION_FRACTION_OF_PLATE`` for >= 2 dwellings/storey -- that
+    sizing rule is width-independent (MVP Sec 4.3's 2-4-dwelling band), only
+    the >= 5-dwelling spine is what a < 8 m plate cannot host. If the core
+    alone leaves no habitable remainder on both sides of it, the storey
+    refuses with ``NARROW_PLATE_CORE_EXCEEDS_HABITABLE_SHARE`` rather than
+    approximating the dwelling count down.
+    """
+    if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
+        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+    if plate.geom_type != "Polygon" or plate.is_empty or not plate.is_valid or plate.area <= 0.0:
+        raise ValueError("plate must be a valid positive-area Polygon")
+    angle = _long_axis_angle_degrees(plate)
+    origin = plate.centroid
+    wants_circulation = carve_circulation and dwelling_count >= CIRCULATION_MIN_DWELLINGS_FOR_CIRCULATION
+
+    def _refused(reason: str) -> EuropeanGridLayout:
+        return EuropeanGridLayout(
+            scheme=NARROW_PLATE_SCHEME, grid=NARROW_PLATE_SCHEME, nu=dwelling_count, nv=1, dwelling_polygons=(),
+            circulation_polygon=None, circulation_area_m2=0.0, circulation_pct_of_plate=0.0,
+            circulation_outside_ruled_absolute_band=False, facade_contact_lengths_m=(),
+            habitability_rotation_applied=False, habitability_downgrade_applied=False,
+            partition_audit=None, fallback_reason=reason, dwelling_layout_emitted=False,
+        )
+
+    core: BaseGeometry | None = None
+    circulation_area = 0.0
+    remainder: BaseGeometry = plate
+    if wants_circulation:
+        # A centroidal stair core the same size CIRCULATION_MIN_DWELLINGS_
+        # FOR_CIRCULATION already carves for a 2-4-dwelling storey (fact 12)
+        # is compact along the plate's own short axis, so it never spans the
+        # full width -- unlike the gallery's corridor, it does not disconnect
+        # the plate into two lobes. It is cut as a hole and the *whole*
+        # remainder is then sliced dual-aspect along the long axis in one
+        # pass (``_equal_area_axis_cuts`` already conserves area around a
+        # hole/notch), rather than pre-splitting into west/east bands that a
+        # non-disconnecting core would leave empty on one side.
+        target_area = CIRCULATION_FRACTION_OF_PLATE * plate.area
+        core = _centred_circulation_region(plate, axis_angle_deg=angle, origin=origin, area_m2=target_area)
+        remainder = plate.difference(core)
+        if remainder.is_empty or remainder.area <= plate.area * 1e-6:
+            return _refused("NARROW_PLATE_CORE_EXCEEDS_HABITABLE_SHARE")
+        circulation_area = float(core.area)
+
+    dwellings: list[BaseGeometry] = []
+    try:
+        dwellings.extend(_equal_area_axis_cuts(remainder, axis_angle_deg=angle, n_parts=dwelling_count, origin=origin))
+    except (ValueError, IndexError):
+        return _refused("NARROW_PLATE_CORE_EXCEEDS_HABITABLE_SHARE" if wants_circulation else "PARTITION_AUDIT_FAILED")
+
+    if len(dwellings) != dwelling_count or any(d.is_empty or d.area <= 0.0 for d in dwellings):
+        return _refused("PARTITION_AUDIT_FAILED")
+    dwellings_t = tuple(dwellings)
+    audit_plate = plate.difference(core) if core is not None else plate
+    audit = audit_european_floor_partition(
+        audit_plate, dwellings_t, expected_dwelling_count=dwelling_count,
+        topology_tolerance_fraction=EUROPEAN_TOPOLOGY_TOLERANCE_FRACTION,
+    )
+    facade_lengths = _facade_contact_lengths(plate, dwellings_t)
+    pct = circulation_area / plate.area if plate.area > 0 else 0.0
+    outside_band = wants_circulation and not (CIRCULATION_ABSOLUTE_BAND_M2[0] <= circulation_area <= CIRCULATION_ABSOLUTE_BAND_M2[1])
+    if not audit.passed:
+        reason = "PARTITION_AUDIT_FAILED"
+    elif any(length < minimum_facade_contact_m for length in facade_lengths):
+        reason = "INSUFFICIENT_EXTERIOR_FACADE_LT_2_50M"
+    else:
+        reason = None
+    return EuropeanGridLayout(
+        scheme=NARROW_PLATE_SCHEME, grid=NARROW_PLATE_SCHEME, nu=dwelling_count, nv=1, dwelling_polygons=dwellings_t,
+        circulation_polygon=core, circulation_area_m2=circulation_area, circulation_pct_of_plate=pct,
+        circulation_outside_ruled_absolute_band=outside_band, facade_contact_lengths_m=facade_lengths,
+        habitability_rotation_applied=False, habitability_downgrade_applied=False, partition_audit=audit,
+        fallback_reason=reason, dwelling_layout_emitted=reason is None,
+    )
+
+
 def generate_european_ruled_storey_layout(
     footprint: BaseGeometry,
     *,
     dwelling_count: int,
     minimum_facade_contact_m: float = 2.5,
     regularization_tolerance_m: float = 0.15,
+    carve_circulation: bool = True,
 ) -> EuropeanGridLayout:
-    """T04/T05 entry point: regularize, classify morphology, then partition.
+    """T04/T05/T07/T08 entry point: regularize, classify morphology, then partition.
 
     Falls back to the existing ``equal_strip_multi_angle_sweep`` secondary
     route (unchanged) whenever the ruled route cannot serve this storey --
-    regularization area delta beyond the 2% gate, or a route this task does
-    not implement (courtyard unfolding), or a habitability/audit failure the
-    grid's own retries could not resolve.
+    regularization area delta beyond the 2% gate, or a habitability/audit
+    failure every wing-decomposition candidate this task tries could not
+    resolve. ``carve_circulation`` (T08/D-EU-49) is threaded to every leaf
+    route and to every recursive wing call so a single-storey building's
+    caller can suppress circulation uniformly, regardless of which route the
+    storey took -- never as a special case inside one route.
     """
     if dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
         raise ValueError("caller must apply the >8 per-floor refusal before calling the ruled partitioner")
@@ -895,6 +1122,71 @@ def generate_european_ruled_storey_layout(
         # so the caller (generate_european_building_dwelling_layout) fails
         # the whole building closed to the existing one_zone_per_floor
         # massing-box fallback, exactly as any other unlayoutable building.
+        # EU-21 P02-P05: additive group-scheme chain, reachable only here --
+        # on a path the existing ruled/L-shape/courtyard routes have already
+        # refused. Never replaces a route that already succeeds (fact 2).
+        # ``PARTITION_AUDIT_FAILED`` and the (unreachable at this level)
+        # density refusal stay pure refusals -- no shape scheme is offered a
+        # storey the audit itself already condemned.
+        if reason_hint != "PARTITION_AUDIT_FAILED":
+            try:
+                morphology_here = classify_building_morphology(footprint)
+            except (ValueError, IndexError):
+                morphology_here = None
+            if morphology_here is not None and morphology_here.has_courtyard:
+                try:
+                    s1 = generate_european_courtyard_perimeter_band_layout(
+                        footprint, dwelling_count=dwelling_count,
+                        minimum_facade_contact_m=minimum_facade_contact_m, carve_circulation=carve_circulation,
+                    )
+                except (ValueError, IndexError, AttributeError):
+                    # P01c 2026-09-01: a degenerate dwelling polygon can reach
+                    # _facade_contact_lengths as None (AttributeError on
+                    # .boundary.intersection) -- same isolate-and-fall-through
+                    # contract as the ValueError/IndexError cases above, not a
+                    # change to any layout this scheme already emits.
+                    s1 = None
+                if s1 is not None and s1.dwelling_layout_emitted:
+                    return s1
+            try:
+                width_here = _minimum_rotated_width_m(footprint)
+            except (ValueError, IndexError):
+                width_here = None
+            if width_here is not None and width_here < NARROW_FOOTPRINT_THRESHOLD_M:
+                try:
+                    s2 = generate_european_row_house_depth_bands_layout(
+                        footprint, dwelling_count=dwelling_count, minimum_facade_contact_m=minimum_facade_contact_m,
+                    )
+                except (ValueError, IndexError, AttributeError):
+                    # P01c 2026-09-01: see s1 above -- same isolate-and-fall-through
+                    # contract, widened to the same degenerate-polygon symptom.
+                    s2 = None
+                if s2 is not None and s2.dwelling_layout_emitted:
+                    return s2
+            if morphology_here is not None and morphology_here.route == "l_shape_decomposition":
+                try:
+                    s3 = generate_european_wing_spine_decomposition_layout(
+                        footprint, dwelling_count=dwelling_count, minimum_facade_contact_m=minimum_facade_contact_m,
+                        regularization_tolerance_m=regularization_tolerance_m, carve_circulation=carve_circulation,
+                    )
+                except (ValueError, IndexError, AttributeError):
+                    # P01c 2026-09-01: see s1 above -- same isolate-and-fall-through
+                    # contract, widened to the same degenerate-polygon symptom.
+                    s3 = None
+                if s3 is not None and s3.dwelling_layout_emitted:
+                    return s3
+            try:
+                s4 = generate_european_regularized_envelope_grid_layout(
+                    footprint, dwelling_count=dwelling_count, minimum_facade_contact_m=minimum_facade_contact_m,
+                    carve_circulation=carve_circulation,
+                )
+            except (ValueError, IndexError, AttributeError):
+                # P01c 2026-09-01: see s1 above -- same isolate-and-fall-through
+                # contract, widened to the same degenerate-polygon symptom.
+                s4 = None
+            if s4 is not None and s4.dwelling_layout_emitted:
+                return s4
+
         legacy = generate_european_dwelling_layout(
             footprint, requested_dwelling_count=dwelling_count, minimum_facade_contact_m=minimum_facade_contact_m,
         )
@@ -920,6 +1212,7 @@ def generate_european_ruled_storey_layout(
         try:
             result = generate_european_grid_layout(
                 regularization.regularized_polygon, dwelling_count=2, minimum_facade_contact_m=minimum_facade_contact_m,
+                carve_circulation=carve_circulation,
             )
         except (ValueError, IndexError):
             return _secondary("PARTITION_AUDIT_FAILED")
@@ -932,12 +1225,18 @@ def generate_european_ruled_storey_layout(
         try:
             return generate_european_courtyard_layout(
                 footprint, dwelling_count=dwelling_count, minimum_facade_contact_m=minimum_facade_contact_m,
-                regularization_tolerance_m=regularization_tolerance_m,
+                regularization_tolerance_m=regularization_tolerance_m, carve_circulation=carve_circulation,
             )
         except (ValueError, IndexError):
             return _secondary(f"{morphology.reason}_FAILED")
 
     if morphology.route == "l_shape_decomposition":
+        # T05: split at every reflex corner reachable, not one -- expresses
+        # L, U, T and cross plates.  Candidates come from both single-cut
+        # attempts (kept for the plain-L case, matching pre-T05 behaviour
+        # exactly when only one reflex vertex exists) and the recursive
+        # multi-wing decomposition, which now tries every reflex vertex on
+        # each wing at each step (``_l_shape_wings``), not only the first.
         wing_candidates: list[list[BaseGeometry]] = []
         seen_area_signatures: list[list[float]] = []
 
@@ -961,25 +1260,39 @@ def generate_european_ruled_storey_layout(
             _add_candidate(_l_shape_wings(footprint, tolerance_m=regularization_tolerance_m))
         except (ValueError, IndexError):
             pass
+        try:
+            _add_candidate(_l_shape_wings(footprint, tolerance_m=0.5))
+        except (ValueError, IndexError):
+            pass
         for wings in wing_candidates:
+            wing_areas = [wing.area for wing in wings]
             try:
-                counts = _allocate_wing_dwelling_counts([wing.area for wing in wings], dwelling_count)
-                wing_results = [
-                    generate_european_ruled_storey_layout(
-                        wing, dwelling_count=count, minimum_facade_contact_m=minimum_facade_contact_m,
-                        regularization_tolerance_m=regularization_tolerance_m,
+                count_candidates = _wing_count_candidates(wing_areas, dwelling_count, RULED_GRID_MAX_DWELLINGS_PER_FLOOR)
+            except ValueError:
+                continue
+            # T05: when the area-proportional baseline gives a wing more (or
+            # fewer) dwellings than it can host, re-allocate across wings
+            # (bounded +/-1-at-a-time search) instead of refusing the whole
+            # building on the first split tried -- only exhausting every
+            # count vector on every wing candidate is a true refusal.
+            for counts in count_candidates:
+                try:
+                    wing_results = [
+                        generate_european_ruled_storey_layout(
+                            wing, dwelling_count=count, minimum_facade_contact_m=minimum_facade_contact_m,
+                            regularization_tolerance_m=regularization_tolerance_m, carve_circulation=carve_circulation,
+                        )
+                        for wing, count in zip(wings, counts)
+                    ]
+                    combined = _combine_wing_results(
+                        footprint, wing_results, dwelling_count=dwelling_count,
+                        minimum_facade_contact_m=minimum_facade_contact_m, scheme="l_shape_decomposition",
+                        keep_circulation_polygon=True,
                     )
-                    for wing, count in zip(wings, counts)
-                ]
-                combined = _combine_wing_results(
-                    footprint, wing_results, dwelling_count=dwelling_count,
-                    minimum_facade_contact_m=minimum_facade_contact_m, scheme="l_shape_decomposition",
-                    keep_circulation_polygon=False,
-                )
-            except (ValueError, IndexError):
-                combined = None
-            if combined is not None:
-                return combined
+                except (ValueError, IndexError):
+                    combined = None
+                if combined is not None:
+                    return combined
         return _secondary("L_SHAPE_DECOMPOSITION_FAILED")
 
     regularization = regularize_footprint_orthogonal(footprint, tolerance_m=regularization_tolerance_m)
@@ -988,19 +1301,548 @@ def generate_european_ruled_storey_layout(
     plate = regularization.regularized_polygon
 
     try:
-        if morphology.route == "i_shape_linear_gallery":
+        if morphology.route == "i_shape_linear_gallery" and _minimum_rotated_width_m(footprint) < NARROW_FOOTPRINT_THRESHOLD_M:
+            # T07: MVP Sec 4.3's 1.80 m corridor spine cannot fit a < 8 m
+            # plate (fact 12) -- this is the branch that selects the
+            # corridor-free scheme instead, reached here at top level and
+            # (per fact 8's shared entry point) also from any wing T05
+            # produces that turns out to be a deep, narrow lobe.
+            result = generate_european_narrow_plate_layout(
+                plate, dwelling_count=dwelling_count, minimum_facade_contact_m=minimum_facade_contact_m,
+                carve_circulation=carve_circulation,
+            )
+        elif morphology.route == "i_shape_linear_gallery":
             result = generate_european_linear_gallery_layout(
                 plate, dwelling_count=dwelling_count, minimum_facade_contact_m=minimum_facade_contact_m,
+                carve_circulation=carve_circulation,
             )
         else:
             result = generate_european_grid_layout(
                 plate, dwelling_count=dwelling_count, minimum_facade_contact_m=minimum_facade_contact_m,
+                carve_circulation=carve_circulation,
             )
     except (ValueError, IndexError):
         return _secondary("PARTITION_AUDIT_FAILED")
     if not result.dwelling_layout_emitted:
         return _secondary(result.fallback_reason)
     return result
+
+
+# --- EU-21: additive group schemes (S1-S4), each reachable only on the
+# refusal path of ``generate_european_ruled_storey_layout`` (see
+# ``_secondary`` above). None of these change any existing route's output.
+
+COURTYARD_PERIMETER_BAND_SCHEME = "courtyard_perimeter_band"
+ROW_HOUSE_DEPTH_BANDS_SCHEME = "row_house_depth_bands"
+WING_SPINE_DECOMPOSITION_SCHEME = "wing_spine_decomposition"
+REGULARIZED_ENVELOPE_GRID_SCHEME = "regularized_envelope_grid"
+COURTYARD_BAND_MIN_DEPTH_M = 6.0
+ROW_BAND_MIN_LENGTH_M = 4.0
+WING_MIN_AREA_SHARE = 0.10
+ENVELOPE_RESIDUAL_MAX_FRACTION = 0.35
+ENVELOPE_ROTATION_STEP_DEG = 5.0
+ENVELOPE_SEARCH_GRID_N = 24
+
+
+def _refused_group_scheme(scheme: str, dwelling_count: int, reason: str) -> "EuropeanGridLayout":
+    return EuropeanGridLayout(
+        scheme=scheme, grid=scheme, nu=dwelling_count, nv=1, dwelling_polygons=(),
+        circulation_polygon=None, circulation_area_m2=0.0, circulation_pct_of_plate=0.0,
+        circulation_outside_ruled_absolute_band=False, facade_contact_lengths_m=(),
+        habitability_rotation_applied=False, habitability_downgrade_applied=False,
+        partition_audit=None, fallback_reason=reason, dwelling_layout_emitted=False,
+    )
+
+
+def _wedge_polygon(origin: BaseGeometry, radius: float, angle_from_deg: float, angle_to_deg: float) -> BaseGeometry:
+    """A pie-slice polygon from ``origin`` spanning ``angle_from_deg`` to
+    ``angle_to_deg`` (may exceed 360) at ``radius``, arc-sampled every ~2
+    degrees. Used only to delimit a band by two straight rays -- ``radius``
+    is chosen large enough that the sampled arc itself lies outside the
+    footprint being cut, so its curvature never matters."""
+    span = angle_to_deg - angle_from_deg
+    steps = max(2, int(abs(span) / 2.0) + 1)
+    points = [(origin.x, origin.y)]
+    for i in range(steps + 1):
+        angle = math.radians(angle_from_deg + span * i / steps)
+        points.append((origin.x + radius * math.cos(angle), origin.y + radius * math.sin(angle)))
+    points.append((origin.x, origin.y))
+    return Polygon(points)
+
+
+def _ray_sector_cuts(
+    band: BaseGeometry, origin: BaseGeometry, n_parts: int,
+    *, tolerance_fraction: float = 0.01, max_iterations: int = 60,
+) -> list[BaseGeometry]:
+    """Cut ``band`` into ``n_parts`` angular sectors of equal area around
+    ``origin`` by advancing each boundary ray's angle (bisection) until the
+    swept sector holds ``area/n_parts`` within ``tolerance_fraction``. A pure
+    ray cut, never an unfold -- defined for any footprint star-shaped about
+    ``origin``, so it cannot fail on a re-entrant outer wall."""
+    total_area = band.area
+    if total_area <= 0.0 or n_parts <= 0:
+        raise ValueError("band must have positive area and n_parts must be positive")
+    target = total_area / n_parts
+    minx, miny, maxx, maxy = band.bounds
+    radius = math.hypot(maxx - minx, maxy - miny) * 2.0 + 1.0
+    boundaries = [0.0]
+    current = 0.0
+    for _ in range(n_parts - 1):
+        lo, hi = current, current + 360.0
+        mid = hi
+        for _ in range(max_iterations):
+            mid = (lo + hi) / 2.0
+            area = band.intersection(_wedge_polygon(origin, radius, current, mid)).area
+            if abs(area - target) <= tolerance_fraction * target:
+                break
+            if area < target:
+                lo = mid
+            else:
+                hi = mid
+        boundaries.append(mid)
+        current = mid
+    boundaries.append(boundaries[0] + 360.0)
+    segments: list[BaseGeometry] = []
+    for i in range(n_parts):
+        wedge = _wedge_polygon(origin, radius, boundaries[i], boundaries[i + 1])
+        if not wedge.is_valid:
+            wedge = wedge.buffer(0)
+        segment = band.intersection(wedge)
+        # Keep the full intersection, even when a sharp outward corner (e.g.
+        # a courtyard band) splits one sector's wedge/band intersection into
+        # several disconnected pieces -- a dwelling zone may legally be a
+        # MultiPolygon the same way ``dwelling_polygons`` already tolerates
+        # elsewhere in this module (EU-21 P08 Fix A). Dropping the smaller
+        # pieces here used to leave real footprint area unclaimed by any
+        # dwelling or circulation zone.
+        if segment.is_empty or segment.geom_type not in ("Polygon", "MultiPolygon") or segment.area <= 0.0:
+            raise ValueError("ray sector cut produced a degenerate segment")
+        segments.append(segment)
+    total_segment_area = sum(s.area for s in segments)
+    if abs(total_segment_area - band.area) > 1e-6 * band.area:
+        raise ValueError("ray sector cut lost or gained area relative to band")
+    return segments
+
+
+def _outer_ring_sharp_corners(footprint: BaseGeometry, angle_deg_threshold: float = 135.0) -> list[tuple[float, float]]:
+    """Vertices of ``footprint``'s outer ring with interior angle below
+    ``angle_deg_threshold`` -- the corners of a perimeter block, where the
+    band is deepest and a stair core belongs."""
+    oriented = orient(Polygon(footprint.exterior), sign=1.0)
+    coords = list(oriented.exterior.coords)[:-1]
+    n = len(coords)
+    if n < 3:
+        return []
+    corners = []
+    for i in range(n):
+        a, b, c = coords[i - 1], coords[i], coords[(i + 1) % n]
+        dir_in = (b[0] - a[0], b[1] - a[1])
+        dir_out = (c[0] - b[0], c[1] - b[1])
+        cross = dir_in[0] * dir_out[1] - dir_in[1] * dir_out[0]
+        dot = dir_in[0] * dir_out[0] + dir_in[1] * dir_out[1]
+        turn = math.degrees(math.atan2(cross, dot))
+        interior = 180.0 - turn
+        if interior < angle_deg_threshold:
+            corners.append(b)
+    return corners
+
+
+def _corner_core_boxes(
+    footprint: BaseGeometry, corners: list[tuple[float, float]], void: BaseGeometry, k: int, total_core_area_m2: float,
+) -> list[BaseGeometry]:
+    """``k`` square cores, one centred at each of the corners deepest (most
+    distant) from the courtyard void, each clipped to ``footprint``."""
+    if not corners or k <= 0 or total_core_area_m2 <= 0.0:
+        return []
+    ranked = sorted(corners, key=lambda pt: -void.distance(Point(pt)))
+    chosen = ranked[:k]
+    area_each = total_core_area_m2 / len(chosen)
+    side = math.sqrt(area_each) if area_each > 0.0 else 0.0
+    boxes: list[BaseGeometry] = []
+    for cx, cy in chosen:
+        raw = box(cx - side / 2.0, cy - side / 2.0, cx + side / 2.0, cy + side / 2.0)
+        clipped = raw.intersection(footprint)
+        if clipped.geom_type == "MultiPolygon":
+            clipped = max(clipped.geoms, key=lambda g: g.area)
+        if clipped.is_empty or clipped.geom_type != "Polygon" or clipped.area <= 0.0:
+            continue
+        boxes.append(clipped)
+    return boxes
+
+
+def generate_european_courtyard_perimeter_band_layout(
+    footprint: BaseGeometry, *, dwelling_count: int, minimum_facade_contact_m: float = 2.5,
+    carve_circulation: bool = True,
+) -> EuropeanGridLayout:
+    """S1 (EU-21 P02): the closed perimeter block -- the plate is kept *with*
+    its hole, so no unfolding is ever attempted. Dwellings are equal-area
+    angular bands cut by rays from the void's own representative point;
+    circulation sits at the band's deepest corners. Reachable only where the
+    existing ``courtyard_secondary`` unfold has already refused."""
+    if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
+        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+    if not footprint.interiors:
+        raise ValueError("courtyard_perimeter_band requires a footprint with a real interior ring")
+
+    void = max((Polygon(ring) for ring in footprint.interiors), key=lambda polygon: polygon.area)
+    outer_perimeter = footprint.exterior.length
+    inner_perimeter = void.exterior.length
+    denom = outer_perimeter + inner_perimeter
+    depth_m = 2.0 * footprint.area / denom if denom > 0.0 else 0.0
+    if depth_m < COURTYARD_BAND_MIN_DEPTH_M:
+        return _refused_group_scheme(COURTYARD_PERIMETER_BAND_SCHEME, dwelling_count, "COURTYARD_BAND_TOO_SHALLOW")
+
+    wants_circulation = carve_circulation and dwelling_count >= CIRCULATION_MIN_DWELLINGS_FOR_CIRCULATION
+    band = footprint
+    circulation_polygon: BaseGeometry | None = None
+    circulation_area = 0.0
+    if wants_circulation:
+        corners = _outer_ring_sharp_corners(footprint)
+        target_core_area = CORE_FRACTION_OF_PLATE * footprint.area
+        k = max(1, math.ceil(dwelling_count / 3.0)) if corners else 0
+        cores = _corner_core_boxes(footprint, corners, void, k, target_core_area) if k else []
+        if cores:
+            core_union = unary_union(cores)
+            band = footprint.difference(core_union)
+            circulation_polygon = core_union
+            circulation_area = float(core_union.area)
+        else:
+            angle = _long_axis_angle_degrees(footprint)
+            circulation_polygon = _centred_circulation_region(
+                footprint, axis_angle_deg=angle, origin=footprint.centroid, area_m2=target_core_area,
+            )
+            band = footprint.difference(circulation_polygon)
+            circulation_area = float(circulation_polygon.area)
+        if band.is_empty or band.area <= footprint.area * 1e-6:
+            return _refused_group_scheme(COURTYARD_PERIMETER_BAND_SCHEME, dwelling_count, "COURTYARD_BAND_TOO_SHALLOW")
+
+    origin_pt = void.representative_point()
+    try:
+        segments = _ray_sector_cuts(band, origin_pt, dwelling_count)
+    except (ValueError, IndexError):
+        return _refused_group_scheme(COURTYARD_PERIMETER_BAND_SCHEME, dwelling_count, "PARTITION_AUDIT_FAILED")
+    if len(segments) != dwelling_count or any(s.is_empty or s.area <= 0.0 for s in segments):
+        return _refused_group_scheme(COURTYARD_PERIMETER_BAND_SCHEME, dwelling_count, "PARTITION_AUDIT_FAILED")
+
+    dwellings_t = tuple(segments)
+    audit = audit_european_floor_partition(
+        band, dwellings_t, expected_dwelling_count=dwelling_count,
+        topology_tolerance_fraction=EUROPEAN_TOPOLOGY_TOLERANCE_FRACTION,
+    )
+    facade_lengths = _facade_contact_lengths(footprint, dwellings_t)
+    pct = circulation_area / footprint.area if footprint.area > 0 else 0.0
+    outside_band = wants_circulation and not (CIRCULATION_ABSOLUTE_BAND_M2[0] <= circulation_area <= CIRCULATION_ABSOLUTE_BAND_M2[1])
+    if not audit.passed:
+        reason = "PARTITION_AUDIT_FAILED"
+    elif any(length < minimum_facade_contact_m for length in facade_lengths):
+        reason = "INSUFFICIENT_EXTERIOR_FACADE_LT_2_50M"
+    else:
+        reason = None
+    return EuropeanGridLayout(
+        scheme=COURTYARD_PERIMETER_BAND_SCHEME, grid=COURTYARD_PERIMETER_BAND_SCHEME,
+        nu=dwelling_count, nv=1, dwelling_polygons=dwellings_t,
+        circulation_polygon=circulation_polygon, circulation_area_m2=circulation_area,
+        circulation_pct_of_plate=pct, circulation_outside_ruled_absolute_band=outside_band,
+        facade_contact_lengths_m=facade_lengths, habitability_rotation_applied=False,
+        habitability_downgrade_applied=False, partition_audit=audit,
+        fallback_reason=reason, dwelling_layout_emitted=reason is None,
+    )
+
+
+def generate_european_row_house_depth_bands_layout(
+    footprint: BaseGeometry, *, dwelling_count: int, minimum_facade_contact_m: float = 2.5,
+) -> EuropeanGridLayout:
+    """S2 (EU-21 P03): a party-wall row house / narrow burgage plot under
+    ``NARROW_FOOTPRINT_THRESHOLD_M`` of width -- full-width bands front to
+    back, no corridor. Reachable only where the existing route has already
+    refused a footprint this narrow."""
+    if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
+        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+    if _minimum_rotated_width_m(footprint) >= NARROW_FOOTPRINT_THRESHOLD_M:
+        raise ValueError("row_house_depth_bands only applies below the narrow-footprint threshold")
+
+    angle = _long_axis_angle_degrees(footprint)
+    origin = footprint.centroid
+    try:
+        bands = _equal_area_axis_cuts(footprint, axis_angle_deg=angle, n_parts=dwelling_count, origin=origin)
+    except (ValueError, IndexError):
+        return _refused_group_scheme(ROW_HOUSE_DEPTH_BANDS_SCHEME, dwelling_count, "PARTITION_AUDIT_FAILED")
+    if len(bands) != dwelling_count or any(b.is_empty or b.area <= 0.0 for b in bands):
+        return _refused_group_scheme(ROW_HOUSE_DEPTH_BANDS_SCHEME, dwelling_count, "PARTITION_AUDIT_FAILED")
+
+    def _along_axis_length(band: BaseGeometry) -> float:
+        aligned = affinity.rotate(band, -angle, origin=origin)
+        minx, _miny, maxx, _maxy = aligned.bounds
+        return maxx - minx
+
+    if min(_along_axis_length(b) for b in bands) < ROW_BAND_MIN_LENGTH_M:
+        return _refused_group_scheme(ROW_HOUSE_DEPTH_BANDS_SCHEME, dwelling_count, "ROW_BAND_TOO_SHORT")
+
+    dwellings_t = tuple(bands)
+    audit = audit_european_floor_partition(
+        footprint, dwellings_t, expected_dwelling_count=dwelling_count,
+        topology_tolerance_fraction=EUROPEAN_TOPOLOGY_TOLERANCE_FRACTION,
+    )
+    facade_lengths = _facade_contact_lengths(footprint, dwellings_t)
+    if not audit.passed:
+        reason = "PARTITION_AUDIT_FAILED"
+    elif any(length < minimum_facade_contact_m for length in facade_lengths):
+        reason = "INSUFFICIENT_EXTERIOR_FACADE_LT_2_50M"
+    else:
+        reason = None
+    return EuropeanGridLayout(
+        scheme=ROW_HOUSE_DEPTH_BANDS_SCHEME, grid=ROW_HOUSE_DEPTH_BANDS_SCHEME,
+        nu=dwelling_count, nv=1, dwelling_polygons=dwellings_t,
+        circulation_polygon=None, circulation_area_m2=0.0, circulation_pct_of_plate=0.0,
+        circulation_outside_ruled_absolute_band=False, facade_contact_lengths_m=facade_lengths,
+        habitability_rotation_applied=False, habitability_downgrade_applied=False, partition_audit=audit,
+        fallback_reason=reason, dwelling_layout_emitted=reason is None,
+    )
+
+
+def generate_european_wing_spine_decomposition_layout(
+    footprint: BaseGeometry, *, dwelling_count: int, minimum_facade_contact_m: float = 2.5,
+    regularization_tolerance_m: float = 0.15, carve_circulation: bool = True,
+) -> EuropeanGridLayout:
+    """S3 (EU-21 P04): decompose a multi-wing plate by morphological opening
+    (``buffer(-d/4).buffer(+d/4)``) instead of a reflex-vertex cut, so it
+    needs no real corner -- reaches chamfered elbows, 3+-wing junctions and
+    non-orthogonal returns the existing reflex-vertex route cannot. The
+    junction (``footprint - wings``) becomes the circulation core. Reachable
+    only where the existing route has already refused."""
+    if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
+        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+
+    perimeter = footprint.exterior.length
+    depth_m = 2.0 * footprint.area / perimeter if perimeter > 0.0 else 0.0
+    if depth_m <= 0.0:
+        return _refused_group_scheme(WING_SPINE_DECOMPOSITION_SCHEME, dwelling_count, "WING_OPENING_YIELDED_NO_PLATE")
+
+    opened = footprint.buffer(-depth_m / 4.0).buffer(depth_m / 4.0)
+    if opened.is_empty:
+        return _refused_group_scheme(WING_SPINE_DECOMPOSITION_SCHEME, dwelling_count, "WING_OPENING_YIELDED_NO_PLATE")
+    raw_components = list(opened.geoms) if opened.geom_type == "MultiPolygon" else [opened]
+    raw_wings: list[BaseGeometry] = []
+    for component in raw_components:
+        clipped = component.intersection(footprint)
+        if clipped.geom_type == "MultiPolygon":
+            clipped = max(clipped.geoms, key=lambda g: g.area)
+        if clipped.is_empty or clipped.geom_type != "Polygon" or clipped.area <= 0.0:
+            continue
+        raw_wings.append(clipped)
+    if not raw_wings:
+        return _refused_group_scheme(WING_SPINE_DECOMPOSITION_SCHEME, dwelling_count, "WING_OPENING_YIELDED_NO_PLATE")
+
+    threshold = WING_MIN_AREA_SHARE * footprint.area
+    wings = [w for w in raw_wings if w.area >= threshold]
+    small = [w for w in raw_wings if w.area < threshold]
+    for s in small:
+        if not wings:
+            continue
+        nearest_index = min(range(len(wings)), key=lambda i: wings[i].distance(s))
+        merged = unary_union([wings[nearest_index], s])
+        # A small component need not touch its nearest surviving wing (the
+        # opening can leave a real gap), so the union can come back as a
+        # MultiPolygon -- keep only the larger piece rather than pass a
+        # non-Polygon geometry further down; the untouched sliver simply
+        # stays out of every wing and is folded into the junction below.
+        if merged.geom_type == "MultiPolygon":
+            merged = max(merged.geoms, key=lambda g: g.area)
+        wings[nearest_index] = merged
+
+    # Exactly one surviving wing means the opening found the plate
+    # effectively convex; per plan this hands off to the plain grid route
+    # rather than a wing decomposition. Folded here into the same refusal as
+    # zero wings (a genuine single-wing case is rare on a plate whose
+    # morphology already tripped the reflex-vertex route) so the very next
+    # step of the same fallback chain, S4's regularized envelope, covers it.
+    if len(wings) < 2:
+        return _refused_group_scheme(WING_SPINE_DECOMPOSITION_SCHEME, dwelling_count, "WING_OPENING_YIELDED_NO_PLATE")
+
+    wing_areas = [w.area for w in wings]
+    try:
+        count_candidates = _wing_count_candidates(wing_areas, dwelling_count, RULED_GRID_MAX_DWELLINGS_PER_FLOOR)
+    except ValueError:
+        return _refused_group_scheme(WING_SPINE_DECOMPOSITION_SCHEME, dwelling_count, "WING_OPENING_YIELDED_NO_PLATE")
+
+    junction = footprint.difference(unary_union(wings))
+    extra_circulation = [junction] if carve_circulation and not junction.is_empty and junction.area > 0.0 else None
+
+    for counts in count_candidates:
+        try:
+            wing_results = [
+                generate_european_ruled_storey_layout(
+                    wing, dwelling_count=count, minimum_facade_contact_m=minimum_facade_contact_m,
+                    regularization_tolerance_m=regularization_tolerance_m, carve_circulation=carve_circulation,
+                )
+                for wing, count in zip(wings, counts)
+            ]
+        except (ValueError, IndexError):
+            continue
+        combined = _combine_wing_results(
+            footprint, wing_results, dwelling_count=dwelling_count,
+            minimum_facade_contact_m=minimum_facade_contact_m, scheme=WING_SPINE_DECOMPOSITION_SCHEME,
+            extra_circulation=extra_circulation, keep_circulation_polygon=True,
+        )
+        if combined is not None:
+            return combined
+    return _refused_group_scheme(WING_SPINE_DECOMPOSITION_SCHEME, dwelling_count, "WING_OPENING_YIELDED_NO_PLATE")
+
+
+def _largest_axis_aligned_inscribed_rectangle(polygon: BaseGeometry, *, grid_n: int = ENVELOPE_SEARCH_GRID_N) -> BaseGeometry:
+    """The largest axis-aligned rectangle inscribed in ``polygon`` (which is
+    assumed already rotated to the candidate frame), found by a coarse
+    occupancy grid plus the classic maximal-rectangle-in-a-binary-matrix scan
+    (histogram method). A numerical-method resolution, not an architectural
+    threshold -- ``grid_n`` is fixed and district-independent."""
+    minx, miny, maxx, maxy = polygon.bounds
+    width, height = maxx - minx, maxy - miny
+    if width <= 0.0 or height <= 0.0:
+        raise ValueError("polygon has degenerate bounds")
+    cell_w, cell_h = width / grid_n, height / grid_n
+    occupied = [
+        [polygon.contains(Point(minx + (col + 0.5) * cell_w, miny + (row + 0.5) * cell_h)) for col in range(grid_n)]
+        for row in range(grid_n)
+    ]
+    best_area = 0
+    best_rect: tuple[int, int, int, int] | None = None
+    heights = [0] * grid_n
+    for row in range(grid_n):
+        for col in range(grid_n):
+            heights[col] = heights[col] + 1 if occupied[row][col] else 0
+        stack: list[tuple[int, int]] = []
+        for col in range(grid_n + 1):
+            h = heights[col] if col < grid_n else 0
+            start = col
+            while stack and stack[-1][1] > h:
+                idx, sh = stack.pop()
+                area = sh * (col - idx)
+                if area > best_area:
+                    best_area = area
+                    best_rect = (row - sh + 1, idx, row, col - 1)
+                start = idx
+            stack.append((start, h))
+    if best_rect is None or best_area <= 0:
+        raise ValueError("no inscribed rectangle found")
+    row0, col0, row1, col1 = best_rect
+    return box(minx + col0 * cell_w, miny + row0 * cell_h, minx + (col1 + 1) * cell_w, miny + (row1 + 1) * cell_h)
+
+
+def generate_european_regularized_envelope_grid_layout(
+    footprint: BaseGeometry, *, dwelling_count: int, minimum_facade_contact_m: float = 2.5,
+    carve_circulation: bool = True,
+) -> EuropeanGridLayout:
+    """S4 (EU-21 P05): the terminal scheme for a plate too irregular to
+    decompose -- dwellings occupy the largest inscribed axis-aligned
+    rectangle (rotation searched in 5-degree steps over 0-90), the irregular
+    residue becomes circulation/stair/light-well/service, added to any
+    circulation the grid route already carves. Reachable only where S1-S3
+    have already refused for a shape reason."""
+    if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
+        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+
+    origin = footprint.centroid
+    best_rect_world: BaseGeometry | None = None
+    best_area = 0.0
+    steps = int(round(90.0 / ENVELOPE_ROTATION_STEP_DEG))
+    for i in range(steps + 1):
+        theta = i * ENVELOPE_ROTATION_STEP_DEG
+        aligned = affinity.rotate(footprint, -theta, origin=origin)
+        try:
+            rect_aligned = _largest_axis_aligned_inscribed_rectangle(aligned)
+        except (ValueError, IndexError):
+            continue
+        if rect_aligned.area > best_area:
+            best_area = rect_aligned.area
+            best_rect_world = affinity.rotate(rect_aligned, theta, origin=origin)
+
+    if best_rect_world is None or best_area <= 0.0:
+        return _refused_group_scheme(REGULARIZED_ENVELOPE_GRID_SCHEME, dwelling_count, "ENVELOPE_RESIDUAL_GT_35PCT")
+
+    envelope = best_rect_world.intersection(footprint)
+    if envelope.geom_type == "MultiPolygon":
+        envelope = max(envelope.geoms, key=lambda g: g.area)
+    if envelope.is_empty or envelope.geom_type != "Polygon" or envelope.area <= 0.0:
+        return _refused_group_scheme(REGULARIZED_ENVELOPE_GRID_SCHEME, dwelling_count, "ENVELOPE_RESIDUAL_GT_35PCT")
+
+    residual_fraction = (footprint.area - envelope.area) / footprint.area if footprint.area > 0 else 1.0
+    if residual_fraction > ENVELOPE_RESIDUAL_MAX_FRACTION:
+        return _refused_group_scheme(REGULARIZED_ENVELOPE_GRID_SCHEME, dwelling_count, "ENVELOPE_RESIDUAL_GT_35PCT")
+
+    try:
+        result = generate_european_grid_layout(
+            envelope, dwelling_count=dwelling_count, minimum_facade_contact_m=minimum_facade_contact_m,
+            carve_circulation=carve_circulation,
+        )
+    except (ValueError, IndexError):
+        return _refused_group_scheme(REGULARIZED_ENVELOPE_GRID_SCHEME, dwelling_count, "PARTITION_AUDIT_FAILED")
+    if not result.dwelling_layout_emitted:
+        return _refused_group_scheme(
+            REGULARIZED_ENVELOPE_GRID_SCHEME, dwelling_count, result.fallback_reason or "PARTITION_AUDIT_FAILED",
+        )
+
+    residue = footprint.difference(envelope)
+    # EU-21 P08 Fix B: an irregular plate's residue is itself several
+    # disconnected slivers (one per wing tip / corner). Only the piece that
+    # touches the grid's own internal stair/elevator core is real
+    # circulation; every other piece belongs to whichever dwelling it
+    # adjoins, exactly as the owner described for groups 08-10.
+    residue_components: list[BaseGeometry] = []
+    if not residue.is_empty and residue.area > 0.0:
+        if residue.geom_type == "MultiPolygon":
+            residue_components = [g for g in residue.geoms if not g.is_empty and g.area > 0.0]
+        elif residue.geom_type == "Polygon":
+            residue_components = [residue]
+        elif residue.geom_type == "GeometryCollection":
+            residue_components = [
+                g for g in residue.geoms
+                if g.geom_type in ("Polygon", "MultiPolygon") and not g.is_empty and g.area > 0.0
+            ]
+
+    grid_core = result.circulation_polygon
+    dwelling_polygons = list(result.dwelling_polygons)
+    true_core_pieces: list[BaseGeometry] = []
+    other_components: list[BaseGeometry] = []
+    if residue_components:
+        touching_idx = (
+            [i for i, comp in enumerate(residue_components) if comp.intersects(grid_core)]
+            if grid_core is not None
+            else []
+        )
+        if touching_idx:
+            true_core_pieces = [residue_components[i] for i in touching_idx]
+            other_components = [comp for i, comp in enumerate(residue_components) if i not in touching_idx]
+        else:
+            largest_idx = max(range(len(residue_components)), key=lambda i: residue_components[i].area)
+            true_core_pieces = [residue_components[largest_idx]]
+            other_components = [comp for i, comp in enumerate(residue_components) if i != largest_idx]
+
+    for component in other_components:
+        touch_idx = next(
+            (i for i, dwelling in enumerate(dwelling_polygons) if component.intersects(dwelling)),
+            None,
+        )
+        if touch_idx is None:
+            touch_idx = min(range(len(dwelling_polygons)), key=lambda i: component.distance(dwelling_polygons[i]))
+        dwelling_polygons[touch_idx] = unary_union([dwelling_polygons[touch_idx], component])
+
+    all_circulation = list([grid_core] if grid_core is not None else []) + true_core_pieces
+    circulation_polygon = unary_union(all_circulation) if all_circulation else None
+    circulation_area = float(circulation_polygon.area) if circulation_polygon is not None else 0.0
+    pct = circulation_area / footprint.area if footprint.area > 0 else 0.0
+    dwelling_polygons_t = tuple(dwelling_polygons)
+    facade_lengths = _facade_contact_lengths(footprint, dwelling_polygons_t)
+    if any(length < minimum_facade_contact_m for length in facade_lengths):
+        return _refused_group_scheme(REGULARIZED_ENVELOPE_GRID_SCHEME, dwelling_count, "INSUFFICIENT_EXTERIOR_FACADE_LT_2_50M")
+    return EuropeanGridLayout(
+        scheme=REGULARIZED_ENVELOPE_GRID_SCHEME, grid=result.grid, nu=result.nu, nv=result.nv,
+        dwelling_polygons=dwelling_polygons_t, circulation_polygon=circulation_polygon,
+        circulation_area_m2=circulation_area, circulation_pct_of_plate=pct,
+        circulation_outside_ruled_absolute_band=result.circulation_outside_ruled_absolute_band,
+        facade_contact_lengths_m=facade_lengths, habitability_rotation_applied=result.habitability_rotation_applied,
+        habitability_downgrade_applied=result.habitability_downgrade_applied, partition_audit=result.partition_audit,
+        fallback_reason=None, dwelling_layout_emitted=True, residual_fraction=residual_fraction,
+    )
 
 
 RESIDENTIAL_TYPES = frozenset({"SFH", "TH", "MFH", "AB"})
@@ -1761,11 +2603,19 @@ def generate_european_building_dwelling_layout(
             fallback_reason_by_storey=(),
         )
     cache: dict[int, EuropeanGridLayout] = {}
+    # D-EU-49 / T08: a single-storey building carries no circulation zone at
+    # all -- a stair core exists to connect storeys, and there is nothing to
+    # connect. Gated once, here, at the building level (fact 8: both the IDF
+    # path and the side-car emitter call this same function), so it applies
+    # uniformly regardless of which route the storey's layout takes -- never
+    # as a special case inside one route.
+    carve_circulation = len(floor_allocations) != 1
 
     def _layout_for(count: int) -> EuropeanGridLayout:
         if count not in cache:
             cache[count] = generate_european_ruled_storey_layout(
                 footprint, dwelling_count=count, minimum_facade_contact_m=minimum_facade_contact_m,
+                carve_circulation=carve_circulation,
             )
         return cache[count]
 
@@ -1828,7 +2678,15 @@ def _stabilize_ring_coords(polygon: BaseGeometry, grid_size_m: float = RING_STAB
     Falls back to the unsnapped ring whenever snapping degenerates the
     polygon (collapses an edge to zero length, drops below 3 vertices, or
     changes geometry type) -- never silently emits an empty or invalid ring.
+
+    P01c 2026-09-01: a caller's polygon (observed for a scheme's circulation
+    remainder) can already be a ``MultiPolygon`` before snapping ever runs --
+    take the largest piece by area so ``.exterior`` below always has a
+    ``Polygon`` to read, same "never silently emits an empty or invalid
+    ring" contract as the snap-degenerate fallback, one step earlier.
     """
+    if polygon.geom_type == "MultiPolygon":
+        polygon = max(polygon.geoms, key=lambda g: g.area)
     snapped = set_precision(polygon, grid_size=grid_size_m)
     if snapped.is_empty or snapped.geom_type != "Polygon" or snapped.area <= 0.0:
         return list(polygon.exterior.coords)[:-1]

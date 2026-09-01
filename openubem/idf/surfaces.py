@@ -771,51 +771,59 @@ def _rebuild_degenerate_coreperim(idf: GeomIDF, zones: list[dict]) -> bool:
     )
 
 
-def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> None:
-    """Extrude zones into IDF, call intersect_match once, then add shading blocks.
+def _snap_shared_interzone_vertices(zones: list[dict]) -> None:
+    """Snap coincident interzone-edge vertices of room_layout / european_dwelling_layout
+    zones onto one shared vertex set, in place, before ``idf.intersect_match()`` runs
+    (FINDING 221).
 
-    R2: one add_block per unique footprint (building-prefix + zone-label), with
-    num_stories=N so geomeppy stacks storeys at correct z heights.
-    R7: core/perim placeholders use add_block(zoning='core/perim'); zones expanded in place.
+    ``_stabilize_ring_coords`` (``openubem/geometry/european_residential.py:2088``)
+    already snaps each zone's own ring independently to a 1 mm grid
+    (``RING_STABILIZATION_GRID_M = 0.001``, ``european_residential.py:2085``). Two
+    adjacent dwelling zones' shared edge is only guaranteed to land on the *same* grid
+    point when their pre-snap coordinates already agree to within half that grid --
+    round-trip drift from independent per-zone construction (per-wing rotation,
+    buffer/simplify passes) can leave them straddling a cell boundary, so the same
+    physical vertex snaps to two different floats on either side of the edge. geomeppy's
+    ``intersect_match`` then has to clip a sub-mm sliver to reconcile them, and that
+    clip can degenerate to a zero-length surface (``ZeroDivisionError`` in
+    ``geomeppy/geom/vectors.py Vector3D.normalize()`` -- confirmed by direct repro on
+    ES-MAD-BERRUGUETE ``relation/12582233``).
 
-    Ordering invariant (DESIGN §3E lines 247-252): intersect_match after all zones,
-    shading blocks after intersect_match.
+    This clusters every vertex used by any room_layout/european_dwelling_layout zone's
+    ``coords_m`` within one grid cell of each other and rewrites all of them to the
+    same representative point, so coincident interzone edges are bit-identical going
+    into ``intersect_match`` and geomeppy sees them as already-shared, not near-miss.
     """
-    _exc = (ValueError, RuntimeError) if NotARectangleError is None else (NotARectangleError, ValueError, RuntimeError)
+    from openubem.geometry.european_residential import RING_STABILIZATION_GRID_M
 
-    # Process core/perim placeholders first (they must be renamed before next add_block).
-    for z in list(zones):  # iterate a snapshot; zones mutated in place
-        if z.get("mode") != "core/perim":
+    rl_zones = [z for z in zones if z.get("mode") in ("room_layout", "european_dwelling_layout")]
+    if not rl_zones:
+        return
+
+    tol = RING_STABILIZATION_GRID_M
+    canonical: list[tuple[float, float]] = []
+
+    def _snap_point(pt: tuple[float, float]) -> tuple[float, float]:
+        for c in canonical:
+            if abs(c[0] - pt[0]) <= tol and abs(c[1] - pt[1]) <= tol:
+                return c
+        canonical.append(pt)
+        return pt
+
+    for z in rl_zones:
+        coords = z.get("coords_m")
+        if not coords:
             continue
-        # Complexity gate: skip core/perim (its intersect_match hangs) above the threshold,
-        # routing directly to one_zone_per_floor on the same footprint.
-        M = len(z["coords_m"]) * z["num_floors"]
-        if M > COREPERIM_COMPLEXITY_THRESHOLD:
-            logger.warning(
-                "osm_id=%s core/perim complexity M=%d > %d — routing to one_zone_per_floor",
-                z["name"].replace("_perimgroup", ""), M, COREPERIM_COMPLEXITY_THRESHOLD,
-            )
-            idx = zones.index(z)
-            zones.pop(idx)
-            for new_z in reversed(_coreperim_placeholder_to_one_zone_per_floor(z)):
-                zones.insert(idx, new_z)
-        else:
-            _expand_core_perim_placeholder(idf, z, zones, _exc)
+        z["coords_m"] = [_snap_point(tuple(pt)) for pt in coords]
 
-    # Filter zones with empty coords; they are never extruded.
-    valid_zones = []
-    for z in zones:
-        if z.get("extruded"):
-            continue  # already handled (core/perim expanded zones)
-        if not z["coords_m"]:
-            logger.warning("zone %s has empty coords_m — skipping extrusion", z["name"])
-        else:
-            valid_zones.append(z)
 
-    # Sort so groupby works correctly (zones from build_zones are already ordered but
-    # make explicit for robustness).
-    valid_zones.sort(key=_group_key)
-
+def _extrude_zone_groups(idf: GeomIDF, valid_zones: list[dict], _exc: tuple) -> None:
+    """Extrude every zone group in ``valid_zones`` (one add_block per unique
+    footprint) into ``idf``. Factored out of ``extrude_geometry`` (FINDING 221
+    intersect ladder, P01c) so the same extrusion can be re-run after a purge
+    without duplicating the loop body. Caller must have already sorted
+    ``valid_zones`` by ``_group_key``.
+    """
     for key, group_iter in groupby(valid_zones, key=_group_key):
         group = list(group_iter)
         # Sort group by floor index so storey_no → zone name mapping is deterministic.
@@ -860,28 +868,98 @@ def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> No
             if fallback:
                 z["fallback_to_bbox"] = True
 
+
+def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> None:
+    """Extrude zones into IDF, call intersect_match once, then add shading blocks.
+
+    R2: one add_block per unique footprint (building-prefix + zone-label), with
+    num_stories=N so geomeppy stacks storeys at correct z heights.
+    R7: core/perim placeholders use add_block(zoning='core/perim'); zones expanded in place.
+
+    Ordering invariant (DESIGN §3E lines 247-252): intersect_match after all zones,
+    shading blocks after intersect_match.
+    """
+    _exc = (ValueError, RuntimeError) if NotARectangleError is None else (NotARectangleError, ValueError, RuntimeError)
+
+    # Process core/perim placeholders first (they must be renamed before next add_block).
+    for z in list(zones):  # iterate a snapshot; zones mutated in place
+        if z.get("mode") != "core/perim":
+            continue
+        # Complexity gate: skip core/perim (its intersect_match hangs) above the threshold,
+        # routing directly to one_zone_per_floor on the same footprint.
+        M = len(z["coords_m"]) * z["num_floors"]
+        if M > COREPERIM_COMPLEXITY_THRESHOLD:
+            logger.warning(
+                "osm_id=%s core/perim complexity M=%d > %d — routing to one_zone_per_floor",
+                z["name"].replace("_perimgroup", ""), M, COREPERIM_COMPLEXITY_THRESHOLD,
+            )
+            idx = zones.index(z)
+            zones.pop(idx)
+            for new_z in reversed(_coreperim_placeholder_to_one_zone_per_floor(z)):
+                zones.insert(idx, new_z)
+        else:
+            _expand_core_perim_placeholder(idf, z, zones, _exc)
+
+    # Filter zones with empty coords; they are never extruded.
+    valid_zones = []
+    for z in zones:
+        if z.get("extruded"):
+            continue  # already handled (core/perim expanded zones)
+        if not z["coords_m"]:
+            logger.warning("zone %s has empty coords_m — skipping extrusion", z["name"])
+        else:
+            valid_zones.append(z)
+
+    # FINDING 221: snap coincident interzone-edge vertices before extrusion so
+    # geomeppy's intersect_match sees identical coordinates on both sides of a
+    # shared dwelling wall, not a sub-mm near-miss it must clip (and can degenerate).
+    _snap_shared_interzone_vertices(valid_zones)
+
+    # Sort so groupby works correctly (zones from build_zones are already ordered but
+    # make explicit for robustness).
+    valid_zones.sort(key=_group_key)
+
+    _extrude_zone_groups(idf, valid_zones, _exc)
+
     # T03: wrap intersect_match to catch geomeppy geometry exceptions (IndexError from
     # break_polygons, etc.) that fire BEFORE the degenerate reroute check.
     try:
         idf.intersect_match()
     except (IndexError, Exception) as _exc_im:
+        # P01c / FINDING 221 second attempt: intersect_match's ZeroDivisionError comes
+        # from geomeppy's own clipping arithmetic inside intersect() (confirmed by direct
+        # repro), not from match()'s pairing step. Where the ruled partition is conforming
+        # (every shared wall spans the same two endpoints on both sides, per the layout's
+        # own partition audit) match() alone is sufficient and skips the arithmetic that
+        # degenerates — so purge, re-extrude the same zones, and try match() alone before
+        # falling back to the whole-building demotion.
         logger.warning(
-            "intersect_match raised %s — rerouting to one_zone_per_floor", type(_exc_im).__name__
+            "intersect_match raised %s — purging and retrying with match() alone",
+            type(_exc_im).__name__,
         )
-        reason = f"intersect_match exception: {type(_exc_im).__name__}"
-        did_reroute = _force_reroute_coreperim_to_one_zone_per_floor(idf, zones, reason)
-        if not did_reroute:
-            did_reroute = _force_reroute_room_layout_to_one_zone_per_floor(idf, zones, reason)
-        if did_reroute:
-            try:
-                idf.intersect_match()
-            except Exception as _exc_im2:
-                # Second attempt also failed — re-raise so _build_one catches it.
-                raise RuntimeError(
-                    f"intersect_match failed after one_zone_per_floor reroute: {_exc_im2}"
-                ) from _exc_im2
-        else:
-            raise
+        try:
+            _purge_idf_geometry(idf)
+            _extrude_zone_groups(idf, valid_zones, _exc)
+            idf.match()
+        except Exception as _exc_match:
+            logger.warning(
+                "match()-alone retry raised %s — rerouting to one_zone_per_floor",
+                type(_exc_match).__name__,
+            )
+            reason = f"intersect_match exception: {type(_exc_im).__name__}"
+            did_reroute = _force_reroute_coreperim_to_one_zone_per_floor(idf, zones, reason)
+            if not did_reroute:
+                did_reroute = _force_reroute_room_layout_to_one_zone_per_floor(idf, zones, reason)
+            if did_reroute:
+                try:
+                    idf.intersect_match()
+                except Exception as _exc_im2:
+                    # Second attempt also failed — re-raise so _build_one catches it.
+                    raise RuntimeError(
+                        f"intersect_match failed after one_zone_per_floor reroute: {_exc_im2}"
+                    ) from _exc_im2
+            else:
+                raise
 
     # Repair illegal Roof↔Roof interzone pairs (perim wedge coplanar roof fragments).
     _repair_roof_roof_pairs(idf)

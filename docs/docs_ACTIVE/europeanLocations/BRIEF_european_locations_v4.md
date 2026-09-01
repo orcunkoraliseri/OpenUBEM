@@ -5,7 +5,7 @@ Detail lives in `STATE_european_locations_v4.md`; this is the plain version.
 
 🔴 **v3 is cancelled. v4 is the only track.** The owner stopped the Speed runs and the v3 tasks on
 2026-08-31 (`D-EU-53`): the `D-EU-47` Bologna rebuild wave and the `D-EU-48` Lyon timeout resubmit are
-dead, and `BRIEF_european_locations_v3.md` / `STATE_european_locations_v3.md` are superseded by this
+dead, and `previous/BRIEF_european_locations_v3.md` / `previous/STATE_european_locations_v3.md` are superseded by this
 document and its `STATE_european_locations_v4.md`. Nothing in v3 is executed any further.
 
 ---
@@ -99,21 +99,41 @@ published, but the denominator is still the **gross** area on **2,544 of 2,544**
   now on, not a one-off.
 - **`D-EU-52` — the arc keeps its own error index**, `debugs/DEBUG_REFERENCES_european_locations.md`,
   house format, searched before any debugging and appended after any fix.
+- **`D-EU-54` — the plans get their own pages, in `plans3D/`, with zero simulation data.** One HTML per
+  district under `docs/docs_ACTIVE/europeanLocations/plans3D/`, drawn from the IDF that will run: floor
+  plans, dwelling polygons, circulation ring, scheme name, storey and dwelling counts, gross and
+  conditioned area — **no EUI, no demand, no run output, not even in a tooltip**. **Reaching ≥ 95 % in
+  every district and reading those pages is what starts the simulations** — nothing before.
+- 🔴 **`D-EU-55` — no simulation runs without your explicit permission.** Every EnergyPlus run, on Speed
+  or on this machine, including the small non-box sample battery. Building IDFs, counting, drawing the
+  pages and running the tests are geometry and go ahead; anything that would *simulate* stops and asks
+  first, in your own words, every time.
+- **`D-EU-56` — the geometry runs to the end in one session.** Packages 1–3 are executed continuously by
+  the next execution session, audited between slices, without waiting for you. Only two things wait for
+  you: your confirmation on `plans3D/`, and your permission to simulate. The starting-state pages are
+  kept in `plans3D/previous/` instead of being overwritten.
 
 ---
 
 ## 5. How it is planned
 
-Three packages, in order, executed by fresh Sonnet sessions, never by this session.
+Four steps, in **your** order — the pages first — executed by fresh Sonnet sessions, never by this one.
+The plan is written: `implementation/PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md`, 13 tasks.
 
 | | Package | What it does | Ends at |
 |---|---|---|---|
-| 1 | **`EU-17`** — relax the box | Carry the ruled grid onto non-rectangular plates: wing decomposition that cannot refuse, courtyard unfolding, narrow-plate rule, single-storey exemption | ≥ 95 % ruled in **every** district, measured on the IDFs |
-| 2 | **`EU-18`** — prove it without simulating | Floor-plan atlas per district built from the IDFs; side-car ↔ IDF parity gate that fails closed; sample EnergyPlus battery on ~5 non-box classes × 4 districts, locally | Atlas reviewed by the owner + battery green |
-| 3 | **`EU-19`** — resimulate | Four districts on Speed, `--time=7-00:00:00`, harvest, viewers | Four fresh district EUIs |
+| 1 | **`EU-18a`** — see what exists | The four `plans3D/` pages, drawn from the IDFs that ran, geometry only; every building, every storey; refusals shown as the boxes they are | You look at the pages |
+| 2 | **`EU-17`** — relax the box | Wing decomposition that cannot refuse (L/U/T/cross), courtyard unfolding, corridor-free narrow plates, single-storey exemption, and the viewer/IDF divergence killed | ≥ 95 % ruled in **every** district, measured on the IDFs |
+| 3 | **`EU-18b`** — prove it | Pages regenerated on the new plans; parity gate at zero; the `rules/` §6 regression on the eight sample buildings | **Your confirmation on `plans3D/`** |
+| 4 | **`EU-19`** — simulate | Four districts on Speed, `--time=7-00:00:00`, harvest, viewers | Four fresh district EUIs |
 
-No `sbatch` before package 2 has been read and accepted. Walltime is 7 days minimum — the cancelled v3
-wave recorded a Lyon 3 h resubmit timing out twice.
+Packages 1, 2 and 3 are pure geometry and run **to the end without stopping** — one execution session,
+audited between slices (`D-EU-56`). The starting-state pages from step 1 are kept in `plans3D/previous/`
+so you see before and after. Package 4, and the sample battery that closes package 3, wait for your
+permission in your own words (`D-EU-55`). The start signal is explicit: **95 % of the
+buildings of every district carrying a ruled floor plan on disk, shown in `plans3D/`** — that is the
+moment `EU-19` begins, and there is no other. Walltime is 7 days minimum — the cancelled v3 wave recorded
+a Lyon 3 h resubmit timing out twice.
 
 Carried into `EU-19`, not lost: Bologna's 177 failed tasks and Lyon's 9 timed-out ones stay recorded as
 failures with a named class. They were never recovered, they are never pooled around, and their recovery

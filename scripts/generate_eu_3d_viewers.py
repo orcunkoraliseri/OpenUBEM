@@ -1,8 +1,16 @@
-"""Generate the four European district 3D viewers and their data folders (EU-11B + EU-12 + EU-13).
+"""Generate the four European district 3D viewers and their data folders.
 
-Binds:
-- EU-11 Speed campaign simulation results (heating EUI)
-- EU-13 Multi-storey dwelling layouts, general partition, imputation provenance, and interactive storey selector in pop-ups.
+EU-18c (`D-EU-59`): the click-through modal (3D district -> click a building
+-> storey bar -> floor-plan canvas + zone table) is the deliverable. It
+carries no energy, no EnergyPlus output, no run/job id, no weather -- pure
+geometry. Per-building floor plans (dwelling rings, circulation ring, whole
+massing-box ring, storey z-ranges) are read directly out of the emitted IDFs
+under `openubem/outputs/eu_evidence/EU-17/<district>/idfs/*.idf` via
+`scripts/eu_idf_plan_reader.py::read_building_plan` -- never out of the
+EU-11 layout side-cars, which disagree with the IDFs on 970 buildings
+(`FINDING 213` / `FINDING 215`). The district's own EU-17 side-car (same
+rebuild tree) may supply the scheme name / refusal reason as annotation
+only, and only when it agrees with what the IDF's own zone kinds show.
 
 Outputs written to `openubem/outputs/3D/` and mirrored to
 `docs/docs_ACTIVE/europeanLocations/outputs_3D/`.
@@ -19,7 +27,10 @@ from typing import Any
 import geopandas as gpd
 import pandas as pd
 
+from scripts.eu_idf_plan_reader import BuildingPlan, ZonePlan, parse_idf_floor_zones, read_district
+
 REPO_ROOT = Path("C:/Users/o_iseri/Desktop/OpenUBEM")
+EU17_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-17"
 
 # HTML template parts
 HTML_HEADER_TEMPLATE = """<!doctype html>
@@ -58,14 +69,6 @@ button.on{{background:#1d3a55;border-color:#2f6b9c;color:#bfe0fb}}
 .keys div{{display:flex;align-items:center;gap:6px}}
 .sw{{width:11px;height:11px;border-radius:2px;border:1px solid #0006}}
 #hud a{{color:#7fb3e0;text-decoration:none}}#hud a:hover{{text-decoration:underline}}
-#flt{{margin-top:9px;border-top:1px solid #232a36;padding-top:9px}}
-#flt .ft{{font-size:11px;color:#8b95a7;display:flex;justify-content:space-between;margin-bottom:5px}}
-#flt.off{{opacity:.55}}
-#flt input[type=range]{{width:100%;accent-color:#2f6b9c;margin:1px 0}}
-#flt .rd{{font-size:11px;color:#cfd6e2;font-variant-numeric:tabular-nums;
-  display:flex;justify-content:space-between;margin-top:3px}}
-.unbound{{background:#2a1c22;border:1px solid #6b3a48;color:#e79aad;border-radius:6px;
-  padding:6px 8px;font-size:11px;margin-top:6px}}
 button:disabled{{opacity:.42;cursor:not-allowed}}
 #tip{{position:fixed;pointer-events:none;display:none;background:rgba(10,13,18,.95);
   border:1px solid #2d3646;border-radius:7px;padding:7px 9px;font-size:11.5px;max-width:270px;z-index:20}}
@@ -84,17 +87,20 @@ button:disabled{{opacity:.42;cursor:not-allowed}}
 #m-sub{{color:#8b95a7;font-size:12px;margin-bottom:12px;line-height:1.4}}
 .m-badge{{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;margin-right:6px;font-weight:600}}
 .m-badge.emitted{{background:#173d2a;color:#7ee787;border:1px solid #238636}}
-.m-badge.imputed{{background:#0d3349;color:#58a6ff;border:1px solid #1f6feb}}
+.m-badge.finding{{background:#0d3349;color:#58a6ff;border:1px solid #1f6feb}}
 .m-badge.fallback{{background:#3a2410;color:#f0c07a;border:1px solid #7a4b12}}
-.m-badge.unsim{{background:#22272e;color:#8b95a7;border:1px solid #373e47}}
+.m-badge.noidf{{background:#22272e;color:#8b95a7;border:1px solid #373e47}}
 .m-info-box{{background:#161b24;border:1px solid #262d3a;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:14px}}
 .m-info-box p{{margin:3px 0}}
 .m-info-box code{{background:#0d1117;padding:1px 5px;border-radius:3px;font-size:11px;color:#e6e9ef}}
 .storey-bar{{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:12px;flex-wrap:wrap}}
 .storey-btn{{background:#1a212c;border:1px solid #2d3646;color:#c8d1de;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer}}
 .storey-btn.active{{background:#1f6feb;border-color:#388bfd;color:#fff;font-weight:bold}}
-#fp-container{{background:#0a0d13;border:1px solid #212835;border-radius:8px;padding:10px;display:flex;flex-direction:column;align-items:center;margin-bottom:12px}}
-#fp-canvas{{display:block;background:#090c10;border-radius:6px}}
+#fp-container{{background:#fbfcfd;border:1px solid #212835;border-radius:8px;padding:10px;display:flex;flex-direction:column;align-items:center;margin-bottom:12px}}
+#fp-canvas{{display:block;background:#ffffff;border-radius:6px;border:1px solid #d9dee4}}
+#fp-legend{{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;margin-top:8px;font-size:11px;color:#49515b}}
+#fp-legend .sw{{display:inline-flex;align-items:center;gap:6px}}
+#fp-legend .sw i{{width:14px;height:14px;display:inline-block;border-radius:2px}}
 #m-zones{{font-size:11.5px;color:#8b95a7;margin-top:6px;width:100%}}
 #m-zones table{{width:100%;border-collapse:collapse;margin-top:6px}}
 #m-zones th,#m-zones td{{padding:3px 6px;text-align:left;border-bottom:1px solid #1e2531}}
@@ -109,10 +115,9 @@ button:disabled{{opacity:.42;cursor:not-allowed}}
   <div class="warn" id="warn"></div>
   <div class="row"><span class="k">Residential</span><span id="nres"></span></div>
   <div class="row"><span class="k">Excluded / non-residential</span><span id="nexc"></span></div>
-  <div class="row"><span class="k">Dwelling layout (observed)</span><span id="nemitted_obs"></span></div>
-  <div class="row"><span class="k">Dwelling layout (imputed)</span><span id="nemitted_imp"></span></div>
-  <div class="row"><span class="k">Massing-box fallback</span><span id="nfallback"></span></div>
-  <div class="row"><span class="k">Not simulated</span><span id="nnotsim"></span></div>
+  <div class="row"><span class="k">Dwelling layout ruled (IDF)</span><span id="nruled"></span></div>
+  <div class="row"><span class="k">Massing box (IDF)</span><span id="nmassing"></span></div>
+  <div class="row"><span class="k">No IDF</span><span id="nnoidf"></span></div>
   <div class="row"><span class="k">Height measured</span><span id="hm"></span></div>
   <div class="row"><span class="k">Height from storeys &times;3.0 m</span><span id="hl"></span></div>
   <div class="row"><span class="k">Height assumed 9.0 m</span><span id="ha"></span></div>
@@ -126,16 +131,9 @@ button:disabled{{opacity:.42;cursor:not-allowed}}
     <button id="bH" class="on">colour: height</button>
     <button id="bP">colour: provenance</button>
     <button id="bY">colour: age</button>
-    <button id="bU">colour: EUI</button>
+    <button id="bS">colour: layout state</button>
     <button id="bE" class="on">show excluded</button>
     <button id="bR">reset view</button>
-  </div>
-  <div id="flt">
-    <div class="ft"><span>EUI filter (kWh/m&sup2;)</span><span id="fcount"></span></div>
-    <input type="range" id="flo" min="0" max="1000" value="0">
-    <input type="range" id="fhi" min="0" max="1000" value="1000">
-    <div class="rd"><span id="rlo"></span><span id="rhi"></span></div>
-    <div class="unbound" id="fnote"></div>
   </div>
 </div>
 <div id="legend"><div class="t" id="lt"></div><div id="lbody"></div></div>
@@ -151,6 +149,7 @@ button:disabled{{opacity:.42;cursor:not-allowed}}
     <div class="storey-bar" id="m-storey-bar"></div>
     <div id="fp-container">
       <canvas id="fp-canvas" width="560" height="280"></canvas>
+      <div id="fp-legend"></div>
       <div id="m-zones"></div>
     </div>
   </div>
@@ -167,10 +166,9 @@ document.getElementById("ttl").textContent=D.name;
 document.getElementById("place").textContent=D.place;
 document.getElementById("nres").textContent=D.n_res.toLocaleString();
 document.getElementById("nexc").textContent=D.n_exc.toLocaleString();
-document.getElementById("nemitted_obs").textContent=(D.layout_counts ? D.layout_counts.observed_emitted : 0).toLocaleString();
-document.getElementById("nemitted_imp").textContent=(D.layout_counts ? D.layout_counts.imputed_emitted : 0).toLocaleString();
-document.getElementById("nfallback").textContent=(D.layout_counts ? D.layout_counts.massing_box : 0).toLocaleString();
-document.getElementById("nnotsim").textContent=(D.layout_counts ? D.layout_counts.not_simulated : D.n_res).toLocaleString();
+document.getElementById("nruled").textContent=(D.layout_counts ? D.layout_counts.ruled : 0).toLocaleString();
+document.getElementById("nmassing").textContent=(D.layout_counts ? D.layout_counts.massing_box : 0).toLocaleString();
+document.getElementById("nnoidf").textContent=(D.layout_counts ? D.layout_counts.no_idf : D.n_res).toLocaleString();
 document.getElementById("hm").textContent=D.counts.measured.toLocaleString();
 document.getElementById("hl").textContent=D.counts.levels.toLocaleString();
 document.getElementById("ha").textContent=D.counts.assumed.toLocaleString();
@@ -179,6 +177,7 @@ document.getElementById("span").textContent=Math.round(D.span)+" m";
 document.getElementById("layer").textContent=D.layer;
 document.getElementById("lic").textContent=D.licence;
 document.getElementById("dataf").innerHTML='<a href="'+D.data_dir+'/index.html" target="_blank">'+D.data_dir+'/</a>';
+if(D.geometry_note)document.getElementById("warn").innerHTML=D.geometry_note;
 
 var hmax=1;for(var i=0;i<B.length;i++)if(B[i].h>hmax)hmax=B[i].h;
 hmax=Math.min(hmax,60);
@@ -191,20 +190,22 @@ function ramp(t){t=Math.max(0,Math.min(1,t));var s=t*(RAMP.length-1),i=Math.floo
   var a=RAMP[i],b=RAMP[i+1];
   return [a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f];}
 var PROV=[[86,180,233],[240,180,60],[200,90,110]];
+var STATE_COLORS=[[59,130,246],[148,163,184],[217,119,6]];
+var STATE_NAMES=["dwelling layout ruled","massing box","no IDF"];
+function stateIdx(b){
+  if(b.ls==="ruled")return 0;
+  if(b.ls==="massing_box")return 1;
+  return 2;
+}
+function stateLabel(b){return b.ls?STATE_NAMES[stateIdx(b)]:"n/a";}
 function baseColor(b){
   if(b.c===1)return [96,104,118];
   if(mode==="p")return PROV[b.p];
   if(mode==="y"){if(!b.y)return [80,88,100];return ramp((b.y-ymin)/Math.max(1,ymax-ymin));}
-  if(mode==="e"){if(typeof b.e!=="number")return [80,88,100];return ramp((b.e-emin)/(emax-emin));}
+  if(mode==="s")return STATE_COLORS[stateIdx(b)];
   return ramp(b.h/hmax);
 }
 var mode="h";
-var euiBound=!!D.eui_bound;
-var evals=euiBound?B.filter(function(b){return b.c===0&&typeof b.e==="number";}).map(function(b){return b.e;}):[];
-var emin=evals.length?Math.min.apply(null,evals):0;
-var emax=evals.length?Math.max.apply(null,evals):1;
-if(emax<=emin)emax=emin+1;
-var flo=emin,fhi=emax,fltOn=false;
 
 var cv=document.getElementById("c"),ctx=cv.getContext("2d"),W=0,H=0,dpr=1;
 function resize(){dpr=Math.min(window.devicePixelRatio||1,2);
@@ -229,7 +230,6 @@ function draw(){
   order.length=0;
   for(var i=0;i<B.length;i++){
     var b=B[i];if(b.c===1&&!showExc)continue;
-    if(fltOn&&b.c===0){if(typeof b.e!=="number")continue;if(b.e<flo||b.e>fhi)continue;}
     var r=b.r,n=r.length,mx=0,my=0;
     for(var j=0;j<n;j++){mx+=r[j][0];my+=r[j][1];}
     mx/=n;my/=n;
@@ -344,7 +344,8 @@ function hover(e){
       (b.c===1?" <i>(excluded)</i>":"")+
       "<br>height "+b.h.toFixed(1)+" m <i>("+prov+")</i>"+
       (b.l?"<br>storeys "+b.l:"")+(b.y?"<br>built "+b.y:"")+
-      "<br>footprint "+b.a.toFixed(0)+" m²"+(typeof b.e==="number"?"<br><b>EUI "+b.e.toFixed(1)+" kWh/m²</b> <i>(heating only)</i>"+(b.g?"<br><i>"+b.g+"</i>":""):(euiBound&&b.c===0?"<br><i>not simulated</i>":""))+
+      "<br>footprint "+b.a.toFixed(0)+" m²"+
+      (b.ls?"<br>layout: <b>"+stateLabel(b)+"</b>":"")+
       "<br><span style='color:#7fb3e0;font-size:10.5px;'>click for floor plan &rarr;</span>";
     tip.style.display="block";
     tip.style.left=Math.min(e.clientX+14,window.innerWidth-282)+"px";
@@ -362,6 +363,7 @@ var modalBackdrop=document.getElementById("modal-backdrop"),
     mStatusBox=document.getElementById("m-status-box"),
     mStoreyBar=document.getElementById("m-storey-bar"),
     mZones=document.getElementById("m-zones"),
+    fpLegend=document.getElementById("fp-legend"),
     fpCanvas=document.getElementById("fp-canvas"),
     fpCtx=fpCanvas.getContext("2d");
 
@@ -373,81 +375,56 @@ modalClose.onclick=closePopup;
 modalBackdrop.onclick=function(e){if(e.target===modalBackdrop)closePopup();};
 window.addEventListener("keydown",function(e){if(e.key==="Escape")closePopup();});
 
-var ZONE_COLORS=[
-  "rgba(56,189,248,0.55)", "rgba(74,222,128,0.55)", "rgba(251,191,36,0.55)",
-  "rgba(248,113,113,0.55)", "rgba(168,85,247,0.55)", "rgba(236,72,153,0.55)",
-  "rgba(45,212,191,0.55)", "rgba(251,146,60,0.55)", "rgba(129,140,248,0.55)"
-];
-
 function openPopup(b){
   hide();
   currentModalBuilding=b;
   currentStoreyIndex=0;
   var prov=["measured (source)","from storeys × 3.0 m","assumed 9.0 m"][b.p];
   mTitle.textContent=b.id + (b.t ? " — " + b.t : "");
-  
-  var k=b.k; // layout side-car summary
-  var arch=k && k.archetype ? k.archetype : "—";
-  var btype=k && k.btype ? k.btype : (b.c===1 ? "Excluded" : "Residential");
-  var storeys=b.l || (k && k.storeys ? k.storeys : "—");
-  var dwellings=k && k.dwellings ? k.dwellings : (b.l ? "—" : "—");
-  var upf=k && k.upf ? k.upf : "—";
-  var core=k && k.core !== null && k.core !== undefined ? (k.core ? "Yes" : "No") : "—";
-  var euiStr=(typeof b.e==="number") ? (b.e.toFixed(1) + " kWh/m² (heating only)") : (b.c===1 ? "n/a (excluded)" : "not simulated");
-  var areaStr=(k && typeof k.cond==="number" && typeof k.gross==="number")
-    ? (k.cond.toFixed(0) + " m² conditioned / " + k.gross.toFixed(0) + " m² gross")
-    : (b.a.toFixed(0) + " m²");
 
-  mSub.innerHTML="<b>Archetype:</b> " + arch + " (" + btype + ") &middot; " +
-    "<b>Storeys:</b> " + storeys + " &middot; " +
-    "<b>Dwellings:</b> " + dwellings + " (" + upf + "/floor) &middot; " +
-    "<b>Unconditioned core:</b> " + core + "<br>" +
+  var pl=b.pl;
+  var storeys=pl ? pl.st : (b.l || "—");
+  var dwellings=pl ? pl.dw : "—";
+  var core=pl ? (pl.core ? "Yes" : "No") : "—";
+  var areaStr=pl ? (pl.gm.toFixed(0) + " m² gross / " + pl.cm.toFixed(0) + " m² conditioned") : (b.a.toFixed(0) + " m² footprint");
+  var circStr=(pl && pl.cp!==null && pl.cp!==undefined) ? (pl.cp.toFixed(1) + "%") : "—";
+
+  mSub.innerHTML="<b>Storeys:</b> " + storeys + " &middot; " +
+    "<b>Dwellings:</b> " + dwellings + " &middot; " +
+    "<b>Unconditioned core:</b> " + core + " &middot; " +
+    "<b>Circulation share:</b> " + circStr + "<br>" +
     "<b>Height:</b> " + b.h.toFixed(1) + " m <i>(" + prov + ")</i> &middot; " +
-    "<b>Footprint:</b> " + areaStr + " &middot; " +
-    "<b>EUI:</b> " + euiStr;
+    "<b>Area:</b> " + areaStr;
 
   var statusHtml="";
-  if(k && k.outcome==="DWELLING_LAYOUT_EMITTED"){
-    statusHtml="<span class='m-badge emitted'>DWELLING LAYOUT EMITTED (OBSERVED COUNT)</span> " +
-      "<b>Scheme:</b> " + (k.scheme || "equal-strip partition") + ".<br>" +
-      "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>Emitted general multi-angle/radial partition. " +
-      "Extruded across all " + storeys + " storeys (" + (k.floors ? k.floors.length : 1) + " floors generated in simulation pipeline).</p>";
-  } else if(k && k.outcome==="DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT"){
-    var dprov=k.dprov || "IMPUTED_TIER4_STATISTICAL_TABULA";
-    statusHtml="<span class='m-badge imputed'>DWELLING LAYOUT EMITTED (IMPUTED COUNT)</span> " +
-      "<b>Provenance:</b> <code>" + dprov + "</code>.<br>" +
-      "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>Emitted general partition using four-tier imputed dwelling count. " +
-      "Extruded across all " + storeys + " storeys (" + (k.floors ? k.floors.length : 1) + " floors generated in simulation pipeline).</p>";
-  } else if(k && (k.outcome==="FALLBACK_PENDING_LAYOUT" || k.outcome==="FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT")){
-    var reason=k.reason || "MISSING_OBSERVED_DWELLING_COUNT";
-    statusHtml="<span class='m-badge fallback'>MASSING BOX FALLBACK</span> " +
-      "No dwelling layout emitted &mdash; one zone per floor (massing box). Reason: <code>" + reason + "</code>. <code>FINDING EU-S2-01</code>.<br>" +
-      "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>Showing footprint outline only. No interior partition was generated.</p>";
+  if(b.ls==="ruled"){
+    statusHtml="<span class='m-badge emitted'>DWELLING LAYOUT &mdash; RULED (read from IDF)</span>";
+    if(pl && pl.scheme) statusHtml += " <b>Scheme:</b> " + pl.scheme + ".";
+    statusHtml += "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>Zone geometry read directly from the emitted IDF, storey by storey.</p>";
+  } else if(b.ls==="massing_box"){
+    statusHtml="<span class='m-badge fallback'>MASSING BOX (read from IDF)</span>";
+    if(pl && pl.reason) statusHtml += " Reason: <code>" + pl.reason + "</code>.";
+    statusHtml += "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>One undivided zone per storey. No interior partition exists in the IDF.</p>";
   } else {
-    statusHtml="<span class='m-badge unsim'>NOT SIMULATED</span> " +
-      (b.c===1 ? "Excluded / non-residential building." : "Not simulated in EU-11 campaign. No dwelling layout generated.") +
+    statusHtml="<span class='m-badge noidf'>NO IDF</span> " +
+      (b.c===1 ? "Excluded / non-residential building." : "No IDF file exists for this building in the EU-17 tree.") +
       "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>Showing footprint outline only.</p>";
   }
-  if(k && k.cprov){
-    statusHtml += "<span class='m-badge imputed'>CONSTRUCTION PERIOD IMPUTED</span> <code>" + k.cprov + "</code><br>";
+  if(pl && pl.f204){
+    statusHtml += "<span class='m-badge finding'>FINDING 204</span> circulation outside the ruled 12.0&ndash;25.0 m&sup2; band<br>";
   }
   mStatusBox.innerHTML=statusHtml;
 
-  // Build Storey Selector
-  var numFloors=(k && k.floors) ? k.floors.length : (b.l || 1);
-  if(k && (k.outcome==="DWELLING_LAYOUT_EMITTED" || k.outcome==="DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT") && numFloors > 1){
+  var sf=(pl && pl.sf) ? pl.sf : [];
+  if(sf.length>0){
     var sHtml="<span style='color:#8b95a7;margin-right:4px;'>Storey:</span> ";
-    for(var s=0; s<numFloors; s++){
-      var zLo=(s*3.0).toFixed(0), zHi=((s+1)*3.0).toFixed(0);
-      sHtml += "<button class='storey-btn" + (s===0 ? " active" : "") + "' onclick='selectStorey(" + s + ")'>F" + s + " (" + zLo + "–" + zHi + "m)</button> ";
+    for(var s=0; s<sf.length; s++){
+      sHtml += "<button class='storey-btn" + (s===0 ? " active" : "") + "' onclick='selectStorey(" + s + ")'>F" + sf[s].i + " (" + sf[s].z0.toFixed(1) + "–" + sf[s].z1.toFixed(1) + "m)</button> ";
     }
     mStoreyBar.innerHTML=sHtml;
     mStoreyBar.style.display="flex";
-  } else if(numFloors > 1) {
-    mStoreyBar.innerHTML="<span style='color:#8b95a7;'>Massing box &middot; " + numFloors + " stacked floors (one zone per floor)</span>";
-    mStoreyBar.style.display="flex";
   } else {
-    mStoreyBar.innerHTML="<span style='color:#8b95a7;'>Single storey (0.0 to 3.0 m)</span>";
+    mStoreyBar.innerHTML="<span style='color:#8b95a7;'>No storey geometry available.</span>";
     mStoreyBar.style.display="flex";
   }
 
@@ -466,10 +443,18 @@ window.selectStorey=function(sIdx){
   }
 };
 
+function circLabelText(lbl){
+  if(lbl==="core")return "Unconditioned stair core";
+  if(lbl==="spine")return "Unconditioned circulation spine";
+  return "Unconditioned circulation";
+}
+
 function drawFloorPlan(b, sIdx){
   var cw=fpCanvas.width, ch=fpCanvas.height;
   fpCtx.clearRect(0,0,cw,ch);
-  
+  fpCtx.fillStyle="#ffffff";
+  fpCtx.fillRect(0,0,cw,ch);
+
   var r=b.r;
   var minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
   for(var i=0;i<r.length;i++){
@@ -484,91 +469,102 @@ function drawFloorPlan(b, sIdx){
   function fx(x){return (x-bcx)*sc + cw/2;}
   function fy(y){return -(y-bcy)*sc + ch/2;} // North is up
 
-  // Draw building footprint outline
+  // Draw building footprint outline (near-black on white, figure-4.2 style)
   fpCtx.beginPath();
   for(var j=0;j<r.length;j++){
     var X=fx(r[j][0]), Y=fy(r[j][1]);
     if(j===0)fpCtx.moveTo(X,Y);else fpCtx.lineTo(X,Y);
   }
   fpCtx.closePath();
-  fpCtx.fillStyle="rgba(255,255,255,0.04)";
+  fpCtx.fillStyle="#ffffff";
   fpCtx.fill();
-  fpCtx.strokeStyle="#8b95a7";
-  fpCtx.lineWidth=2;
+  fpCtx.strokeStyle="#172033";
+  fpCtx.lineWidth=4.5;
   fpCtx.stroke();
 
-  var k=b.k;
+  var pl=b.pl;
+  var sf=(pl && pl.sf) ? pl.sf : [];
+  var storey=sf[sIdx];
   var zonesTable="";
-  var isEmitted = k && (k.outcome==="DWELLING_LAYOUT_EMITTED" || k.outcome==="DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT");
-  var floorData = (isEmitted && k.floors && k.floors[sIdx]) ? k.floors[sIdx] : (k && k.floors ? k.floors[0] : null);
+  var sawDwelling=false, sawCirc=false, sawWhole=false;
 
-  var circHtml = "";
-  if(floorData && floorData.circulation && floorData.circulation.r){
-    var cr = floorData.circulation.r;
-    fpCtx.beginPath();
-    for(var ci=0;ci<cr.length;ci++){
-      var CX=fx(cr[ci][0]), CY=fy(cr[ci][1]);
-      if(ci===0)fpCtx.moveTo(CX,CY);else fpCtx.lineTo(CX,CY);
-    }
-    fpCtx.closePath();
-    fpCtx.fillStyle="rgba(140,140,140,0.55)";
-    fpCtx.fill();
-    fpCtx.setLineDash([4,3]);
-    fpCtx.strokeStyle="#ffffff";
-    fpCtx.lineWidth=1.2;
-    fpCtx.stroke();
-    fpCtx.setLineDash([]);
-    var ccx=0, ccy=0;
-    for(var cj=0;cj<cr.length;cj++){ ccx += fx(cr[cj][0]); ccy += fy(cr[cj][1]); }
-    ccx /= cr.length; ccy /= cr.length;
-    fpCtx.fillStyle="#ffffff";
-    fpCtx.font="bold 11px sans-serif";
-    fpCtx.textAlign="center";
-    fpCtx.textBaseline="middle";
-    fpCtx.fillText("C", ccx, ccy);
-    circHtml = "<tr><td>Circulation</td>" +
-      "<td><span style='display:inline-block;width:12px;height:12px;background:rgba(140,140,140,0.55);border:1px dashed #fff;border-radius:2px;vertical-align:middle;'></span></td>" +
-      "<td>&mdash;</td><td>&mdash;</td></tr>";
-  }
-
-  if(isEmitted && floorData && floorData.zones && floorData.zones.length > 0){
-    zonesTable="<table><thead><tr><th>Zone Name</th><th>Colour</th><th>Dwelling Index</th><th>Storey Elevation</th></tr></thead><tbody>";
-    for(var z=0;z<floorData.zones.length;z++){
-      var zn=floorData.zones[z], zr=zn.r, zc=ZONE_COLORS[z % ZONE_COLORS.length];
+  if(storey){
+    for(var z=0;z<storey.z.length;z++){
+      var zn=storey.z[z];
+      var isWhole=(zn.ki==="w");
       fpCtx.beginPath();
-      var zcx=0, zcy=0;
-      for(var v=0;v<zr.length;v++){
-        var ZX=fx(zr[v][0]), ZY=fy(zr[v][1]);
+      var zcx=0, zcy=0, nverts=0;
+      for(var v=0;v<zn.r.length;v++){
+        var ZX=fx(zn.r[v][0]), ZY=fy(zn.r[v][1]);
         if(v===0)fpCtx.moveTo(ZX,ZY);else fpCtx.lineTo(ZX,ZY);
-        zcx += ZX; zcy += ZY;
+        zcx += ZX; zcy += ZY; nverts++;
       }
       fpCtx.closePath();
-      fpCtx.fillStyle=zc;
+      fpCtx.fillStyle = isWhole ? "#e5e7eb" : "#dbeafe";
       fpCtx.fill();
-      fpCtx.strokeStyle="rgba(255,255,255,0.8)";
-      fpCtx.lineWidth=1.2;
+      fpCtx.strokeStyle = isWhole ? "#172033" : "#2563eb";
+      fpCtx.lineWidth = isWhole ? 3.5 : 3;
       fpCtx.stroke();
 
-      zcx /= zr.length; zcy /= zr.length;
-      fpCtx.fillStyle="#ffffff";
+      zcx /= nverts; zcy /= nverts;
+      var label = isWhole ? "Undivided massing box" : ("Dwelling " + zn.di);
+      fpCtx.fillStyle="#172033";
+      fpCtx.font="bold 12px sans-serif";
+      fpCtx.textAlign="center";
+      fpCtx.textBaseline="middle";
+      fpCtx.fillText(label, zcx, zcy);
+      if(isWhole) sawWhole=true; else sawDwelling=true;
+
+      var elev=storey.z0.toFixed(1)+"–"+storey.z1.toFixed(1)+" m";
+      zonesTable += "<tr><td>" + label + "</td><td>" + zn.a.toFixed(1) + " m&sup2;</td><td>" + elev + "</td></tr>";
+    }
+
+    if(storey.c){
+      var cr=storey.c.r;
+      fpCtx.beginPath();
+      var ccx=0, ccy=0;
+      for(var ci=0;ci<cr.length;ci++){
+        var CX=fx(cr[ci][0]), CY=fy(cr[ci][1]);
+        if(ci===0)fpCtx.moveTo(CX,CY);else fpCtx.lineTo(CX,CY);
+        ccx += CX; ccy += CY;
+      }
+      fpCtx.closePath();
+      fpCtx.fillStyle="#fef3c7";
+      fpCtx.fill();
+      fpCtx.strokeStyle="#d97706";
+      fpCtx.lineWidth=3;
+      fpCtx.stroke();
+
+      ccx /= cr.length; ccy /= cr.length;
+      var clabel=circLabelText(storey.c.lbl);
+      fpCtx.fillStyle="#172033";
       fpCtx.font="bold 11px sans-serif";
       fpCtx.textAlign="center";
       fpCtx.textBaseline="middle";
-      fpCtx.fillText("D" + (z+1), zcx, zcy);
+      if(storey.c.lbl==="core"){
+        fpCtx.fillText("Unconditioned",ccx,ccy-7);
+        fpCtx.fillText("stair core",ccx,ccy+7);
+      } else {
+        fpCtx.fillText(clabel,ccx,ccy);
+      }
+      sawCirc=true;
 
-      var zElev = (zn.z_floor !== undefined ? (zn.z_floor + "–" + zn.z_ceiling + " m") : ("F" + sIdx));
-      zonesTable += "<tr><td><code>" + zn.name + "</code></td>" +
-        "<td><span style='display:inline-block;width:12px;height:12px;background:" + zc + ";border:1px solid #fff;border-radius:2px;vertical-align:middle;'></span></td>" +
-        "<td>Dwelling " + (z+1) + "</td>" +
-        "<td>" + zElev + "</td></tr>";
+      var celev=storey.z0.toFixed(1)+"–"+storey.z1.toFixed(1)+" m";
+      zonesTable += "<tr><td>" + clabel + "</td><td>" + storey.c.a.toFixed(1) + " m&sup2;</td><td>" + celev + "</td></tr>";
     }
-    zonesTable += circHtml + "</tbody></table>";
-  } else if(circHtml){
-    zonesTable = "<table><thead><tr><th>Zone Name</th><th>Colour</th><th>Dwelling Index</th><th>Storey Elevation</th></tr></thead><tbody>" + circHtml + "</tbody></table>";
   }
-  mZones.innerHTML=zonesTable;
 
-  // Draw Scale Bar (metric)
+  mZones.innerHTML = zonesTable
+    ? "<table><thead><tr><th>Zone</th><th>Area</th><th>Storey elevation</th></tr></thead><tbody>" + zonesTable + "</tbody></table>"
+    : "";
+
+  var lg="";
+  if(sawDwelling) lg += "<span class='sw'><i style='background:#dbeafe;border:1px solid #2563eb'></i>Dwelling zone</span>";
+  if(sawCirc) lg += "<span class='sw'><i style='background:#fef3c7;border:1px solid #d97706'></i>Circulation/core zone</span>";
+  if(sawWhole) lg += "<span class='sw'><i style='background:#e5e7eb;border:1px solid #172033'></i>Undivided massing box</span>";
+  fpLegend.innerHTML=lg;
+
+  // Draw Scale Bar (metric, dark-on-white)
   var barMeters=10;
   if(sc > 15) barMeters=5;
   if(sc > 35) barMeters=2;
@@ -578,23 +574,23 @@ function drawFloorPlan(b, sIdx){
   var bx0=20, by0=ch-18;
   fpCtx.beginPath();
   fpCtx.moveTo(bx0, by0-4); fpCtx.lineTo(bx0, by0); fpCtx.lineTo(bx0+barPx, by0); fpCtx.lineTo(bx0+barPx, by0-4);
-  fpCtx.strokeStyle="#c9d1d9";
+  fpCtx.strokeStyle="#334155";
   fpCtx.lineWidth=1.5;
   fpCtx.stroke();
-  fpCtx.fillStyle="#8b95a7";
+  fpCtx.fillStyle="#49515b";
   fpCtx.font="10px sans-serif";
   fpCtx.textAlign="left";
   fpCtx.textBaseline="bottom";
   fpCtx.fillText(barMeters + " m", bx0, by0-6);
 
-  // Draw North Arrow
+  // Draw North Arrow (dark-on-white)
   var nx0=cw-24, ny0=24;
   fpCtx.beginPath();
   fpCtx.moveTo(nx0, ny0-10); fpCtx.lineTo(nx0-5, ny0+6); fpCtx.lineTo(nx0, ny0+2); fpCtx.lineTo(nx0+5, ny0+6);
   fpCtx.closePath();
-  fpCtx.fillStyle="#7fb3e0";
+  fpCtx.fillStyle="#2c5d8a";
   fpCtx.fill();
-  fpCtx.fillStyle="#7fb3e0";
+  fpCtx.fillStyle="#2c5d8a";
   fpCtx.font="10px sans-serif";
   fpCtx.textAlign="center";
   fpCtx.fillText("N", nx0, ny0+16);
@@ -608,11 +604,13 @@ function legend(){
     lb.innerHTML='<div id="bar" style="background:linear-gradient(90deg,'+stops.join(",")+')"></div>'+
       '<div class="lab"><span>'+(mode==="h"?"0 m":ymin)+'</span><span>'+
       (mode==="h"?Math.round(hmax)+" m+":ymax)+'</span></div>';
-  } else if(mode==="e"){
-    var st=[];for(var i3=0;i3<=10;i3++){var c3=ramp(i3/10);st.push("rgb("+(c3[0]|0)+","+(c3[1]|0)+","+(c3[2]|0)+") "+(i3*10)+"%");}
-    lt.textContent="simulated EUI (kWh/m²)";
-    lb.innerHTML='<div id="bar" style="background:linear-gradient(90deg,'+st.join(",")+')"></div>'+
-      '<div class="lab"><span>'+emin.toFixed(0)+'</span><span>'+emax.toFixed(0)+'</span></div>';
+  } else if(mode==="s"){
+    lt.textContent="layout state (read from IDF)";
+    var out2="<div class='keys'>";
+    for(var i3=0;i3<3;i3++){var c3=STATE_COLORS[i3];
+      out2+="<div><span class='sw' style='background:rgb("+c3+")'></span>"+STATE_NAMES[i3]+"</div>";}
+    out2+="<div><span class='sw' style='background:rgb(96,104,118)'></span>excluded / non-residential</div></div>";
+    lb.innerHTML=out2;
   } else {
     lt.textContent="height provenance";
     var names=["measured (source)","from storeys × 3.0 m","assumed 9.0 m"],out="<div class='keys'>";
@@ -623,50 +621,14 @@ function legend(){
   }
 }
 function setMode(m,btn){
-  mode=m;["bH","bP","bY","bU"].forEach(function(id){document.getElementById(id).classList.remove("on");});
+  mode=m;["bH","bP","bY","bS"].forEach(function(id){document.getElementById(id).classList.remove("on");});
   btn.classList.add("on");legend();draw();
 }
 document.getElementById("bH").onclick=function(){setMode("h",this);};
 document.getElementById("bP").onclick=function(){setMode("p",this);};
 document.getElementById("bY").onclick=function(){setMode("y",this);};
-var bU=document.getElementById("bU");
-bU.onclick=function(){if(!euiBound)return;setMode("e",this);};
+document.getElementById("bS").onclick=function(){setMode("s",this);};
 document.getElementById("bE").onclick=function(){showExc=!showExc;this.classList.toggle("on",showExc);draw();};
-
-var elo=document.getElementById("flo"),ehi=document.getElementById("fhi"),
-    rlo=document.getElementById("rlo"),rhi=document.getElementById("rhi"),
-    fcount=document.getElementById("fcount"),fnote=document.getElementById("fnote"),
-    fbox=document.getElementById("flt");
-function fltRefresh(){
-  flo=Math.min(+elo.value,+ehi.value);fhi=Math.max(+elo.value,+ehi.value);
-  rlo.textContent=flo.toFixed(1);rhi.textContent=fhi.toFixed(1);
-  fltOn=(flo>emin||fhi<emax);
-  var k=0;for(var i=0;i<B.length;i++){var b=B[i];
-    if(b.c!==0)continue;
-    if(typeof b.e!=="number"){continue;}
-    if(b.e>=flo&&b.e<=fhi)k++;}
-  fcount.textContent=k.toLocaleString()+" / "+evals.length.toLocaleString()+" shown";
-  draw();
-}
-if(euiBound){
-  if(D.eui_note)fnote.innerHTML=D.eui_note;else fnote.style.display="none";
-  if(D.warn_html)document.getElementById("warn").innerHTML=D.warn_html;
-  elo.min=ehi.min=emin;elo.max=ehi.max=emax;
-  elo.step=ehi.step=Math.max(0.1,(emax-emin)/500);
-  elo.value=emin;ehi.value=emax;
-  elo.oninput=ehi.oninput=fltRefresh;
-  fltRefresh();
-} else {
-  bU.disabled=true;
-  bU.title="No Step-5 results are bound to this district.";
-  fbox.classList.add("off");
-  elo.disabled=ehi.disabled=true;
-  rlo.textContent=rhi.textContent="—";
-  fcount.textContent="not bound";
-  fnote.innerHTML="<b>EUI not bound.</b> This district stops at Step 2 — footprints and attributes only. "+
-    "No <code>05_results.csv</code> and no per-building EUI exist for it, so the filter and the EUI colouring stay "+
-    "inert. Nothing is interpolated, defaulted or borrowed from another district.";
-}
 document.getElementById("bR").onclick=function(){fit();draw();};
 
 resize();fit();legend();draw();
@@ -685,25 +647,6 @@ DISTRICT_SPECS: dict[str, dict[str, Any]] = {
         "licence": "Open Database License (ODbL) v1.0",
         "layer": "OpenStreetMap building features",
         "endpoint": "https://overpass-api.de/api/interpreter",
-        "manifest_rel": "openubem/outputs/eu_evidence/EU-11/ES-MAD-BERRUGUETE/es_mad_berruguete_manifest.csv",
-        "summary_rel": "openubem/outputs/eu_evidence/EU-11/ES-MAD-BERRUGUETE/summary.json",
-        "epw_rel": "openubem/data/weather/es_madrid_2009_2010_y2010.epw",
-        "campaign_dir_rel": "openubem/outputs/eu_evidence/EU-11/ES-MAD-BERRUGUETE",
-        "warn_html": (
-            "<b>Geometry for 1,194 residential buildings; simulated heating EUI for 957 of them.</b> "
-            "Area-pooled over those 957: <b>79.0862 kWh/m²</b> across 999,191.1457 m² "
-            "(EU-11 Speed campaign, re-simulated under D-EU-35 post-EU-13; S2 real-footprint perimeter; "
-            "191 massing box / 770 dwelling layout). Buildings with no run (237) are shown grey."
-        ),
-        "eui_note": (
-            "<b>EUI bound on 957 of 1,194 residential buildings</b> — the EU-11 full-district campaign on Speed, "
-            "re-simulated 2026-08-28 under D-EU-35 against the post-EU-13 synchronized geometry pipeline "
-            "(real OSM footprints, TABULA archetypes with Catastro years, ERA5 Madrid 2010 weather, EnergyPlus 23.1; "
-            "957 return 0, 0 severe, 0 fatal; 4 EPLUS_FATAL excluded). <b>Heating only.</b> Geometry outcome: "
-            "191 massing-box fallback, 770 dwelling layout (80.1% real partitioning, up from 5.3% pre-EU-13). "
-            "S2 real-footprint perimeter (not S0 archetype campaign). The other 237 buildings are left uncoloured — "
-            "nothing is interpolated, defaulted or borrowed."
-        ),
     },
     "FR-LYO-HAUTCOEURPENTES": {
         "page_title": "OpenUBEM — Lyon — Haut Cœur des Pentes",
@@ -713,30 +656,6 @@ DISTRICT_SPECS: dict[str, dict[str, Any]] = {
         "licence": "Licence Ouverte / Open Licence 2.0 (Etalab)",
         "layer": "IGN — BD TOPO",
         "endpoint": "https://data.geopf.fr/wfs/ows",
-        "manifest_rel": "openubem/outputs/eu_evidence/EU-11/FR-LYO-HAUTCOEURPENTES/fr_lyo_hautcoeurpentes_manifest.csv",
-        "summary_rel": "openubem/outputs/eu_evidence/EU-11/FR-LYO-HAUTCOEURPENTES/summary.json",
-        "epw_rel": "openubem/data/weather/fr_lyon_bron_2023_era5.epw",
-        "campaign_dir_rel": "openubem/outputs/eu_evidence/EU-11/FR-LYO-HAUTCOEURPENTES",
-        "warn_html": (
-            "<b>Geometry for 530 residential buildings; simulated heating EUI for 290 of them.</b> "
-            "Area-pooled over those 290: <b>70.0619 kWh/m²</b> across 394,414.574 m² "
-            "(EU-11 Speed campaign, re-simulated under D-EU-35 post-EU-13; S2 real-footprint perimeter; "
-            "58 massing-box fallback / 239 dwelling layout with imputed count; Speed ≠ Windows FINDING 187/190; "
-            "🔴 FINDING 198 — EUI did not rise with dwelling-layout share as DR14 predicts). "
-            "Buildings with no run (240) are shown grey."
-        ),
-        "eui_note": (
-            "<b>EUI bound on 290 of 530 residential buildings</b> — the EU-11 full-district campaign on Speed, "
-            "re-simulated 2026-08-28 under D-EU-35 against the post-EU-13 synchronized geometry pipeline "
-            "(real IGN BD TOPO footprints, TABULA archetypes with BD TOPO years, ERA5 2023 Lyon-Bron weather, "
-            "EnergyPlus 23.1; 290 return 0, 0 severe, 0 fatal; 7 EPLUS_FATAL excluded). <b>Heating only.</b> "
-            "Geometry outcome: 58 narrow massing boxes, 239 dwelling layouts (80.5%, four-tier imputed count, up "
-            "from 0% pre-EU-13) — yet the pooled EUI moved only 64.6017 → 70.0619, well short of DR14's "
-            "population-weighted prediction (~100 kWh/m²); recorded as FINDING 198, not corrected. S2 "
-            "real-footprint perimeter on Speed (not comparable to the 31-building Windows sample 60.7087 kWh/m²; "
-            "FINDING 187/190). The other 240 buildings are left uncoloured — nothing is interpolated, defaulted "
-            "or borrowed."
-        ),
     },
     "GB-LDN-STDUNSTANS": {
         "page_title": "OpenUBEM — London — St Dunstan's",
@@ -746,26 +665,6 @@ DISTRICT_SPECS: dict[str, dict[str, Any]] = {
         "licence": "Open Database License (ODbL) v1.0",
         "layer": "OpenStreetMap building features",
         "endpoint": "https://overpass-api.de/api/interpreter",
-        "manifest_rel": "openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS/gb_ldn_stdunstans_manifest.csv",
-        "summary_rel": "openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS/summary.json",
-        "epw_rel": "openubem/data/weather/uk_london_2014_2015_y2015.epw",
-        "campaign_dir_rel": "openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS",
-        "warn_html": (
-            "<b>Geometry for 1,242 residential buildings; simulated heating EUI for 81 of them.</b> "
-            "Area-pooled over those 81: <b>74.7151 kWh/m²</b> across 90,790.3794 m² "
-            "(EU-11 Speed campaign, re-simulated under D-EU-35 post-EU-13; S2 real-footprint perimeter; "
-            "13 massing-box fallback / 69 dwelling layout with imputed count). "
-            "Buildings with no run (1,161) are shown grey."
-        ),
-        "eui_note": (
-            "<b>EUI bound on 81 of 1,242 residential buildings</b> — the EU-11 full-district campaign on Speed, "
-            "re-simulated 2026-08-28 under D-EU-35 against the post-EU-13 synchronized geometry pipeline "
-            "(real OSM footprints, TABULA archetypes with EPC age bands, ERA5 London 2015 weather, "
-            "EnergyPlus 23.1; 81/82 return 0, 0 severe, 0 fatal; 1 EPLUS_FATAL excluded). <b>Heating only.</b> "
-            "Geometry outcome: 13 massing-box fallback, 69 dwelling layout (84.1%, four-tier imputed count, up "
-            "from 0% pre-EU-13). S2 real-footprint perimeter (not S0 archetype campaign). The other 1,161 "
-            "buildings are left uncoloured — nothing is interpolated, defaulted or borrowed."
-        ),
     },
     "IT-BOL-GALVANI2": {
         "page_title": "OpenUBEM — Bologna — Galvani 2",
@@ -775,30 +674,6 @@ DISTRICT_SPECS: dict[str, dict[str, Any]] = {
         "licence": "CC BY 4.0, Comune di Bologna",
         "layer": "Comune di Bologna — rifter_edif_pl",
         "endpoint": "https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/rifter_edif_pl/exports/geojson?limit=-1",
-        "manifest_rel": "openubem/outputs/eu_evidence/EU-11/IT-BOL-GALVANI2/it_bol_galvani2_manifest.csv",
-        "summary_rel": "openubem/outputs/eu_evidence/EU-11/IT-BOL-GALVANI2/summary.json",
-        "epw_rel": "openubem/data/weather/it_bologna_2013_2014_y2014.epw",
-        "campaign_dir_rel": "openubem/outputs/eu_evidence/EU-11/IT-BOL-GALVANI2",
-        "warn_html": (
-            "<b>Geometry for 1,220 residential buildings; simulated heating EUI for 1,202 of them.</b> "
-            "Area-pooled over those 1,202: <b>55.5346 kWh/m²</b> across 2,520,390.9432 m² "
-            "(EU-14 Speed campaign, reopened under D-EU-34; S2 real-footprint perimeter; "
-            "408 massing-box fallback / 796 dwelling layout with imputed count; construction period is "
-            "ISTAT-census-section-imputed, never OBSERVED_YEAR; 🔴 FINDING 199 — INCOMPATIBLE (Too Low) "
-            "against DR16's own asset-rating band). Buildings with no run (18) are shown grey."
-        ),
-        "eui_note": (
-            "<b>EUI bound on 1,202 of 1,220 residential buildings</b> — the EU-14 reopened campaign on Speed "
-            "(real Comune di Bologna footprints, TABULA archetypes with ISTAT 2011 census-section-imputed "
-            "construction period — the INSPIRE Buildings WFS lead failed on retry, tagged "
-            "construction_period_provenance=IMPUTED_CENSUS_SECTION_CONSTRUCTION_PERIOD, never OBSERVED_YEAR — "
-            "ERA5 Bologna 2013–2014 weather, EnergyPlus 23.1; 1,202 return 0, 0 severe, 0 fatal; 2 EPLUS_FATAL "
-            "excluded). <b>Heating only.</b> Geometry outcome: 408 massing-box fallback, 796 dwelling layout "
-            "(66.1%, four-tier imputed count). 🔴 Pooled EUI 55.5346 kWh/m² is INCOMPATIBLE (Too Low) against "
-            "DR16's pre-registered asset-rating band (115.0–165.0 CONSISTENT, &lt;95.0 INCOMPATIBLE) — recorded "
-            "as FINDING 199, not corrected. S2 real-footprint perimeter (not S0 archetype campaign). The other "
-            "18 buildings are left uncoloured — nothing is interpolated, defaulted or borrowed."
-        ),
     },
 }
 
@@ -820,17 +695,151 @@ def _format_file_size(size_bytes: int) -> str:
         return f"{size_bytes / (1024 * 1024):.1f} MB"
 
 
-def _map_geometry_outcome(raw_outcome: Any) -> str | None:
-    if pd.isna(raw_outcome):
+def _scene_ring(
+    ring: tuple[tuple[float, float], ...], origin_xy: tuple[float, float], cx: float, cy: float
+) -> list[list[float]]:
+    """A zone ring in the same district-centred, 1 cm-rounded local-metre
+    frame the footprint ring ``b.r`` already uses (dependency decision
+    §4.4's ``local_ring_1cm`` convention), so the plan overlays the
+    footprint exactly (T01). ``read_building_plan`` translates zone
+    coordinates to a *building-local* origin (the storey-0 centroid,
+    ``origin_xy``); this undoes that and re-expresses the ring in the
+    district-frame the way the footprint ring is built (`:979`)."""
+    ox, oy = origin_xy
+    return [[round(x + ox - cx, 2), round(y + oy - cy, 2)] for x, y in ring]
+
+
+def _storey_z_ranges(zone_max_z: dict[str, float], zones: tuple) -> dict[int, tuple[float, float]]:
+    """Per-storey-group ``(z_floor, z_ceiling)`` read off the IDF's own
+    measured surface heights (``zone_max_z``, from
+    ``parse_idf_floor_zones``), not off a nominal ``FLOOR_TO_FLOOR_M``
+    multiplication -- a group's ceiling is the tallest of its own zones,
+    and groups stack bottom-up (dependency decision, this slice: group
+    order is trusted, not its F-number's literal physical-storey value,
+    since an absorbed group's F-number is only its ordinal position)."""
+    groups = sorted({z.storey for z in zones})
+    ranges: dict[int, tuple[float, float]] = {}
+    z_prev = 0.0
+    for g in groups:
+        names_in_group = [z.name for z in zones if z.storey == g]
+        z_top = max((zone_max_z.get(n, z_prev) for n in names_in_group), default=z_prev)
+        ranges[g] = (z_prev, z_top)
+        z_prev = z_top
+    return ranges
+
+
+def _circulation_label(rings: tuple[tuple[tuple[float, float], ...], ...]) -> str:
+    """``core`` (point-block stair core) vs ``spine`` (double-loaded
+    corridor) vs ``circulation`` (ambiguous), by the ring's own bounding-box
+    aspect ratio -- T04 leaves the exact split to the executor; thresholds
+    (<=1.6 core, >=2.75 spine, else ambiguous) are this task's own decision,
+    not specified upstream."""
+    minx = miny = 1e18
+    maxx = maxy = -1e18
+    for ring in rings:
+        for x, y in ring:
+            minx = min(minx, x)
+            maxx = max(maxx, x)
+            miny = min(miny, y)
+            maxy = max(maxy, y)
+    w = max(maxx - minx, 1e-6)
+    h = max(maxy - miny, 1e-6)
+    long_side, short_side = max(w, h), max(min(w, h), 1e-6)
+    ratio = long_side / short_side
+    if ratio <= 1.6:
+        return "core"
+    if ratio >= 2.75:
+        return "spine"
+    return "circulation"
+
+
+def _load_eu17_sidecar(district: str, building_id: str) -> dict | None:
+    path = EU17_ROOT / district / "layouts" / f"{building_id}.json"
+    if not path.exists():
         return None
-    s = str(raw_outcome).strip()
-    if s == "DWELLING_LAYOUT_EMITTED":
-        return "dwelling layout (observed)"
-    elif s == "DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT":
-        return "dwelling layout (imputed)"
-    elif s in ("FALLBACK_PENDING_LAYOUT", "FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT"):
-        return "geometry-limited massing box"
-    return s
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _build_plan_payload(
+    plan: BuildingPlan, idf_path: Path, sidecar: dict | None, cx: float, cy: float
+) -> dict[str, Any]:
+    """The modal's entire per-building payload, built from the parsed IDF
+    (T01): per-storey dwelling/whole zone rings, the circulation ring where
+    present, storey z-ranges, dwelling count per storey, gross/conditioned
+    area. ``scheme``/``reason``/``finding204`` are the only fields taken
+    from the side-car, and only when the side-car's own ruled/massing-box
+    claim agrees with what the IDF's zone kinds actually show -- never
+    letting a side-car field decide a polygon (rule 3)."""
+    _, _, zone_max_z = parse_idf_floor_zones(idf_path)
+    z_ranges = _storey_z_ranges(zone_max_z, plan.zones)
+
+    by_storey: dict[int, list] = {}
+    for zone in plan.zones:
+        by_storey.setdefault(zone.storey, []).append(zone)
+
+    storeys_payload = []
+    for storey in sorted(by_storey):
+        z0, z1 = z_ranges.get(storey, (storey * 3.0, (storey + 1) * 3.0))
+        zones_payload = []
+        circ_payload = None
+        n_dwellings = 0
+        for zone in by_storey[storey]:
+            rings_scene = [_scene_ring(ring, plan.origin_xy, cx, cy) for ring in zone.rings]
+            ring_scene = rings_scene[0] if len(rings_scene) == 1 else [pt for ring in rings_scene for pt in ring]
+            if zone.kind == "dwelling":
+                n_dwellings += 1
+                zones_payload.append({
+                    "nm": zone.name,
+                    "ki": "d",
+                    "di": (zone.dwelling_index if zone.dwelling_index is not None else 0) + 1,
+                    "r": ring_scene,
+                    "a": round(zone.area_m2, 1),
+                })
+            elif zone.kind == "whole":
+                zones_payload.append({
+                    "nm": zone.name,
+                    "ki": "w",
+                    "di": None,
+                    "r": ring_scene,
+                    "a": round(zone.area_m2, 1),
+                })
+            else:  # circulation
+                circ_payload = {
+                    "r": ring_scene,
+                    "a": round(zone.area_m2, 1),
+                    "lbl": _circulation_label(zone.rings),
+                }
+        storeys_payload.append({
+            "i": storey,
+            "z0": round(z0, 1),
+            "z1": round(z1, 1),
+            "nd": n_dwellings,
+            "z": zones_payload,
+            "c": circ_payload,
+        })
+
+    idf_ruled = plan.is_ruled()
+    sidecar_ruled = bool(
+        sidecar and str(sidecar.get("geometry_outcome", "")).startswith("DWELLING_LAYOUT_EMITTED")
+    )
+    agrees = sidecar is not None and idf_ruled == sidecar_ruled
+    circ_pct = (
+        round(100.0 * plan.circulation_area_m2 / plan.gross_area_m2, 1) if plan.gross_area_m2 > 0 else None
+    )
+
+    return {
+        "st": plan.storey_count,
+        "dw": plan.dwelling_count,
+        "gm": round(plan.gross_area_m2, 1),
+        "cm": round(plan.conditioned_area_m2, 1),
+        "cc": round(plan.circulation_area_m2, 1),
+        "cp": circ_pct,
+        "core": plan.has_unconditioned_core(),
+        "scheme": (sidecar.get("scheme") if (agrees and sidecar) else None),
+        "reason": (sidecar.get("fallback_reason") if (agrees and sidecar) else None),
+        "f204": (bool(sidecar.get("circulation_outside_ruled_absolute_band")) if (agrees and sidecar) else None),
+        "sf": storeys_payload,
+    }
 
 
 def build_district(district: str) -> None:
@@ -900,46 +909,11 @@ def build_district(district: str) -> None:
         "assumed": int((res_subset["provenance_code"] == 2).sum()),
     }
 
-    # Load EU-11 manifest if present
-    manifest_rel = spec["manifest_rel"]
-    manifest_path = (REPO_ROOT / manifest_rel) if manifest_rel else None
-    has_manifest = manifest_path is not None and manifest_path.exists()
-
-    sim_map: dict[str, dict[str, Any]] = {}
-    manifest_df: pd.DataFrame | None = None
-    if has_manifest and manifest_path:
-        manifest_df = pd.read_csv(manifest_path)
-        for _, mrow in manifest_df.iterrows():
-            bid = str(mrow["building_id"])
-            rc = int(mrow["eplus_return_code"]) if pd.notna(mrow.get("eplus_return_code")) else 1
-            eui = float(mrow["eui_kwh_m2"]) if pd.notna(mrow.get("eui_kwh_m2")) else None
-            g_out = _map_geometry_outcome(mrow.get("geometry_outcome"))
-            sim_map[bid] = {
-                "eplus_return_code": rc,
-                "eui_kwh_m2": eui,
-                "geometry_outcome": g_out,
-            }
-
-    # Load layout side-cars if present
-    eu11_layouts_dir = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11" / district / "layouts"
-    layouts_map: dict[str, dict[str, Any]] = {}
-    observed_emitted_count = 0
-    imputed_emitted_count = 0
-    fallback_count = 0
-
-    if eu11_layouts_dir.exists():
-        for lfile in eu11_layouts_dir.glob("**/*.json"):
-            ldata = json.loads(lfile.read_text(encoding="utf-8"))
-            bid = ldata.get("building_id")
-            if bid:
-                layouts_map[str(bid)] = ldata
-                out_code = ldata.get("geometry_outcome")
-                if out_code == "DWELLING_LAYOUT_EMITTED":
-                    observed_emitted_count += 1
-                elif out_code == "DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT":
-                    imputed_emitted_count += 1
-                else:
-                    fallback_count += 1
+    # Geometry, read from the emitted IDFs (EU-17, post-T15) -- rule 3: never
+    # the layout side-cars. `read_district` walks `idfs/*.idf` once, keyed by
+    # the building id `prepared_buildings.csv` maps each stem to.
+    idf_evidence_root = EU17_ROOT / district
+    plans_by_id: dict[str, BuildingPlan] = {p.building_id: p for p in read_district(district, idf_evidence_root)}
 
     # Load existing viewer's scene geometry rings if present to preserve exact vertex arrays
     existing_html = out_dir_3d / viewer_name
@@ -955,7 +929,7 @@ def build_district(district: str) -> None:
     # Build building objects
     scene_buildings: list[dict[str, Any]] = []
     buildings_csv_rows: list[dict[str, Any]] = []
-    results_csv_rows: list[dict[str, Any]] = []
+    ruled_count = massing_count = no_idf_count = 0
 
     for i, row in combined_gdf.iterrows():
         bid = str(row["osm_id"])
@@ -968,7 +942,8 @@ def build_district(district: str) -> None:
         levels = int(row["levels"]) if (pd.notna(row.get("levels")) and float(row["levels"]) > 0) else None
         year = int(row["year_built"]) if (pd.notna(row.get("year_built")) and float(row["year_built"]) > 0) else None
 
-        # Ring coords
+        # Ring coords (footprint; EU-02 real-footprint perimeter, unrelated
+        # to the layout side-car dispute rule 3 addresses)
         if i < len(existing_rings):
             ring = existing_rings[i]
         else:
@@ -978,47 +953,25 @@ def build_district(district: str) -> None:
             poly_s = poly.simplify(0.05, preserve_topology=True)
             ring = [[round(pt[0] - cx, 2), round(pt[1] - cy, 2)] for pt in list(poly_s.exterior.coords)[:-1]]
 
-        # Layout summary for this building
-        k_obj: dict[str, Any] | None = None
-        if bid in layouts_map:
-            ldata = layouts_map[bid]
-            outcome = ldata.get("geometry_outcome")
-            floors_data = []
-            if outcome in ("DWELLING_LAYOUT_EMITTED", "DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT") and ldata.get("floors"):
-                for fl in ldata["floors"]:
-                    fl_zones = []
-                    for z in fl.get("zones", []):
-                        zr = [[round(pt[0] - cx, 2), round(pt[1] - cy, 2)] for pt in z["coords_m"]]
-                        fl_zones.append({
-                            "name": z["name"],
-                            "r": zr,
-                            "z_floor": z.get("z_floor"),
-                            "z_ceiling": z.get("z_ceiling"),
-                        })
-                    circ = fl.get("circulation")
-                    circ_r = [[round(pt[0] - cx, 2), round(pt[1] - cy, 2)] for pt in circ] if circ else None
-                    floors_data.append({
-                        "storey_index": fl.get("storey_index", 0),
-                        "zones": fl_zones,
-                        "circulation": {"r": circ_r} if circ_r else None,
-                    })
-
-            k_obj = {
-                "outcome": outcome,
-                "archetype": ldata.get("archetype_id"),
-                "btype": ldata.get("building_type"),
-                "scheme": ldata.get("scheme"),
-                "storeys": ldata.get("storeys"),
-                "dwellings": ldata.get("dwellings_total"),
-                "upf": ldata.get("units_per_floor"),
-                "core": ldata.get("has_unconditioned_core"),
-                "gross": ldata.get("gross_footprint_area_m2"),
-                "cond": ldata.get("conditioned_floor_area_m2"),
-                "dprov": ldata.get("dwelling_count_provenance"),
-                "cprov": ldata.get("construction_period_provenance"),
-                "reason": ldata.get("fallback_reason"),
-                "floors": floors_data,
-            }
+        layout_state: str | None = None
+        pl_obj: dict[str, Any] | None = None
+        if is_res:
+            plan = plans_by_id.get(bid)
+            if plan is None or not plan.zones:
+                layout_state = "no_idf"
+                no_idf_count += 1
+            elif plan.is_ruled():
+                layout_state = "ruled"
+                ruled_count += 1
+                idf_path = idf_evidence_root / "idfs" / f"{plan.stem}.idf"
+                sidecar = _load_eu17_sidecar(district, bid)
+                pl_obj = _build_plan_payload(plan, idf_path, sidecar, cx, cy)
+            else:
+                layout_state = "massing_box"
+                massing_count += 1
+                idf_path = idf_evidence_root / "idfs" / f"{plan.stem}.idf"
+                sidecar = _load_eu17_sidecar(district, bid)
+                pl_obj = _build_plan_payload(plan, idf_path, sidecar, cx, cy)
 
         b_obj: dict[str, Any] = {
             "r": ring,
@@ -1030,29 +983,9 @@ def build_district(district: str) -> None:
             "a": area,
             "l": levels,
             "y": year,
-            "k": k_obj,
+            "ls": layout_state,
+            "pl": pl_obj,
         }
-
-        # Check simulation status
-        sim = sim_map.get(bid)
-        eui_val = None
-        geom_outcome = None
-        eui_status = "n/a (excluded)" if not is_res else "not simulated"
-
-        if is_res and sim is not None:
-            if sim["eplus_return_code"] == 0 and sim["eui_kwh_m2"] is not None:
-                eui_val = round(sim["eui_kwh_m2"], 2)
-                geom_outcome = sim["geometry_outcome"]
-                eui_status = "simulated"
-                b_obj["e"] = eui_val
-                if geom_outcome:
-                    b_obj["g"] = geom_outcome
-                results_csv_rows.append({
-                    "building_id": bid,
-                    "eui_kwh_m2": eui_val,
-                    "geometry_outcome": geom_outcome,
-                })
-
         scene_buildings.append(b_obj)
 
         buildings_csv_rows.append({
@@ -1064,22 +997,30 @@ def build_district(district: str) -> None:
             "height_m": h,
             "height_source": row["height_source"],
             "year_built": year,
-            "eui_kwh_m2": eui_val if eui_val is not None else "",
-            "eui_status": eui_status,
-            "geometry_outcome": geom_outcome if geom_outcome is not None else "",
+            "layout_state": layout_state if layout_state is not None else "",
+            "storey_count": pl_obj["st"] if pl_obj else "",
+            "dwelling_count": pl_obj["dw"] if pl_obj else "",
+            "gross_area_m2": pl_obj["gm"] if pl_obj else "",
+            "conditioned_area_m2": pl_obj["cm"] if pl_obj else "",
+            "circulation_pct": pl_obj["cp"] if pl_obj else "",
         })
 
-    eui_bound = len(results_csv_rows) > 0
     n_res = len(res_gdf)
     n_exc = len(exc_gdf)
-    not_simulated_count = n_res - (len(manifest_df) if manifest_df is not None else 0)
 
     layout_counts = {
-        "observed_emitted": observed_emitted_count,
-        "imputed_emitted": imputed_emitted_count,
-        "massing_box": fallback_count,
-        "not_simulated": not_simulated_count,
+        "ruled": ruled_count,
+        "massing_box": massing_count,
+        "no_idf": no_idf_count,
     }
+
+    geometry_note = (
+        f"<b>Geometry for {n_res:,} residential buildings, read from the emitted IDFs "
+        f"(EU-17 rebuild tree).</b> {ruled_count:,} carry a dwelling layout ruled from their own "
+        f"IDF zones, {massing_count:,} are a massing box (one undivided zone per storey), "
+        f"{no_idf_count:,} have no IDF in the EU-17 tree and are shown grey. Zone polygons drawn "
+        "in the floor-plan modal come directly from these IDFs, never from the layout side-cars."
+    )
 
     # Construct scene dict
     scene_dict = {
@@ -1096,9 +1037,7 @@ def build_district(district: str) -> None:
         "counts": counts,
         "layout_counts": layout_counts,
         "data_dir": data_dir_name,
-        "eui_bound": eui_bound,
-        "eui_note": spec["eui_note"] if eui_bound else "",
-        "warn_html": spec["warn_html"] if eui_bound else "",
+        "geometry_note": geometry_note,
         "buildings": scene_buildings,
     }
 
@@ -1118,81 +1057,50 @@ def build_district(district: str) -> None:
     b_df.to_csv(buildings_csv_path, index=False)
     print(f"[{district}] Written buildings.csv: {len(b_df)} rows")
 
-    # Write results.csv and results_source.csv if bound
-    results_csv_path = target_data_dir / "results.csv"
-    results_source_path = target_data_dir / "results_source.csv"
+    # Energy side files (results.csv / results_source.csv) are gone entirely
+    # -- D-EU-59 forbids any emitted CSV side file carrying EUI/E+ output,
+    # and that was their only content.
+    for stale in ("results.csv", "results_source.csv"):
+        stale_path = target_data_dir / stale
+        if stale_path.exists():
+            stale_path.unlink()
 
-    if eui_bound and manifest_path and manifest_path.exists():
-        res_df = pd.DataFrame(results_csv_rows)
-        res_df.to_csv(results_csv_path, index=False)
-        shutil.copy2(manifest_path, results_source_path)
-        print(f"[{district}] Written results.csv ({len(res_df)} rows) and copied results_source.csv")
-    else:
-        if results_csv_path.exists():
-            results_csv_path.unlink()
-        if results_source_path.exists():
-            results_source_path.unlink()
-        print(f"[{district}] EUI not bound: results.csv and results_source.csv remain absent")
-
-    # Copy layout side-cars to data directory if present
+    # Copy the EU-17 layout side-cars (same rebuild tree the IDFs came from,
+    # used only as narrow annotation per rule 3 -- never the EU-11 side-cars
+    # this arc's own FINDING 213/215 found disagreeing with the IDFs).
+    eu17_layouts_dir = idf_evidence_root / "layouts"
     target_layouts_dir = target_data_dir / "layouts"
-    if eu11_layouts_dir.exists() and len(layouts_map) > 0:
+    n_sidecars = sum(1 for _ in eu17_layouts_dir.glob("**/*.json")) if eu17_layouts_dir.exists() else 0
+    if eu17_layouts_dir.exists() and n_sidecars > 0:
         if target_layouts_dir.exists():
             shutil.rmtree(target_layouts_dir)
-        shutil.copytree(eu11_layouts_dir, target_layouts_dir)
-        print(f"[{district}] Copied {len(layouts_map)} layout side-cars to {target_layouts_dir}")
+        shutil.copytree(eu17_layouts_dir, target_layouts_dir)
+        print(f"[{district}] Copied {n_sidecars} EU-17 layout side-cars to {target_layouts_dir}")
 
     # Construct sources.json
     generated_from = [
         f"openubem/outputs/eu02/{district}/01_source.json",
         f"openubem/outputs/eu02/{district}/02_residential_manifest.gpkg",
         f"openubem/outputs/eu02/{district}/02_excluded_manifest.gpkg",
+        f"openubem/outputs/eu_evidence/EU-17/{district}/prepared_buildings.csv",
     ]
     sha256_map = {
         "01_source.json": _file_sha256(src_json_path),
         "02_residential_manifest.gpkg": _file_sha256(res_gpkg_path),
         "02_excluded_manifest.gpkg": _file_sha256(exc_gpkg_path),
+        "prepared_buildings.csv": _file_sha256(idf_evidence_root / "prepared_buildings.csv"),
     }
-
-    if has_manifest and manifest_path and manifest_rel:
-        generated_from.append(manifest_rel)
-        sha256_map[Path(manifest_rel).name] = _file_sha256(manifest_path)
-
-    # Read summary.json if available
-    summary_path = REPO_ROOT / spec["summary_rel"]
-    summary_data: dict[str, Any] = {}
-    if summary_path.exists():
-        summary_data = json.loads(summary_path.read_text(encoding="utf-8"))
-
-    epw_path = REPO_ROOT / spec["epw_rel"]
-    epw_sha256 = _file_sha256(epw_path) if epw_path.exists() else summary_data.get("weather_sha256", "")
-
-    speed_run_info: dict[str, Any] = {
-        "campaign_directory": spec["campaign_dir_rel"],
-        "platform": (
-            f"Speed (Linux 5.14.0-687.39.1.el9_8.x86_64, Slurm job {summary_data.get('speed_job_id', 'n/a')})"
-            if eui_bound else "Speed (not submitted — 0 eligible buildings)"
-        ),
-        "energyplus_version": "EnergyPlus, Version 23.1.0-87ed9199d4" if eui_bound else "not yet run",
-        "epw": spec["epw_rel"],
-        "epw_sha256": epw_sha256,
-    }
-    if not eui_bound:
-        speed_run_info["exclusion_reason"] = "NO_PER_BUILDING_YEAR_IN_ANY_OPEN_SOURCE: 1220"
 
     sources_dict: dict[str, Any] = {
         "cell": district,
         "viewer": viewer_name,
         "generated_from": generated_from,
         "sha256": sha256_map,
-        "speed_run": speed_run_info,
-        "eui_bound": eui_bound,
-        "eui_rows": len(results_csv_rows),
-        "eui_coverage": f"{len(results_csv_rows)} of {n_res} residential",
+        "idf_source_directory": f"openubem/outputs/eu_evidence/EU-17/{district}/idfs",
         "layout_counts": layout_counts,
         "layouts_coverage": (
-            f"{observed_emitted_count} observed emitted, {imputed_emitted_count} imputed emitted, "
-            f"{fallback_count} massing box, {not_simulated_count} not simulated of {n_res} residential"
+            f"{ruled_count} dwelling layout ruled, {massing_count} massing box, "
+            f"{no_idf_count} no IDF of {n_res} residential"
         ),
         "crs": spec["crs"],
         "licence": spec["licence"],
@@ -1213,48 +1121,11 @@ def build_district(district: str) -> None:
     # Construct index.html
     files_list_html = []
     files_list_html.append(f'<li><a href="buildings.csv">buildings.csv</a> <span>{_format_file_size(buildings_csv_path.stat().st_size)}</span></li>')
-    if eui_bound:
-        files_list_html.append(f'<li><a href="results.csv">results.csv</a> <span>{_format_file_size(results_csv_path.stat().st_size)}</span></li>')
-        files_list_html.append(f'<li><a href="results_source.csv">results_source.csv</a> <span>{_format_file_size(results_source_path.stat().st_size)}</span></li>')
-    if target_layouts_dir.exists() and len(layouts_map) > 0:
-        files_list_html.append(f'<li><a href="layouts/">layouts/</a> <span>{len(layouts_map)} side-car JSON files</span></li>')
+    if target_layouts_dir.exists() and n_sidecars > 0:
+        files_list_html.append(f'<li><a href="layouts/">layouts/</a> <span>{n_sidecars} side-car JSON files</span></li>')
     files_list_html.append(f'<li><a href="sources.json">sources.json</a> <span>{_format_file_size(sources_json_path.stat().st_size)}</span></li>')
 
-    if district == "ES-MAD-BERRUGUETE":
-        callout_html = (
-            "<b>EUI bound on 958 of 1,194 residential buildings</b> — the EU-11 full-district campaign on Speed "
-            "(real OSM footprints, TABULA archetypes with Catastro years, ERA5 Madrid 2010 weather, EnergyPlus 23.1; "
-            "958 return 0, 0 severe, 0 fatal; 3 EPLUS_FATAL excluded). <b>Heating only.</b> Geometry outcome: "
-            "191 massing-box fallback, 769 observed dwelling layout, 1 imputed dwelling layout. Area-pooled EUI: "
-            "<b>73.1889 kWh/m²</b> over 972,788.8396 m². S2 real-footprint perimeter (not S0 archetype campaign). "
-            "The other 236 buildings are left uncoloured — nothing is interpolated, defaulted or borrowed."
-        )
-    elif district == "FR-LYO-HAUTCOEURPENTES":
-        callout_html = (
-            "<b>EUI bound on 292 of 530 residential buildings</b> — the EU-11 full-district campaign on Speed "
-            "(real IGN BD TOPO footprints, TABULA archetypes with BD TOPO years, ERA5 2023 Lyon-Bron weather, "
-            "EnergyPlus 23.1; 292 return 0, 0 severe, 0 fatal; 5 EPLUS_FATAL excluded). <b>Heating only.</b> "
-            "Geometry outcome: 58 narrow massing boxes, 239 dwelling layouts (four-tier imputed count). Area-pooled EUI: "
-            "<b>64.6017 kWh/m²</b> over 398,687.7658 m². S2 real-footprint perimeter on Speed (not comparable to "
-            "the 31-building Windows sample 60.7087 kWh/m²; FINDING 187/190). The other 238 buildings are left "
-            "uncoloured — nothing is interpolated, defaulted or borrowed."
-        )
-    elif district == "GB-LDN-STDUNSTANS":
-        callout_html = (
-            "<b>EUI bound on 82 of 1,242 residential buildings</b> — the EU-11 full-district campaign on Speed "
-            "(real OSM footprints, TABULA archetypes with EPC age bands, ERA5 London 2015 weather, EnergyPlus 23.1; "
-            "82/82 return 0, 0 severe, 0 fatal). <b>Heating only.</b> Geometry outcome: 13 massing-box fallback, "
-            "69 dwelling layout (four-tier imputed count). Area-pooled EUI: <b>67.4153 kWh/m²</b> over 91,530.7539 m². S2 real-footprint "
-            "perimeter (not S0 archetype campaign). The other 1,160 buildings are left uncoloured — nothing is "
-            "interpolated, defaulted or borrowed."
-        )
-    else:  # IT-BOL-GALVANI2
-        callout_html = (
-            "<b>EUI not bound.</b> All 1,220 residential buildings are excluded "
-            "(NO_PER_BUILDING_YEAR_IN_ANY_OPEN_SOURCE — no per-building construction year exists in any open "
-            "source measured; see EU11 Bologna construction year investigation). <code>results.csv</code> is "
-            "therefore absent, not empty-by-accident. Nothing is interpolated, defaulted or borrowed."
-        )
+    callout_html = geometry_note
 
     index_html_content = (
         f"<!doctype html><meta charset=utf-8><title>{spec['name']} — data</title>"

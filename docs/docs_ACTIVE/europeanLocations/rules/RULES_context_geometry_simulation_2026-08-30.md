@@ -149,4 +149,4 @@ An `EU-16` implementation is accepted only if all of:
   `EXAMPLE_dwelling_layout_validation_2026-08-28.md`.
 - ⚪ It does **not** authorise editing `config.SHADING_SPHERE_RADIUS` or the North-American path.
 - 🔴 It does **not** make any pre-`EU-16` district EUI quotable retroactively. Those four figures were
-  produced without context and stay barred (`STATE_european_locations_v3.md` §1).
+  produced without context and stay barred (`previous/STATE_european_locations_v3.md` §1).
