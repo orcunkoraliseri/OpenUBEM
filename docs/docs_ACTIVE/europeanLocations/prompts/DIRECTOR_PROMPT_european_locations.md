@@ -12,7 +12,27 @@ restate its content here. Close this file again the same way once it re-exceeds 
 
 ---
 
-## Current moment — read this first (T01–T08 done, T09 wave draining on Speed, D-EU-42 authorised, 2026-08-31)
+## Current moment — read this first (T01–T09 done and harvested; `D-EU-42`–`D-EU-44` closed; `D-EU-47`/`D-EU-48` resubmit waves running on Speed, 2026-08-31)
+
+🔴 **0-bis. LATEST — `D-EU-42`–`D-EU-48`, all 2026-08-31, superseding the "T09 wave draining" framing below.**
+`D-EU-42`/`D-EU-43` (owner-authorised `FINDING 210` fix wave) harvested and folded in: Madrid 98→2 failed,
+Lyon 26→0 (9 wave-1 `TIMEOUT`s left, unrelated), London 2→0. `D-EU-44` (owner-authorised) recovered the last
+2 unaccounted Madrid stems — **Madrid now 961/961, 0 Speed-failed**. Bologna's 177 `FAILED` + 13 `TIMEOUT`
+were untouched through `D-EU-44` (out of scope). Post-`D-EU-44` pooled heating EUI: Madrid 72.1096 kWh/m²
+(961/961), Lyon 62.1528 kWh/m² (288/297, 9 `TIMEOUT` residual), London 78.4405 kWh/m² (82/82), Bologna
+48.9253 kWh/m² (1,014/1,204, unchanged) — 🔴 all four still barred from quotation pending `T10`.
+`D-EU-45`/`D-EU-46` (classification-only investigations, 2026-08-31): Bologna's 177 `FAILED` split 85 exact
+`FINDING 210` + 52 exact `D-EU-43` + 40 zero-area-only — all three buckets hypothesised covered by the
+existing unmodified gate; Lyon's 9 `TIMEOUT`s confirmed genuine wall-clock exhaustion (0–28 s over the 2 h
+limit), no defect, no rebuild needed. Owner authorised both remediations verbatim *"oui j'autorise, vas-y"*
+(2026-08-31). **`D-EU-47`** (Bologna rebuild/resubmit, prompt `previous/PROMPT_D-EU-47_bologna_rebuild_resubmit.md`):
+176 of 177 stems rebuilt and proven locally, 1 excluded pre-ship (`635c1d7d41a92830`/building 31741,
+unresolved reroute, disclosed not fixed) — shipped to `EU11_IT-BOL-GALVANI2_deu47`, job `1303039`
+(176 tasks), **running, not yet harvested**. **`D-EU-48`** (Lyon timeout resubmit, prompt
+`previous/PROMPT_D-EU-48_lyon_timeout_resubmit.md`): same 9 stems resubmitted `--time=03:00:00` (was 2h),
+job `1303023` (9 tasks), **running, not yet harvested**. Neither job's harvest is authorised beyond folding
+its own results in — no further Speed submission. **Next free identifier `D-EU-49`, next free finding
+`FINDING 211`** (supersedes the `D-EU-43`/`FINDING 211` figures quoted below, which predate this block).
 
 🔴 **0. THE ARC MOVED TO v3 ON 2026-08-30. Read `STATE_european_locations_v3.md` before anything below.**
 The owner inspected the four viewers and ruled twice: **`D-EU-39`** — the ruled MVP §4.2–§4.4 grid is
@@ -70,8 +90,10 @@ to `prompts/previous/`.**
 | 1 | `previous/PROMPT_EU-15A_coverage_recovery_T01-T03.md` | T01–T03 | ✅ done |
 | 2 | `previous/PROMPT_EU-15B_retire_strip_and_carve_core_T04-T05.md` | T04–T05 | ✅ done — stop-and-report 1 audited |
 | 3 | `previous/PROMPT_EU-16A_context_adiabatic_T06-T08.md` | T06–T08 | ✅ done — stop-and-report 2 audited |
-| 4 | `PROMPT_EU-16B_speed_resimulation_T09.md` | T09 | 🟡 **submit half done** (arrays live, revised 2026-08-31). The **harvest half is not started** — dispatch a fresh Sonnet once the queue drains; harvest paths are settled in 0a, and `D-EU-42` authorises the `FINDING 210` re-run wave |
-| 5 | `PROMPT_EU-VAL_validation_audit_T10.md` | T10 | ⚪ waiting — dispatch to a session that executed none of T01–T09 |
+| 4 | `previous/PROMPT_EU-16B_speed_resimulation_T09.md` | T09 | ✅ done — harvested and folded in under `D-EU-42`/`D-EU-43`/`D-EU-44` (see 0-bis) |
+| 6 | `previous/PROMPT_D-EU-47_bologna_rebuild_resubmit.md` | `D-EU-47` | 🟡 **submitted, running** — job `1303039` (176 tasks), not yet harvested |
+| 7 | `previous/PROMPT_D-EU-48_lyon_timeout_resubmit.md` | `D-EU-48` | 🟡 **submitted, running** — job `1303023` (9 tasks), not yet harvested |
+| 5 | `PROMPT_EU-VAL_validation_audit_T10.md` | T10 | ⚪ waiting — dispatch to a session that executed none of T01–T09; also blocked on `D-EU-47`/`D-EU-48` harvest folding in first |
 
 Audit each return against: progress-log entry in plan §8, a `walkthrough_progress_log.csv` row, test output,
 only plan §3 files touched, and a `file:line` citation for any unplanned decision. Missing any one → send it
@@ -86,7 +108,7 @@ rules doc §1 — different source layers, reconcile before publishing R9's disc
 `one_zone_per_floor` reroute on an `intersect_match` exception still writes **no `geometry_outcome`**
 (`D-EU-35` disclosure gap).
 
-**Next free identifier `D-EU-43`, next free finding `FINDING 211`.**
+**Next free identifier `D-EU-49`, next free finding `FINDING 211`** (see 0-bis — this line predates `D-EU-45`–`D-EU-48` and is kept only for the 0b-bis context above it).
 
 **0c. Visual explainers of `EU-15`/`EU-16`** live at `prompts/images/` — three paste-able image prompts and
 their renders (first generation archived in `prompts/images/previous/`). Verified 2026-08-30 against
@@ -267,8 +289,10 @@ visible as `FR-OCC-FUTURE` and are never reported as implemented.
 2. Check `git status --short` / `git diff --stat` — preserve unrelated dirty work, never touch it.
 3. Confirm nothing is running (Speed queue, background agents) before assuming a prior session's state.
 4. Resume the first unblocked action named in the current-moment box — normally the next undispatched row of
-   the item-0b table (today: the T09 harvest half). Dispatch the prompt as-is; do not rewrite it into the message. Stop and ask only on a
-   genuine authority conflict or spec ambiguity — quote it, never invent a resolution.
+   the item-0b table (today: check `D-EU-47`/`D-EU-48` drain status — jobs `1303039`/`1303023` — and dispatch
+   the harvest half of each once drained; T10 is next after both fold in). Dispatch the prompt as-is; do not
+   rewrite it into the message. Stop and ask only on a genuine authority conflict or spec ambiguity — quote it,
+   never invent a resolution.
 5. When this file is done being read, consult `prompts/previous/DIRECTOR_PROMPT_european_locations_2026-08-30.md`
    only for a specific cited `D-EU-NN`/`FINDING NNN` — never re-read it wholesale.
 
@@ -276,6 +300,14 @@ visible as `FR-OCC-FUTURE` and are never reported as implemented.
 
 ## Slice ledger (fresh — close this doc again once it re-exceeds ~1,000 lines, same procedure)
 
+- **2026-08-31 — `D-EU-42`–`D-EU-48`: T09 harvested, Madrid/Lyon/London recovered, Bologna/Lyon-timeout waves
+  running.** `D-EU-42`/`D-EU-43` `FINDING 210` fix wave harvested (Madrid 98→2, Lyon 26→0, London 2→0
+  failed); `D-EU-44` recovered Madrid's last 2 stems (961/961, 0 failed). `D-EU-45`/`D-EU-46`
+  classified Bologna's 177 `FAILED` (all bucketed under the existing gate) and Lyon's 9 `TIMEOUT`s (genuine
+  wall-clock, no defect). Owner authorised both remediations *"oui j'autorise, vas-y"*: `D-EU-47` shipped 176/177
+  Bologna stems (job `1303039`, 1 excluded pre-ship, disclosed); `D-EU-48` resubmitted Lyon's 9 stems at 3h
+  walltime (job `1303023`). Both running, neither harvested. Director prompt updated same day to reflect this
+  (was still reading `D-EU-42`-era/2026-08-30 state). Next free `D-EU-49`/`FINDING 211`.
 - **2026-08-30 (evening) — `EU-15` + `EU-16A` executed, `EU-16B` submitted.** T01–T08 done and audited;
   four Speed arrays live (1299912 / 1299945 / 1299946 / 1299947, 2,544 tasks); `FINDING 210` recorded
   (circulation-ring vertex-size mismatch kills ~8 % of tasks at input processing); three executor prompts

@@ -95,6 +95,9 @@ One plan, two work packages, executed by fresh Sonnet sessions, never by this se
 Three stop-and-report points: after the geometry census, after the local IDF rebuild (before any `sbatch`),
 and after the harvest. Nothing goes to Speed without an explicit instruction at the second point.
 
+Walltime: every `sbatch` requests `--time=7-00:00:00` minimum, never a shorter hours guess — new
+2026-08-31 after a Lyon resubmit timed out twice at 3h. Detail: `STATE_european_locations_v3.md`.
+
 **What is deliberately not in scope:** `D-EU-37` (extending the typology table, which would recover Lyon's
 226 and London's 345 excluded buildings) stays an unruled owner decision, and the DR16 Bologna and DR15
 London verdicts are reported, never tuned into a band.
