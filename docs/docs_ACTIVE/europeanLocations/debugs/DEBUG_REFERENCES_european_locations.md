@@ -122,9 +122,12 @@ All counts measured 2026-08-31 over the 2,544 side-cars in `outputs_3D/eu_*_data
 - **A whole district's IDFs predate a geometry fix and fail with a signature already known and already
   fixed — Bologna 177 `FAILED` of 1,204, split 85 exact `FINDING 210` + 52 exact `D-EU-43` + 40
   zero-area-only** — the fix was applied and Madrid / Lyon / London were rebuilt; Bologna was not, so its
-  IDFs still carried the old geometry. Fix: rebuild through the unmodified gate and resubmit
-  (`D-EU-47`). Rule this teaches: after a geometry fix, **enumerate which districts' artefacts were
-  actually rebuilt** — a per-district mtime histogram of `idfs/*.idf` answers it in one command.
+  IDFs still carried the old geometry. Fix: rebuild through the unmodified gate and resubmit — done
+  under `D-EU-47` (176 of 177 rebuilt and proven locally, 1 excluded pre-ship) but **the wave was
+  cancelled before harvest by `D-EU-53`**, so the 177 stay recorded as failures and are recovered inside
+  `EU-19`. Rule this teaches: after a geometry fix, **enumerate which districts' artefacts were actually
+  rebuilt** — a per-district mtime histogram of `idfs/*.idf` answers it in one command
+  (`find <district>/idfs -name '*.idf' -printf '%TY-%Tm-%Td %TH\n' | sort | uniq -c`).
   *(debugs/docs/INVESTIGATION_bologna-failure-classification_2026-08-31.md)*
 - **`** Warning ** Indicated Zone Volume <= 0.0 for Zone=…` / `The calculated Zone Volume was=-49.03` /
   `… set to 10.0 m3`, together with `GetVertices: Floor is upside down! Tilt angle=[0.0]`** — OSM
