@@ -16,6 +16,7 @@ import pytest
 from shapely.geometry import Polygon, box
 
 from openubem.geometry.european_residential import (
+    DWELLING_DENSITY_REFUSAL_TOKEN,
     RULED_GRID_MAX_DWELLINGS_PER_FLOOR,
     EuropeanFloorAllocation,
     allocate_european_dwellings,
@@ -81,12 +82,23 @@ def test_t02_no_storey_exceeds_the_ruled_grid_ceiling():
 @pytest.mark.skipif(not SIDECARS, reason="EU-11 side-cars not present in this environment")
 def test_t02_density_exceeded_reason_present_in_fallbacks():
     seen_reason = False
+    # EU-11 side-cars on disk were written under the 8 cap and carry the
+    # literal "..._GT_8"; the current ceiling is 12 (D-EU-65), so accept
+    # both the historical string and the current constant.
     for path in SIDECARS:
         data = json.loads(path.read_text(encoding="utf-8"))
-        if data.get("fallback_reason") == "DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_8":
+        reason = data.get("fallback_reason")
+        if reason in {"DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_8", DWELLING_DENSITY_REFUSAL_TOKEN}:
             seen_reason = True
-            assert data.get("observed_max_per_floor", 0) > RULED_GRID_MAX_DWELLINGS_PER_FLOOR
-    assert seen_reason, "expected at least one DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_8 fallback in the fleet"
+            # bound follows the token that fired: 8 for the historical
+            # string (side-car written under the old cap), the current
+            # ceiling for DWELLING_DENSITY_REFUSAL_TOKEN (director ruling
+            # at CP-1, D-EU-65, 2026-09-01).
+            if reason == "DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_8":
+                assert data.get("observed_max_per_floor", 0) > 8
+            else:
+                assert data.get("observed_max_per_floor", 0) > RULED_GRID_MAX_DWELLINGS_PER_FLOOR
+    assert seen_reason, "expected at least one DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_8 or " + DWELLING_DENSITY_REFUSAL_TOKEN + " fallback in the fleet"
 
 
 @pytest.mark.parametrize("seed", range(20))
@@ -201,7 +213,7 @@ def test_t04_relation_3730743_like_building_is_refused_not_approximated():
     )
     building_layout = generate_european_building_dwelling_layout(footprint, floor_allocations=allocation.floor_allocations)
     assert not building_layout.dwelling_layout_emitted
-    assert building_layout.fallback_reason == "DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_8"
+    assert building_layout.fallback_reason == DWELLING_DENSITY_REFUSAL_TOKEN
 
 
 # --- T05: morphological branching -------------------------------------------

@@ -19,6 +19,7 @@ import pandas as pd
 from shapely.geometry.polygon import orient
 
 from openubem.geometry.european_residential import (
+    DWELLING_DENSITY_REFUSAL_TOKEN,
     allocate_european_dwellings,
     european_building_layout_area_summary,
     european_building_layout_to_zone_specs,
@@ -330,7 +331,7 @@ def emit_layouts_for_district(district: str, evidence_root: Path | None = None) 
             fb_reason = building_layout.fallback_reason
             if fb_reason == "NARROW_FOOTPRINT_LT_8M":
                 narrow_fallback_count += 1
-            elif fb_reason == "DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_8":
+            elif fb_reason == DWELLING_DENSITY_REFUSAL_TOKEN:
                 density_exceeded_count += 1
             elif fb_reason == "REGULARIZATION_AREA_DELTA_GT_2PCT":
                 regularization_fallback_count += 1

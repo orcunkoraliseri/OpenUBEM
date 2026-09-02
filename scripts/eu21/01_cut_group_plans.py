@@ -19,7 +19,7 @@ EU02 = ROOT / "openubem" / "outputs" / "eu02"
 EU20 = ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-20"
 OUT = Path(__file__).with_name("group_plans.json")
 DISTRICTS = ["ES-MAD-BERRUGUETE", "FR-LYO-HAUTCOEURPENTES", "GB-LDN-STDUNSTANS", "IT-BOL-GALVANI2"]
-ORDER = ["COURTYARD", "SLIVER", "SQUARE", "RECTANGLE", "SLAB", "TRIANGLE",
+ORDER = ["COURTYARD", "SLIVER", "SQUARE", "RECTANGLE", "CORRIDOR_RECTANGLE", "SLAB", "TRIANGLE",
          "TRAPEZOID", "L_SHAPE", "U_OR_T_SHAPE", "COMPLEX_MULTI_WING"]
 GALLERY_WIDTH_M = 1.8
 
@@ -29,7 +29,8 @@ def cls(r):
     if float(r["min_rot_rect_w_m"]) < 8.0: return "SLIVER"
     rec, ar, rf = float(r["rectangularity"]), float(r["aspect_ratio"]), float(r["reflex_count"])
     if rec >= 0.90 and ar < 1.5: return "SQUARE"
-    if rec >= 0.90 and 1.5 <= ar < 3.0: return "RECTANGLE"
+    if rec >= 0.90 and 1.5 <= ar < 2.0: return "RECTANGLE"
+    if rec >= 0.90 and 2.0 <= ar < 3.0: return "CORRIDOR_RECTANGLE"
     if rec >= 0.90 and ar >= 3.0: return "SLAB"
     if float(r["n_edges_ge_15pct_perimeter"]) <= 3 and rf == 0: return "TRIANGLE"
     if rf == 0 and rec < 0.90: return "TRAPEZOID"
@@ -48,6 +49,7 @@ PROPOSED = {
     "TRAPEZOID": generate_european_regularized_envelope_grid_layout,
     "SQUARE": generate_european_regularized_envelope_grid_layout,
     "RECTANGLE": generate_european_regularized_envelope_grid_layout,
+    "CORRIDOR_RECTANGLE": generate_european_regularized_envelope_grid_layout,
     "SLAB": generate_european_regularized_envelope_grid_layout,
 }
 NO_CORE_BY_DESIGN = {"SLIVER"}
@@ -78,7 +80,10 @@ def gallery_ring(poly, n):
     if not poly.interiors:
         return None
     void = max((Polygon(r) for r in poly.interiors), key=lambda g: g.area)
-    gal = poly.intersection(void.buffer(GALLERY_WIDTH_M))
+    # square corners: the default round join approximates every convex turn of the
+    # void with an arc of many short segments, which is what reads as an unwanted
+    # curve on a gallery that should be a straight-sided band.
+    gal = poly.intersection(void.buffer(GALLERY_WIDTH_M, cap_style="flat", join_style="mitre"))
     if gal.is_empty or gal.area <= 0.0:
         return None
     band = poly.difference(gal)
@@ -119,87 +124,107 @@ def options(poly, n, grp):
     return out, refusal
 
 
-geoms = {}
-for d in DISTRICTS:
-    gdf = gpd.read_file(EU02 / d / "02_residential_manifest.gpkg")
-    idcol = "building_id" if "building_id" in gdf.columns else gdf.columns[0]
-    for _, row in gdf.iterrows():
-        g = shapely.force_2d(row.geometry)
-        if g is None or g.geom_type != "Polygon":
-            continue
-        geoms[(d, str(row[idcol]))] = g
+# dwelling_count == 2 bypasses morphology dispatch entirely (engine comment,
+# european_residential.py:1204-1208): a plain bisection, no corridor. These two
+# groups' own rule is defined by the corridor/gallery scheme that only appears
+# at dwelling_count >= 3, so drawing them at their raw per-floor median (which
+# is 2 for both) would never show the scheme the sheet claims. 3 is the floor
+# where that scheme activates, and both groups have real buildings at n=3.
+MIN_DRAW_TO_SHOW_SCHEME = {"CORRIDOR_RECTANGLE": 3, "SLAB": 3}
 
-rows = list(csv.DictReader(open(EU20 / "morphology_census.csv")))
-bygroup = collections.defaultdict(list)
-perfloor = collections.defaultdict(list)
-storeys = collections.defaultdict(list)
-for r in rows:
-    k = cls(r)
-    st = max(1, int(float(r["storeys"])))
-    tot = max(1, int(float(r["dwellings_total"])))
-    r["_n"] = max(1, round(tot / st))
-    r["_st"] = st
-    bygroup[k].append(r)
-    perfloor[k].append(r["_n"])
-    storeys[k].append(st)
 
-reps = {x["group"]: x for x in json.load(open(EU20 / "representatives.json"))}
-
-out = []
-for grp in ORDER:
-    med = int(statistics.median(sorted(perfloor[grp])))
-    n_draw = max(2, med)
-    rep_id = str(reps[grp]["building_id"])
-    members = sorted(bygroup[grp], key=lambda r: (r["building_id"] != rep_id, abs(r["_n"] - n_draw)))
-    best = fallback = None
-    first_refusal = None
-    for cand in members[:60]:
-        g = geoms.get((cand["district"], cand["building_id"]))
-        if g is None:
-            continue
-        if not g.is_valid:
-            g = g.buffer(0)
-            if g.geom_type != "Polygon":
+def load_universe():
+    geoms = {}
+    for d in DISTRICTS:
+        gdf = gpd.read_file(EU02 / d / "02_residential_manifest.gpkg")
+        idcol = "building_id" if "building_id" in gdf.columns else gdf.columns[0]
+        for _, row in gdf.iterrows():
+            g = shapely.force_2d(row.geometry)
+            if g is None or g.geom_type != "Polygon":
                 continue
-        p = translate(g, -g.centroid.x, -g.centroid.y)
-        opts, why = options(p, n_draw, grp)
-        first_refusal = first_refusal or why
-        if not opts:
-            continue
-        pick = (cand, p, opts[0])
-        if opts[0][4] > 0.05 or grp in NO_CORE_BY_DESIGN:
-            best = pick
-            break
-        fallback = fallback or pick
-    picked = best or fallback
-    if picked is None:
-        print(f"{grp:<20} NO PLAN DRAWABLE at n={n_draw}")
-        out.append({"group": grp, "drawn_per_floor": n_draw, "status": None})
-        continue
-    cand, p, (dpolys, cpoly, scheme, status, carea) = picked
-    dw, circ = capture(dpolys, cpoly)
-    rec = {
-        "group": grp,
-        "district": cand["district"],
-        "building_id": cand["building_id"],
-        "is_representative": cand["building_id"] == rep_id,
-        "storeys": cand["_st"],
-        "median_per_floor": med,
-        "drawn_per_floor": n_draw,
-        "median_storeys": int(statistics.median(storeys[grp])),
-        "area_m2": round(float(cand["area_m2"])),
-        "footprint": [list(p.exterior.coords)] + [list(i.coords) for i in p.interiors],
-        "dwellings": dw,
-        "circulation": circ,
-        "scheme": scheme,
-        "status": status,
-        "circ_m2": round(carea, 1),
-        "refused_first": first_refusal,
-    }
-    out.append(rec)
-    print(f'{grp:<20} n={n_draw} {status:<9} {scheme:<30} bld={cand["building_id"][:22]:<22} '
-          f'rep={rec["is_representative"]} ndw={len(dw)} circ={len(circ)} '
-          f'c_m2={rec["circ_m2"]} first_refusal={first_refusal}')
+            geoms[(d, str(row[idcol]))] = g
 
-json.dump(out, open(OUT, "w"), separators=(",", ":"))
-print("wrote", OUT, OUT.stat().st_size, "bytes")
+    rows = list(csv.DictReader(open(EU20 / "morphology_census.csv")))
+    bygroup = collections.defaultdict(list)
+    perfloor = collections.defaultdict(list)
+    storeys = collections.defaultdict(list)
+    for r in rows:
+        k = cls(r)
+        st = max(1, int(float(r["storeys"])))
+        tot = max(1, int(float(r["dwellings_total"])))
+        r["_n"] = max(1, round(tot / st))
+        r["_st"] = st
+        bygroup[k].append(r)
+        perfloor[k].append(r["_n"])
+        storeys[k].append(st)
+
+    return geoms, rows, bygroup, perfloor, storeys
+
+
+def main():
+    geoms, rows, bygroup, perfloor, storeys = load_universe()
+
+    reps = {x["group"]: x for x in json.load(open(EU20 / "representatives.json"))}
+
+    out = []
+    for grp in ORDER:
+        med = int(statistics.median(sorted(perfloor[grp])))
+        n_draw = max(MIN_DRAW_TO_SHOW_SCHEME.get(grp, 2), med)
+        rep_id = str(reps[grp]["building_id"])
+        members = sorted(bygroup[grp], key=lambda r: (r["building_id"] != rep_id, abs(r["_n"] - n_draw)))
+        best = fallback = None
+        first_refusal = None
+        for cand in members[:60]:
+            g = geoms.get((cand["district"], cand["building_id"]))
+            if g is None:
+                continue
+            if not g.is_valid:
+                g = g.buffer(0)
+                if g.geom_type != "Polygon":
+                    continue
+            p = translate(g, -g.centroid.x, -g.centroid.y)
+            opts, why = options(p, n_draw, grp)
+            first_refusal = first_refusal or why
+            if not opts:
+                continue
+            pick = (cand, p, opts[0])
+            if opts[0][4] > 0.05 or grp in NO_CORE_BY_DESIGN:
+                best = pick
+                break
+            fallback = fallback or pick
+        picked = best or fallback
+        if picked is None:
+            print(f"{grp:<20} NO PLAN DRAWABLE at n={n_draw}")
+            out.append({"group": grp, "drawn_per_floor": n_draw, "status": None})
+            continue
+        cand, p, (dpolys, cpoly, scheme, status, carea) = picked
+        dw, circ = capture(dpolys, cpoly)
+        rec = {
+            "group": grp,
+            "district": cand["district"],
+            "building_id": cand["building_id"],
+            "is_representative": cand["building_id"] == rep_id,
+            "storeys": cand["_st"],
+            "median_per_floor": med,
+            "drawn_per_floor": n_draw,
+            "median_storeys": int(statistics.median(storeys[grp])),
+            "area_m2": round(float(cand["area_m2"])),
+            "footprint": [list(p.exterior.coords)] + [list(i.coords) for i in p.interiors],
+            "dwellings": dw,
+            "circulation": circ,
+            "scheme": scheme,
+            "status": status,
+            "circ_m2": round(carea, 1),
+            "refused_first": first_refusal,
+        }
+        out.append(rec)
+        print(f'{grp:<20} n={n_draw} {status:<9} {scheme:<30} bld={cand["building_id"][:22]:<22} '
+              f'rep={rec["is_representative"]} ndw={len(dw)} circ={len(circ)} '
+              f'c_m2={rec["circ_m2"]} first_refusal={first_refusal}')
+
+    json.dump(out, open(OUT, "w"), separators=(",", ":"))
+    print("wrote", OUT, OUT.stat().st_size, "bytes")
+
+
+if __name__ == "__main__":
+    main()

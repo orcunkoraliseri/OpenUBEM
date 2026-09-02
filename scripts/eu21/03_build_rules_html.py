@@ -7,13 +7,14 @@ OUT = REPO / "docs/docs_ACTIVE/europeanLocations/rules/RULES_dwelling_layout_gro
 
 css = "\n".join(FROZEN.read_text(encoding="utf-8").splitlines()[2:122])
 
-ORD = ["COURTYARD", "SLIVER", "SQUARE", "RECTANGLE", "SLAB", "TRIANGLE",
+ORD = ["COURTYARD", "SLIVER", "SQUARE", "RECTANGLE", "CORRIDOR_RECTANGLE", "SLAB", "TRIANGLE",
        "TRAPEZOID", "L_SHAPE", "U_OR_T_SHAPE", "COMPLEX_MULTI_WING"]
 DISTRICTS = ["ES-MAD-BERRUGUETE", "FR-LYO-HAUTCOEURPENTES", "GB-LDN-STDUNSTANS", "IT-BOL-GALVANI2"]
 DSHORT = {"ES-MAD-BERRUGUETE": "Madrid", "FR-LYO-HAUTCOEURPENTES": "Lyon",
           "GB-LDN-STDUNSTANS": "London", "IT-BOL-GALVANI2": "Bologna"}
 TITLE = {"COURTYARD": "Courtyard", "SLIVER": "Sliver", "SQUARE": "Square",
-         "RECTANGLE": "Rectangle", "SLAB": "Slab", "TRIANGLE": "Triangle or trapezoid",
+         "RECTANGLE": "Rectangle", "CORRIDOR_RECTANGLE": "Corridor rectangle", "SLAB": "Slab",
+         "TRIANGLE": "Triangle or trapezoid",
          "TRAPEZOID": "Parallelogram", "L_SHAPE": "L shape",
          "U_OR_T_SHAPE": "U or T shape", "COMPLEX_MULTI_WING": "Complex multi-wing"}
 
@@ -32,8 +33,10 @@ def grp(r):
         return "SLIVER"
     if r["rectangularity"] >= 0.90 and r["aspect_ratio"] < 1.5:
         return "SQUARE"
-    if r["rectangularity"] >= 0.90 and 1.5 <= r["aspect_ratio"] < 3.0:
+    if r["rectangularity"] >= 0.90 and 1.5 <= r["aspect_ratio"] < 2.0:
         return "RECTANGLE"
+    if r["rectangularity"] >= 0.90 and 2.0 <= r["aspect_ratio"] < 3.0:
+        return "CORRIDOR_RECTANGLE"
     if r["rectangularity"] >= 0.90 and r["aspect_ratio"] >= 3.0:
         return "SLAB"
     if r["n_edges_ge_15pct_perimeter"] <= 3 and r["reflex_count"] == 0:
@@ -143,98 +146,235 @@ def drawplan(rec, uid, bare=False):
     return "".join(o)
 
 
+ABSORB = [
+  "the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, "
+  "so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is",
+  "every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so "
+  "a margin running past two flats splits at the line between them instead of going whole to one",
+  "a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does "
+  "not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head",
+  "a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares "
+  "the most wall with: a thermal zone is one room, not a room plus a tail",
+  "the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut "
+  "and offset uses square corners, so no staircase of centimetre steps survives into the drawing",
+  "<b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way "
+  "round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is "
+  "one outline, and neither a plan nor EnergyPlus can state a hole in it",
+]
+
+CLOSE = [
+  "flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned",
+  "<b>exactly one</b> circulation zone on the plate (Sliver: none)",
+  "the <b>drawn</b> flat count equals the <b>claimed</b> flat count",
+  "each flat is one connected room, no two zones overlap, and no zone carries a spike into another",
+  "every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one "
+  "writes straight out as a single floor surface",
+]
+
 SPEC = {
  "COURTYARD": dict(
    num="01", status="proposed",
    rule="n_interior_rings &ge; 1",
-   rule_txt="The footprint encloses at least one interior void. Tested first, because a ring plate cannot be cut by any grid that assumes a simply-connected plate.",
-   plate="A band of built depth wrapped around one or more open voids. Median plate 375&nbsp;m&sup2; with a 23.5&nbsp;m&sup2; void; the band, not the bounding box, is the plate that must be partitioned.",
-   circ="<b>One circulation zone per plate, and one only.</b> It sits inside the plate, away from the outer wall. Any pocket a cut leaves over is <b>grown into by whichever flat is closest</b>, claimed in small steps so a margin that runs past two flats is split at the line equidistant between them rather than handed whole to one on an area tie-break. Once flats are settled, a sliver narrower than about a metre that still borders the core is <b>folded into the core</b> instead of staying a flat's narrow tail &mdash; a corner recess is usable room, not a staircase, but a thin neck against the core is circulation-shaped, not room-shaped. No square metre of the plate is left unassigned. Here that one zone is a <b>1.80&nbsp;m deck-access gallery running right round the courtyard face</b>, entered from one stair: every flat is reached off the gallery and still keeps its street facade, so the void becomes the access rather than dead space. Whatever the sector cuts leave over against the street wall is folded into the nearest flat, which is why no white gap remains beside <code>F3</code>. The engine today instead drops a small stair core at a sharp outer corner, which is why this group is redrawn under the proposal.",
-   zones="<b>k</b> dwelling zones cut along the band by equal area &middot; <b>exactly 1</b> circulation zone, the gallery. The void is not a zone and carries no surfaces. Plate coverage closes at 100&nbsp;%: flats + gallery = footprint.",
-   scheme="<code>courtyard_gallery_ring</code> &nbsp;(S5, new &mdash; drawn opposite) &middot; then <code>courtyard_perimeter_band</code> (S1) &middot; today <code>courtyard_wing_unfold</code>, which refuses on the representative plate (<code>INTERIOR_RING_COURTYARD_UNFOLD_FAILED</code>)",
+   match=["ladder step <b>1 of 11</b> &mdash; tested before everything else",
+          "the footprint encloses at least one interior void",
+          "a ring plate breaks any grid that assumes a solid plate"],
+   plate=["median <b>375&nbsp;m&sup2;</b> of built band around a 23.5&nbsp;m&sup2; void",
+          "the band, not the bounding box, is what gets cut"],
+   core=["a <b>1.80&nbsp;m deck-access gallery</b> round the void, <b>open on one side</b> so the zone is "
+         "one outline and not a ring",
+         "one stair opens onto the gallery; every flat is reached from it",
+         "the void is not a zone and carries no surfaces"],
+   cut=["<b>k</b> sector cuts radiating from the void, equal area",
+        "every flat keeps its street facade"],
+   scheme=["<code>courtyard_gallery_ring</code> &mdash; S5, new, drawn opposite",
+           "then <code>courtyard_perimeter_band</code> (S1)",
+           "today <code>courtyard_wing_unfold</code>, which refuses on this plate "
+           "(<code>INTERIOR_RING_COURTYARD_UNFOLD_FAILED</code>)"],
    refuse="Band depth after subtracting the void falls below <code>NARROW_FOOTPRINT_THRESHOLD_M = 8.0</code> &mdash; the plate cannot hold a habitable room and a facade at once."),
+
  "SLIVER": dict(
    num="02", status="in-force",
    rule="min_rot_rect_w_m &lt; 8.0",
-   rule_txt="The minimum rotated width is under the habitable-depth constant. Tested second, because a strip this thin defeats every grid rule downstream regardless of how regular it is.",
-   plate="A narrow strip. Median 77&nbsp;m&sup2;, 5.9&nbsp;&times;&nbsp;13.7&nbsp;m, four denoised vertices. The single largest group in the fleet at 637 buildings &mdash; a quarter of everything.",
-   circ="<b>None &mdash; the one group where zero is the right number.</b> Direct entry from the street, one private stair inside each dwelling; a shared corridor would consume the whole depth. The plan opposite is still cut by the grid rule in force, which does drop a small core; under <code>row_house_depth_bands</code> that core disappears and its area returns to the flats.",
-   zones="<b>k</b> dwelling zones, no circulation zone at all. This is the only group where the absence of a circulation zone is correct rather than a defect. Plate coverage still closes at 100&nbsp;%.",
-   scheme="<code>row_house_depth_bands</code> &nbsp;(S2, new) &middot; today <code>narrow_plate_corridor_free</code>",
+   match=["ladder step <b>2</b> &mdash; before any regularity test",
+          "minimum rotated width under the 8.0&nbsp;m habitable-depth constant",
+          "a strip this thin defeats every grid rule downstream"],
+   plate=["median <b>77&nbsp;m&sup2;</b>, 5.9&nbsp;&times;&nbsp;13.7&nbsp;m, four denoised vertices",
+          "largest group in the fleet: <b>637</b> buildings, a quarter of everything"],
+   core=["<b>none</b> &mdash; the one group where zero is the right number",
+         "direct street entry, a private stair inside each dwelling",
+         "a shared corridor would consume the whole depth"],
+   cut=["<b>k</b> depth bands across the strip, equal area",
+        "the plan opposite still shows the small core the in-force grid drops; under "
+        "<code>row_house_depth_bands</code> that area returns to the flats"],
+   scheme=["<code>row_house_depth_bands</code> &mdash; S2, new",
+           "today <code>narrow_plate_corridor_free</code>"],
    refuse="A band narrower than 3.0&nbsp;m across the long axis &mdash; below any national minimum room dimension."),
+
  "SQUARE": dict(
    num="03", status="in-force",
    rule="rectangularity &ge; 0.90 and aspect_ratio &lt; 1.5",
-   rule_txt="Fills its own minimum rotated rectangle to 90&nbsp;% or better, and is close to equilateral. The classic point block.",
-   plate="Compact and regular. Median 150&nbsp;m&sup2;, 11.8&nbsp;&times;&nbsp;13.9&nbsp;m, rectangularity 0.964 &mdash; the cleanest plate in the taxonomy.",
-   circ="<b>One circulation zone per plate, and one only.</b> It sits inside the plate, away from the outer wall. Any pocket a cut leaves over is <b>grown into by whichever flat is closest</b>, claimed in small steps so a margin that runs past two flats is split at the line equidistant between them rather than handed whole to one on an area tie-break. Once flats are settled, a sliver narrower than about a metre that still borders the core is <b>folded into the core</b> instead of staying a flat's narrow tail &mdash; a corner recess is usable room, not a staircase, but a thin neck against the core is circulation-shaped, not room-shaped. No square metre of the plate is left unassigned. One central core sized at <code>CORE_FRACTION_OF_PLATE = 0.06</code> of the plate, dwellings arranged around it and extended out to the outer wall.",
-   zones="<b>k</b> dwelling zones on an <b>N&times;M</b> grid &middot; <b>exactly 1</b> circulation zone at the centre. Flats + core = footprint.",
-   scheme="<code>point_block_grid</code> &rarr; <code>ruled_grid_NxM</code>",
-   refuse="More than <code>RULED_GRID_MAX_DWELLINGS_PER_FLOOR = 8</code> declared dwellings on one storey."),
+   match=["ladder step <b>3</b> &mdash; first of the regularity tests",
+          "fills its own minimum rotated rectangle to 0.90 or better",
+          "aspect under 1.5: close to equilateral, the classic point block"],
+   plate=["median <b>150&nbsp;m&sup2;</b>, 11.8&nbsp;&times;&nbsp;13.9&nbsp;m, rectangularity 0.964",
+          "the cleanest plate in the taxonomy"],
+   core=["one central core at <code>CORE_FRACTION_OF_PLATE = 0.06</code> of the plate",
+         "inside the plate, never against the outer wall"],
+   cut=["<b>k</b> flats on an <b>N&times;M</b> grid around the core",
+        "each flat runs out to the outer wall"],
+   scheme=["<code>point_block_grid</code> &rarr; <code>ruled_grid_NxM</code>"],
+   refuse="More than <code>RULED_GRID_MAX_DWELLINGS_PER_FLOOR = 12</code> declared dwellings on one storey. (D-EU-65, 2026-09-01; was 8 until then)"),
+
  "RECTANGLE": dict(
    num="04", status="in-force",
-   rule="rectangularity &ge; 0.90 and 1.5 &le; aspect_ratio &lt; 3.0",
-   rule_txt="Regular, and elongated but not yet a slab. The threshold at 3.0 is where a corridor starts to beat a core.",
-   plate="Median 222&nbsp;m&sup2;, 10.7&nbsp;&times;&nbsp;21.7&nbsp;m. Four denoised vertices in every district &mdash; a genuinely rectangular plate.",
-   circ="<b>One circulation zone per plate, and one only.</b> It sits inside the plate, away from the outer wall. Any pocket a cut leaves over is <b>grown into by whichever flat is closest</b>, claimed in small steps so a margin that runs past two flats is split at the line equidistant between them rather than handed whole to one on an area tie-break. Once flats are settled, a sliver narrower than about a metre that still borders the core is <b>folded into the core</b> instead of staying a flat's narrow tail &mdash; a corner recess is usable room, not a staircase, but a thin neck against the core is circulation-shaped, not room-shaped. No square metre of the plate is left unassigned. One core placed on the short axis, dwellings left and right of it, each running out to the end wall.",
-   zones="<b>k</b> dwelling zones on an <b>N&times;M</b> grid, N along the length &middot; <b>exactly 1</b> circulation zone. Flats + core = footprint.",
-   scheme="<code>ruled_grid_NxM</code>",
+   rule="rectangularity &ge; 0.90 and 1.5 &le; aspect_ratio &lt; 2.0",
+   match=["ladder step <b>4</b>",
+          "regular, and elongated but still short",
+          "the 2.0 line is the engine&rsquo;s own <code>LINEAR_GALLERY_ASPECT_THRESHOLD</code>, not this "
+          "taxonomy&rsquo;s choice"],
+   plate=["median <b>189&nbsp;m&sup2;</b>, 10.8&nbsp;&times;&nbsp;18.6&nbsp;m, aspect 1.71",
+          "four denoised vertices in every district"],
+   core=["one core on the short axis",
+         "still a core, not a corridor: below aspect 2.0 one core reaches every flat"],
+   cut=["<b>k</b> flats on an <b>N&times;M</b> grid, N along the length",
+        "flats left and right of the core, each running to the end wall"],
+   scheme=["<code>ruled_grid_NxM</code>"],
    refuse="More than 8 declared dwellings on one storey."),
- "SLAB": dict(
+
+ "CORRIDOR_RECTANGLE": dict(
    num="05", status="in-force",
+   rule="rectangularity &ge; 0.90 and 2.0 &le; aspect_ratio &lt; 3.0",
+   match=["ladder step <b>5</b> &mdash; group added 2026-09-01",
+          "regular, and elongated past the corridor threshold",
+          "the engine already routes this plate to a corridor (<code>LENGTH_OVER_WIDTH_GE_2</code>); the "
+          "taxonomy had no row for it, so an elongated plate was reported beside a square one"],
+   plate=["median <b>245&nbsp;m&sup2;</b>, 10.7&nbsp;&times;&nbsp;25.3&nbsp;m, aspect 2.32",
+          "a rectangle carried by one long facade, not two short ones"],
+   core=["one <b>1.80&nbsp;m corridor</b> along the long axis, as a slab has",
+         "no central core: past aspect 2.0 one core stops reaching every unit"],
+   cut=["<b>k</b> flats off the corridor, equal area",
+        "single-loaded below 12&nbsp;m depth, double-loaded above"],
+   scheme=["<code>i_shape_linear_gallery</code>",
+           "drawn at 3 flats/floor, not the group median of 2 &mdash; at 2 the scheme is a plain bisection "
+           "with no corridor at all"],
+   refuse="Depth below 8.0&nbsp;m &mdash; re-routed to <code>narrow_plate_corridor_free</code>, same as Slab."),
+
+ "SLAB": dict(
+   num="06", status="in-force",
    rule="rectangularity &ge; 0.90 and aspect_ratio &ge; 3.0",
-   rule_txt="Regular and long. Rarest group in the fleet at 28 buildings, but the one where circulation geometry matters most.",
-   plate="Median 367&nbsp;m&sup2;, 10.1&nbsp;&times;&nbsp;37.9&nbsp;m. The six London slabs reach 60&nbsp;m long at 6.2 aspect.",
-   circ="<b>One circulation zone per plate, and one only.</b> It sits inside the plate, away from the outer wall. Any pocket a cut leaves over is <b>grown into by whichever flat is closest</b>, claimed in small steps so a margin that runs past two flats is split at the line equidistant between them rather than handed whole to one on an area tie-break. Once flats are settled, a sliver narrower than about a metre that still borders the core is <b>folded into the core</b> instead of staying a flat's narrow tail &mdash; a corner recess is usable room, not a staircase, but a thin neck against the core is circulation-shaped, not room-shaped. No square metre of the plate is left unassigned. Here it is a 1.80&nbsp;m corridor running the length &mdash; single-loaded below 12&nbsp;m depth, double-loaded above; the depth decides, not the country. The corridor is the plate&rsquo;s only circulation zone however long the slab is.",
-   zones="<b>k</b> dwelling zones in a line along the corridor &middot; <b>exactly 1</b> corridor zone spanning the storey. Flats + corridor = footprint.",
-   scheme="<code>i_shape_linear_gallery</code>",
-   refuse="Depth below 8.0&nbsp;m &mdash; the building is re-routed to <code>narrow_plate_corridor_free</code> instead."),
+   match=["ladder step <b>6</b>",
+          "regular and long",
+          "rarest group at 28 buildings, but the one where circulation geometry matters most"],
+   plate=["median <b>367&nbsp;m&sup2;</b>, 10.1&nbsp;&times;&nbsp;37.9&nbsp;m",
+          "the six London slabs reach 60&nbsp;m long at aspect 6.2"],
+   core=["one <b>1.80&nbsp;m corridor</b> running the whole length",
+         "one corridor however long the slab is &mdash; never a second"],
+   cut=["<b>k</b> flats in a line off the corridor",
+        "single-loaded below 12&nbsp;m depth, double-loaded above &mdash; the depth decides, not the country"],
+   scheme=["<code>i_shape_linear_gallery</code>",
+           "drawn at 3 flats/floor for the same reason as Corridor rectangle"],
+   refuse="Fewer than 3 declared dwellings per floor &mdash; a corridor serving two flats is not a corridor."),
+
  "TRIANGLE": dict(
-   num="06", status="proposed",
-   rule="n_edges_ge_15pct_perimeter &le; 3 and reflex_count == 0",
-   rule_txt="Convex, and carried by three or fewer <em>long</em> edges &mdash; edges shorter than 15&nbsp;% of the perimeter are not counted. A true triangle lands here, but so does a four-sided plate whose fourth side is a short blunt end: a trapezoid. Both are cut the same way, which is why they share a group.",
-   plate="Median 216&nbsp;m&sup2;, rectangularity 0.823. Only 8 of the 54 are carried by two long edges; the other 46 have three, and most have four or more vertices &mdash; so the group is mostly tapered trapezoids, not points.",
-   circ="<b>One circulation zone per plate, and one only.</b> It sits inside the plate, away from the outer wall. Any pocket a cut leaves over is <b>grown into by whichever flat is closest</b>, claimed in small steps so a margin that runs past two flats is split at the line equidistant between them rather than handed whole to one on an area tie-break. Once flats are settled, a sliver narrower than about a metre that still borders the core is <b>folded into the core</b> instead of staying a flat's narrow tail &mdash; a corner recess is usable room, not a staircase, but a thin neck against the core is circulation-shaped, not room-shaped. No square metre of the plate is left unassigned. Core at the incentre, dwellings as wedges radiating to the faces. The tip is merged into its neighbouring flat rather than becoming a zone of its own &mdash; the same absorption rule, applied to the sharpest corner on the plate.",
-   zones="<b>k</b> dwelling zones, the tip wedge absorbed by the adjacent one &middot; <b>exactly 1</b> circulation zone. Flats + core = footprint.",
-   scheme="<code>regularized_envelope_grid</code> &nbsp;(S4, new)",
-   refuse="The largest inscribed rectangle covers less than 60&nbsp;% of the plate &mdash; the remainder cannot be absorbed honestly."),
- "TRAPEZOID": dict(
    num="07", status="proposed",
+   rule="n_edges_ge_15pct_perimeter &le; 3 and reflex_count == 0",
+   match=["ladder step <b>7</b> &mdash; first test that is not about regularity",
+          "no reflex corner, and three or fewer <em>long</em> edges (under 15&nbsp;% of the perimeter does not count)",
+          "a true triangle lands here, and so does a plate whose fourth side is a short blunt end"],
+   plate=["median <b>216&nbsp;m&sup2;</b>, rectangularity 0.823",
+          "only 8 of the 54 are carried by two long edges &mdash; mostly tapered trapezoids, not points"],
+   core=["one core at the incentre"],
+   cut=["<b>k</b> flats as wedges radiating to the faces",
+        "the tip wedge is absorbed by its neighbour rather than becoming a zone of its own"],
+   scheme=["<code>regularized_envelope_grid</code> &mdash; S4, new"],
+   refuse="Sharpest corner under 25&deg; and the tip wedge below 6&nbsp;m&sup2; &mdash; the plate is a leftover, not a dwelling."),
+
+ "TRAPEZOID": dict(
+   num="08", status="proposed",
    rule="reflex_count == 0 and rectangularity &lt; 0.90",
-   rule_txt="Convex, four long edges, but skewed off square. In practice these are parallelogram-like plates: opposite sides near-parallel, corners off 90&deg;. The catch-all for convex plates no grid fits squarely.",
-   plate="Median 157&nbsp;m&sup2;, 11.9&nbsp;&times;&nbsp;16.4&nbsp;m, rectangularity 0.863, aspect 1.39. All 87 carry exactly four long edges and 65 have exactly four vertices &mdash; skewed quadrilaterals, not wedges. Overwhelmingly a Madrid group: 74 of 87.",
-   circ="<b>One circulation zone per plate, and one only.</b> It sits inside the plate, away from the outer wall. Any pocket a cut leaves over is <b>grown into by whichever flat is closest</b>, claimed in small steps so a margin that runs past two flats is split at the line equidistant between them rather than handed whole to one on an area tie-break. Once flats are settled, a sliver narrower than about a metre that still borders the core is <b>folded into the core</b> instead of staying a flat's narrow tail &mdash; a corner recess is usable room, not a staircase, but a thin neck against the core is circulation-shaped, not room-shaped. No square metre of the plate is left unassigned. Core on the regularised rectangle; dwellings are cut on that rectangle, clipped back to the true outline, and then <b>grown into the skew slivers the rectangle missed</b>, so the regularisation costs no floor area.",
-   zones="<b>k</b> dwelling zones, each clipped to the real footprint and then extended to fill it &middot; <b>exactly 1</b> circulation zone. Flats + core = footprint.",
-   scheme="<code>regularized_envelope_grid</code> &nbsp;(S4, new)",
-   refuse="Inscribed rectangle below 60&nbsp;% of the plate."),
+   match=["ladder step <b>8</b>",
+          "no reflex corner, but rectangularity under 0.90",
+          "four long edges skewed off square &mdash; the catch-all for convex plates no grid fits squarely"],
+   plate=["median <b>157&nbsp;m&sup2;</b>, 11.9&nbsp;&times;&nbsp;16.4&nbsp;m, rect. 0.863, aspect 1.39",
+          "all 87 carry four long edges, 65 have exactly four vertices",
+          "overwhelmingly a Madrid group: 74 of 87"],
+   core=["one core on the regularised rectangle"],
+   cut=["<b>k</b> flats cut on the regularised rectangle, then clipped back to the true outline",
+        "each flat is then grown into the skew slivers the rectangle missed, so regularising costs no floor area"],
+   scheme=["<code>regularized_envelope_grid</code> &mdash; S4, new"],
+   refuse="Residual outside the inscribed rectangle above 0.35 of the plate &mdash; the regularisation would be a fiction."),
+
  "L_SHAPE": dict(
-   num="08", status="in-force",
+   num="09", status="in-force",
    rule="reflex_count == 1",
-   rule_txt="Exactly one reflex vertex &mdash; one elbow, two wings. The first of the three re-entrant groups.",
-   plate="Median 203&nbsp;m&sup2;, one reflex vertex, six denoised vertices, hull deficit 0.097.",
-   circ="<b>One circulation zone per plate, and one only.</b> It sits inside the plate, away from the outer wall. Any pocket a cut leaves over is <b>grown into by whichever flat is closest</b>, claimed in small steps so a margin that runs past two flats is split at the line equidistant between them rather than handed whole to one on an area tie-break. Once flats are settled, a sliver narrower than about a metre that still borders the core is <b>folded into the core</b> instead of staying a flat's narrow tail &mdash; a corner recess is usable room, not a staircase, but a thin neck against the core is circulation-shaped, not room-shaped. No square metre of the plate is left unassigned. <b>One core at the elbow</b>, positioned to serve both wings from a single landing. The strip the regularised rectangle leaves along the short wing is <b>not</b> a second core &mdash; it is handed to the flat it touches, which is why this sheet now shows one hatched zone instead of two.",
-   zones="<b>k</b> dwelling zones, allocated per wing in proportion to wing area, each absorbing the leftover against its own outer wall &middot; <b>exactly 1</b> circulation zone at the elbow. Flats + core = footprint.",
-   scheme="<code>l_shape_decomposition</code> &middot; falls to <code>wing_spine_decomposition</code> (S3) when one core cannot reach both wings",
-   refuse="Either wing narrower than 8.0&nbsp;m after the split."),
+   match=["ladder step <b>9</b> &mdash; first of the three re-entrant groups",
+          "exactly one reflex vertex: one elbow, two wings"],
+   plate=["median <b>203&nbsp;m&sup2;</b>, six denoised vertices, hull deficit 0.097"],
+   core=["<b>one core at the elbow</b>, serving both wings from a single landing",
+         "the strip left along the short wing is <b>not</b> a second core &mdash; it goes to the flat it touches"],
+   cut=["<b>k</b> flats per wing, in proportion to wing area",
+        "each flat absorbs the leftover against its own outer wall"],
+   scheme=["<code>l_shape_decomposition</code>",
+           "falls to <code>wing_spine_decomposition</code> (S3) when one core cannot reach both wings"],
+   refuse="A wing shorter than 6.0&nbsp;m after the elbow is cut away &mdash; it is a bay window, not a wing."),
+
  "U_OR_T_SHAPE": dict(
-   num="09", status="proposed",
-   rule="reflex_count == 2",
-   rule_txt="Two reflex vertices &mdash; three wings on a spine. U and T are the same problem: a connecting run with two arms.",
-   plate="Median 239&nbsp;m&sup2;, 13.6&nbsp;&times;&nbsp;22.0&nbsp;m, eight denoised vertices, hull deficit 0.117.",
-   circ="<b>One circulation zone per plate, and one only.</b> It sits inside the plate, away from the outer wall. Any pocket a cut leaves over is <b>grown into by whichever flat is closest</b>, claimed in small steps so a margin that runs past two flats is split at the line equidistant between them rather than handed whole to one on an area tie-break. Once flats are settled, a sliver narrower than about a metre that still borders the core is <b>folded into the core</b> instead of staying a flat's narrow tail &mdash; a corner recess is usable room, not a staircase, but a thin neck against the core is circulation-shaped, not room-shaped. No square metre of the plate is left unassigned. A <b>single</b> spine core on the connecting wing, reaching both arms. Arms are <b>not</b> given cores of their own: the pockets left at the arm ends go into the flats there. An arm too long to be served from the spine is a reason to refuse the plate, not to add a second staircase.",
-   zones="<b>k</b> dwelling zones assigned per wing, each absorbing its own arm-end pocket &middot; <b>exactly 1</b> circulation zone, the spine core. Flats + core = footprint.",
-   scheme="<code>wing_spine_decomposition</code> &nbsp;(S3, new)",
-   refuse="Any wing narrower than 8.0&nbsp;m, or a spine shorter than one dwelling width."),
- "COMPLEX_MULTI_WING": dict(
    num="10", status="proposed",
+   rule="reflex_count == 2",
+   match=["ladder step <b>10</b>",
+          "exactly two reflex vertices: a connecting run with two arms",
+          "U and T are the same problem, so they share a group"],
+   plate=["median <b>239&nbsp;m&sup2;</b>, 13.6&nbsp;&times;&nbsp;22.0&nbsp;m, eight denoised vertices, hull deficit 0.117"],
+   core=["a <b>single</b> spine core on the connecting wing, reaching both arms",
+         "arms get no core of their own &mdash; an arm too long to serve from the spine is a reason to "
+         "<b>refuse the plate</b>, not to add a second staircase"],
+   cut=["<b>k</b> flats assigned per wing",
+        "each flat takes the pocket at its own arm end"],
+   scheme=["<code>wing_spine_decomposition</code> &mdash; S3, new"],
+   refuse="An arm longer than 15&nbsp;m from the spine core &mdash; refuse the plate rather than add a second core."),
+
+ "COMPLEX_MULTI_WING": dict(
+   num="11", status="proposed",
    rule="reflex_count &ge; 3",
-   rule_txt="Three or more reflex vertices. The terminal bucket &mdash; anything the nine rules above did not claim lands here, so it must never fail.",
-   plate="Median 306&nbsp;m&sup2;, 16 raw vertices, 12 after denoising, hull deficit 0.203. 425 buildings, second-largest group, and the worst served today at 9.9&nbsp;% ruled.",
-   circ="<b>One circulation zone per plate, and one only.</b> It sits inside the plate, away from the outer wall. Any pocket a cut leaves over is <b>grown into by whichever flat is closest</b>, claimed in small steps so a margin that runs past two flats is split at the line equidistant between them rather than handed whole to one on an area tie-break. Once flats are settled, a sliver narrower than about a metre that still borders the core is <b>folded into the core</b> instead of staying a flat's narrow tail &mdash; a corner recess is usable room, not a staircase, but a thin neck against the core is circulation-shaped, not room-shaped. No square metre of the plate is left unassigned. Split into wings by morphological opening &mdash; <code>buffer(&minus;d).buffer(+d)</code> at d&nbsp;=&nbsp;4.0&nbsp;m &mdash; then every wing takes its own group rule recursively. <b>One core for the whole plate</b>, on the largest wing; the edge pockets on the smaller wings are absorbed by the flats beside them, not kept as extra cores.",
-   zones="<b>k</b> dwelling zones spread over the wings, each taking the leftover at its own edge &middot; <b>exactly 1</b> circulation zone on the largest wing. Flats + core = footprint.",
-   scheme="<code>wing_spine_decomposition</code> &nbsp;(S3, new), applied recursively",
-   refuse="A wing that is itself Complex after one opening pass &mdash; recursion is capped at one level, by design, so the rule always terminates."),
+   match=["ladder step <b>11</b> &mdash; terminal, takes everything the ten above declined",
+          "three or more reflex vertices",
+          "there is no rule below it, so it must never fail"],
+   plate=["median <b>306&nbsp;m&sup2;</b>, 16 raw vertices, 12 after denoising, hull deficit 0.203",
+          "425 buildings, second-largest group, and the worst served today at 9.9&nbsp;% with a plan"],
+   core=["<b>one core for the whole plate</b>, on the largest wing",
+         "edge pockets on the smaller wings go to the flats beside them, never to extra cores"],
+   cut=["split into wings by morphological opening &mdash; <code>buffer(&minus;d).buffer(+d)</code> at "
+        "d&nbsp;=&nbsp;4.0&nbsp;m",
+        "each wing then takes its own group rule, recursively"],
+   scheme=["<code>wing_spine_decomposition</code> &mdash; S3, new, applied recursively"],
+   refuse="Opening at d&nbsp;=&nbsp;4.0&nbsp;m yields no plate at all &mdash; the footprint is noise, not a building."),
 }
+
+
+def flow(s):
+    """The right-hand column: the rule as an ordered flow of steps, each step a short list
+    of bullets rather than a paragraph. Steps 5 and 6 are the same on every sheet -- they
+    are the law, not the group -- and are marked as shared so that reads at a glance."""
+    def bullets(items):
+        return "".join(f"<li>{b}</li>" for b in items)
+
+    def step(n, act, items, expr=None, shared=False):
+        head = f'<p class="expr"><code>{expr}</code></p>' if expr else ""
+        cls = " shared" if shared else ""
+        return (f'<li class="fstep{cls}"><span class="s">{n}</span>'
+                f'<div class="fbody"><span class="act">{act}</span>{head}'
+                f'<ul>{bullets(items)}</ul></div></li>')
+
+    return ('<ol class="flow">'
+            + step(1, "Match &mdash; does the plate enter this group?", s["match"], expr=s["rule"])
+            + step(2, "Read the plate", s["plate"])
+            + step(3, "Place the circulation first", s["core"])
+            + step(4, "Cut the flats", s["cut"])
+            + step(5, "Absorb what is left over", ABSORB, shared=True)
+            + step(6, "Close &mdash; accept only if", CLOSE, shared=True)
+            + step(7, "Scheme that does it", s["scheme"])
+            + "</ol>")
+
 
 TOT = sum(per[g]["n"] for g in ORD)
 RULED = sum(per[g]["ruled"] for g in ORD)
@@ -331,14 +471,9 @@ for g in ORD:
       </div>
     </div>
     <div class="pane">
-      <div class="panehead"><span class="lbl">Floor type assigned to this group</span></div>
-      <div class="stack" style="gap:13px">
-        <div><span class="lbl">Filter</span><p><code>{s["rule"]}</code><br>{s["rule_txt"]}</p></div>
-        <div><span class="lbl">Plate</span><p>{s["plate"]}</p></div>
-        <div><span class="lbl">Circulation</span><p>{s["circ"]}</p></div>
-        <div><span class="lbl">Thermal zones per floor</span><p>{s["zones"]}</p></div>
-        <div><span class="lbl">Scheme</span><p>{s["scheme"]}</p></div>
-      </div>
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      {flow(s)}
     </div>
   </div>
   <p class="note"><b>Refuses when.</b> {s["refuse"]}</p>
@@ -350,7 +485,7 @@ body = f'''<div class="wrap">
   <div class="stack">
     <span class="eyebrow">EU-20 &middot; morphology census &middot; the group version of RULES_dwelling_layout_scheme_2026-08-28</span>
     <h1>Dwelling Plans Grouped</h1>
-    <p class="lede">Every residential building in the four districts was scanned and sorted into ten shape groups
+    <p class="lede">Every residential building in the four districts was scanned and sorted into eleven shape groups
     before any layout was attempted. This sheet states the filter that defines each group, the floor type assigned
     to it &mdash; circulation element and thermal zones &mdash; and how far that group still is from the 95&nbsp;%
     bar. The 2026-08-28 scheme document is unchanged; this one sits beside it.</p>
@@ -364,7 +499,7 @@ body = f'''<div class="wrap">
 
 <div class="tally">
   <div><span class="k">Buildings scanned</span><span class="v">{TOT}</span><span class="n">every residential building in Madrid, Lyon, London and Bologna</span></div>
-  <div><span class="k">Groups</span><span class="v">10</span><span class="n">ordered first&#8209;match &mdash; every building lands in exactly one</span></div>
+  <div><span class="k">Groups</span><span class="v">11</span><span class="n">ordered first&#8209;match &mdash; every building lands in exactly one</span></div>
   <div><span class="k">With a real floor plan</span><span class="v" style="color:var(--alert)">{RULED}</span><span class="n">{pct(RULED / TOT)} &mdash; the rest simulate as one massing box per floor</span></div>
   <div><span class="k">The bar</span><span class="v" style="color:var(--ok)">{BAR}</span><span class="n">95&nbsp;% floor assignment, before any simulation</span></div>
   <div><span class="k">Gap</span><span class="v">{BAR - RULED}</span><span class="n">buildings that still need a floor type that holds</span></div>
@@ -372,14 +507,14 @@ body = f'''<div class="wrap">
 </div>
 
 <section class="block">
-  <div class="rulehead"><span class="num">FILTER</span><h2>The ladder &mdash; ten rules, first match wins</h2></div>
+  <div class="rulehead"><span class="num">FILTER</span><h2>The ladder &mdash; eleven rules, first match wins</h2></div>
   <p class="lede" style="margin-bottom:16px">Order is the rule. A courtyard is tested before width, width before
   regularity, regularity before re&#8209;entrance, and re&#8209;entrance last by count of reflex vertices. Every test
   is dimensionless except the 8.0&nbsp;m plate depth, which is a habitability constant rather than a local
   convention &mdash; that is what lets the ladder carry to countries the database has not reached yet.</p>
   <ol class="ladder">{ladder}</ol>
   <p class="lede" style="margin-top:14px">The last rule has no alternative below it: <b>Complex multi&#8209;wing</b>
-  is terminal and takes everything the nine above declined. No building can leave the ladder unclassified.</p>
+  is terminal and takes everything the ten above declined. No building can leave the ladder unclassified.</p>
 </section>
 
 <section class="block">
@@ -411,7 +546,7 @@ body = f'''<div class="wrap">
   </div>
 </section>
 
-<section class="block"><div class="rulehead"><span class="num">GROUPS</span><h2>The ten groups, each with its floor type</h2></div>
+<section class="block"><div class="rulehead"><span class="num">GROUPS</span><h2>The eleven groups, each with its floor type</h2></div>
 {"".join(sheets)}
 </section>
 
@@ -479,6 +614,25 @@ table.cov tfoot td{border-top:1px solid var(--ink);border-bottom:none;color:var(
 table.cov th .sub2{display:block;font-size:9.5px;letter-spacing:.06em;text-transform:none;color:var(--muted);font-weight:400;opacity:.85;margin-top:2px}
 .fig .cap.plan-cap b{color:var(--ink)}
 .zonebar{display:flex;gap:3px;margin-top:2px}
+ol.flow{list-style:none;margin:0;padding:0;counter-reset:none}
+ol.flow>li.fstep{display:flex;gap:11px;position:relative;padding:0 0 13px 0}
+ol.flow>li.fstep:last-child{padding-bottom:0}
+ol.flow>li.fstep::before{content:"";position:absolute;left:10.5px;top:22px;bottom:0;width:1px;background:var(--rule)}
+ol.flow>li.fstep:last-child::before{display:none}
+ol.flow .s{flex:0 0 22px;height:22px;border-radius:50%;background:var(--sheet-2);border:1px solid var(--rule);
+  color:var(--ink-2);font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+ol.flow>li.shared .s{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+ol.flow .fbody{flex:1 1 auto;padding-top:1px}
+ol.flow .act{display:block;font-family:"Archivo",sans-serif;font-weight:600;font-size:13px;
+  color:var(--ink);letter-spacing:.005em;margin-bottom:3px}
+ol.flow>li.shared .act{color:var(--accent)}
+ol.flow .expr{margin:0 0 4px 0;font-size:12.5px}
+ol.flow .expr code{font-size:11.5px}
+ol.flow ul{margin:0;padding:0;list-style:none}
+ol.flow ul li{position:relative;padding-left:12px;font-size:13.5px;line-height:1.5;color:var(--ink-2);margin-bottom:2px}
+ol.flow ul li::before{content:"";position:absolute;left:2px;top:8.5px;width:4px;height:4px;border-radius:50%;background:var(--rule)}
+ol.flow ul li b{color:var(--ink)}
 .zonebar i{height:9px;flex:1 1 auto;display:block;border:1px solid var(--plan-line)}
 </style>
 '''
