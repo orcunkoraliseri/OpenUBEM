@@ -48,6 +48,7 @@ import pandas as pd
 from openubem.geometry.european_residential import (
     CIRCULATION_FRACTION_OF_PLATE,
     CIRCULATION_MIN_DWELLINGS_FOR_CIRCULATION,
+    DWELLING_DENSITY_REFUSAL_TOKEN,
     EUROPEAN_TOPOLOGY_TOLERANCE_FRACTION,
     RULED_GRID_MAX_DWELLINGS_PER_FLOOR,
     EuropeanGridLayout,
@@ -313,8 +314,8 @@ def census_building(footprint, floor_allocations, minimum_facade_contact_m: floa
     observed_max_per_floor = max(fa.dwelling_count for fa in floor_allocations)
     if observed_max_per_floor > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
         return {
-            "emitted": False, "recorded_reason": "DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_8",
-            "true_reason": "DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_8", "route": None,
+            "emitted": False, "recorded_reason": DWELLING_DENSITY_REFUSAL_TOKEN,
+            "true_reason": DWELLING_DENSITY_REFUSAL_TOKEN, "route": None,
             "observed_max_per_floor": observed_max_per_floor,
             "failing_dwelling_count": None, "gates": [("DENSITY_CAP", "FAILED")], "wing_detail": None,
         }

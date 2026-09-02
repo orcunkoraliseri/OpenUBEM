@@ -213,6 +213,7 @@ def test_t04_per_district_ruled_coverage_is_internally_consistent():
             continue
         ruled_schemes = {
             "ruled_grid_1x1", "ruled_grid_2x1", "ruled_grid_2x2", "ruled_grid_3x2", "ruled_grid_4x2",
+            "ruled_grid_6x2",
             "i_shape_linear_gallery", "l_shape_decomposition", "courtyard_wing_unfold",
         }
         ruled = strip = refused = 0

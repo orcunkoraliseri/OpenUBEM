@@ -28,7 +28,8 @@ from shapely.ops import split, unary_union
 # behaviour unchanged as the ``equal_strip_multi_angle_sweep`` secondary
 # route for storeys the ruled grid cannot serve.
 
-RULED_GRID_MAX_DWELLINGS_PER_FLOOR = 8
+RULED_GRID_MAX_DWELLINGS_PER_FLOOR = 12
+DWELLING_DENSITY_REFUSAL_TOKEN = f"DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_{RULED_GRID_MAX_DWELLINGS_PER_FLOOR}"
 REGULARIZATION_AREA_DELTA_FALLBACK_FRACTION = 0.02
 # FINDING 204 (PROMPT_EU-13B): MVP 4.3's 6-12% of GFA and 12.0-25.0 m2/floor
 # bands are jointly satisfiable only for plates of 100.0-416.7 m2.  The owner
@@ -177,7 +178,7 @@ def _equal_area_axis_cuts(
 
 
 _DENSITY_GRID_TABLE: dict[int, tuple[int, int, str, bool]] = {
-    # dwelling_count -> (nu, nv, ruled grid name, merge_one_pair)
+    # dwelling_count -> (nu, nv, ruled grid name, merge middle columns down to the count)
     1: (1, 1, "ruled_grid_1x1", False),
     2: (2, 1, "ruled_grid_2x1", False),
     3: (2, 2, "ruled_grid_2x2", True),
@@ -186,6 +187,10 @@ _DENSITY_GRID_TABLE: dict[int, tuple[int, int, str, bool]] = {
     6: (3, 2, "ruled_grid_3x2", False),
     7: (4, 2, "ruled_grid_4x2", True),
     8: (4, 2, "ruled_grid_4x2", False),
+    9: (6, 2, "ruled_grid_6x2", True),
+    10: (6, 2, "ruled_grid_6x2", True),
+    11: (6, 2, "ruled_grid_6x2", True),
+    12: (6, 2, "ruled_grid_6x2", False),
 }
 
 
@@ -301,7 +306,7 @@ def generate_european_grid_layout(
     column merges.  A count reduction is never attempted.
     """
     if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
-        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+        raise ValueError(f"dwelling_count must be within the ruled grid's 1..{RULED_GRID_MAX_DWELLINGS_PER_FLOOR} range")
     if plate.geom_type != "Polygon" or plate.is_empty or not plate.is_valid or plate.area <= 0.0:
         raise ValueError("plate must be a valid positive-area Polygon")
     origin = plate.centroid
@@ -907,7 +912,7 @@ def generate_european_linear_gallery_layout(
     (never a count reduction).
     """
     if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
-        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+        raise ValueError(f"dwelling_count must be within the ruled grid's 1..{RULED_GRID_MAX_DWELLINGS_PER_FLOOR} range")
     origin = plate.centroid
     angle = _long_axis_angle_degrees(plate)
     grid_name = _grid_for_count(dwelling_count)[2]
@@ -1007,7 +1012,7 @@ def generate_european_narrow_plate_layout(
     approximating the dwelling count down.
     """
     if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
-        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+        raise ValueError(f"dwelling_count must be within the ruled grid's 1..{RULED_GRID_MAX_DWELLINGS_PER_FLOOR} range")
     if plate.geom_type != "Polygon" or plate.is_empty or not plate.is_valid or plate.area <= 0.0:
         raise ValueError("plate must be a valid positive-area Polygon")
     angle = _long_axis_angle_degrees(plate)
@@ -1095,7 +1100,7 @@ def generate_european_ruled_storey_layout(
     storey took -- never as a special case inside one route.
     """
     if dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
-        raise ValueError("caller must apply the >8 per-floor refusal before calling the ruled partitioner")
+        raise ValueError(f"caller must apply the >{RULED_GRID_MAX_DWELLINGS_PER_FLOOR} per-floor refusal before calling the ruled partitioner")
 
     if dwelling_count == 1:
         # A single dwelling always takes the whole plate exactly -- no
@@ -1480,7 +1485,7 @@ def generate_european_courtyard_perimeter_band_layout(
     circulation sits at the band's deepest corners. Reachable only where the
     existing ``courtyard_secondary`` unfold has already refused."""
     if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
-        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+        raise ValueError(f"dwelling_count must be within the ruled grid's 1..{RULED_GRID_MAX_DWELLINGS_PER_FLOOR} range")
     if not footprint.interiors:
         raise ValueError("courtyard_perimeter_band requires a footprint with a real interior ring")
 
@@ -1557,7 +1562,7 @@ def generate_european_row_house_depth_bands_layout(
     back, no corridor. Reachable only where the existing route has already
     refused a footprint this narrow."""
     if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
-        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+        raise ValueError(f"dwelling_count must be within the ruled grid's 1..{RULED_GRID_MAX_DWELLINGS_PER_FLOOR} range")
     if _minimum_rotated_width_m(footprint) >= NARROW_FOOTPRINT_THRESHOLD_M:
         raise ValueError("row_house_depth_bands only applies below the narrow-footprint threshold")
 
@@ -1611,7 +1616,7 @@ def generate_european_wing_spine_decomposition_layout(
     junction (``footprint - wings``) becomes the circulation core. Reachable
     only where the existing route has already refused."""
     if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
-        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+        raise ValueError(f"dwelling_count must be within the ruled grid's 1..{RULED_GRID_MAX_DWELLINGS_PER_FLOOR} range")
 
     perimeter = footprint.exterior.length
     depth_m = 2.0 * footprint.area / perimeter if perimeter > 0.0 else 0.0
@@ -1739,7 +1744,7 @@ def generate_european_regularized_envelope_grid_layout(
     circulation the grid route already carves. Reachable only where S1-S3
     have already refused for a shape reason."""
     if dwelling_count <= 0 or dwelling_count > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
-        raise ValueError("dwelling_count must be within the ruled grid's 1..8 range")
+        raise ValueError(f"dwelling_count must be within the ruled grid's 1..{RULED_GRID_MAX_DWELLINGS_PER_FLOOR} range")
 
     origin = footprint.centroid
     best_rect_world: BaseGeometry | None = None
@@ -2598,7 +2603,7 @@ def generate_european_building_dwelling_layout(
     if observed_max_per_floor > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
         return EuropeanBuildingDwellingLayout(
             storey_groups=(), dwelling_layout_emitted=False,
-            fallback_reason="DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_8",
+            fallback_reason=DWELLING_DENSITY_REFUSAL_TOKEN,
             observed_max_per_floor=observed_max_per_floor, scheme_by_storey=(),
             fallback_reason_by_storey=(),
         )

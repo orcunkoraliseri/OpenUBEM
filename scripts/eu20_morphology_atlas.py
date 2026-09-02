@@ -55,7 +55,7 @@ NUMERIC_METRICS = [
 ]
 
 GROUP_ORDER = [
-    "COURTYARD", "SLIVER", "SQUARE", "RECTANGLE", "SLAB", "TRIANGLE",
+    "COURTYARD", "SLIVER", "SQUARE", "RECTANGLE", "CORRIDOR_RECTANGLE", "SLAB", "TRIANGLE",
     "TRAPEZOID", "L_SHAPE", "U_OR_T_SHAPE", "COMPLEX_MULTI_WING",
 ]
 
@@ -208,8 +208,13 @@ def classify_group(r) -> str:
         return "SLIVER"
     if r["rectangularity"] >= 0.90 and r["aspect_ratio"] < 1.5:
         return "SQUARE"
-    if r["rectangularity"] >= 0.90 and 1.5 <= r["aspect_ratio"] < 3.0:
+    if r["rectangularity"] >= 0.90 and 1.5 <= r["aspect_ratio"] < 2.0:
         return "RECTANGLE"
+    # 2.0 is not a new invented cut -- it is LINEAR_GALLERY_ASPECT_THRESHOLD,
+    # the length/width ratio european_residential.py already uses at generation
+    # time to route a plate to the corridor scheme instead of a central core.
+    if r["rectangularity"] >= 0.90 and 2.0 <= r["aspect_ratio"] < 3.0:
+        return "CORRIDOR_RECTANGLE"
     if r["rectangularity"] >= 0.90 and r["aspect_ratio"] >= 3.0:
         return "SLAB"
     if r["n_edges_ge_15pct_perimeter"] <= 3 and r["reflex_count"] == 0:
