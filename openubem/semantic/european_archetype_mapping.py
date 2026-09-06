@@ -191,10 +191,16 @@ def derive_bdtopo_building_type(
     if storeys is None:
         return None, MISSING_OBSERVED_STOREY_COUNT
     if dwellings in (13, 14):
-        return None, TYPOLOGY_DWELLINGS_IN_REGISTRY_GAP_13_14
+        # T04 / D-EU-101 c2: TABULA's own registry has no MFH/AB entry for 13-14
+        # dwellings; owner ruling closes the gap by storey partition instead of
+        # loosening either neighbour bucket's storey range (investigation report
+        # §3, lines 217-234/244).
+        return ("MFH" if storeys <= 4 else "AB"), None
     if dwellings == 1 and storeys <= 4:
         return ("TH" if is_attached else "SFH"), None
     if 2 <= dwellings <= 12 and storeys <= 4:
+        return "MFH", None
+    if 2 <= dwellings <= 12 and 5 <= storeys <= 9:
         return "MFH", None
     if dwellings >= 15 and storeys >= 5:
         return "AB", None
@@ -222,7 +228,7 @@ def map_observed_building_to_tabula(
     dwellings_provenance = _dwellings_provenance(row, observed_dwellings)
     derived_dwellings: int | None = None
     derived_exclusion: str | None = None
-    if building_type is None and country == "FR":
+    if building_type is None and country in ("FR", "ES"):
         derived_dwellings = observed_dwellings
         storeys = _observed_storeys(row)
         is_attached_raw = row.get("is_attached")
@@ -360,6 +366,14 @@ def apply_attribute_sidecar(gdf: gpd.GeoDataFrame, sidecar: pd.DataFrame) -> gpd
             pd.Series("SIDECAR_OBSERVED", index=lookup.index),
         )
     ).where(dwellings.notna(), None)
+    levels = keys.map(lookup.get("levels", pd.Series(dtype="float64", index=lookup.index)))
+    merged["levels"] = levels.where(levels.notna(), merged.get("levels"))
+    merged["provenance_levels"] = keys.map(
+        lookup.get(
+            "provenance_levels",
+            pd.Series("SIDECAR_OBSERVED", index=lookup.index),
+        )
+    ).where(levels.notna(), merged.get("provenance_levels"))
     return merged
 
 

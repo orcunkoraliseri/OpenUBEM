@@ -48,6 +48,8 @@ REGISTRY = ROOT / "openubem/data/weather/weather_registry.json"
 EVIDENCE = ROOT / "openubem/outputs/eu_evidence/EU-11"
 ES_SIDECAR = ROOT / "openubem/outputs/eu_evidence/EU-04/es_catastro_attribute_sidecar.csv"
 GB_EPC = ROOT / "openubem/outputs/eu_evidence/EU-04/D-EU-22/gb_epc_certificates.csv"
+GB_EPC_YEARS = ROOT / "openubem/outputs/eu_evidence/EU-04/D-EU-22/gb_epc_construction_year_sidecar.csv"
+GB_EPC_CERT_CACHE = ROOT / "openubem/outputs/eu_evidence/EU-04/D-EU-22/_cache/certificate"
 
 DISTRICTS = {
     "ES-MAD-BERRUGUETE": {"country": "ES", "fold": "es", "crs": "EPSG:32630"},
@@ -167,31 +169,160 @@ def _geometry(row: pd.Series, records: list[dict]) -> tuple[list[dict], str]:
     return zones, outcome
 
 
+def _gb_age_decision(band: str | None, observed_years: set[int]) -> tuple[str, str, str] | tuple[None, str, str]:
+    """Resolve one GB footprint's TABULA period, fail-closed.
+
+    Returns ``(period, age_band_label, construction_period_provenance)`` on success, or
+    ``(None, exclusion_key, "")`` when the evidence does not determine a single period.
+    An observed ``construction_year`` is a point, so it can only ever narrow the band,
+    never widen it; a year that contradicts its own band is refused, not preferred.
+    """
+    if band not in GB_EPC_BANDS:
+        periods = {tabula_period("GB", year) for year in observed_years}
+        if len(periods) == 1:
+            return periods.pop(), band if band in GB_EPC_BANDS else "", "EPC_OBSERVED_CONSTRUCTION_YEAR"
+        return None, "MISSING_OBSERVED_EPC_AGE_BAND", ""
+    lo, hi = GB_EPC_BANDS[band]
+    first, last = tabula_period("GB", lo), tabula_period("GB", hi)
+    if first == last:
+        return first, band, ""
+    in_band = {year for year in observed_years if lo <= year <= hi}
+    in_band_periods = {tabula_period("GB", year) for year in in_band}
+    if observed_years and in_band == observed_years and len(in_band_periods) == 1:
+        return in_band_periods.pop(), band, "EPC_CONSTRUCTION_YEAR_RESOLVED_STRADDLE"
+    return None, f"PERIOD_STRADDLE_{band}_{first}_{last}", ""
+
+
+def _gb_age_decision_multi(bands: list[str], observed_years: set[int]) -> tuple[str, str, str] | tuple[None, str, str]:
+    """Resolve one GB footprint's TABULA period from every certificate's age band,
+    not just the latest one (T02 / D-EU-101 c1, investigation report §1.3(iii)).
+
+    Each known band is a constraint on the *set of TABULA periods its interval
+    touches* -- its two endpoint years' periods, sufficient because no
+    ``GB_EPC_BANDS`` interval is wide enough to touch a third period. Each
+    distinct observed ``construction_year`` is a further singleton-period
+    constraint. Intersecting every such set (method (iii), "both constraints
+    together") resolves a period when exactly one remains. Zero or one known
+    band delegates straight to ``_gb_age_decision`` -- byte-identical old
+    behaviour, zero regression risk.
+    """
+    known = sorted({b for b in bands if b in GB_EPC_BANDS})
+    if len(known) <= 1:
+        return _gb_age_decision(known[0] if known else None, observed_years)
+    label = "|".join(known)
+    constraints = [
+        {tabula_period("GB", GB_EPC_BANDS[b][0]), tabula_period("GB", GB_EPC_BANDS[b][1])}
+        for b in known
+    ]
+    constraints += [{tabula_period("GB", year)} for year in sorted(observed_years)]
+    intersection = set.intersection(*constraints)
+    if len(intersection) == 1:
+        return intersection.pop(), label, "EPC_MULTI_CERTIFICATE_BAND_INTERSECTION"
+    if not intersection:
+        return None, f"PERIOD_STRADDLE_DISJOINT_BANDS_{label}", ""
+    return None, f"PERIOD_STRADDLE_AMBIGUOUS_{label}", ""
+
+
+def _gb_sap_floor_storeys(certificate_numbers: list[str]) -> int | None:
+    """T01 / D-EU-101 c3: a dwelling-level ``sap_floor_dimensions`` list read as a
+    building storey count (investigation report §2.2). Callers restrict this to
+    ``house``/``terrace`` tags only -- for ``apartments`` the certificate covers
+    one flat, not the block, so the count would say nothing about the building.
+    Takes the max over every cached certificate on the footprint, the right
+    estimator only if at least one certificate covers the tallest part.
+    """
+    best = None
+    for cert_number in certificate_numbers:
+        path = GB_EPC_CERT_CACHE / f"{cert_number}.json"
+        if not path.exists():
+            continue
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        parts = ((payload.get("body") or {}).get("data") or {}).get("sap_building_parts") or []
+        for part in parts:
+            dims = part.get("sap_floor_dimensions")
+            if dims:
+                best = len(dims) if best is None else max(best, len(dims))
+    return best
+
+
 def _gb_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Counter]:
     cert = pd.read_csv(GB_EPC)
+    # T01/c3: every certificate on a footprint, not just the age-resolving one --
+    # `sap_floor_dimensions` can sit on a certificate lacking a construction_age_band.
+    cert_numbers_by_osm_id = (
+        cert.assign(osm_id=cert["osm_id"].astype(str))
+        .groupby("osm_id")["certificateNumber"]
+        .apply(lambda s: [str(x) for x in s.dropna()])
+        .to_dict()
+    )
     cert = cert.dropna(subset=["age_band", "osm_id", "registrationDate"]).copy()
     cert["registrationDate"] = pd.to_datetime(cert["registrationDate"], errors="coerce")
-    # One latest certificate per footprint; a conflicting same-date band is not resolved silently.
-    cert = cert.sort_values(["osm_id", "registrationDate", "certificateNumber"], kind="stable").drop_duplicates("osm_id", keep="last")
-    bands = cert.set_index(cert["osm_id"].astype(str))["age_band"].astype(str).to_dict()
+    # T02/c1: every distinct age band on a footprint, not just the latest certificate's --
+    # each band is a constraint (its GB_EPC_BANDS interval); _gb_age_decision_multi
+    # intersects them instead of discarding all but the newest (report §1.3(ii)/(iii)).
+    bands_all_by_osm_id: dict[str, list[str]] = (
+        cert.assign(osm_id=cert["osm_id"].astype(str))
+        .groupby("osm_id")["age_band"]
+        .apply(lambda s: sorted({str(v) for v in s}))
+        .to_dict()
+    )
+    year_lookup: dict[str, set[int]] = {}
+    if GB_EPC_YEARS.exists():
+        side = pd.read_csv(GB_EPC_YEARS)
+        for key, group in side.groupby(side["osm_id"].astype(str)):
+            year_lookup[key] = {int(v) for v in group["construction_year"]}
+    is_attached_series = compute_footprint_adjacency(gdf)
     exclusions: Counter = Counter()
     result = []
-    for _, item in gdf.sort_values("osm_id", kind="stable").iterrows():
-        building_id = str(item.osm_id); band = bands.get(building_id)
-        if band not in GB_EPC_BANDS:
-            exclusions["MISSING_OBSERVED_EPC_AGE_BAND"] += 1; continue
-        lo, hi = GB_EPC_BANDS[band]
-        first, last = tabula_period("GB", lo), tabula_period("GB", hi)
-        if first != last:
-            exclusions[f"PERIOD_STRADDLE_{band}_{first}_{last}"] += 1; continue
-        building_type = {"apartments": "AB", "detached": "SFH", "terrace": "TH"}.get(str(item.building_tag).casefold())
+    for idx, item in gdf.sort_values("osm_id", kind="stable").iterrows():
+        building_id = str(item.osm_id)
+        first, age_label, period_provenance = _gb_age_decision_multi(
+            bands_all_by_osm_id.get(building_id, []), year_lookup.get(building_id, set())
+        )
+        if first is None:
+            exclusions[age_label] += 1; continue
+        tag = str(item.building_tag).casefold()
+        n_storeys = _valid_storeys(item)
+        # OSM `house` cannot distinguish SFH from TH on its own (D-EU-04-G rationale,
+        # openubem/semantic/european_archetype_mapping.py:28-30) -- split it by footprint
+        # adjacency, the same signal already used for FR/IT, rather than assume SFH.
+        if tag == "house":
+            building_type = "TH" if bool(is_attached_series.loc[idx]) else "SFH"
+        elif tag == "residential":
+            # T03/c6 (D-EU-101): bare `building=residential` carries no SFH/TH/MFH/AB
+            # signal of its own -- apply the Bologna storey-ladder rule (report §7)
+            # to the storey count GB already has (levels, or `house`'s adjacency split).
+            if n_storeys is None:
+                building_type = None
+            elif n_storeys <= 2:
+                building_type = "TH" if bool(is_attached_series.loc[idx]) else "SFH"
+            elif n_storeys in (3, 4):
+                building_type = "MFH"
+            else:
+                building_type = "AB"
+        else:
+            building_type = {"apartments": "AB", "detached": "SFH", "terrace": "TH"}.get(tag)
         if building_type is None:
             exclusions["UNMAPPABLE_RESIDENTIAL_TYPE"] += 1; continue
-        if _valid_storeys(item) is None:
+        storey_provenance = ""
+        if n_storeys is None and tag in ("house", "terrace"):
+            # T01/c3 (D-EU-101): dwelling-level sap_floor_dimensions read as the
+            # building storey count, `apartments` excluded on purpose (report §2.2).
+            n_storeys = _gb_sap_floor_storeys(cert_numbers_by_osm_id.get(building_id, []))
+            if n_storeys is not None:
+                storey_provenance = "SAP_FLOOR_DIMENSIONS"
+        if n_storeys is None:
             exclusions["MISSING_OBSERVED_STOREY_COUNT"] += 1; continue
+        if storey_provenance:
+            item = item.copy(); item["levels"] = n_storeys
         record = _record_for_period(records, "GB", building_type, first)
         result.append({**item.to_dict(), "building_id": building_id, "building_type": building_type,
-                       "archetype_id": record["archetype_id"], "age_band": band, "observed_dwellings": None})
+                       "archetype_id": record["archetype_id"], "age_band": age_label or first,
+                       "construction_period_provenance": period_provenance,
+                       "storey_provenance": storey_provenance, "observed_dwellings": None})
     return result, exclusions
 
 
@@ -287,8 +418,14 @@ def _it_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Co
         max_v = e_counts[max_k]
         ties = [k for k, v in e_counts.items() if v == max_v]
         if len(ties) > 1:
-            exclusions[f"CENSUS_SECTION_PERIOD_TIE_{'_'.join(ties)}"] += 1
-            continue
+            # T06/c5 (D-EU-101): sections 1287 and 1266 are exact ties between two
+            # adjacent bands (report §6) -- owner ruling breaks toward the older
+            # cohort (smallest E-suffix, ISTAT_TO_TABULA is oldest-first).
+            if sez_num in (1287, 1266):
+                max_k = min(ties, key=lambda k: int(k[1:]))
+            else:
+                exclusions[f"CENSUS_SECTION_PERIOD_TIE_{'_'.join(ties)}"] += 1
+                continue
 
         t_period, ref_year = ISTAT_TO_TABULA.get(max_k, (None, None))
         if t_period == "STRADDLE":
@@ -327,6 +464,7 @@ def _mapped_rows(district: str, gdf: gpd.GeoDataFrame, records: list[dict]) -> t
     country = DISTRICTS[district]["country"]
     if district == "ES-MAD-BERRUGUETE":
         gdf = apply_attribute_sidecar(gdf, pd.read_csv(ES_SIDECAR))
+        gdf = gdf.assign(is_attached=compute_footprint_adjacency(gdf))
     if district == "FR-LYO-HAUTCOEURPENTES":
         gdf = gdf.assign(is_attached=compute_footprint_adjacency(gdf))
     exclusions: Counter = Counter(); result = []
@@ -419,6 +557,7 @@ def prepare(district: str, archetypes: Path | None, epw: Path | None, crs: str |
                              "building_type": row.building_type, "age_band": row.age_band, "geometry_outcome": outcome,
                              "idf_sha256": sha256_file(target), "weather_sha256": weather_sha,
                              "construction_period_provenance": row.get("construction_period_provenance", ""),
+                             "storey_provenance": row.get("storey_provenance", ""),
                              "floor_area_m2": gross_footprint_area_m2,
                              "gross_footprint_area_m2": gross_footprint_area_m2,
                              "conditioned_floor_area_m2": conditioned_floor_area_m2,

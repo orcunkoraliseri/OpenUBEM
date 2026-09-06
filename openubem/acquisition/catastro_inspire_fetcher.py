@@ -126,6 +126,31 @@ def _request_tile(session: requests.Session, bbox: str, retries: list[str]) -> s
     raise RuntimeError(f"Catastro tile {bbox} failed after {MAX_TRIES} tries: {last}")
 
 
+def _request_building_part(session: requests.Session, refcat: str, retries: list[str]) -> str:
+    params = {
+        "service": "wfs",
+        "version": "2.0.0",
+        "request": "GetFeature",
+        "STOREDQUERY_ID": "GetBuildingPartByParcel",
+        "REFCAT": refcat,
+    }
+    last: str | None = None
+    for attempt in range(1, MAX_TRIES + 1):
+        try:
+            response = session.get(CATASTRO_WFS_ENDPOINT, params=params, timeout=300)
+            if response.status_code == 200:
+                return response.text
+            last = f"HTTP {response.status_code}"
+        except requests.RequestException as error:
+            last = f"{type(error).__name__}: {error}"
+        wait = REQUEST_PAUSE_S * (2 ** attempt)
+        retries.append(
+            f"{refcat}: attempt {attempt}/{MAX_TRIES} failed ({last}), slept {wait:.1f}s"
+        )
+        time.sleep(wait)
+    raise RuntimeError(f"Catastro building part {refcat} failed after {MAX_TRIES} tries: {last}")
+
+
 def parse_catastro_buildings(document: str) -> Iterator[dict[str, Any]]:
     """Yield one record per ``bu-ext2d:Building`` in a WFS response document."""
     payload = document.encode("utf-8") if isinstance(document, str) else document
@@ -224,6 +249,59 @@ def fetch_catastro_buildings(
         seconds=round(time.time() - started, 2),
     )
     return frame.reset_index(drop=True), report
+
+
+def parse_catastro_building_part(document: str | bytes) -> int | None:
+    """Return the tallest occupied part of a ``GetBuildingPartByParcel`` reply.
+
+    ``T07a`` measured that a parcel's ``numberOfFloorsAboveGround`` lives on
+    each ``bu-ext2d:BuildingPart`` feature, not on ``Building`` (there it is
+    always ``xsi:nil``). A parcel can return several parts (garages,
+    basements, the occupied structure); this is ``max()`` of every non-nil
+    value found, per T07's policy -- a nil element carries no text, so it is
+    skipped the same way the other optional Catastro fields already are in
+    :func:`parse_catastro_buildings`. Returns ``None`` when every part is nil.
+    """
+    payload = document.encode("utf-8") if isinstance(document, str) else document
+    root = ET.fromstring(payload)
+    values: list[int] = []
+    for element in (node for node in root.iter() if _local(node.tag) == "BuildingPart"):
+        field = _first(element, "numberOfFloorsAboveGround")
+        if field is not None and field.text:
+            try:
+                values.append(int(field.text.strip()))
+            except ValueError:
+                pass
+    return max(values) if values else None
+
+
+def fetch_catastro_building_parts(
+    parcel_ids: list[str],
+    *,
+    session: requests.Session | None = None,
+) -> dict[str, str]:
+    """Fetch the raw ``GetBuildingPartByParcel`` response for each parcel id.
+
+    One request per id (``REFCAT=<id>``, ``T07a``'s measured parameter name),
+    paced by ``REQUEST_PAUSE_S`` between requests, reusing ``_request_tile``'s
+    retry/backoff shape via :func:`_request_building_part`. Returns
+    ``{parcel_id: raw_document}`` -- parse each with
+    :func:`parse_catastro_building_part`; caching the raw bodies is the
+    caller's job, not this function's.
+    """
+    owned = session is None
+    session = session or requests.Session()
+    session.headers.update({"User-Agent": CATASTRO_USER_AGENT})
+    retries: list[str] = []
+    documents: dict[str, str] = {}
+    try:
+        for parcel_id in parcel_ids:
+            documents[parcel_id] = _request_building_part(session, parcel_id, retries)
+            time.sleep(REQUEST_PAUSE_S)
+    finally:
+        if owned:
+            session.close()
+    return documents
 
 
 def build_es_attribute_sidecar(

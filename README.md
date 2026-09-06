@@ -2,9 +2,7 @@
 
 **Open-source Urban Building Energy Modeling platform.**
 
-OpenUBEM takes a city neighbourhood (defined by an address, a coordinate, a bounding box, or an OSM XML export) and estimates the **annual energy use** and **carbon emissions** of every building in it. It does so by mapping each building to an archetype-based EnergyPlus simulation, running a full-year whole-building energy model per building, and aggregating results into neighbourhood-level metrics.
-
-The platform is designed for urban planners, energy researchers, and policy makers who need building-level energy-use estimates at neighbourhood or district scale without requiring per-building audits or metered data.
+Give OpenUBEM a neighbourhood (address, coordinate, bounding box, or OSM XML export) and it estimates the **annual energy use** and **carbon emissions** of every building in it. Each building is mapped to an archetype, simulated as its own full-year whole-building EnergyPlus model, and the results are aggregated to neighbourhood metrics. Built for urban planners, energy researchers and policy makers who need building-level estimates at neighbourhood or district scale without per-building audits or metered data.
 
 ---
 
@@ -40,7 +38,7 @@ The platform is designed for urban planners, energy researchers, and policy make
 
 ## Architecture Overview
 
-OpenUBEM is a **5-stage pipeline** where each stage writes versioned artifacts (GeoPackage, Parquet, JSON) consumed by the next. Stages can be re-run independently:
+A **5-stage pipeline**. Each stage writes versioned artifacts (GeoPackage, Parquet, JSON) that the next consumes, and any stage can be re-run alone:
 
 ```
   ┌──────────────┐    ┌──────────────────┐    ┌────────────────┐    ┌──────────────┐    ┌────────────────────┐
@@ -61,18 +59,18 @@ OpenUBEM is a **5-stage pipeline** where each stage writes versioned artifacts (
                                                                                     06_mc_*.tif / .gpkg
 ```
 
-**Step 6 is deliberately not part of that spine.** It answers a different question (*what does it feel like to stand outside in this neighbourhood?*), is invoked explicitly by its own runner, reads Steps 1–5 read-only, and never writes into `05_results.*`. See [Step 6](#step-6-outdoor-microclimate--thermal-comfort-optional).
+**Step 6 is deliberately outside the spine.** It answers a different question (*what does it feel like to stand outside in this neighbourhood?*), has its own runner, reads Steps 1–5 read-only, and never writes into `05_results.*`. See [Step 6](#step-6-outdoor-microclimate--thermal-comfort-optional).
 
-**Key design principles:**
+**Design principles:**
 
-- **Archetype-based.** Each building is mapped to one of 30 DOE/OpenStudio archetypes (e.g., MidriseApartment, LargeOffice, Hospital) via a rule-based classifier.
-- **Per-building simulation.** Every building gets its own EnergyPlus IDF with true footprint geometry (not a shoe-box proxy), extruded to actual height, with neighbourhood context shading.
-- **Physically modelled, not reconstructed.** HVAC is dispatched per archetype across **10 real system families** (central VAV with chiller + boiler, PSZ rooftops, PVAV with reheat, fan-coil units, water-loop heat pumps, PTAC/PTHP, CRAC/CRAH, radiant/unit heaters), and DHW, cooking, refrigeration and elevators are real EnergyPlus objects. All reported energy comes from EnergyPlus **meters**, directly comparable to metered utility data and never a post-hoc multiplier.
-- **Zero fitted parameters.** No threshold, fraction, or coefficient anywhere in the model is tuned against a simulated or measured EUI target. Every value traces to a cited source (ASHRAE 90.1, DOE prototypes, CBECS, eGRID, IBC).
-- **Provenance everywhere.** Every input carries a provenance column and a `data_quality_flag` token recording whether it was observed, imputed, fused from an external source, or filled from a standard default.
+- **Archetype-based.** A rule-based classifier maps each building to one of 30 DOE/OpenStudio archetypes (MidriseApartment, LargeOffice, Hospital, …).
+- **Per-building simulation.** Every building gets its own IDF with true footprint geometry (no shoe-box proxy), extruded to real height, with neighbourhood context shading.
+- **Physically modelled, not reconstructed.** HVAC is dispatched per archetype across **10 real system families** (central VAV with chiller + boiler, PSZ rooftops, PVAV with reheat, fan-coil units, water-loop heat pumps, PTAC/PTHP, CRAC/CRAH, radiant/unit heaters); DHW, cooking, refrigeration and elevators are real EnergyPlus objects. All reported energy comes from EnergyPlus **meters**, directly comparable to metered utility data, never a post-hoc multiplier.
+- **Zero fitted parameters.** No threshold, fraction or coefficient is tuned against a simulated or measured EUI target; every value traces to a cited source (ASHRAE 90.1, DOE prototypes, CBECS, eGRID, IBC).
+- **Provenance everywhere.** Every input carries a provenance column and a `data_quality_flag` token: observed, imputed, fused from an external source, or standard default.
 - **Deterministic & reproducible.** Seeded RNG for all stochastic operations; versioned artifact schemas.
-- **Resume-capable.** The simulation step writes a manifest so partially-completed runs can be resumed without re-simulating successful buildings.
-- **Measured-data validated.** Results are scored against independent measured benchmarks (NYC Local Law 84, LA EBEWE, national CBECS 2018) with all gates evaluated report-only, never tuned to pass.
+- **Resume-capable.** Step 4 writes a manifest, so partial runs resume without re-simulating successes.
+- **Measured-data validated.** Scored against NYC Local Law 84, LA EBEWE and national CBECS 2018; every gate is report-only, never tuned to pass.
 
 ---
 
@@ -82,7 +80,7 @@ OpenUBEM is a **5-stage pipeline** where each stage writes versioned artifacts (
 
 **Module:** `openubem/acquisition/osm_fetcher.py`
 
-Downloads building footprints and attributes from OpenStreetMap via [OSMnx](https://github.com/gboeing/osmnx). Accepts four input modes:
+Downloads footprints and attributes from OpenStreetMap via [OSMnx](https://github.com/gboeing/osmnx). Four input modes:
 
 | Mode | Parameter | Description |
 |---|---|---|
@@ -91,44 +89,27 @@ Downloads building footprints and attributes from OpenStreetMap via [OSMnx](http
 | Bbox | `bbox=(N, S, E, W)` | Bounding box |
 | XML | `osm_path="file.osm"` | Pre-downloaded OSM XML |
 
-**Processing pipeline (7-step clean):**
+**7-step clean:** (1) drop null/empty geometry; (2) keep Polygon/MultiPolygon only; (3) explode MultiPolygons into Polygons with re-keyed `osm_id`; (4) `buffer(0)` repair + validity filter; (5) compute `footprint_area_m2` and `perimeter_m`; (6) drop area < 20 m²; (7) resolve near-duplicates (IoU > 0.95) by keeping the larger polygon.
 
-1. Drop null/empty geometry rows
-2. Keep only Polygon/MultiPolygon geometries
-3. Explode MultiPolygons → individual Polygon parts with re-keyed `osm_id`
-4. `buffer(0)` geometry repair + validity filter
-5. Compute `footprint_area_m2` and `perimeter_m`
-6. Minimum area filter (≥ 20 m²)
-7. Overlap resolution: near-duplicate footprints (IoU > 0.95) resolved by keeping the larger polygon
+**Tag parsing:** `building_tag`, `function_tag` ← OSM `building`/`amenity`/`shop`/`office`; `height_m` ← string parse (metres or feet, unit-converted); `levels` ← `building:levels` (nullable Int64); `year_built` ← `start_date` (4-digit year or century notation); `postcode`, `underground`, `roof_shape`, `roof_height_m` where present; all remaining tags → `surplus_tags` JSON.
 
-**Tag flattening & parsing:**
+**Optional external sources (off by default):** `overture_fetcher.py` (Overture Maps footprints/heights from an offline GeoParquet slice or live DuckDB query) and `height_cache.py` (resolved-height cache). Both feed the Step 2.3 fusion tier.
 
-- `building_tag`, `function_tag` ← OSM `building`, `amenity`, `shop`, `office` tags
-- `height_m` ← parsed from string (handles metres and feet with unit conversion)
-- `levels` ← `building:levels` (nullable Int64)
-- `year_built` ← `start_date` (4-digit year or century notation)
-- `postcode`, `underground`, `roof_shape`, `roof_height_m` ← extracted where available
-- `surplus_tags` ← all remaining OSM tags captured as JSON
+**Provenance:** per-row `provenance_levels`, `provenance_height_m`, `provenance_year_built`, `provenance_building_tag`, `provenance_function_tag`, `provenance_postcode`, `provenance_geometry`, plus a composite `data_quality_flag` (e.g. `no_floors,no_height,generic_tag`).
 
-**Optional external sources:** `overture_fetcher.py` fetches Overture Maps building footprints/heights (offline GeoParquet slice or live DuckDB query), and `height_cache.py` caches resolved heights. Both feed the fusion tier in Step 2.3 and are **off by default**.
-
-**Provenance & quality tracking:**
-
-Each row carries provenance columns (`provenance_levels`, `provenance_height_m`, `provenance_year_built`, `provenance_building_tag`, `provenance_function_tag`, `provenance_postcode`, `provenance_geometry`) and a composite `data_quality_flag` (e.g., `no_floors,no_height,generic_tag`).
-
-**Output:** `01_buildings_clean.gpkg`, a 23-column GeoDataFrame in UTM CRS, plus sidecar schema JSON and cleaning log.
+**Output:** `01_buildings_clean.gpkg`, 23 columns in UTM CRS, plus sidecar schema JSON and cleaning log.
 
 ---
 
 ### Step 2: Semantic Enrichment
 
-Enrichment is split into sub-steps that progressively add columns to the GeoDataFrame: 23 → 26 → 29 → 57 columns.
+Sub-steps add columns progressively: 23 → 26 → 29 → 57.
 
 #### Step 2.0: Building Classification
 
 **Module:** `openubem/semantic/building_classifier.py`
 
-Maps each building to one of **30 OpenStudio archetypes** using a rule-based classifier with 17 rules organized by priority:
+Rule-based classifier, 17 rules by priority, mapping to **30 OpenStudio archetypes**:
 
 | Priority | Rule | Example output |
 |---|---|---|
@@ -141,62 +122,35 @@ Maps each building to one of **30 OpenStudio archetypes** using a rule-based cla
 | 15–16 | Mixed-use dominant-tag routing | Recursive sub-evaluation |
 | 17 | Unknown fallback | `OpenUBEMUnknown` |
 
-**Key features:**
-- **DOE-aligned cut-points.** The office size bins (2,322 / 9,290 m²), the school split (Primary = 1 storey, Secondary ≥ 2) and the hotel level threshold (≥ 5) are the DOE prototypes' own definitions. This correctness fix (`E-R3-3`) removed a systematic Medium→Small office misclassification crossing an HVAC template cliff.
-- **Levels imputation**: when OSM `levels` is missing, the classifier infers floor count from `height_m` ÷ 3.5 m, or defaults to 1.
-- **Confidence scoring**: each assignment gets `HIGH`, `MEDIUM`, or `LOW` confidence based on data quality (observed vs. imputed inputs, tag specificity).
-- **Detailed office variant**: optionally promotes `SmallOffice`/`MediumOffice`/`LargeOffice` to their `*Detailed` counterparts.
-- **User overrides**: CSV-based per-building override of archetype assignment.
+- **DOE-aligned cut-points.** The office bins (2,322 / 9,290 m²), school split (Primary = 1 storey, Secondary ≥ 2) and hotel threshold (≥ 5 levels) are the DOE prototypes' own definitions. Fix `E-R3-3` removed a systematic Medium→Small office misclassification that crossed an HVAC template cliff.
+- **Levels imputation:** missing OSM `levels` → `height_m` ÷ 3.5 m, else 1.
+- **Confidence:** `HIGH` / `MEDIUM` / `LOW` per assignment, from data quality (observed vs imputed inputs, tag specificity).
+- **Detailed office variant:** optional promotion of `SmallOffice`/`MediumOffice`/`LargeOffice` to `*Detailed`.
+- **User overrides:** CSV per-building archetype override.
 
-> ⚠️ **Before/after gate (binding project rule).** No change to `building_classifier.py` that can move classification is adopted until the labelled fixture has been run on **both** sides of the change and **both** accuracy numbers are recorded. Two fixtures are gated separately: the frozen 50-row fixture at ≥ 0.70 fine top-1, and `tests/fixtures/labelled_archetypes_tagrich_v2.csv` at ≥ 0.80 (measured **88.8%** on 98 graded rows). **Every accuracy figure must name its fixture**; a bare percentage is not meaningful here.
+> ⚠️ **Before/after gate (binding project rule).** No classification-moving change to `building_classifier.py` is adopted until the labelled fixture has run on **both** sides and **both** accuracies are recorded. Two fixtures, gated separately: the frozen 50-row fixture at ≥ 0.70 fine top-1, and `tests/fixtures/labelled_archetypes_tagrich_v2.csv` at ≥ 0.80 (measured **88.8%** on 98 graded rows). **Every accuracy figure names its fixture**; a bare percentage is meaningless here.
 
-**Output:** 26-column GeoDataFrame (23 upstream + `archetype_id`, `archetype_confidence`, `archetype_source`) saved as `02_buildings_classified.gpkg` + distribution CSV.
+**Output:** 26 columns (23 + `archetype_id`, `archetype_confidence`, `archetype_source`) → `02_buildings_classified.gpkg` + distribution CSV.
 
 #### Step 2.1: Climate Zone & Weather
 
 **Module:** `openubem/acquisition/__init__.py` (orchestrator) + `openubem/acquisition/climate_zone.py` + `openubem/acquisition/epw_manager.py`
 
-Assigns each building its **ASHRAE climate zone** (16-token vocabulary: `1A`–`8`) via spatial join against a bundled ASHRAE climate zone GeoPackage, then resolves and downloads the closest **EPW weather file** from climate.onebuilding.org.
+Assigns the **ASHRAE climate zone** (16-token vocabulary, `1A`–`8`) by spatial join against a bundled ASHRAE GeoPackage, then resolves and downloads the closest **EPW** from climate.onebuilding.org: (1) compute the neighbourhood's representative point; (2) find the nearest station in bundled `epw_stations.csv` (all One Building stations) within 300 km; (3) fetch, preferring user-provided directory > network download > cache; (4) validate file integrity.
 
-**EPW station resolution:**
-1. Compute the neighbourhood's representative geographic point
-2. Search the bundled `epw_stations.csv` catalogue (all One Building stations) for the nearest station within 300 km
-3. Fetch the EPW file (user-provided directory > network download > cached)
-4. Validate the downloaded file integrity
-
-**Output:** 29-column GeoDataFrame (26 upstream + `climate_zone`, `epw_path`, `provenance_climate_zone`) saved as `02a_buildings_climate.gpkg` + `02a_climate_epw.parquet` sidecar.
+**Output:** 29 columns (26 + `climate_zone`, `epw_path`, `provenance_climate_zone`) → `02a_buildings_climate.gpkg` + `02a_climate_epw.parquet` sidecar.
 
 #### Step 2.2: Physics Enrichment
 
 **Module:** `openubem/semantic/__init__.py` (orchestrator) + `construction_sets.py` + `loads.py` + `schedules.py` + `imputation.py`
 
-Appends **28 physics columns** to each building row, transforming the 29-column input into a 57-column enriched GeoDataFrame:
+Appends **28 physics columns** (29 → 57), each property with its own provenance column:
 
-**Envelope properties (14 columns):**
-- `vintage_standard`: ASHRAE 90.1 standard era (e.g., `DOERefPre1980`, `90.1-2019`) resolved from `year_built`
-- U-values (`u_roof_w_m2k`, `u_wall_w_m2k`, `u_window_w_m2k`, `u_floor_w_m2k`), looked up from a bundled ASHRAE 90.1-2019 construction table keyed by (archetype, climate zone, vintage)
-- `shgc_window`: solar heat gain coefficient
-- `assembly_roof`, `assembly_wall`: assembly description strings
-- `infiltration_m3_s_m2`: envelope air leakage rate
-- Provenance columns for each property
-
-**Internal loads (14 columns):**
-- `lighting_w_m2`, `equipment_w_m2`: lighting and equipment power densities
-- `occupant_m2_per_person`: occupant density
-- `heating_setpoint_c`, `cooling_setpoint_c`: thermostat setpoints
-- `heating_setback_c`, `cooling_setup_c`: setback/setup temperatures
-- `wwr`: window-to-wall ratio
-- Provenance columns for each property
-
-**Load modes:**
-- `deterministic` (default): exact archetype-specific lookup values
-- `probabilistic`: KDE-resampled perturbation of density values for Monte Carlo analysis
-
-**OpenUBEMUnknown handling:**
-Buildings that could not be classified receive donor properties from `MediumOffice@DOERefPre1980` with probabilistic density estimation (PDE) for range coverage.
-
-**Schedule library:**
-For each unique archetype in the fleet, an 8760-hourly schedule library is built from bundled DOE prototype schedule data (occupancy, lighting, equipment, heating/cooling setpoint profiles) and serialized as `02b_schedule_library.json`.
+- **Envelope (14 columns):** `vintage_standard` (ASHRAE 90.1 era from `year_built`, e.g. `DOERefPre1980`, `90.1-2019`); `u_roof_w_m2k`, `u_wall_w_m2k`, `u_window_w_m2k`, `u_floor_w_m2k` from a bundled ASHRAE 90.1-2019 construction table keyed by (archetype, climate zone, vintage); `shgc_window`; `assembly_roof`, `assembly_wall` description strings; `infiltration_m3_s_m2` air leakage.
+- **Internal loads (14 columns):** `lighting_w_m2`, `equipment_w_m2` power densities; `occupant_m2_per_person`; `heating_setpoint_c`, `cooling_setpoint_c`; `heating_setback_c`, `cooling_setup_c`; `wwr` window-to-wall ratio.
+- **Load modes:** `deterministic` (default, exact archetype lookup) or `probabilistic` (KDE-resampled density perturbation for Monte Carlo).
+- **OpenUBEMUnknown:** unclassified buildings get donor properties from `MediumOffice@DOERefPre1980` with probabilistic density estimation (PDE) for range coverage.
+- **Schedule library:** for each archetype in the fleet, 8760-hourly occupancy / lighting / equipment / heating-cooling setpoint profiles from bundled DOE prototype data → `02b_schedule_library.json`.
 
 **Output:** `02b_buildings_enriched.gpkg` (57 columns) + schema JSON + schedule library JSON.
 
@@ -204,7 +158,7 @@ For each unique archetype in the fleet, an 8760-hourly schedule library is built
 
 **Modules:** `openubem/semantic/imputation.py` (routing) + `provenance.py` + `spatial_impute.py` + `fusion.py` + `draw_methods.py` + `debias.py`
 
-OSM is incomplete: heights, storey counts, vintages and use-classes are missing for a large share of any real fleet. Rather than filling silently, OpenUBEM routes every gap through an explicit, ordered tier stack and records **how** each value was obtained.
+OSM lacks heights, storey counts, vintages and use-classes for a large share of any real fleet. Instead of silent fills, every gap goes through an explicit, ordered tier stack that records **how** each value was obtained:
 
 | Tier | What it does | Status |
 |---|---|---|
@@ -214,28 +168,22 @@ OSM is incomplete: heights, storey counts, vintages and use-classes are missing 
 | `ml` | MissForest / MICE / kNN / RF / HistGBM / linear supervised imputers with per-target minimum sample floors, plus a quantile-mapping de-bias corrector for newer-skew. | **opt-in only**, never in the default tier list |
 | `draw` | Variance-preserving draws (KDE, PMM, hot-deck, residual, ABB, categorical-frequency), for when the *distribution*, not the point estimate, matters. | **opt-in only**, not wired into the default call graph |
 
-**Hard rules enforced in code and tests:**
-- No imputer or fusion source may read an EUI column (`_assert_no_eui_leakage`).
-- No source order, join tolerance, neighbourhood size or confidence cut-point is ever swept against a simulated-EUI target.
-- Every fill emits a `data_quality_flag` token of the form `{METHOD}_{SOURCE}_{TIER}` with `TIER ∈ {HIGH, MED, LOW}`; no site invents its own vocabulary.
+**Hard rules (enforced in code and tests):** no imputer or fusion source may read an EUI column (`_assert_no_eui_leakage`); no source order, join tolerance, neighbourhood size or confidence cut-point is ever swept against a simulated-EUI target; every fill emits a `data_quality_flag` token `{METHOD}_{SOURCE}_{TIER}` with `TIER ∈ {HIGH, MED, LOW}`, and no site invents its own vocabulary.
 
-**Validation utilities** (`openubem/validation/`): `mask_recover.py` runs a mask-and-recover harness (hide known values, impute, score recovery), and `eui_impact.py` runs the downstream check that matters: simulate the same buildings twice, on observed vs. imputed inputs, and compare annual EUI and peak load. Input-reconstruction accuracy alone is not accepted as validation.
+**Validation** (`openubem/validation/`): `mask_recover.py` hides known values, imputes, and scores recovery; `eui_impact.py` runs the check that matters: simulate the same buildings on observed vs imputed inputs and compare annual EUI and peak load. Input-reconstruction accuracy alone is not accepted as validation.
 
 ---
 
 ### Step 3: IDF Generation
 
 **Module:** `openubem/idf/builder.py` (orchestrator) + `surfaces.py` + `hvac.py` + `dhw.py` + `cooking.py` + `refrigeration.py` + `elevators.py` + `opaque_assembly.py` + `outputs.py`
-
 **Supporting:** `openubem/geometry/footprint.py` + `zoning.py` + `context.py` + `layout_assigner.py` + `envelope_patcher.py`
 
-Converts each enriched building row into a complete **EnergyPlus Input Data File (IDF)** ready for simulation:
+Each enriched row becomes a complete **EnergyPlus Input Data File (IDF)**:
 
-**3A. Footprint simplification:**
-Multi-step Douglas-Peucker simplification cascade (0.5 m → 1.5 m → convex hull → bounding box) to keep vertex count ≤ 120 while preserving shape fidelity.
+**3A. Footprint simplification:** Douglas-Peucker cascade (0.5 m → 1.5 m → convex hull → bounding box) keeps ≤ 120 vertices while preserving shape.
 
-**3B. Thermal zoning:**
-Chosen by the active [resolution mode](#simulation-resolution-modes); in the default `auto` mode, three strategies apply:
+**3B. Thermal zoning:** chosen by the active [resolution mode](#simulation-resolution-modes); in default `auto`:
 
 | Strategy | Condition | Description |
 |---|---|---|
@@ -243,26 +191,17 @@ Chosen by the active [resolution mode](#simulation-resolution-modes); in the def
 | `one_zone_per_floor` | Multi-floor < 500 m² or residential/tall | One zone per floor |
 | `perimeter_core` | Multi-floor ≥ 500 m² commercial | Core + perimeter zoning per floor (4.57 m depth) |
 
-**3C. Context discovery:**
-Neighbouring buildings within a 30 m radius are discovered and injected as shading surfaces, accounting for inter-building solar obstruction.
+**3C. Context:** neighbours within 30 m are injected as shading surfaces (inter-building solar obstruction).
 
-**3D. Schedule injection:**
-Archetype-specific hourly schedules (occupancy, lighting, equipment, thermostat setpoints) written directly into the IDF.
+**3D. Schedules:** archetype hourly occupancy, lighting, equipment and setpoint schedules written into the IDF.
 
-**3E. 3D geometry extrusion:**
-Footprint polygons extruded via geomeppy's `add_block()` to actual building height. Interzone surface integrity is validated (vertex-count mismatches fail the building at generation time, not runtime).
+**3E. Extrusion:** footprints extruded via geomeppy `add_block()` to real height. Interzone vertex-count mismatches fail the building at generation time, not runtime.
 
-**3F. Construction assignment:**
-- Opaque assemblies (roof, wall, floor) built by `opaque_assembly.py`: a massless R-value layer by default, or a real multilayer construction when thermal mass is requested (`Thickness = R × k`, the inversion fixed at both former defect sites)
-- Glazing via `WindowMaterial:SimpleGlazingSystem` with archetype-specific U-factor and SHGC
-- Window-to-wall ratio applied via `set_wwr()`
-- Per-zone infiltration via `ZoneInfiltration:DesignFlowRate`
+**3F. Constructions:** opaque assemblies (roof, wall, floor) via `opaque_assembly.py`, a massless R-value layer by default or a real multilayer construction when thermal mass is requested (`Thickness = R × k`, the inversion fixed at both former defect sites); glazing via `WindowMaterial:SimpleGlazingSystem` with archetype U-factor and SHGC; WWR via `set_wwr()`; per-zone `ZoneInfiltration:DesignFlowRate`.
 
-**3G. Internal loads:**
-`People`, `Lights`, `ElectricEquipment`, and thermostat objects created for every thermal zone.
+**3G. Internal loads:** `People`, `Lights`, `ElectricEquipment` and thermostat objects per zone.
 
-**3H. HVAC (10 system families):**
-`hvac.py` dispatches a real system per archetype × size × floor count, following ASHRAE 90.1-2019 Appendix G assignments, emitted as `HVACTemplate:*` objects and expanded with `ExpandObjects`:
+**3H. HVAC (10 families):** `hvac.py` dispatches a real system per archetype × size × floor count per ASHRAE 90.1-2019 Appendix G, emitted as `HVACTemplate:*` and expanded with `ExpandObjects`:
 
 | Family | Typical archetypes |
 |---|---|
@@ -277,7 +216,7 @@ Footprint polygons extruded via geomeppy's `add_block()` to actual building heig
 | Data-centre CRAC / CRAH | DataCenter variants |
 | Heated-only radiant / unit heaters | Warehouse |
 
-A single-zone guard prevents a degenerate one-zone building from being handed a multi-zone VAV system it cannot physically represent. Because the HVAC is real equipment rather than an ideal-loads abstraction, heating and cooling energy come from EnergyPlus **meters** at real equipment efficiency.
+A single-zone guard stops a degenerate one-zone building from receiving a multi-zone VAV it cannot represent. Because the HVAC is real equipment rather than ideal loads, heating and cooling energy come from EnergyPlus **meters** at real equipment efficiency.
 
 **3I. Service loads (physically modelled):**
 
@@ -290,19 +229,13 @@ A single-zone guard prevents a degenerate one-zone building from being handed a 
 
 Every intensity is area-scaled from the DOE prototype's own footprint, with no fitted multipliers.
 
-**3J. Output variables:**
-Hourly reporting of zone-level energy, operative temperature, and occupant count, plus the end-use meters Step 5 parses. `trim_outputs=True` drops per-zone hourly variables for large-fleet runs.
+**3J. Outputs:** hourly zone-level energy, operative temperature and occupant count, plus the end-use meters Step 5 parses. `trim_outputs=True` drops per-zone hourly variables for large fleets.
 
-**Template routing:**
-Four base IDF templates selected by archetype family:
-- `residential_base.idf`: apartments
-- `highrise_base.idf`: tall/super-tall buildings
-- `specialized_base.idf`: laboratories, data centres, warehouses
-- `commercial_base.idf`: everything else (default)
+**Templates** by archetype family: `residential_base.idf` (apartments), `highrise_base.idf` (tall/super-tall), `specialized_base.idf` (laboratories, data centres, warehouses), `commercial_base.idf` (everything else, default).
 
-**Parallelisation:** Optional joblib/loky process pool for multi-core IDF generation.
+**Parallelisation:** optional joblib/loky process pool for multi-core generation.
 
-**Output:** `03_idf_manifest.parquet` (one row per building with generation status and `resolution_mode`) + `idfs/*.idf` files.
+**Output:** `03_idf_manifest.parquet` (one row per building with generation status and `resolution_mode`) + `idfs/*.idf`.
 
 ---
 
@@ -310,24 +243,15 @@ Four base IDF templates selected by archetype family:
 
 **Module:** `openubem/simulation/runner.py` (single-building runner) + `openubem/simulation/parallel.py` (fleet orchestrator)
 
-Runs EnergyPlus 23.1 on the entire building fleet in parallel:
+Runs EnergyPlus 23.1 on the whole fleet in parallel:
 
-**4A. Task construction:**
-Each simulable building (generation status = `success`) becomes a `SimTask(osm_id, idf_path, epw_path, work_dir)`.
+**4A. Tasks:** each building with generation status `success` → `SimTask(osm_id, idf_path, epw_path, work_dir)`.
 
-**4B. Resume detection:**
-Before running, each work directory is checked for successful completion (presence of `eplusout.end` + `eplusout.sql` with success marker). Completed buildings are skipped; stale crash debris is cleaned up.
+**4B. Resume:** a work directory holding `eplusout.end` (success marker) + `eplusout.sql` is skipped; stale crash debris is cleaned.
 
-**4C. Version handshake:**
-Before any dispatch, `energyplus --version` is called to verify the installed version matches the expected `23.1`.
+**4C. Version handshake:** `energyplus --version` must report `23.1` before any dispatch.
 
-**4D. Parallel dispatch:**
-Fresh tasks fan out via `joblib.Parallel` with configurable worker count. Each worker:
-1. Launches `energyplus -w <epw> -d <workdir> -x -r <idf>` as a subprocess
-2. `-x` flag runs ExpandObjects (required for HVACTemplate objects)
-3. `-r` flag runs ReadVarsESO to produce `eplusout.csv` (CSV fallback for Step 5)
-4. Enforces a per-building timeout (default 3600 s)
-5. Classifies the outcome:
+**4D. Dispatch:** `joblib.Parallel` with configurable worker count. Each worker runs `energyplus -w <epw> -d <workdir> -x -r <idf>` (`-x` = ExpandObjects, required for HVACTemplate; `-r` = ReadVarsESO, producing the `eplusout.csv` fallback for Step 5), enforces the per-building timeout (default 3600 s), and classifies the outcome:
 
 | Status | Condition |
 |---|---|
@@ -338,13 +262,11 @@ Fresh tasks fan out via `joblib.Parallel` with configurable worker count. Each w
 | `failed_fatal` | `eplusout.end` contains fatal error marker |
 | `not_attempted_invalid_idf` | IDF generation failed in Step 3 |
 
-**4E. File purging:**
-After successful simulation, non-essential files are purged from each work directory. Retained files: `eplusout.sql`, `eplusout.csv`, `eplusout.mtr`, `eplusout.err`, `eplusout.end`, `eplusout.eio`, `eplustbl.htm`, `openubem_run.log`. (`eplusout.eio` is retained because Step 5 reads the *simulated* floor area from it; see 5C.)
+**4E. Purge:** after success, only `eplusout.sql`, `eplusout.csv`, `eplusout.mtr`, `eplusout.err`, `eplusout.end`, `eplusout.eio`, `eplustbl.htm`, `openubem_run.log` are kept (`.eio` because Step 5 reads the *simulated* floor area from it, see 5C).
 
-**4F. Manifest:**
-All results (fresh, cached, skipped) are assembled into `04_simulation_manifest.parquet` with `osm_id`, `idf_path`, `work_dir`, `sql_path`, `status`, `n_warnings`, `n_severe`, `wall_clock_s`, `ep_version`, `epw_path`, `error_summary`. `results/err_parse.py` extracts the leading fatal/severe cause from `eplusout.err` so failures are reported by reason, not just by count.
+**4F. Manifest:** fresh, cached and skipped results → `04_simulation_manifest.parquet` with `osm_id`, `idf_path`, `work_dir`, `sql_path`, `status`, `n_warnings`, `n_severe`, `wall_clock_s`, `ep_version`, `epw_path`, `error_summary`. `results/err_parse.py` extracts the leading fatal/severe cause from `eplusout.err`, so failures are reported by reason, not just count.
 
-**Output:** `04_simulation_manifest.parquet` + per-building work directories containing EnergyPlus output files.
+**Output:** the manifest + per-building work directories of EnergyPlus output files.
 
 ---
 
@@ -352,20 +274,11 @@ All results (fresh, cached, skipped) are assembled into `04_simulation_manifest.
 
 **Module:** `openubem/results/__init__.py` (orchestrator) + `parser.py` + `carbon.py` + `aggregator.py` + `service_loads.py` + `err_parse.py` + `visualization.py` + `plotting_suite.py`
 
-Parses simulation outputs, computes energy metrics, converts to emissions, and validates against benchmarks:
+**5A. Parsing (`parser.py`):** hourly data and end-use meters from `eplusout.sql` via SQLite, falling back to `eplusout.csv` (ReadVarsESO) if SQL is unavailable; J → kWh at the parse boundary.
 
-**5A. SQL/CSV parsing (`parser.py`):**
-- Primary: extract hourly reporting data and end-use meters from `eplusout.sql` via SQLite queries
-- Fallback: parse `eplusout.csv` (ReadVarsESO output) if SQL is unavailable
-- Energy unit conversion: J → kWh at the parse boundary
+**5B. Zone integrity:** regex zone-name resolution against the building's `osm_id`; a foreign `osm_id` in a work directory aborts the entire run (I2 invariant); zone count checked against the IDF manifest.
 
-**5B. Zone integrity check:**
-- Regex-based zone name resolution against the expected building's `osm_id`
-- I2 invariant: foreign `osm_id` in a work directory aborts the entire run
-- Zone count verification against the IDF manifest
-
-**5C. EUI computation:**
-Ten metered end-uses (kWh/m²/yr), all from EnergyPlus meters:
+**5C. EUI:** ten metered end-uses (kWh/m²/yr), all from EnergyPlus meters:
 
 | Metric | EnergyPlus source |
 |---|---|
@@ -381,25 +294,15 @@ Ten metered end-uses (kWh/m²/yr), all from EnergyPlus meters:
 | `elevators_eui_kwh_m2` | `Elevators:InteriorEquipment:Electricity`, de-folded out of equipment |
 | `total_eui_kwh_m2` | **sum of all ten**, whole-building site energy |
 
-**Floor-area denominator.** The denominator is the **multiplier-aware simulated floor area** read from `eplusout.eio` (`Σ zone floor area × zone multiplier × zone-list multiplier`), falling back to the nominal `footprint_area_m2 × num_floors` when the `.eio` is absent, with the choice recorded as provenance. This closed a defect where any building using `Zone.Multiplier` had its EUI divided by an area EnergyPlus never simulated.
+**Floor-area denominator:** the **multiplier-aware simulated floor area** read from `eplusout.eio` (Σ zone floor area × zone multiplier × zone-list multiplier), falling back to nominal `footprint_area_m2 × num_floors` when `.eio` is absent, with the choice recorded as provenance. This closed a defect where any `Zone.Multiplier` building had its EUI divided by an area EnergyPlus never simulated.
 
-**5D. Indoor Overheating Degree (IOD):**
-Adaptive thermal comfort metric computed over summer months (June–September):
-- Comfort threshold: Tₙ + 2.5 °C where Tₙ = 0.31 × T̄ₘₒₙₜₕₗᵧ + 17.8
-- Occupant-count-weighted mean across all zones
-- Flags `IOD_NO_OCCUPIED_HOURS` when no occupied summer hours exist
+**5D. Indoor Overheating Degree (IOD):** adaptive comfort metric over June–September. Threshold Tₙ + 2.5 °C with Tₙ = 0.31 × T̄ₘₒₙₜₕₗᵧ + 17.8; occupant-count-weighted mean across zones; flags `IOD_NO_OCCUPIED_HOURS` when no occupied summer hours exist.
 
-**5E. Carbon emissions (`carbon.py`):**
-A GWP column per end-use plus a total (kg CO₂e/m²) under the **`load_referenced_v1`** convention:
-- **Gas fractions** (heating, DHW gas, cooking) × 0.181 kg CO₂e/kWh
-- **Electric fractions** × state-specific eGRID 2022 electricity emission factor
-- `gwp_heating`, `gwp_cooling`, `gwp_lighting`, `gwp_equipment`, `gwp_fans`, `gwp_pumps`, `gwp_dhw`, `gwp_cooking`, `gwp_refrigeration`, `gwp_elevators`, `gwp_total`
+**5E. Carbon (`carbon.py`):** one GWP column per end-use plus a total (kg CO₂e/m²) under the **`load_referenced_v1`** convention: gas fractions (heating, DHW gas, cooking) × 0.181 kg CO₂e/kWh; electric fractions × state-specific eGRID 2022 factor. Columns: `gwp_heating`, `gwp_cooling`, `gwp_lighting`, `gwp_equipment`, `gwp_fans`, `gwp_pumps`, `gwp_dhw`, `gwp_cooking`, `gwp_refrigeration`, `gwp_elevators`, `gwp_total`.
 
-**5F. Spatial join & aggregation (`aggregator.py`):**
-Step-5 metric columns are LEFT-joined onto the enriched GeoDataFrame, and a neighbourhood summary is written: fleet mean EUI, total emissions, total floor area, simulation success rate, IOD mean/p95.
+**5F. Aggregation (`aggregator.py`):** metric columns LEFT-joined onto the enriched GeoDataFrame; neighbourhood summary = fleet mean EUI, total emissions, total floor area, simulation success rate, IOD mean/p95.
 
-**5G. Validation gates (`__init__.py`):**
-CBECS 2018 (Commercial Buildings Energy Consumption Survey) validation when a reference dataset is provided:
+**5G. Validation gates (`__init__.py`):** CBECS 2018 (Commercial Buildings Energy Consumption Survey), when a reference dataset is provided:
 
 | Gate | Metric | Threshold |
 |---|---|---|
@@ -408,15 +311,13 @@ CBECS 2018 (Commercial Buildings Energy Consumption Survey) validation when a re
 | R² | Archetype-level Pearson correlation with PBA-matched CBECS means | > 0.6 |
 | KS D | Kolmogorov–Smirnov statistic vs. weighted CBECS CDF | < 0.10 |
 
-Exclusions: residential apartments, data centres excluded from all gates; `OpenUBEMUnknown` excluded from R² only.
+Exclusions: residential apartments and data centres from all gates; `OpenUBEMUnknown` from R² only.
 
-> **NMBE is never quoted alone.** It is blind to variance collapse: a model that predicts every building at the fleet mean scores a perfect NMBE. Read it beside R² and the distribution-shape gates.
+> **NMBE is never quoted alone.** It is blind to variance collapse: predicting every building at the fleet mean scores a perfect NMBE. Read it beside R² and the distribution-shape gates.
 
-**5H. Visualisation:**
-`visualization.py` and `plotting_suite.py` produce spatial EUI maps with basemap tiles, ordered archetype charts, and validation comparison plots; `impute_figures.py` / `impute_scatter.py` / `impute_montage.py` / `draw_leaderboard.py` cover the imputation-method reporting. All figure outputs go to `openubem/outputs/` (flat).
+**5H. Visualisation:** `visualization.py` and `plotting_suite.py` produce spatial EUI maps with basemap tiles, ordered archetype charts and validation plots; `impute_figures.py` / `impute_scatter.py` / `impute_montage.py` / `draw_leaderboard.py` cover imputation-method reporting. All figures → `openubem/outputs/` (flat).
 
-**5I. Service-loads reconstruction (legacy, default OFF):**
-`service_loads.py` implements the pre-Phase-E approach: divide the modelled total by a CBECS-2018 modelled-energy fraction (region-aware) to reconstruct a measured-comparable total. It is **retired** (`config.RECONSTRUCT_SERVICE_LOADS` defaults to `False`) because those loads are now physically simulated (3I). The code is retained so historical runs can be re-scored on their original basis.
+**5I. Service-loads reconstruction (legacy, default OFF):** `service_loads.py` is the pre-Phase-E approach: divide the modelled total by a region-aware CBECS-2018 modelled-energy fraction to reconstruct a measured-comparable total. **Retired** (`config.RECONSTRUCT_SERVICE_LOADS` defaults to `False`) because those loads are now physically simulated (3I); kept so historical runs can be re-scored on their original basis.
 
 **Output:** `05_results.gpkg` + `05_results.csv` + `05_summary.json` + `figures/` + optional `<run_id>_viewer.html`.
 
@@ -426,9 +327,9 @@ Exclusions: residential apartments, data centres excluded from all gates; `OpenU
 
 **Module:** `openubem/microclimate/` · **Runner:** `scripts/run_step6_microclimate.py`
 
-Steps 1–5 answer *"how much energy do these buildings use?"* Step 6 answers *"what does it feel like to stand outside among them?"* It is invoked **explicitly**, never as part of a standard run, reads Steps 1–5 read-only, and writes only `06_mc_*` artifacts.
+Steps 1–5 answer *"how much energy do these buildings use?"*; Step 6 answers *"what does it feel like to stand outside among them?"* It is invoked **explicitly**, never in a standard run, reads Steps 1–5 read-only, and writes only `06_mc_*` artifacts.
 
-Given a run's buildings, resolved EPW, and optionally real EnergyPlus exterior surface temperatures, it computes at pedestrian height (1.1 m) over a chosen analysis window:
+From a run's buildings, resolved EPW, and optionally real EnergyPlus exterior surface temperatures, it computes at pedestrian height (1.1 m) over a chosen analysis window:
 
 | Layer | What it is |
 |---|---|
@@ -439,9 +340,9 @@ Given a run's buildings, resolved EPW, and optionally real EnergyPlus exterior s
 | **Exposure metrics** | CTSI (cumulative thermal stress, °C·h above threshold) and PHEH (person-hours above 46 °C), aggregated per parcel |
 | **Mitigation scenarios** | Tree canopy, PV canopy, cool pavement, cool roof, high-albedo facade; each is a *domain-layer* edit (albedo, canopy), never a physics change |
 
-Outputs are per-hour **GeoTIFF** rasters, figures, and a per-building GeoPackage that joins outdoor heat exposure onto each building's own energy results, letting you ask which buildings sit in the worst outdoor heat, and what their energy use is.
+Outputs: per-hour **GeoTIFF** rasters, figures, and a per-building GeoPackage joining outdoor heat exposure onto each building's own energy results, so you can ask which buildings sit in the worst outdoor heat and what their energy use is.
 
-**Honest limits.** Step 6 results are **not validated against any measurement**: there is no outdoor comfort measurement campaign for any of the twelve cells, and every gate is internal-consistency or behavioural. That is exactly why its numbers are kept out of `05_results.*` rather than sitting beside validated numbers with borrowed authority. The optional `macdonald` wind tier is safe (zero physically-impossible values across 113 M checked cell-hours) but falls back to the default `cost730` tier for ~32% of cell-hours on a real mid/high-rise domain. Buildings with no known height cannot cast shade, so cells with heavy `height_m` gaps compute as an open field rather than an urban canyon.
+**Honest limits.** Step 6 is **not validated against any measurement**: no outdoor comfort campaign exists for any of the twelve cells, and every gate is internal-consistency or behavioural. That is exactly why its numbers stay out of `05_results.*` rather than sitting beside validated numbers with borrowed authority. The optional `macdonald` wind tier is safe (zero physically-impossible values across 113 M checked cell-hours) but falls back to the default `cost730` tier for ~32% of cell-hours on a real mid/high-rise domain. Buildings with no known height cast no shade, so cells with heavy `height_m` gaps compute as an open field rather than an urban canyon.
 
 ```bash
 py -3 scripts/run_step6_microclimate.py --run-dir <completed_run_dir>
@@ -452,7 +353,7 @@ py -3 scripts/run_step6_microclimate.py --run-dir <dir> --wind-tier macdonald --
 
 ## Simulation Resolution Modes
 
-Zoning fidelity is user-selectable per study via `run_step3(..., resolution_mode=...)`: coarse for early-design screening, finer for detailed work.
+Zoning fidelity is selectable per study via `run_step3(..., resolution_mode=...)`: coarse for early-design screening, finer for detailed work.
 
 | Mode | What it does | Zones/building | Status |
 |---|---|---|---|
@@ -463,9 +364,9 @@ Zoning fidelity is user-selectable per study via `run_step3(..., resolution_mode
 | **`layout_assign`** | Substitutes a validated DOE/ASHRAE 90.1 baseline prototype IDF for the archetype and scales it to the real building (√S geometry, S loads), with storey matching via `Zone.Multiplier` and climate/vintage envelope patching | Real DOE-prototype zone count (1–256) | ⚠️ adopted for zone/HVAC-topology studies, **not certified for fleet-level EUI reporting** |
 | **`zone`** | Room-level polygon layout generation (`layoutGenerator.py`) | many | ⏸ parked, not a validated baseline |
 
-**Mode-to-mode differences are physics, not error.** Internal loads conserve across modes (the same building accounts for the same total floor area at any resolution), but coarser zoning under-predicts annual heating by ~10–26% and shifts peak/solar behaviour. Those differences wash out to < ~2.3% once results are aggregated to district scale. Use `building`/`floor` for stock totals and screening; they are **not** appropriate for peak-demand or equipment-sizing studies.
+**Mode-to-mode differences are physics, not error.** Internal loads conserve across modes (the same building accounts for the same total floor area at any resolution), but coarser zoning under-predicts annual heating by ~10–26% and shifts peak/solar behaviour. Those differences wash out to < ~2.3% at district scale. Use `building`/`floor` for stock totals and screening; they are **not** appropriate for peak-demand or equipment-sizing studies.
 
-**Why `layout_assign` is not used for fleet EUI.** It takes an excellent suit off the rack and alters it: the prototype's interior is far better than any generated layout, but it isn't the real building's shape. Its storey-matching mechanism only reaches prototypes with 1 or 3 native storeys, and only when the real building is taller, so for most of the fleet the simulated floor area and the nominal floor area disagree, giving a correct number for the wrong building. Internal loads also stay at 2022-code densities regardless of the building's real vintage (the envelope *is* patched to the real vintage; the loads are not).
+**Why `layout_assign` is not used for fleet EUI.** It takes an excellent suit off the rack and alters it: the prototype's interior beats any generated layout, but it is not the real building's shape. Storey matching reaches only prototypes with 1 or 3 native storeys, and only when the real building is taller, so for most of the fleet the simulated and nominal floor areas disagree, giving a correct number for the wrong building. Internal loads also stay at 2022-code densities regardless of real vintage (the envelope *is* patched to the real vintage; the loads are not).
 
 ---
 
@@ -473,16 +374,16 @@ Zoning fidelity is user-selectable per study via `run_step3(..., resolution_mode
 
 **Module:** `openubem/viz/`: `viewer_export.py` (Step-5 post-processor), `cityjson_emitter.py`, `geometry_extract.py`, `attribute_binding.py`, `basemap_raster.py`, `context_features.py`, `utci_layer.py`, `shell/` (vendored JS/CSS engine)
 
-After a run's `05_results.*` exist, OpenUBEM can export the neighbourhood as **one self-contained HTML file** you open by double-clicking: no server, no install, no network. Each building is extruded to its real massing and coloured by simulated EUI; select one to drill into its individual surfaces and windows.
+Once a run's `05_results.*` exist, the neighbourhood exports as **one self-contained HTML file** opened by double-click: no server, no install, no network. Each building is extruded to its real massing and coloured by simulated EUI; select one to drill into its surfaces and windows.
 
 **Two constraints it never breaks:**
 
-1. **Faithful to the model.** It renders exactly what the pipeline produced: real IDF geometry and real `05_results` values. Where a fact is absent it shows **"not recorded"**, never a made-up default. A building's zone breakdown opens **only** where the pipeline made real zone geometry; synthetic zones are prohibited.
+1. **Faithful to the model.** It renders exactly what the pipeline produced: real IDF geometry and real `05_results` values. Absent facts show **"not recorded"**, never a made-up default. A zone breakdown opens **only** where the pipeline made real zone geometry; synthetic zones are prohibited.
 2. **Self-contained and reproducible.** Engine, styles, scene data and the street-map basemap are all inlined (the basemap is baked once at export time, not streamed), so the file opens from `file://` with zero network requests, and re-exporting the same run state gives a byte-identical file.
 
-It also carries **per-building provenance** (resolution-mode border, trust badge, failure hatch, and the raw `data_quality_flag` tokens) and honest data-gap styling (e.g. footprints with no OSM height are badged *"Height: not in OSM"* rather than rendered as broken buildings). UTCI from Step 6 can be switched on as an optional layer; off by default, and a run without it rebuilds byte-identically.
+It also carries **per-building provenance** (resolution-mode border, trust badge, failure hatch, raw `data_quality_flag` tokens) and honest data-gap styling (footprints with no OSM height are badged *"Height: not in OSM"*, not rendered as broken buildings). Step 6 UTCI can be switched on as an optional layer; off by default, and a run without it rebuilds byte-identically.
 
-Pre-built viewers for all 12 validation cells live in `openubem/outputs/3D/`.
+Pre-built viewers for all 12 validation cells: `openubem/outputs/3D/`.
 
 ---
 
@@ -676,24 +577,25 @@ All tuneable parameters live in `openubem/config.py`:
 
 ## Running on an HPC Cluster
 
-City-scale fleets (thousands of buildings) are run on SLURM. `scripts/cluster/` holds the submit and harvest utilities, and `scripts/cluster/README.md` is the full runbook.
+City-scale fleets (thousands of buildings) run on SLURM. `scripts/cluster/` holds the submit and harvest utilities; `scripts/cluster/README.md` is the full runbook.
 
-The pattern is **generate locally, simulate remotely, harvest back**:
+Pattern: **generate locally, simulate remotely, harvest back**:
 
 1. Generate IDFs locally (`run_r3_gen_only.py`) and stage them with the EPW into a tarball.
 2. `scp` to the cluster and submit as a **job array**, one building per array task, 1 CPU each (EnergyPlus is single-threaded per building).
 3. Harvest with `t*_harvest_results.py`, which rebuilds a Step-4 manifest from the returned work directories so Step 5 runs unchanged locally.
 
-Two rules that are non-negotiable on the Concordia *Speed* cluster and generalise well:
+Rules that are non-negotiable on the Concordia *Speed* cluster and generalise well:
 
 - **Never run compute on the login node.** Always `sbatch --array`, fire-and-forget, then read the output file. The login node is for `mkdir`, `scp`, `tar`, `squeue`, `sacct`.
-- **The remote login shell is tcsh.** Bash syntax sent over a bare `ssh` fails silently, so wrap remote commands in `bash -lc` (the `_ssh()` helper in the harvest scripts does this).
+- **The remote login shell is tcsh.** Bash syntax over a bare `ssh` fails silently, so wrap remote commands in `bash -lc` (the `_ssh()` helper in the harvest scripts does this).
+- **Multiple simulations always run in parallel, never one after another, and Speed comes first** because it is faster. Speed takes up to 32 concurrent CPUs (array width 32); a local machine takes up to 20 concurrent EnergyPlus processes; add local capacity when the case count justifies it.
 
 ---
 
 ## Test Suite
 
-95 test modules covering all pipeline stages, the imputation framework, the microclimate stage, and the viewer.
+95 test modules cover all pipeline stages, the imputation framework, the microclimate stage and the viewer.
 
 ```bash
 pytest -q tests/                          # the suite baseline; always scope to tests/
@@ -702,23 +604,19 @@ pytest -m "not energyplus"                # skip tests requiring the EnergyPlus 
 pytest tests/test_building_classifier.py  # single module
 ```
 
-> ⚠️ **Always pass `tests/`.** A bare root-level `pytest` also collects archived copies of old test trees under `docs/` and reports a large number of false failures.
+> ⚠️ **Always pass `tests/`.** A bare root-level `pytest` also collects archived copies of old test trees under `docs/` and reports many false failures.
 
-Test markers:
-- `slow`: integration tests that hit the network or take significant time
-- `energyplus`: tests requiring EnergyPlus 23.1 installed
+Markers: `slow` (integration tests that hit the network or take significant time); `energyplus` (requires EnergyPlus 23.1 installed).
 
-Latest full run of the scoped suite: **0 failed · 1,859 passed · 55 skipped · 0 errors**. Every skip names the open item it waits on. A skip is tracked as a debt, not counted as a pass.
+Latest full run of the scoped suite: **0 failed · 1,859 passed · 55 skipped · 0 errors**. Every skip names the open item it waits on; a skip is tracked as a debt, not counted as a pass.
 
-Golden fixtures (GeoPackage files, EnergyPlus SQL, labelled classifier exams) are stored in `tests/fixtures/`.
+Golden fixtures (GeoPackage files, EnergyPlus SQL, labelled classifier exams) live in `tests/fixtures/`.
 
 ---
 
 ## Requirements & Installation
 
-**System requirements:**
-- Python ≥ 3.10
-- EnergyPlus 23.1 installed at `C:\EnergyPlusV23-1-0` (or set `ENERGYPLUS_PATH`)
+**System requirements:** Python ≥ 3.10; EnergyPlus 23.1 installed at `C:\EnergyPlusV23-1-0` (or set `ENERGYPLUS_PATH`).
 
 **Python dependencies** (from `pyproject.toml`):
 
@@ -742,7 +640,7 @@ Golden fixtures (GeoPackage files, EnergyPlus SQL, labelled classifier exams) ar
 | `requests` | HTTP downloads (EPW files) |
 | `packaging` | Version string comparison |
 
-**Dev extras:** `pytest`, `pytest-mock`, `tenacity`, `openpyxl`, `pythermalcomfort` (Step-6 comfort cross-checks). `duckdb` is needed only for the live Overture fusion path, which is never exercised by the test suite.
+**Dev extras:** `pytest`, `pytest-mock`, `tenacity`, `openpyxl`, `pythermalcomfort` (Step-6 comfort cross-checks). `duckdb` is needed only for the live Overture fusion path, never exercised by the test suite.
 
 **Installation:**
 
@@ -821,7 +719,7 @@ py -3 scripts/run_step6_microclimate.py --run-dir my_neighbourhood/results
 
 ## Status & Validation
 
-OpenUBEM has been validated at neighbourhood scale across **three U.S. cities** against independent measured-energy benchmarks. All gates are evaluated report-only and never tuned to pass.
+Validated at neighbourhood scale across **three U.S. cities** against independent measured-energy benchmarks. All gates are report-only, never tuned to pass.
 
 **Validation matrix: 12 cells, 8,160 buildings.** Four density cells (centre / urban / suburban / rural) in each of **New York City, Los Angeles, and Austin**, simulated end-to-end. **8,154 of 8,160 buildings succeeded (99.93%)**; the six failures are geometry defects in `la_rural` / `la_urban`, documented rather than dropped silently.
 
@@ -835,11 +733,11 @@ OpenUBEM has been validated at neighbourhood scale across **three U.S. cities** 
 | National CBECS 2018 | scored across all three census regions (mid-Atlantic, Pacific, West-South-Central) |
 | EnergyPlus success | 8,154 / 8,160 |
 
-**How to read the under-prediction.** The earlier Phase-D2 baseline reported city-overall accuracy within ±9%, but part of that agreement came from a post-hoc reconstruction overlay that silently carried a residual "Other" category (process loads, miscellaneous plug loads). Phase-E removed the overlay and replaced it with physics, which makes the remaining gap visible instead of absorbed. Closing it would require fitting office plug loads to CBECS, which breaks the zero-fitted-parameters rule, and is therefore recorded as an accepted residual, not silently corrected. The distribution shape (R²) is strong; the mean level is biased low, and both numbers are published together.
+**How to read the under-prediction.** The earlier Phase-D2 baseline reported city-overall accuracy within ±9%, but part of that agreement came from a post-hoc reconstruction overlay that silently carried a residual "Other" category (process loads, miscellaneous plug loads). Phase-E replaced the overlay with physics, which makes the remaining gap visible instead of absorbed. Closing it would mean fitting office plug loads to CBECS, which breaks the zero-fitted-parameters rule, so it is recorded as an accepted residual, not silently corrected. The distribution shape (R²) is strong; the mean level is biased low; both numbers are published together.
 
 **Known limitations, stated plainly:**
 
-- **The published fleet figure is not yet end-to-end reproducible from `HEAD`.** The adopted run was produced by a working tree whose elevator wiring was never committed. The wiring has since been restored and regenerates the elevator column exactly, but a separate window-geometry re-randomisation defect (mechanism fixed 2026-08-17) means the confirming third fleet re-run has not been done. `157.1 kWh/m²` is correct and complete for the run that produced it; the provenance caveat stays live until that re-run lands.
+- **The published fleet figure is not yet end-to-end reproducible from `HEAD`.** The adopted run came from a working tree whose elevator wiring was never committed. The wiring has since been restored and regenerates the elevator column exactly, but a separate window-geometry re-randomisation defect (mechanism fixed 2026-08-17) means the confirming third fleet re-run has not been done. `157.1 kWh/m²` is correct and complete for the run that produced it; the provenance caveat stays live until that re-run lands.
 - **`layout_assign` is not certified for fleet EUI reporting**: see [Simulation Resolution Modes](#simulation-resolution-modes).
 - **Step 6 (UTCI) is not validated against measurement** and is deliberately excluded from `05_results.*`.
 - **Distribution-shape gates** (CV(RMSE), KS) are structural for an archetype-deterministic UBEM, reported for transparency rather than used as pass/fail.

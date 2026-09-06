@@ -132,6 +132,7 @@ button:disabled{{opacity:.42;cursor:not-allowed}}
     <button id="bP">colour: provenance</button>
     <button id="bY">colour: age</button>
     <button id="bS">colour: layout state</button>
+    <button id="bU">colour: EUI</button>
     <button id="bE" class="on">show excluded</button>
     <button id="bR">reset view</button>
   </div>
@@ -183,6 +184,8 @@ var hmax=1;for(var i=0;i<B.length;i++)if(B[i].h>hmax)hmax=B[i].h;
 hmax=Math.min(hmax,60);
 var years=B.filter(function(b){return b.y}).map(function(b){return b.y});
 var ymin=years.length?Math.min.apply(null,years):1900,ymax=years.length?Math.max.apply(null,years):2020;
+var euis=B.filter(function(b){return b.eui!=null;}).map(function(b){return b.eui;});
+var euimin=euis.length?Math.min.apply(null,euis):0,euimax=euis.length?Math.max.apply(null,euis):200;
 
 var RAMP=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
 function ramp(t){t=Math.max(0,Math.min(1,t));var s=t*(RAMP.length-1),i=Math.floor(s),f=s-i;
@@ -203,6 +206,7 @@ function baseColor(b){
   if(mode==="p")return PROV[b.p];
   if(mode==="y"){if(!b.y)return [80,88,100];return ramp((b.y-ymin)/Math.max(1,ymax-ymin));}
   if(mode==="s")return STATE_COLORS[stateIdx(b)];
+  if(mode==="u"){if(b.eui==null)return [80,88,100];return ramp((b.eui-euimin)/Math.max(1,euimax-euimin));}
   return ramp(b.h/hmax);
 }
 var mode="h";
@@ -604,6 +608,12 @@ function legend(){
     lb.innerHTML='<div id="bar" style="background:linear-gradient(90deg,'+stops.join(",")+')"></div>'+
       '<div class="lab"><span>'+(mode==="h"?"0 m":ymin)+'</span><span>'+
       (mode==="h"?Math.round(hmax)+" m+":ymax)+'</span></div>';
+  } else if(mode==="u"){
+    var stopsU=[];for(var iu=0;iu<=10;iu++){var cu=ramp(iu/10);stopsU.push("rgb("+(cu[0]|0)+","+(cu[1]|0)+","+(cu[2]|0)+") "+(iu*10)+"%");}
+    lt.textContent="heating EUI (kWh/m²)";
+    lb.innerHTML='<div id="bar" style="background:linear-gradient(90deg,'+stopsU.join(",")+')"></div>'+
+      '<div class="lab"><span>'+Math.round(euimin)+'</span><span>'+Math.round(euimax)+'</span></div>'+
+      "<div class='keys' style='margin-top:6px'><div><span class='sw' style='background:rgb(80,88,100)'></span>not simulated</div></div>";
   } else if(mode==="s"){
     lt.textContent="layout state (read from IDF)";
     var out2="<div class='keys'>";
@@ -621,13 +631,14 @@ function legend(){
   }
 }
 function setMode(m,btn){
-  mode=m;["bH","bP","bY","bS"].forEach(function(id){document.getElementById(id).classList.remove("on");});
+  mode=m;["bH","bP","bY","bS","bU"].forEach(function(id){document.getElementById(id).classList.remove("on");});
   btn.classList.add("on");legend();draw();
 }
 document.getElementById("bH").onclick=function(){setMode("h",this);};
 document.getElementById("bP").onclick=function(){setMode("p",this);};
 document.getElementById("bY").onclick=function(){setMode("y",this);};
 document.getElementById("bS").onclick=function(){setMode("s",this);};
+document.getElementById("bU").onclick=function(){setMode("u",this);};
 document.getElementById("bE").onclick=function(){showExc=!showExc;this.classList.toggle("on",showExc);draw();};
 document.getElementById("bR").onclick=function(){fit();draw();};
 

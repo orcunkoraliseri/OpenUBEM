@@ -222,7 +222,10 @@ def test_t08_single_storey_building_carries_no_circulation_zone(dwelling_count):
     assert abs(gross - conditioned) < 1e-6 * gross
 
 
-def test_t08_multi_storey_building_still_carries_circulation_at_2_plus_dwellings():
+def test_t08_multi_storey_building_still_carries_circulation_at_2_plus_dwellings(monkeypatch):
+    from openubem.geometry import european_residential as module
+
+    monkeypatch.setattr(module, "EUROPEAN_LAYOUT_REGIME", "ruled")
     footprint = box(0.0, 0.0, 24.0, 18.0)
     floor_allocations = tuple(
         EuropeanFloorAllocation(storey_index=i, dwelling_count=4, conditioned_area_m2=footprint.area, unconditioned_core_area_m2=0.0)
@@ -235,10 +238,13 @@ def test_t08_multi_storey_building_still_carries_circulation_at_2_plus_dwellings
     assert conditioned < gross
 
 
-def test_t08_named_madrid_building_way_340701289_like_case_loses_its_core():
+def test_t08_named_madrid_building_way_340701289_like_case_loses_its_core(monkeypatch):
     # way/340701289 (Madrid, ruled_grid_3x2, 1 storey, 5 dwellings, 161.32 m^2
     # gross): today's EU-11 side-car carries has_unconditioned_core=true.
     # Post-D-EU-49 it must lose the core while keeping the exact count.
+    from openubem.geometry import european_residential as module
+
+    monkeypatch.setattr(module, "EUROPEAN_LAYOUT_REGIME", "ruled")
     area = 161.3218
     width = math.sqrt(area / 1.4)
     footprint = box(0.0, 0.0, width, area / width)

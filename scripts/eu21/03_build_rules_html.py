@@ -1,4 +1,6 @@
-import csv, json, html, pathlib
+import csv, json, html, pathlib, statistics
+import importlib.util as ilu
+from shapely.affinity import translate as _translate
 
 REPO = pathlib.Path(r"C:/Users/o_iseri/Desktop/OpenUBEM")
 EU20 = REPO / "openubem/outputs/eu_evidence/EU-20"
@@ -74,7 +76,7 @@ def svg(g):
     return s
 
 
-PLANS = {r["group"]: r for r in json.load(open(pathlib.Path(__file__).with_name("group_plans.json"), encoding="utf-8"))}
+# PLANS is built after SPEC (DD-9 needs SPEC[g]["status"]) -- see below.
 
 FILLS = ["--d1", "--d2", "--d3", "--d4", "--d5", "--d6", "--d7", "--d8"]
 
@@ -173,17 +175,16 @@ CLOSE = [
 
 SPEC = {
  "COURTYARD": dict(
-   num="01", status="proposed",
+   num="01", status="in-force",
    rule="n_interior_rings &ge; 1",
    match=["ladder step <b>1 of 11</b> &mdash; tested before everything else",
           "the footprint encloses at least one interior void",
           "a ring plate breaks any grid that assumes a solid plate"],
    plate=["median <b>375&nbsp;m&sup2;</b> of built band around a 23.5&nbsp;m&sup2; void",
           "the band, not the bounding box, is what gets cut"],
-   core=["a <b>1.80&nbsp;m deck-access gallery</b> round the void, <b>open on one side</b> so the zone is "
-         "one outline and not a ring",
-         "one stair opens onto the gallery; every flat is reached from it",
-         "the void is not a zone and carries no surfaces"],
+   core=["<b>D-EU-67</b>: up to four corner stair cores at the void are joined into <b>one</b> circulation zone by the gallery band, not left as separate cores",
+         "the gallery is <b>1.80&nbsp;m</b> wide and <b>open on one side</b>, so the joined zone is one outline and not a ring",
+         "a void under <code>COURTYARD_MIN_VOID_SIDE&nbsp;=&nbsp;6.0&nbsp;m</code> is not a courtyard at all (<b>DD-7</b>): the plate is cut by its exterior&rsquo;s own group instead, the void left on a party wall"],
    cut=["<b>k</b> sector cuts radiating from the void, equal area",
         "every flat keeps its street facade"],
    scheme=["<code>courtyard_gallery_ring</code> &mdash; S5, new, drawn opposite",
@@ -220,8 +221,10 @@ SPEC = {
           "the cleanest plate in the taxonomy"],
    core=["one central core at <code>CORE_FRACTION_OF_PLATE = 0.06</code> of the plate",
          "inside the plate, never against the outer wall"],
-   cut=["<b>k</b> flats on an <b>N&times;M</b> grid around the core",
-        "each flat runs out to the outer wall"],
+   cut=["<b>k</b> flats on an <b>N&times;M</b> grid around the core, each running out to the outer wall",
+        "<b>DD-3</b>: at k&nbsp;&ge;&nbsp;5, <code>ceil(k/M)</code> equal-area columns &times; M rows, cut by a straight corridor",
+        "<b>DD-6</b>: M&nbsp;&isin;&nbsp;{1,2}, whichever gives the smaller max/min aspect ratio, every flat &ge;&nbsp;3.0&nbsp;m wide",
+        "no loading clears the 3.0&nbsp;m floor &rarr; <code>BAND_LT_3M</code>"],
    scheme=["<code>point_block_grid</code> &rarr; <code>ruled_grid_NxM</code>"],
    refuse="More than <code>RULED_GRID_MAX_DWELLINGS_PER_FLOOR = 12</code> declared dwellings on one storey. (D-EU-65, 2026-09-01; was 8 until then)"),
 
@@ -236,8 +239,10 @@ SPEC = {
           "four denoised vertices in every district"],
    core=["one core on the short axis",
          "still a core, not a corridor: below aspect 2.0 one core reaches every flat"],
-   cut=["<b>k</b> flats on an <b>N&times;M</b> grid, N along the length",
-        "flats left and right of the core, each running to the end wall"],
+   cut=["<b>k</b> flats on an <b>N&times;M</b> grid, N along the length, each running to the end wall",
+        "<b>DD-3</b>: at k&nbsp;&ge;&nbsp;5, <code>ceil(k/M)</code> equal-area columns &times; M rows, cut by a straight corridor",
+        "<b>DD-6</b>: M&nbsp;&isin;&nbsp;{1,2}, whichever gives the smaller max/min aspect ratio, every flat &ge;&nbsp;3.0&nbsp;m wide",
+        "no loading clears the 3.0&nbsp;m floor &rarr; <code>BAND_LT_3M</code>"],
    scheme=["<code>ruled_grid_NxM</code>"],
    refuse="More than 8 declared dwellings on one storey."),
 
@@ -252,8 +257,8 @@ SPEC = {
           "a rectangle carried by one long facade, not two short ones"],
    core=["one <b>1.80&nbsp;m corridor</b> along the long axis, as a slab has",
          "no central core: past aspect 2.0 one core stops reaching every unit"],
-   cut=["<b>k</b> flats off the corridor, equal area",
-        "single-loaded below 12&nbsp;m depth, double-loaded above"],
+   cut=["<b>k</b> flats off the corridor: <b>DD-3</b> equal-area columns, single-loaded (M&nbsp;=&nbsp;1) by design &mdash; a corridor rectangle&rsquo;s core is already the corridor, not a second row",
+        "each column still needs &ge;&nbsp;3.0&nbsp;m width (the same <b>DD-6</b> floor), else <code>BAND_LT_3M</code>"],
    scheme=["<code>i_shape_linear_gallery</code>",
            "drawn at 3 flats/floor, not the group median of 2 &mdash; at 2 the scheme is a plain bisection "
            "with no corridor at all"],
@@ -269,8 +274,8 @@ SPEC = {
           "the six London slabs reach 60&nbsp;m long at aspect 6.2"],
    core=["one <b>1.80&nbsp;m corridor</b> running the whole length",
          "one corridor however long the slab is &mdash; never a second"],
-   cut=["<b>k</b> flats in a line off the corridor",
-        "single-loaded below 12&nbsp;m depth, double-loaded above &mdash; the depth decides, not the country"],
+   cut=["<b>k</b> flats in a line off the corridor: <b>DD-3</b> equal-area columns, single-loaded (M&nbsp;=&nbsp;1) &mdash; the whole point of a slab is one row",
+        "each column still needs &ge;&nbsp;3.0&nbsp;m width (the same <b>DD-6</b> floor), else <code>BAND_LT_3M</code>"],
    scheme=["<code>i_shape_linear_gallery</code>",
            "drawn at 3 flats/floor for the same reason as Corridor rectangle"],
    refuse="Fewer than 3 declared dwellings per floor &mdash; a corridor serving two flats is not a corridor."),
@@ -283,9 +288,9 @@ SPEC = {
           "a true triangle lands here, and so does a plate whose fourth side is a short blunt end"],
    plate=["median <b>216&nbsp;m&sup2;</b>, rectangularity 0.823",
           "only 8 of the 54 are carried by two long edges &mdash; mostly tapered trapezoids, not points"],
-   core=["one core at the incentre"],
-   cut=["<b>k</b> flats as wedges radiating to the faces",
-        "the tip wedge is absorbed by its neighbour rather than becoming a zone of its own"],
+   core=["<b>DD-2</b>: one core at the plate&rsquo;s <b>centroid</b>, not the incentre &mdash; the convex cutter has no wedge geometry to centre on"],
+   cut=["equal-area <b>columns</b> in the plate&rsquo;s own minimum-rotated-rectangle frame, cut by <code>cut_convex()</code>",
+        "one straight row line through the centroid splits the columns top/bottom, not wedges radiating from a corner"],
    scheme=["<code>regularized_envelope_grid</code> &mdash; S4, new"],
    refuse="Sharpest corner under 25&deg; and the tip wedge below 6&nbsp;m&sup2; &mdash; the plate is a leftover, not a dwelling."),
 
@@ -310,10 +315,12 @@ SPEC = {
    match=["ladder step <b>9</b> &mdash; first of the three re-entrant groups",
           "exactly one reflex vertex: one elbow, two wings"],
    plate=["median <b>203&nbsp;m&sup2;</b>, six denoised vertices, hull deficit 0.097"],
-   core=["<b>one core at the elbow</b>, serving both wings from a single landing",
+   core=["<b>DD-5</b>: the corridor reaches into each wing from the elbow rather than the wing being refused for its length",
+         "each wing&rsquo;s corridor spans only from the <b>first</b> served cut or junction to the <b>last</b>",
+         "<b>DD-8</b>: a one-flat leaf wing gets a short <b>1.5&nbsp;m</b> landing stub, not a full corridor",
          "the strip left along the short wing is <b>not</b> a second core &mdash; it goes to the flat it touches"],
-   cut=["<b>k</b> flats per wing, in proportion to wing area",
-        "each flat absorbs the leftover against its own outer wall"],
+   cut=["<b>k</b> flats per wing, in proportion to wing area, each absorbing the leftover against its own outer wall",
+        "<b>fallback</b>: a wing split into more than <code>MAX_WING_PIECES&nbsp;=&nbsp;14</code> pieces, or into fewer than two wings, is cut whole by <code>cut_convex()</code> on its own MRR frame instead of being refused"],
    scheme=["<code>l_shape_decomposition</code>",
            "falls to <code>wing_spine_decomposition</code> (S3) when one core cannot reach both wings"],
    refuse="A wing shorter than 6.0&nbsp;m after the elbow is cut away &mdash; it is a bay window, not a wing."),
@@ -325,9 +332,9 @@ SPEC = {
           "exactly two reflex vertices: a connecting run with two arms",
           "U and T are the same problem, so they share a group"],
    plate=["median <b>239&nbsp;m&sup2;</b>, 13.6&nbsp;&times;&nbsp;22.0&nbsp;m, eight denoised vertices, hull deficit 0.117"],
-   core=["a <b>single</b> spine core on the connecting wing, reaching both arms",
-         "arms get no core of their own &mdash; an arm too long to serve from the spine is a reason to "
-         "<b>refuse the plate</b>, not to add a second staircase"],
+   core=["<b>DD-5</b>: the spine corridor <b>reaches into</b> a long arm rather than the plate being refused for it",
+         "the corridor in each arm spans only from the <b>first</b> served cut or junction to the <b>last</b> &mdash; no corridor runs past the last-served flat",
+         "<b>DD-8</b>: a one-flat leaf arm gets a short <b>1.5&nbsp;m</b> landing stub, not a full corridor"],
    cut=["<b>k</b> flats assigned per wing",
         "each flat takes the pocket at its own arm end"],
    scheme=["<code>wing_spine_decomposition</code> &mdash; S3, new"],
@@ -341,14 +348,111 @@ SPEC = {
           "there is no rule below it, so it must never fail"],
    plate=["median <b>306&nbsp;m&sup2;</b>, 16 raw vertices, 12 after denoising, hull deficit 0.203",
           "425 buildings, second-largest group, and the worst served today at 9.9&nbsp;% with a plan"],
-   core=["<b>one core for the whole plate</b>, on the largest wing",
+   core=["<b>DD-5</b>: the corridor reaches into each wing from the main spine rather than the wing being refused for its length",
+         "each wing&rsquo;s corridor spans only from the <b>first</b> served cut or junction to the <b>last</b>",
+         "<b>DD-8</b>: a one-flat leaf wing gets a short <b>1.5&nbsp;m</b> landing stub, not a full corridor",
          "edge pockets on the smaller wings go to the flats beside them, never to extra cores"],
-   cut=["split into wings by morphological opening &mdash; <code>buffer(&minus;d).buffer(+d)</code> at "
-        "d&nbsp;=&nbsp;4.0&nbsp;m",
-        "each wing then takes its own group rule, recursively"],
+   cut=["split at each reflex vertex, sharpest first, extending one of its two edges into a straight cut, repeated until every wing is convex",
+        "<b>fallback</b>: a wing split into more than <code>MAX_WING_PIECES&nbsp;=&nbsp;14</code> pieces, or into fewer than two wings, is cut whole by <code>cut_convex()</code> on its own MRR frame instead of being refused"],
    scheme=["<code>wing_spine_decomposition</code> &mdash; S3, new, applied recursively"],
    refuse="Opening at d&nbsp;=&nbsp;4.0&nbsp;m yields no plate at all &mdash; the footprint is noise, not a building."),
 }
+
+USE_CUTTER = True  # DD-9: draw the eleven representative plans with the direct cutter
+GROUP_PLANS_PATH = pathlib.Path(__file__).with_name("group_plans.json")
+GROUP_PLANS_CUTTER_PATH = pathlib.Path(__file__).with_name("group_plans_cutter.json")
+
+
+def _load_module(name, path):
+    spec = ilu.spec_from_file_location(name, path)
+    mod = ilu.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def build_cutter_plans():
+    """DD-9: cut the eleven representative plans with scripts/eu21/05_group_cutters.py --
+    the same per-group algorithm each sheet's steps 3-4 now describe -- instead of the old
+    engine + 02_one_core_per_plate.py post-pass. group_plans.json is only read here, never
+    written; the result goes to a new group_plans_cutter.json."""
+    m01 = _load_module("eu21_m01_for_03", str(pathlib.Path(__file__).with_name("01_cut_group_plans.py")))
+    m05 = _load_module("eu21_m05_for_03", str(pathlib.Path(__file__).with_name("05_group_cutters.py")))
+    geoms, rows, bygroup, perfloor, storeys = m01.load_universe()
+    reps = {x["group"]: x for x in json.load(open(EU20 / "representatives.json", encoding="utf-8"))}
+    # the old engine's corridor/gallery scheme activates at dwelling_count >= 3
+    # (m01.MIN_DRAW_TO_SHOW_SCHEME); the direct cutter's own corridor band only
+    # appears at k >= 5 (DD-3, cut_convex() :306). Drawing these two groups at 3
+    # under the new cutter would show the plain box-core branch, not the scheme
+    # the sheet's own text now describes -- so the cutter branch draws them at 5.
+    CUTTER_MIN_DRAW = {"CORRIDOR_RECTANGLE": 5, "SLAB": 5}
+    out = []
+    for g in ORD:
+        med = int(statistics.median(sorted(perfloor[g])))
+        n_draw = max(CUTTER_MIN_DRAW.get(g, 2), med)
+        rep_id = str(reps[g]["building_id"])
+        members = sorted(bygroup[g], key=lambda r: (r["building_id"] != rep_id, abs(r["_n"] - n_draw)))
+        tiers = {}
+        for cand in members[:60]:
+            geom = geoms.get((cand["district"], cand["building_id"]))
+            if geom is None:
+                continue
+            if not geom.is_valid:
+                geom = geom.buffer(0)
+                if geom.geom_type != "Polygon":
+                    continue
+            p = _translate(geom, -geom.centroid.x, -geom.centroid.y)
+            try:
+                cut_out = m05.cut(p, n_draw, g)
+            except m05.Refusal:
+                continue
+            except Exception:
+                continue
+            carea = cut_out["circ"].area if cut_out["circ"] is not None else 0.0
+            scheme = cut_out["scheme"]
+            clean = "+lightwell" not in scheme and scheme != "wing_fallback_convex"
+            has_core = carea > 0.05 or g in m01.NO_CORE_BY_DESIGN
+            # prefer a plate that draws by the group's own scheme (rank 0) over one that
+            # only succeeds via a reroute/fallback (rank 1/2) -- DD-9's picture must match
+            # the sheet's own core/cut text, not a different group's rule or the convex
+            # fallback that fires when wing decomposition itself cannot.
+            rank = 0 if (has_core and clean) else (1 if has_core else 2)
+            if rank not in tiers:
+                tiers[rank] = (cand, p, cut_out, carea)
+                if rank == 0:
+                    break
+        picked = tiers.get(0) or tiers.get(1) or tiers.get(2)
+        if picked is None:
+            raise SystemExit(f"USE_CUTTER: no plate draws for group {g} at n={n_draw}")
+        cand, p, cut_out, carea = picked
+        dw = []
+        for f in cut_out["flats"]:
+            dw.extend(m01.rings_of(f))
+        circ_poly = cut_out["circ"]
+        circ = m01.rings_of(circ_poly) if circ_poly is not None and not circ_poly.is_empty else []
+        out.append({
+            "group": g,
+            "district": cand["district"],
+            "building_id": cand["building_id"],
+            "storeys": cand["_st"],
+            "median_per_floor": med,
+            "drawn_per_floor": n_draw,
+            "median_storeys": int(statistics.median(storeys[g])),
+            "area_m2": round(float(cand["area_m2"])),
+            "footprint": [list(p.exterior.coords)] + [list(i.coords) for i in p.interiors],
+            "dwellings": dw,
+            "circulation": circ,
+            "scheme": cut_out["scheme"],
+            "status": SPEC[g]["status"],
+            "circ_m2": round(carea, 1),
+        })
+    json.dump(out, open(GROUP_PLANS_CUTTER_PATH, "w", encoding="utf-8"), separators=(",", ":"))
+    return out
+
+
+if USE_CUTTER:
+    PLANS = {r["group"]: r for r in build_cutter_plans()}
+else:
+    PLANS = {r["group"]: r for r in json.load(open(GROUP_PLANS_PATH, encoding="utf-8"))}
 
 
 def flow(s):
@@ -444,6 +548,7 @@ for g in ORD:
     <div class="stack" style="gap:4px">
       <span class="id">{s["num"]} &nbsp; {TITLE[g]}</span>
       <span class="sub">{p["n"]} buildings &middot; {pct(p["n"] / TOT)} of the fleet &middot; {dbits}</span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
     </div>
     <div class="specs">{tag}<span><b>{p["ruled"]}</b> with a real plan</span><span><b>{pct(p["ruled"] / p["n"])}</b> of the group</span></div>
   </div>
@@ -543,6 +648,118 @@ body = f'''<div class="wrap">
     clipper fails on its own intermediate geometry. Those plans exist; they are simply discarded. Recovering them is
     worth more than any new shape rule &mdash; on Lyon it moved the district from 35.4&nbsp;% to 66.0&nbsp;% on its
     own, without a single new scheme.</p>
+  </div>
+</section>
+
+<section class="block" id="LAW">
+  <div class="rulehead"><span class="num">LAW</span><h2>What is true on every floor plan, in every group</h2></div>
+  <p class="lede" style="margin-bottom:16px">Nine clauses hold across all eleven groups, not one at a time. Six
+  are coded, checked and capped &mdash; the owner fixed the last two numbers at <code>CP-2</code>, 2026-09-02. The
+  last three, <code>D-EU-73</code>, <code>D-EU-75</code> and <code>D-EU-76</code>, are not themselves checked:
+  they constrain how the cutter draws, and <code>D-EU-71</code>/<code>C9</code> and
+  <code>D-EU-72</code>/<code>C10</code> measure the result.</p>
+  <p class="lede" style="margin-bottom:14px"><b>Already law, restated.</b> Exactly one circulation zone per plate
+  (<code>SLIVER</code> excepted, zero); flats and circulation cover at least 99.9&nbsp;% of the plate; drawn
+  dwellings equal claimed dwellings; every zone is a simple polygon &mdash; no hole, no zone inside another; at most
+  40 corner points per zone. <code>D-EU-64</code>.</p>
+  <p class="lede" style="margin-bottom:14px"><b><code>D-EU-69</code> &mdash; every flat sees the outer
+  fa&ccedil;ade.</b> Owner, 2026-09-02: &ldquo;every flat needs exposure to the sunlight and especially to the outer
+  facade exposures, courtyard exposure is not enough.&rdquo; At least 2.50&nbsp;m of the flat&rsquo;s boundary lies
+  on the plate&rsquo;s <b>outer</b> perimeter. A courtyard, a light&#8209;well or any interior void does not count.
+  Measured by <code>C6</code>, which reads <code>footprint.exterior</code> only.</p>
+  <p class="lede" style="margin-bottom:14px">Owner, 2026-09-02: &ldquo;no need to sunlight exposure for
+  corridors.&rdquo; The corridor may be entirely interior &mdash; the second clause of <code>D-EU-69</code>.</p>
+  <p class="lede" style="margin-bottom:14px"><b><code>D-EU-70</code> &mdash; the corridor reaches every flat.</b>
+  Owner, 2026-09-02: &ldquo;corridor needs to touch to every flat zones.&rdquo; The single circulation zone shares
+  at least <code>ACCESS_MIN_M</code> (1.00&nbsp;m) of boundary with every dwelling zone; no flat is reached through
+  another flat. Measured by <code>C8</code>, promoted to a hard check in T03.</p>
+  <div class="callout">
+    <p><b><code>D-EU-71</code> &mdash; the corridor stays simple.</b> One band of near&#8209;constant width; no
+    spurs, no blobs. Threshold fixed by the owner 2026-09-02 at <code>CP-2</code>: <b>at most 16 corner
+    points</b>. Owner: &ldquo;if possible it can be lower than that, because mostly corridors are simple
+    shapes.&rdquo; Not 12: the reference plate <code>i_shape_linear_gallery</code> (sheet 05, the corridor the
+    owner praised) reads 15 corner points, so a cap of 12 would condemn the very shape the law is written to
+    protect. Measured by <code>C9</code>. <code>R2</code>, the effective width
+    <code>2&middot;area / perimeter</code> compared against <code>CORRIDOR_W</code> = 1.80&nbsp;m, remains a
+    reading only.</p>
+  </div>
+  <div class="callout" style="margin-top:14px">
+    <p><b><code>D-EU-72</code> &mdash; no narrow leftover space.</b> No zone is a sliver too thin to inhabit.
+    Threshold fixed by the owner 2026-09-02 at <code>CP-2</code>: <b>no zone narrower than 2.00&nbsp;m</b>,
+    measured as the largest width that still fits inside the zone. Measured by <code>C10</code>.</p>
+  </div>
+  <div class="callout" style="margin-top:14px">
+    <p><b><code>D-EU-73</code> &mdash; how a corridor is drawn.</b> Stated by the owner 2026-09-02 from three
+    annotated images (<code>Screenshot_30.png</code>, <code>Screenshot_31.png</code>, and a hand&#8209;redrawn
+    <code>L_SHAPE</code>/multi&#8209;wing plate). In the first two a red box replaces a stepped, branched corridor
+    with a single straight rectangle. In the third the owner redraws the whole plate: three flats, each one entire
+    limb of the footprint with outer fa&ccedil;ade on three sides, and a short central red band at the waist where
+    the limbs meet. Owner&rsquo;s words: &ldquo;red boundaries shows that we can propose simpler
+    corridors&rdquo;; &ldquo;corridor can be central, the flat zones needs to be exposed to the outside facades,
+    and simple design&rdquo;; &ldquo;the F2 proposal of yours was too complicated&rdquo;.</p>
+    <p><b>(a) One limb, one flat.</b> Each arm, wing or lobe of the footprint becomes one whole flat. A limb is
+    never split lengthwise, and a flat never spans two limbs. This is what gives every flat outer fa&ccedil;ade on
+    three sides (<code>D-EU-69</code>), and it is decided before any corridor is drawn.</p>
+    <p><b>(b) Central band, shortest that works.</b> The circulation zone is one straight rectangle of constant
+    width <code>CORRIDOR_W</code> placed at the plate&rsquo;s <b>waist</b> &mdash; the junction where the limbs
+    meet, or the mid&#8209;span of a single limb &mdash; bearing chosen so it touches every flat
+    (<code>D-EU-70</code>). It is sized to the <b>minimum</b> length that achieves that, never run end to end for
+    its own sake. The core sits against it.</p>
+    <p><b>(c) No spur.</b> The corridor never branches to reach a flat the band does not already touch. If a flat
+    is out of reach, the band moves or changes bearing, or a flat boundary moves; a stub is never added.</p>
+    <p><b>(d) No step.</b> The band&rsquo;s two long edges are straight and parallel between its ends. A corner
+    appears only where the outer boundary or a flat boundary clips an end.</p>
+    <p><b>(e) Chain, not tree.</b> Where one band provably cannot touch every flat &mdash; a courtyard ring, four
+    or more limbs &mdash; the circulation is a <b>chain of straight bands joined end to end</b>, each obeying
+    (b)&ndash;(d). The joints are the only added corners. Never a T, never a cross, never a comb.</p>
+    <p><b>(f) Corner budget.</b> 4 corner points per band, at most 2 more per clipped end, 4 more per additional
+    band in the chain. This is what <code>D-EU-71</code>&rsquo;s cap of 16 is rationing: one straight band costs
+    4&ndash;6, a two&#8209;band chain 8&ndash;10, a four&#8209;band courtyard ring 14&ndash;16.</p>
+    <p class="lede" style="margin:10px 0 0"><b>(e) and (f) are superseded by <code>D-EU-75</code>, owner
+    2026-09-02.</b> There is no chain and no ring: one plate, one band. Clauses (a)&ndash;(d) stand unchanged.</p>
+    <p><code>D-EU-73</code> is a <b>cutter law, not a check</b>: it says how the drawing is produced, where
+    <code>D-EU-71</code> and <code>C9</code> only measure the result. It is written into this document by this
+    plan (T07); the cutter itself is not touched. Reference cases: TEST_01 <code>L_SHAPE</code> example 2 (Bologna
+    29718), <code>R1</code> = 23 today and 4&ndash;6 under (a)&ndash;(b); and the owner&rsquo;s redrawn plate,
+    where three limbs give three flats and one short waist band replaces a corridor that had been threaded through
+    the middle of a flat.</p>
+  </div>
+  <div class="callout" style="margin-top:14px">
+    <p><b><code>D-EU-75</code> &mdash; one corridor, one rectangle, any bearing.</b> Stated by the owner
+    2026-09-02 from four redrawn sheets &mdash; <code>01&nbsp;Courtyard</code>, <code>09&nbsp;L&nbsp;shape</code>,
+    <code>10&nbsp;U&nbsp;or&nbsp;T&nbsp;shape</code>, <code>11&nbsp;Complex&nbsp;multi&#8209;wing</code>:
+    &ldquo;if needed update the corridor rule, simple, centered, less point to generate corridors.&rdquo; On every
+    one of the four &mdash; a three&#8209;wing plate, an L, a U and a courtyard ring alike &mdash; the owner draws
+    the same object: <b>one single straight rectangle</b>, short, near the middle, at whatever bearing suits the
+    plate. On <code>11&nbsp;Complex&nbsp;multi&#8209;wing</code> the owner also draws the topology bare: three
+    circles F1, F2, F3, and one circle marked <i>corridor</i> touching all three. That is the whole plan.</p>
+    <p><b>(a) Exactly one band, in every group.</b> The circulation zone is a single straight rectangle for the
+    whole plate, however many limbs the footprint has. <b>This supersedes <code>D-EU-73</code> (e).</b> There is
+    no chain, no ring, no second band and no gallery. Where one band cannot touch every flat, the flat boundaries
+    move or the plate refuses &mdash; a second band is not the answer.</p>
+    <p><b>(b) Free bearing.</b> The band is not bound to the plate&rsquo;s axis, nor to any limb&rsquo;s axis. Its
+    bearing is chosen from the footprint&rsquo;s own edge directions, and the bearing that touches every flat with
+    the shortest band wins. The owner&rsquo;s rectangles lie diagonally across the L and U plates for exactly this
+    reason: the façade they follow is not the bounding box.</p>
+    <p><b>(c) Centred and short.</b> Placed where the flats meet, sized to the minimum length that touches them
+    all. <code>D-EU-73</code> (b) unchanged &mdash; now with the bearing free instead of pinned.</p>
+    <p><b>(d) Corner budget, restated.</b> One band is 4 corner points, at most 2 more per clipped end &mdash;
+    <b>6 at most</b>, against <code>D-EU-71</code>&rsquo;s cap of 16. The 8&ndash;16 budget <code>D-EU-73</code>
+    (f) allowed for chains and rings is withdrawn with (a).</p>
+  </div>
+  <div class="callout" style="margin-top:14px">
+    <p><b><code>D-EU-76</code> &mdash; no absurd small space.</b> Owner, 2026-09-02, on sheet
+    <code>05&nbsp;Corridor&nbsp;rectangle</code> (Madrid <code>way/435927693</code>), ringing the stepped nubs
+    along the corridor&rsquo;s edge in red: &ldquo;never create this kind of small absurd spaces, every flat zone
+    single zone and if there are these kind of spaces insert to the closest space, corridor.&rdquo;</p>
+    <p><b>(a) Every flat is one zone.</b> One single polygon per dwelling. A flat that comes out of the cut in two
+    or more pieces is not a flat: the largest piece is the flat, every other piece is a leftover.</p>
+    <p><b>(b) Every leftover is absorbed.</b> A leftover is merged into the zone it shares the most boundary with
+    &mdash; a flat, or the corridor. Nothing is left standing as a fragment and nothing is dropped: coverage stays
+    at <code>D-EU-64</code>&rsquo;s 99.9&nbsp;%.</p>
+    <p><b>(c) Thin means leftover only when it is a fragment.</b> A sliver narrower than <code>D-EU-72</code>&rsquo;s
+    2.00&nbsp;m is absorbed under (b). A <b>whole flat</b> that thin is a cut that failed, and is reported by
+    <code>C10</code> &mdash; never quietly merged away.</p>
   </div>
 </section>
 

@@ -10,12 +10,14 @@ import pandas as pd
 import pytest
 
 from openubem.acquisition.european_weather import sha256_file
+from openubem.idf.surfaces import find_mismatched_interzone_pairs
 from openubem.validation.european_campaign import dependency_digest, dependency_fingerprints
 from scripts.run_eu_s2_campaign import (
     CAMPAIGN_MANIFEST_PATH,
     REGISTRY_PATH,
     RUN_ROOT,
     WEATHER_PATH,
+    _has_near_duplicate_vertex_surfaces,
     build_geometry_for_row,
     build_idf_for_building,
     load_fr_record,
@@ -203,3 +205,107 @@ def test_t03_cell_ids_disambiguate_buildings_sharing_one_tabula_archetype():
     manifests = _load_cell_manifests()
     for manifest in manifests:
         assert str(manifest["building_id"]) in str(manifest["cell_id"])
+
+
+class _MockSurface:
+    def __init__(self, name: str, coords: list[tuple], obc: str = "Outdoors", obc_obj: str = ""):
+        self.Name = name
+        self.coords = coords
+        self.Outside_Boundary_Condition = obc
+        self.Outside_Boundary_Condition_Object = obc_obj
+
+
+class _MockIDF:
+    def __init__(self, surfaces: list[_MockSurface]):
+        self.idfobjects = {"BUILDINGSURFACE:DETAILED": surfaces}
+
+
+def test_near_duplicate_partnerless_collinear_surface_not_at_risk():
+    """T02 Case 1: A surface with no interzone partner (e.g. Ground, Outdoors)
+    carrying a collinear vertex triple must not set near_duplicate or at_risk."""
+    # Rectangle with vertex 3 collinear along top edge (10, 10) -> (5, 10) -> (0, 10)
+    collinear_coords = [
+        (0.0, 0.0, 0.0),
+        (10.0, 0.0, 0.0),
+        (10.0, 10.0, 0.0),
+        (5.0, 10.0, 0.0),  # angle = 180.0 deg
+        (0.0, 10.0, 0.0),
+    ]
+    ground_surf = _MockSurface("GROUND_FLOOR", collinear_coords, obc="Ground", obc_obj="")
+    idf = _MockIDF([ground_surf])
+
+    # Partner-less: default interzone_only=True ignores it
+    assert not _has_near_duplicate_vertex_surfaces(idf)
+    # Legacy check without interzone filter would have flagged it
+    assert _has_near_duplicate_vertex_surfaces(idf, interzone_only=False)
+
+    mismatched = bool(find_mismatched_interzone_pairs(idf))
+    near_dup = _has_near_duplicate_vertex_surfaces(idf)
+    at_risk = mismatched or near_dup
+    assert not at_risk
+
+
+def test_near_duplicate_interzone_paired_collinear_surface_identical_coords_at_risk():
+    """T02 Case 2: Interzone-paired collinear surface with identical coordinates
+    (replicates T04 stem 8cdf349a99934f0d shape: 9-vertex ring, vertex 7 interior angle
+    180.000000°, mirrored partner with matching coordinates). Must set at_risk = True."""
+    coords_a = [
+        (440376.908803735, 4479372.27754849, 3.0),
+        (440382.868151124, 4479380.640902955, 3.0),
+        (440376.090350857, 4479385.470425332, 3.0),
+        (440371.918850262, 4479379.616110756, 3.0),
+        (440373.952001537, 4479378.167385778, 3.0),
+        (440373.952001537, 4479378.167385777, 3.0),
+        (440373.952001537, 4479378.167385777, 3.0),
+        (440373.92547985, 4479378.130165048, 3.0),  # vertex 7: collinear 180.0 deg
+        (440372.164176842, 4479375.658339467, 3.0),
+    ]
+    coords_b = [
+        (440382.868151124, 4479380.640902955, 3.0),
+        (440376.908803735, 4479372.27754849, 3.0),
+        (440372.164176842, 4479375.658339467, 3.0),
+        (440373.92547985, 4479378.130165048, 3.0),
+        (440373.952001537, 4479378.167385777, 3.0),
+        (440373.952001537, 4479378.167385777, 3.0),
+        (440373.952001537, 4479378.167385778, 3.0),
+        (440371.918850262, 4479379.616110756, 3.0),
+        (440376.090350857, 4479385.470425332, 3.0),
+    ]
+    ceiling = _MockSurface("BLOCK_CEILING", coords_a, obc="Surface", obc_obj="BLOCK_FLOOR")
+    floor = _MockSurface("BLOCK_FLOOR", coords_b, obc="Surface", obc_obj="BLOCK_CEILING")
+    idf = _MockIDF([ceiling, floor])
+
+    # Vertex counts match so find_mismatched_interzone_pairs is empty
+    assert not find_mismatched_interzone_pairs(idf)
+    # But collinear defect on paired surface sets near_duplicate and at_risk
+    assert _has_near_duplicate_vertex_surfaces(idf)
+    at_risk = bool(find_mismatched_interzone_pairs(idf)) or _has_near_duplicate_vertex_surfaces(idf)
+    assert at_risk is True
+
+
+def test_near_duplicate_interzone_paired_asymmetric_coords_at_risk():
+    """T02 Case 3: Interzone-paired defect with asymmetric coordinates (stem e21bec78b937acf5
+    proximity-case shape: near-duplicate vertices < 0.005 m apart on one side of pair).
+    Must set at_risk = True."""
+    coords_asym_a = [
+        (0.0, 0.0, 3.0),
+        (10.0, 0.0, 3.0),
+        (10.0, 10.0, 3.0),
+        (0.0004, 10.0, 3.0),  # 0.0004 m from next vertex (< 0.005 m)
+        (0.0, 10.0, 3.0),
+    ]
+    coords_asym_b = [
+        (0.0, 10.0, 3.0),
+        (10.0, 10.0, 3.0),
+        (10.0, 0.0, 3.0),
+        (0.0, 0.0, 3.0),
+        (0.0, 5.0, 3.0),
+    ]
+    ceiling = _MockSurface("ASYM_CEILING", coords_asym_a, obc="Surface", obc_obj="ASYM_FLOOR")
+    floor = _MockSurface("ASYM_FLOOR", coords_asym_b, obc="Surface", obc_obj="ASYM_CEILING")
+    idf = _MockIDF([ceiling, floor])
+
+    assert _has_near_duplicate_vertex_surfaces(idf)
+    at_risk = bool(find_mismatched_interzone_pairs(idf)) or _has_near_duplicate_vertex_surfaces(idf)
+    assert at_risk is True
+
