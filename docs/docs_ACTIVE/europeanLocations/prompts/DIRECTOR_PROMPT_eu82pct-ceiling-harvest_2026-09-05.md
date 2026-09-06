@@ -27,29 +27,38 @@ re-verified all 7 stems (RC 0/0 Fatal), packaged as 2 Speed array jobs, hit a 3r
 (absolute path in `Schedule:File`, fixed, see debug-references), resubmitted (`1309355` Madrid, `1309357`
 Bologna) — both fully drained, 7/7 `COMPLETED`, `RC 0`, 0 Fatal, confirmed on Speed matching local exactly.
 
-**EnergyPlus simulation harvest: IN PROGRESS.** 10 Speed jobs (8 original + 2 remedy) cover 3,420 total tasks.
-Last confirmed state:
+**EnergyPlus simulation harvest: IN PROGRESS.** 10 Speed jobs (8 original + 2 remedy) cover **3,947 total
+tasks** (corrected 2026-09-06 — see 🔴 finding below; was miscounted as 3,420). Last confirmed state:
 
-| Job | District / wave | Done (C+F) | Remaining | Status |
-|---|---|---|---|---|
-| `1306951` | London backlog | 419 (418C+1F) | 0 | drained |
-| `1306952` | Lyon backlog | 468 (467C+1F) | 1 RUNNING | nearly drained |
-| `1306953` | Madrid backlog | 1008 (996C+12F) | 0 | **drained** |
-| `1305186` | Bologna backlog | 673 (658C+15F) | 8 RUNNING + 1 PENDING | draining, 8-wide |
-| `1308150` | London Step2-delta | 101 | 0 | drained |
-| `1308159` | Lyon Step2-delta | 38 | 0 | drained |
-| `1308160` | Madrid Step2-delta | 166 | 0 | drained |
-| `1308161` | Bologna Step2-delta | 12 (11C+1F) | 0 | drained |
-| `1309355` | Madrid FINDING253 remedy | 2 | 0 | drained, 2/2 RC 0 |
-| `1309357` | Bologna FINDING253 remedy | 5 | 0 | drained, 5/5 RC 0 |
+| Job | District / wave | Total | Done (C+F) | Remaining | Status |
+|---|---|---|---|---|---|
+| `1306951` | London backlog | 419 | 419 (418C+1F) | 0 | drained |
+| `1306952` | Lyon backlog | 469 | 469 (468C+1F) | 0 | **drained** |
+| `1306953` | Madrid backlog | 1008 | 1008 (996C+12F) | 0 | **drained** |
+| `1305186` | Bologna backlog / FINDING249 remedy | **1200** | 769 (754C+15F) | **431 (8 RUNNING + 423 not yet dispatched)** | draining, 8-wide |
+| `1308150` | London Step2-delta | 101 | 101 | 0 | drained |
+| `1308159` | Lyon Step2-delta | 38 | 38 | 0 | drained |
+| `1308160` | Madrid Step2-delta | 166 | 166 | 0 | drained |
+| `1308161` | Bologna Step2-delta | 12 | 12 (11C+1F) | 0 | drained |
+| `1309355` | Madrid FINDING253 remedy | 2 | 2 | 0 | drained, 2/2 RC 0 |
+| `1309357` | Bologna FINDING253 remedy | 5 | 5 | 0 | drained, 5/5 RC 0 |
+
+🔴 FINDING 255: `1305186`'s true array size is `1-1200%8` (confirmed via `scontrol show job` + the original
+`sbatch` submit line in `PLAN_eu-nocore-finding249-remedy-2026-09-04.md:268`), not 673 — squeue/sacct
+compress the undispatched tail (`1305186_[778-1200%8]`) into a single display row, which earlier polls
+misread as "1 PENDING" instead of 423 queued tasks. Job 1305186 is dual-purposed: it's the FINDING-249-remedy
+full-Bologna-fleet re-run, being tracked here as the district's backlog job. Lyon `1306952` is fully drained
+(469/469, confirmed absent from `squeue`). Net effect: harvest is further from done than previously tracked
+(431 Bologna tasks remain, not 9), fleet total is 3,947 not 3,420. No new failure signature, FAILED counts
+unchanged (16 for these 2 jobs) — does not trip the >10% hard-stop.
 
 FAILED tail, all classified into the 4 known signatures — see §2: London 1, Lyon 1, Madrid 12, Bologna 15,
 Bologna Step2-delta 1 = **30 total FAILED**, 0 unclassified. All FAILED, including Bologna backlog task
 `1305186_524` (stem `635e498716218cea`, 3rd `FINDING 254` instance), now have external vertex-level
 verification — Task D landed and audited 2026-09-06 (see §3), confirms identical mechanism to Tasks B/C,
-zero outliers. **Refresh these numbers with a fresh `sacct` before trusting this table** — Lyon/Bologna are
-still draining (last live check 2026-09-06: Bologna 8 RUNNING+1 PENDING/673, Lyon 1 RUNNING/468, FAILED
-counts unchanged, no new failures).
+zero outliers. **Refresh these numbers with a fresh `sacct` before trusting this table** — Bologna is still
+draining (last live check 2026-09-06: 754C+15F+8 RUNNING out of 1200, FAILED counts unchanged, no new
+failures). Lyon is confirmed fully drained, no further polling needed on `1306952`.
 
 **Speed's 32-CPU account-wide cap** means only ~25-30 tasks run concurrently across all of the user's own
 jobs — a trailing single PENDING task per job sitting queued for a while is normal contention, not a stuck
@@ -99,10 +108,13 @@ closed.
 
 1. ~~T08 reports → audit → package/ship/submit~~ **DONE** — `FINDING 253` remedy fully drained on Speed.
 2. Continue the ~30-min harvest-monitoring loop (`sacct` across all active jobs, reclassify any FAILED-count
-   growth per §2's method) until the last 2 jobs — Lyon `1306952` (1 task RUNNING) and Bologna `1305186`
-   (8 RUNNING + 1 PENDING) — are fully drained (COMPLETED + only accepted-class FAILED, no RUNNING/PENDING).
-   Everything else (London backlog, Madrid backlog, all 4 Step2-delta, both FINDING-253 remedy jobs) is
-   already drained. Task D diagnosis (§3) is done — nothing further to dispatch.
+   growth per §2's method) until the last job — Bologna `1305186`, true array size 1200 (`FINDING 255`),
+   431 remaining (8 RUNNING + 423 not yet dispatched, 8-wide throttle) — is fully drained (COMPLETED + only
+   accepted-class FAILED, no RUNNING/PENDING). Lyon `1306952` is confirmed fully drained (469/469, absent
+   from `squeue`) — no further polling needed on it. Everything else (London backlog, Madrid backlog, all 4
+   Step2-delta, both FINDING-253 remedy jobs) is already drained. Task D diagnosis (§3) is done — nothing
+   further to dispatch. At 8-wide throttle, 423 undispatched tasks imply a materially longer drain than
+   previously tracked — do not treat this as stalled.
 3. Harvest: pull `out/<stem>/` SQL results back from Speed for all 4 districts, merge Step1 + Step2-delta +
    FINDING-253-remedy results into each district's final manifest/`summary.json`.
 4. Run `scripts/generate_eu_3d_viewers.py` for all 4 districts, mirror the regenerated output into
