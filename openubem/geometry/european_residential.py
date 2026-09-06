@@ -21,6 +21,8 @@ from shapely.geometry.base import BaseGeometry
 from shapely.geometry.polygon import orient
 from shapely.ops import split, unary_union
 
+from openubem.geometry.european_nocore import cut_storey_nocore
+
 
 # --- EU-13B: ruled dwelling-layout scheme (footprint regularization, grid,
 # morphological branching, habitability retry).  These are additive to the
@@ -1333,6 +1335,55 @@ def generate_european_ruled_storey_layout(
     return result
 
 
+def generate_european_nocore_storey_layout(
+    footprint: BaseGeometry, *, dwelling_count: int, minimum_facade_contact_m: float = 2.5,
+) -> EuropeanGridLayout:
+    """D-EU-79/D-EU-95: draw one storey with the accepted no-core cutter
+    (``openubem.geometry.european_nocore.cut_storey_nocore``), proven at bit
+    parity with ``_r5`` over all 2,529 drawn census plates (``CP-1``). Never
+    carves circulation -- ``circulation_polygon`` is always ``None``. A
+    ``FAIL`` verdict or a cutter exception returns
+    ``dwelling_layout_emitted=False``, falling the building back to the
+    existing ``one_zone_per_floor`` massing-box route, exactly as any other
+    unlayoutable building does today.
+    """
+    try:
+        plate, live, checks, verdict = cut_storey_nocore(footprint, dwelling_count)
+    except Exception as exc:
+        return EuropeanGridLayout(
+            scheme="nocore_equal_area", grid=f"nocore_{dwelling_count}", nu=dwelling_count, nv=1,
+            dwelling_polygons=(), circulation_polygon=None, circulation_area_m2=0.0,
+            circulation_pct_of_plate=0.0, circulation_outside_ruled_absolute_band=False,
+            facade_contact_lengths_m=(), habitability_rotation_applied=False,
+            habitability_downgrade_applied=False, partition_audit=None,
+            fallback_reason=f"NOCORE_CUTTER_{type(exc).__name__}", dwelling_layout_emitted=False,
+        )
+
+    live = tuple(live)
+    if verdict == "PASS":
+        partition_audit = audit_european_floor_partition(
+            plate, live, expected_dwelling_count=dwelling_count,
+            topology_tolerance_fraction=EUROPEAN_TOPOLOGY_TOLERANCE_FRACTION,
+        )
+        fallback_reason = None
+    else:
+        partition_audit = None
+        failed_ids = [check_id for check_id in ("C1", "C3", "C4", "C5", "C6", "C10", "C11") if not checks[check_id]["pass"]]
+        fallback_reason = "NOCORE_CHECK_FAILED_" + "_".join(failed_ids)
+
+    return EuropeanGridLayout(
+        scheme="nocore_equal_area", grid=f"nocore_{dwelling_count}", nu=dwelling_count, nv=1,
+        dwelling_polygons=live if verdict == "PASS" else (),
+        circulation_polygon=None, circulation_area_m2=0.0, circulation_pct_of_plate=0.0,
+        circulation_outside_ruled_absolute_band=False,
+        facade_contact_lengths_m=_facade_contact_lengths(plate, live),
+        habitability_rotation_applied=False, habitability_downgrade_applied=False,
+        partition_audit=partition_audit,
+        fallback_reason=fallback_reason,
+        dwelling_layout_emitted=(verdict == "PASS"),
+    )
+
+
 # --- EU-21: additive group schemes (S1-S4), each reachable only on the
 # refusal path of ``generate_european_ruled_storey_layout`` (see
 # ``_secondary`` above). None of these change any existing route's output.
@@ -2582,6 +2633,9 @@ class EuropeanBuildingDwellingLayout:
     fallback_reason_by_storey: tuple[str | None, ...] = ()
 
 
+EUROPEAN_LAYOUT_REGIME = "nocore"   # D-EU-79/D-EU-95. "ruled" = the parked corridor path.
+
+
 def generate_european_building_dwelling_layout(
     footprint: BaseGeometry,
     *,
@@ -2618,10 +2672,15 @@ def generate_european_building_dwelling_layout(
 
     def _layout_for(count: int) -> EuropeanGridLayout:
         if count not in cache:
-            cache[count] = generate_european_ruled_storey_layout(
-                footprint, dwelling_count=count, minimum_facade_contact_m=minimum_facade_contact_m,
-                carve_circulation=carve_circulation,
-            )
+            if EUROPEAN_LAYOUT_REGIME == "nocore":
+                cache[count] = generate_european_nocore_storey_layout(
+                    footprint, dwelling_count=count, minimum_facade_contact_m=minimum_facade_contact_m,
+                )
+            else:
+                cache[count] = generate_european_ruled_storey_layout(
+                    footprint, dwelling_count=count, minimum_facade_contact_m=minimum_facade_contact_m,
+                    carve_circulation=carve_circulation,
+                )
         return cache[count]
 
     groups: list[EuropeanStoreyGroup] = []

@@ -256,7 +256,10 @@ def test_t05_dwellings_plus_circulation_equal_the_plate_on_every_count(dwelling_
         assert result.circulation_polygon is not None, dwelling_count
 
 
-def test_t05_building_layout_area_summary_conditioned_less_than_gross_when_core_present():
+def test_t05_building_layout_area_summary_conditioned_less_than_gross_when_core_present(monkeypatch):
+    from openubem.geometry import european_residential as module
+
+    monkeypatch.setattr(module, "EUROPEAN_LAYOUT_REGIME", "ruled")
     footprint = box(0.0, 0.0, 20.0, 20.0)
     allocation = allocate_european_dwellings(
         archetype_id="EU15-T05-test", building_type="MFH", n_apartment=8, n_storey=2,
@@ -271,7 +274,10 @@ def test_t05_building_layout_area_summary_conditioned_less_than_gross_when_core_
     assert conditioned < gross
 
 
-def test_t05_zone_specs_tag_circulation_zones_unconditioned_with_infiltration_rate():
+def test_t05_zone_specs_tag_circulation_zones_unconditioned_with_infiltration_rate(monkeypatch):
+    from openubem.geometry import european_residential as module
+
+    monkeypatch.setattr(module, "EUROPEAN_LAYOUT_REGIME", "ruled")
     footprint = box(0.0, 0.0, 20.0, 20.0)
     allocation = allocate_european_dwellings(
         archetype_id="EU15-T05-test", building_type="MFH", n_apartment=8, n_storey=2,
@@ -310,10 +316,12 @@ def test_t05_zone_specs_never_reduce_dwelling_count():
         assert len(dwelling_names) == n_apartment, n_apartment
 
 
-def test_t05_circulation_zone_has_no_hvac_and_the_ruled_infiltration_rate(tmp_path):
+def test_t05_circulation_zone_has_no_hvac_and_the_ruled_infiltration_rate(tmp_path, monkeypatch):
     from openubem.config import ENERGYPLUS_IDD_PATH
+    from openubem.geometry import european_residential as module
     from scripts.run_eu_s2_campaign import WEATHER_PATH, build_idf_for_building, load_fr_record
 
+    monkeypatch.setattr(module, "EUROPEAN_LAYOUT_REGIME", "ruled")
     footprint = box(0.0, 0.0, 20.0, 20.0)
     allocation = allocate_european_dwellings(
         archetype_id="FR.N.AB.08.Gen.ReEx.001.001", building_type="AB", n_apartment=8, n_storey=2,
@@ -418,7 +426,10 @@ def test_t09_stabilize_ring_coords_falls_back_to_the_unsnapped_ring_when_snappin
     assert len(stabilized) >= 3
 
 
-def test_t09_zone_specs_use_stabilized_coords_for_both_dwellings_and_circulation():
+def test_t09_zone_specs_use_stabilized_coords_for_both_dwellings_and_circulation(monkeypatch):
+    from openubem.geometry import european_residential as module
+
+    monkeypatch.setattr(module, "EUROPEAN_LAYOUT_REGIME", "ruled")
     plate = box(0.0, 0.0, 20.0, 10.0)
     layout = generate_european_building_dwelling_layout(
         plate,

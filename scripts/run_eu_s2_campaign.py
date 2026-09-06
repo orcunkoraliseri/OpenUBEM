@@ -91,18 +91,34 @@ NEAR_DUPLICATE_VERTEX_TOLERANCE_M = 0.005
 COLLINEAR_VERTEX_ANGLE_TOLERANCE_DEG = 0.1
 
 
-def _has_near_duplicate_vertex_surfaces(idf) -> bool:
+def _has_near_duplicate_vertex_surfaces(idf, interzone_only: bool = True) -> bool:
     """True if any BUILDINGSURFACE:DETAILED ring carries a near-duplicate or a
     near-/exactly-collinear vertex (FINDING 210 residual, both confirmed independently
     against real EnergyPlus 23.1.0 runs, not just the `find_mismatched_interzone_pairs`
     raw-count heuristic, which catches neither).
 
-    Checked on the ring itself (consecutive triples, including wrap-around), not just
-    at interzone boundaries, since either side of a pair can carry the artifact.
+    FINDING 249 restricted remedy (2026-09-04): by default (`interzone_only=True`),
+    only surfaces with a valid interzone partner (Outside_Boundary_Condition == "Surface"
+    with a resolvable Outside_Boundary_Condition_Object) are checked. Partner-less
+    surfaces (Ground, Outdoors, Adiabatic) cannot cause an interzone vertex mismatch
+    in EnergyPlus and are excused from setting at_risk. Any interzone-paired defect
+    sets at_risk = True unconditionally (no coordinate-symmetry check).
     """
     import math
 
-    for surf in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
+    bsds = idf.idfobjects["BUILDINGSURFACE:DETAILED"]
+    surf_by_name = {str(s.Name).upper(): s for s in bsds} if interzone_only else {}
+
+    for surf in bsds:
+        if interzone_only:
+            if str(getattr(surf, "Outside_Boundary_Condition", "")).upper() != "SURFACE":
+                continue
+            partner_name = str(getattr(surf, "Outside_Boundary_Condition_Object", "") or "").upper()
+            if not partner_name or partner_name == str(surf.Name).upper():
+                continue
+            if partner_name not in surf_by_name:
+                continue
+
         coords = list(surf.coords)
         n = len(coords)
         if n < 3:
@@ -123,6 +139,8 @@ def _has_near_duplicate_vertex_surfaces(idf) -> bool:
             if angle_deg > 180.0 - COLLINEAR_VERTEX_ANGLE_TOLERANCE_DEG:
                 return True
     return False
+
+
 
 PROJECTED_CRS = "EPSG:32631"
 FLOOR_TO_FLOOR_M = 3.0
@@ -439,6 +457,33 @@ def _envelope_construction(idf, record: dict[str, object], component: str) -> st
     return add_nomass_construction(idf, f"EU_{component}", u_value, delta_u)
 
 
+def _assign_envelope_constructions(idf, wall_construction: str, roof_construction: str, floor_construction: str) -> None:
+    """FINDING 253 fix (2026-09-05): a nominal ``ROOF``/``ROOFCEILING`` surface whose
+
+    ``Outside_Boundary_Condition == "Surface"`` is an interzone surface paired
+    with a shorter neighbour's ``FLOOR`` (e.g. a 1-storey dwelling block sitting
+    under a taller one) -- assigning it ``roof_construction`` while its partner
+    gets ``floor_construction`` gives EnergyPlus two different-material
+    single-layer constructions on the same interzone pair, which can never
+    satisfy the reverse-order-materials interzone check and is a guaranteed
+    ``GetSurfaceData`` Fatal. Any such surface gets ``floor_construction``
+    instead, matching its partner. A true exterior roof (``Outdoors``) is
+    unaffected. ``WALL`` and ``FLOOR``/``CEILING`` branches are unchanged.
+    """
+    for surface in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
+        surface_type = str(surface.Surface_Type).upper()
+        if surface_type == "WALL":
+            surface.Construction_Name = wall_construction
+        elif surface_type in ("ROOF", "ROOFCEILING"):
+            obc = str(getattr(surface, "Outside_Boundary_Condition", "")).strip().upper()
+            if obc == "SURFACE":
+                surface.Construction_Name = floor_construction
+            else:
+                surface.Construction_Name = roof_construction
+        elif surface_type in ("FLOOR", "CEILING"):
+            surface.Construction_Name = floor_construction
+
+
 def build_idf_for_building(
     row: pd.Series,
     record: dict[str, object],
@@ -514,7 +559,13 @@ def build_idf_for_building(
     # `NEAR_DUPLICATE_VERTEX_TOLERANCE_M`) so the reroute fires proactively instead of
     # relying on a raw count that this class of defect does not always move.
     mismatched = find_mismatched_interzone_pairs(idf)
-    at_risk = mismatched or _has_near_duplicate_vertex_surfaces(idf)
+    # FINDING 249 restricted remedy (2026-09-04): `_has_near_duplicate_vertex_surfaces`
+    # only flags surfaces with a valid interzone partner (`Outside_Boundary_Condition ==
+    # "Surface"` with resolvable partner). Partner-less surfaces (Ground, Outdoors,
+    # Adiabatic) cannot cause an EnergyPlus interzone vertex mismatch fatal and do not
+    # set `at_risk`. Any interzone-paired defect sets `at_risk = True` unconditionally.
+    near_duplicate = _has_near_duplicate_vertex_surfaces(idf)
+    at_risk = mismatched or near_duplicate
     if at_risk:
         reason = "interzone_vertex_mismatch" if mismatched else "near_duplicate_vertex"
         did_reroute = _force_reroute_room_layout_to_one_zone_per_floor(idf, zones, reason)
@@ -546,7 +597,7 @@ def build_idf_for_building(
             # Any building where `mismatched` is truthy at any point still raises exactly
             # as before this change; the `did_reroute is True` success branch is
             # untouched.
-            if not did_reroute and not mismatched:
+            if not mismatched:
                 for _z in zones:
                     _z["fallback_reason"] = "near_duplicate_vertex_tolerated_box"
             else:
@@ -560,14 +611,7 @@ def build_idf_for_building(
     wall_construction = _envelope_construction(idf, record, "wall")
     roof_construction = _envelope_construction(idf, record, "roof")
     floor_construction = _envelope_construction(idf, record, "floor")
-    for surface in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
-        surface_type = str(surface.Surface_Type).upper()
-        if surface_type == "WALL":
-            surface.Construction_Name = wall_construction
-        elif surface_type in ("ROOF", "ROOFCEILING"):
-            surface.Construction_Name = roof_construction
-        elif surface_type in ("FLOOR", "CEILING"):
-            surface.Construction_Name = floor_construction
+    _assign_envelope_constructions(idf, wall_construction, roof_construction, floor_construction)
 
     for zone in zones:
         if zone.get("conditioned") is False:

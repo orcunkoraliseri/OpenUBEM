@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dwelling Plans Redrawn — No-Core</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#F4F6F8; --sheet:#FFFFFF; --sheet-2:#EDF0F4;
+  --ink:#14181D; --ink-2:#49515B; --muted:#79828D;
+  --rule:#D9DEE4; --rule-soft:#E7EBF0;
+  --accent:#2C5D8A; --accent-soft:#E1EAF3;
+  --alert:#9E3C2C; --alert-soft:#F5E4E0;
+  --ok:#2C6549; --ok-soft:#DFEDE5;
+  --plan-ground:#FBFCFD; --plan-line:#6D7883; --plan-label:#2A323B;
+  --d1:#C6D8E6; --d2:#CDE0DE; --d3:#D7E3D4; --d4:#E6E3CE;
+  --d5:#EFDDC7; --d6:#F0D4C7; --d7:#E5CCD3; --d8:#D3CCDF;
+  --shadow:0 1px 1px rgba(20,24,29,.04), 0 12px 28px -22px rgba(20,24,29,.5);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E1115; --sheet:#161A20; --sheet-2:#1D222A;
+    --ink:#E5EAF0; --ink-2:#AFB8C3; --muted:#7B848F;
+    --rule:#262D36; --rule-soft:#1E242B;
+    --accent:#82AEDA; --accent-soft:#182635;
+    --alert:#DF8271; --alert-soft:#2E1A16;
+    --ok:#71C097; --ok-soft:#152A21;
+    --plan-ground:#12161B; --plan-line:#7C8792; --plan-label:#DCE2E9;
+    --d1:#22323F; --d2:#23393A; --d3:#2B3A2F; --d4:#3A3830;
+    --d5:#41362A; --d6:#412C26; --d7:#3A2A30; --d8:#2E2A3C;
+    --shadow:0 1px 1px rgba(0,0,0,.5), 0 12px 28px -22px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E1115; --sheet:#161A20; --sheet-2:#1D222A;
+  --ink:#E5EAF0; --ink-2:#AFB8C3; --muted:#7B848F;
+  --rule:#262D36; --rule-soft:#1E242B;
+  --accent:#82AEDA; --accent-soft:#182635;
+  --alert:#DF8271; --alert-soft:#2E1A16;
+  --ok:#71C097; --ok-soft:#152A21;
+  --plan-ground:#12161B; --plan-line:#7C8792; --plan-label:#DCE2E9;
+  --d1:#22323F; --d2:#23393A; --d3:#2B3A2F; --d4:#3A3830;
+  --d5:#41362A; --d6:#412C26; --d7:#3A2A30; --d8:#2E2A3C;
+  --shadow:0 1px 1px rgba(0,0,0,.5), 0 12px 28px -22px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font:400 16px/1.6 "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:56px 24px 96px}
+h1,h2,h3{font-family:"Archivo", ui-sans-serif, system-ui, sans-serif; text-wrap:balance; margin:0}
+h1{font-size:clamp(30px,4.2vw,44px); font-weight:700; letter-spacing:-.02em; line-height:1.1}
+h2{font-size:22px; font-weight:600; letter-spacing:-.01em}
+h3{font-size:17px; font-weight:600}
+p{margin:0}
+code, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:.86em}
+code{background:var(--sheet-2); padding:.1em .38em; border-radius:3px; color:var(--ink-2)}
+.eyebrow{
+  font-family:"IBM Plex Mono", monospace; font-size:11px; font-weight:500;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+}
+.lede{font-size:18px; color:var(--ink-2); max-width:66ch}
+.stack{display:flex; flex-direction:column; gap:14px}
+
+header.mast{display:flex; flex-direction:column; gap:18px; padding-bottom:28px; border-bottom:2px solid var(--ink)}
+.mast .meta{display:flex; flex-wrap:wrap; gap:8px 22px; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--muted)}
+
+.tally{display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); margin:34px 0 0}
+.tally div{background:var(--sheet); padding:16px 18px; display:flex; flex-direction:column; gap:5px}
+.tally .k{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.tally .v{font-family:"Archivo",sans-serif; font-size:27px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+.tally .n{font-size:13px; color:var(--ink-2); line-height:1.45}
+
+section.block{margin-top:56px}
+.rulehead{display:flex; align-items:baseline; gap:14px; padding-bottom:10px; border-bottom:1px solid var(--ink); margin-bottom:22px}
+.rulehead .num{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--accent); font-weight:600}
+
+.callout{border:1px solid var(--rule); border-left:3px solid var(--accent); background:var(--sheet); padding:20px 22px; display:flex; flex-direction:column; gap:12px}
+.callout.warn{border-left-color:var(--alert)}
+.opts{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; margin-top:4px}
+.opt{border:1px solid var(--rule); background:var(--sheet-2); padding:16px 18px; display:flex; flex-direction:column; gap:8px}
+.opt .t{font-family:"Archivo",sans-serif; font-weight:600; font-size:15px}
+.opt.rec{border-color:var(--ok); background:var(--ok-soft)}
+.tag{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:3px 7px; border:1px solid currentColor; border-radius:2px}
+.tag.ok{color:var(--ok)} .tag.bad{color:var(--alert)} .tag.acc{color:var(--accent)}
+
+.sheet{background:var(--sheet); border:1px solid var(--rule); box-shadow:var(--shadow); margin-top:26px}
+.titleblock{display:flex; flex-wrap:wrap; gap:14px 26px; align-items:flex-end; justify-content:space-between; padding:18px 22px; border-bottom:1px solid var(--ink)}
+.titleblock .id{font-family:"IBM Plex Mono",monospace; font-size:17px; font-weight:600; color:var(--ink)}
+.titleblock .sub{font-size:13px; color:var(--muted)}
+.specs{display:flex; flex-wrap:wrap; gap:6px 20px; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.specs b{color:var(--ink); font-weight:600}
+
+.plans{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--rule)}
+@media (max-width:820px){ .plans{grid-template-columns:1fr} }
+.pane{background:var(--sheet); padding:18px 20px 20px; display:flex; flex-direction:column; gap:12px}
+.panehead{display:flex; align-items:center; gap:10px; justify-content:space-between; flex-wrap:wrap}
+.panehead .lbl{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+.figs{display:flex; flex-wrap:wrap; gap:14px}
+.fig{flex:1 1 220px; min-width:0; display:flex; flex-direction:column; gap:7px}
+.fig .cap{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted); line-height:1.5}
+.fig .cap b{color:var(--ink-2)}
+svg.plan{width:100%; height:auto; display:block; background:var(--plan-ground); border:1px solid var(--rule-soft)}
+
+.readout{display:flex; flex-wrap:wrap; gap:4px 18px; font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.readout span b{color:var(--ink)}
+.failbox{padding:26px 22px; background:var(--alert-soft); border:1px dashed var(--alert); display:flex; flex-direction:column; gap:10px}
+.failbox .tok{font-family:"IBM Plex Mono",monospace; font-size:13px; font-weight:600; color:var(--alert)}
+.note{font-size:13.5px; color:var(--ink-2); padding:14px 22px; border-top:1px solid var(--rule-soft); background:var(--sheet)}
+.note b{color:var(--ink)}
+
+.legend{display:flex; flex-wrap:wrap; gap:8px 22px; align-items:center; margin-top:18px; font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--muted)}
+.swatch{display:inline-flex; align-items:center; gap:7px}
+.swatch i{width:15px; height:15px; display:inline-block; border:1px solid var(--plan-line)}
+
+footer{margin-top:64px; padding-top:22px; border-top:1px solid var(--rule); font-size:13px; color:var(--muted); display:flex; flex-direction:column; gap:8px}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){ .sheet{transition:box-shadow .2s ease} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+<header class="mast">
+  <div class="callout" style="margin-bottom:8px">
+    <p><span class="tag ok">No&#8209;core regime</span> <b><code>D-EU-79</code>, owner&rsquo;s decision 2026&#8209;09&#8209;02.</b>
+    Supersedes <code>RULES_dwelling_layout_scheme_2026-08-28.html</code> (core-era) and
+    <code>RULES_dwelling_layout_scheme_nocore_2026-09-02.html</code> (six-check no-core baseline), both now in
+    <code>rules/archive/</code>. This page&rsquo;s eight worked comparisons all depended on the earlier, more
+    elaborate regime &mdash; a shared vertical-access zone per plate; under the no&#8209;core regime none of that
+    is drawn, so none of those drawings are reproduced here. See below for what replaced them, and for the
+    <code>C11</code> flat-proportion arc ruled 2026&#8209;09&#8209;03 (<code>D-EU-82</code> &hellip; <code>D-EU-87</code>,
+    <code>D-EU-89</code>).</p>
+  </div>
+  <div class="stack">
+    <span class="eyebrow">EU-13B &middot; sample execution, superseded &middot; nothing shipped, nothing resimulated</span>
+    <h1>Dwelling Plans Redrawn</h1>
+    <p class="lede">The archived 2026-08-28 version of this page drew eight real buildings twice, to show a
+    corrected floor plan before <code>EU-13B</code> was dispatched. Every one of those drawings depended on a
+    regime the owner has since retired. This page keeps the coverage-bar ruling that survives unchanged, and
+    points at the live no&#8209;core evidence in place of the eight old drawings.</p>
+  </div>
+  <div class="meta">
+    <span>2026-09-03</span>
+    <span>supersedes: 2026-08-28, 2026-09-02</span>
+    <span>method of record: scripts/eu21/07_nocore_tests.py</span>
+  </div>
+</header>
+
+<div class="tally">
+  <div><span class="k">Fleet, no&#8209;core</span><span class="v" style="color:var(--ok)">550</span><span class="n">plates across the five EU-21 tests</span></div>
+  <div><span class="k">PASS</span><span class="v" style="color:var(--ok)">469</span><span class="n">FAIL 81 &mdash; seven checks each, no refusal path</span></div>
+  <div><span class="k">MAX_FLAT_ASPECT</span><span class="v">2.5</span><span class="n">set by <code>D-EU-89</code> clause 2, not calibrated</span></div>
+  <div><span class="k">Coverage bar</span><span class="v">&ge; 95&nbsp;%</span><span class="n"><code>D-EU-36</code>, untouched by the no&#8209;core regime</span></div>
+  <div><span class="k">Old sample, this page</span><span class="v" style="color:var(--muted)">not reproduced</span><span class="n">8 EU-13B buildings, superseded &mdash; see &sect;1</span></div>
+</div>
+
+<section class="block">
+  <div class="rulehead"><span class="num">D&#8209;EU&#8209;36</span><h2>What survives from the original ruling</h2></div>
+  <div class="callout" style="border-left-color:var(--ok)">
+    <p><span class="tag ok">Ruled 2026&#8209;08&#8209;28</span> &nbsp;<b>Coverage bar: &ge;&nbsp;95&nbsp;% of buildings is enough. 100&nbsp;% is not required.</b></p>
+    <p>This half of the ruling is about how many buildings a ruled partitioner can express, not about what sits
+    between the flats it draws, so the no&#8209;core regime leaves it untouched. A building the ruled scheme
+    cannot express is a <code>FAIL</code>, disclosed in the residual &mdash; never a silently reduced dwelling
+    count.</p>
+    <p style="color:var(--muted); font-size:13.5px">🔴 The other half of the original ruling &mdash; whether a
+    shared, unheated allowance is carved from the observed plate or added outside it &mdash; is moot under the
+    no&#8209;core regime: there is no such allowance to place either way (<code>D-EU-79</code>).</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="rulehead"><span class="num">D&#8209;EU&#8209;79</span><h2>The no-core regime, and what replaces the eight drawings</h2></div>
+  <div class="callout">
+    <p>A plate divides into dwellings only, with nothing else drawn on it, and no rule, check or sheet here names
+    what used to sit between the flats (<code>D-EU-79</code>). The method of record is
+    <code>scripts/eu21/07_nocore_tests.py</code>: <code>build_flats</code> builds every candidate a plate&rsquo;s
+    shape allows &mdash; the default k equal-area column cut, every <code>rows &times; cols</code> grid on both
+    axes (<code>D-EU-83</code>), a depth-layered re-cut of a thick band (<code>D-EU-86</code>), and, where the
+    shape allows it, a ring-radial or per-wing cut &mdash; and keeps the best-scoring one. Every square metre left
+    over by the cut is folded into the flat it touches most (<code>D-EU-80</code>), no part of a flat may be
+    narrower than 2.00&nbsp;m because of how the plate was divided (<code>D-EU-81</code>, restated
+    <code>D-EU-87</code>), and no flat may be a ribbon (<code>D-EU-82</code>): every flat&rsquo;s minimum rotated
+    bounding rectangle must satisfy <code>long / short &le; MAX_FLAT_ASPECT</code>.</p>
+    <p>Seven checks score every plate, five imported read-only from <code>scripts/eu21/04_group_tests.py:312</code>
+    (<code>run_checks</code>) and two added by this arc: <code>C1</code> coverage
+    <code>0.999&nbsp;&le;&nbsp;cov&nbsp;&le;&nbsp;1.001</code>; <code>C3</code> drawn flats equal claimed
+    dwellings; <code>C4</code> one room per flat, largest pairwise overlap
+    <code>&lt; 0.02&nbsp;m&sup2;</code>; <code>C5</code> simple outline, <code>&le;&nbsp;40</code> points
+    per zone; <code>C6</code> outer-facade contact <code>&ge;&nbsp;2.50&nbsp;m</code>; <code>C10</code> sum
+    over flats of created-pinch area <code>&le; 0.10&nbsp;m&sup2;</code> (narrowness the footprint already
+    had is excluded, narrowness the cut introduces is not, <code>D-EU-87</code>); <code>C11</code> minimum
+    rotated rectangle <code>long/short &le; MAX_FLAT_ASPECT</code> (<code>D-EU-82</code>). There is no refusal
+    path: every plate with a usable footprint is cut, and a plate that cannot clear a check is a
+    <code>FAIL</code>, reported honestly.</p>
+    <p style="color:var(--muted); font-size:13.5px"><b>Calibration.</b> <code>MAX_FLAT_ASPECT</code> is set to
+    the strictest of 2.5 / 3.0 / 3.5 / 4.0 that reaches <code>FAIL&nbsp;0</code> over all 550 plates
+    (<code>D-EU-84</code>). After two genuine cutter-repair rounds no rung reached it; per <code>D-EU-89</code>
+    clause 2 the constant is set to the strictest rung, <b>2.5</b>, marked not calibrated, and every residual
+    plate ships as an honest <code>FAIL</code> (<code>FINDING&nbsp;238</code>&ndash;<code>243</code>).</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="rulehead"><span class="num">EVIDENCE</span><h2>Where the fleet result lives</h2></div>
+  <div class="callout">
+    <p>The eight-building comparison this page used to carry is not reproduced under the no&#8209;core regime
+    &mdash; it was a hand-picked sample from a different, older population, and nothing authorises redrawing it.
+    The current, operative evidence is the full EU-21 fleet, at the frozen (not calibrated)
+    <code>MAX_FLAT_ASPECT = 2.5</code>:</p>
+    <table style="width:100%; border-collapse:collapse; font-size:14px; font-variant-numeric:tabular-nums">
+      <thead><tr style="border-bottom:1px solid var(--rule); text-align:left">
+        <th style="padding:7px 8px; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-family:'IBM Plex Mono',monospace">test</th>
+        <th style="padding:7px 8px; text-align:right; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-family:'IBM Plex Mono',monospace">plates</th>
+        <th style="padding:7px 8px; text-align:right; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); font-family:'IBM Plex Mono',monospace">verdict</th>
+      </tr></thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--rule-soft)"><td style="padding:7px 8px">TEST_01_nocore</td><td style="padding:7px 8px; text-align:right">33</td><td style="padding:7px 8px; text-align:right; color:var(--ink); font-weight:600">29 PASS / 4 FAIL</td></tr>
+        <tr style="border-bottom:1px solid var(--rule-soft)"><td style="padding:7px 8px">TEST_02_nocore</td><td style="padding:7px 8px; text-align:right">132</td><td style="padding:7px 8px; text-align:right; color:var(--ink); font-weight:600">105 PASS / 27 FAIL</td></tr>
+        <tr style="border-bottom:1px solid var(--rule-soft)"><td style="padding:7px 8px">TEST_03_nocore</td><td style="padding:7px 8px; text-align:right">55</td><td style="padding:7px 8px; text-align:right; color:var(--ink); font-weight:600">52 PASS / 3 FAIL</td></tr>
+        <tr style="border-bottom:1px solid var(--rule-soft)"><td style="padding:7px 8px">TEST_04_nocore</td><td style="padding:7px 8px; text-align:right">220</td><td style="padding:7px 8px; text-align:right; color:var(--ink); font-weight:600">176 PASS / 44 FAIL</td></tr>
+        <tr style="border-bottom:1px solid var(--rule-soft)"><td style="padding:7px 8px">TEST_05_nocore</td><td style="padding:7px 8px; text-align:right">110</td><td style="padding:7px 8px; text-align:right; color:var(--ink); font-weight:600">107 PASS / 3 FAIL</td></tr>
+        <tr style="border-top:1px solid var(--rule); font-weight:600"><td style="padding:9px 8px">fleet</td><td style="padding:9px 8px; text-align:right">550</td><td style="padding:9px 8px; text-align:right; color:var(--ink)">469 PASS / 81 FAIL</td></tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted); font-size:13.5px">Every residual <code>FAIL</code> is a named, honest structural
+    residual &mdash; thick-band courtyard rings and dense <code>n = 12</code> multi-wing plates whose wings do not
+    separate under any tried candidate &mdash; never an invented exemption, never a loosened check.</p>
+    <p style="color:var(--muted); font-size:13.5px">Sheets:
+    <code>docs/docs_ACTIVE/europeanLocations/rules/tests/TEST_0N_nocore_2026-09-03_r2.html</code> (owner-read
+    2026-09-03, no <code>_r2</code>, set preserved byte-identical in
+    <code>rules/tests/archive/reviewed_2026-09-03/</code>). Census:
+    <code>openubem/outputs/eu_evidence/EU-21/rules_tests/test_0N_nocore.json</code>. Geometric census only &mdash;
+    no EnergyPlus run stands behind any number here (<code>D-EU-55</code>).</p>
+  </div>
+</section>
+
+<footer>
+  <p><b>What this is not.</b> Not an energy result, in any version of this page. No repository code was
+  changed, no side-car was re-emitted, no viewer was regenerated, and nothing was submitted to Speed.</p>
+  <p><b>What may and may not be quoted.</b> The <code>D-EU-36</code> coverage bar in &sect;1 survives and may be
+  quoted. No drawing, shared-area-share figure, or per-building scheme label from the archived 2026-08-28 version
+  may be quoted going forward &mdash; every one of them described a regime the owner has since retired. The
+  fleet result above is <b>not</b> <code>FAIL 0</code> &mdash; quote the table, never a bare PASS claim.</p>
+  <p class="mono" style="color:var(--muted)">archived core-era original:
+  docs/docs_ACTIVE/europeanLocations/rules/archive/RULES_dwelling_layout_scheme_2026-08-28.html &middot;
+  archived six-check baseline:
+  docs/docs_ACTIVE/europeanLocations/rules/archive/RULES_dwelling_layout_scheme_nocore_2026-09-02.html &middot;
+  plan of record (no-core): docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu21-nocore-2026-09-02.md &middot;
+  plan of record (C11, grid-first): docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu21-compactness-2026-09-03.md</p>
+</footer>
+</div>
+</body>
+</html>
