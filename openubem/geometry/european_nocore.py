@@ -413,12 +413,99 @@ def _best_recipients(piece, flats):
     return [i for _, _, i in scored]
 
 
+def _bounded_split_piece(piece, target_area, toward_geom):
+    """D-EU-107 (`FINDING 244` repair 2, plan `eu-plan-homogeneity-2026-09-07`
+    T02b): split `piece` along the axis from its own centroid toward
+    `toward_geom`'s centroid (the receiving flat), by bisection on the
+    perpendicular boundary in that local frame, so the near side (the side
+    that borders the receiving flat) comes out close to `target_area`. Returns
+    `(near_world, far_world)` -- `near_world` is what gets merged into the
+    receiving flat, `far_world` is fed back into the donation loop as a fresh
+    leftover, so a leftover too big to donate whole is bounded rather than
+    dumped intact into one flat. Returns `None` on any degenerate geometry
+    (near-zero span, a split that does not resolve to two clean pieces) --
+    the caller then falls back to today's whole-piece donation, exactly as
+    the plan's fallback clause requires."""
+    if piece.is_empty or piece.area <= 1e-9:
+        return None
+    c_piece = piece.centroid
+    c_to = toward_geom.centroid
+    dx, dy = c_to.x - c_piece.x, c_to.y - c_piece.y
+    if math.hypot(dx, dy) < 1e-6:
+        return None
+    theta = math.degrees(math.atan2(dy, dx))
+    p_local = to_local(piece, theta, c_piece.x, c_piece.y)
+    minx, miny, maxx, maxy = p_local.bounds
+    if maxx - minx < 1e-6:
+        return None
+    target_area = max(0.0, min(target_area, piece.area))
+    lo, hi = minx, maxx
+    for _ in range(24):
+        mid = (lo + hi) / 2.0
+        near = p_local.intersection(box(mid, miny - 1, maxx + 1, maxy + 1))
+        near_area = sum(g.area for g in _pieces(near))
+        if near_area > target_area:
+            lo = mid
+        else:
+            hi = mid
+    bx = (lo + hi) / 2.0
+    near_local = p_local.intersection(box(bx, miny - 1, maxx + 1, maxy + 1))
+    far_local = p_local.intersection(box(minx - 1, miny - 1, bx, maxy + 1))
+    near_pieces, far_pieces = _pieces(near_local), _pieces(far_local)
+    if not near_pieces or not far_pieces:
+        return None
+    near_world = to_world(unary_union(near_pieces), theta, c_piece.x, c_piece.y)
+    far_world = to_world(unary_union(far_pieces), theta, c_piece.x, c_piece.y)
+    if not isinstance(near_world, Polygon) or not isinstance(far_world, Polygon):
+        return None
+    if near_world.is_empty or far_world.is_empty:
+        return None
+    return near_world, far_world
+
+
+def _clears_donation_gates(merged, P, other_live):
+    """D-EU-107 T02b: the bounded-donation candidate must itself clear C4, C5,
+    C6, C10, C11 (checked here in the same terms `run_checks`/`_plate_score`
+    already use) before it is preferred over the unbounded fallback -- the
+    plan's own fallback clause. `other_live` is every OTHER already-placed
+    flat, used only for C5's no-a-flat-swallows-another-flat's-centre test;
+    the full plate-wide `run_checks` pass still runs afterwards and is what
+    actually gates the plate."""
+    if merged is None or merged.is_empty or not isinstance(merged, Polygon):
+        return False
+    if lobes_of(merged) is not None:
+        return False
+    if len(merged.interiors) != 0:
+        return False
+    if len(merged.exterior.coords) - 1 > 40:
+        return False
+    if any(merged.contains(f.representative_point()) for f in other_live if not f.is_empty):
+        return False
+    contact = sbuf(merged, 0.05).intersection(P.exterior).length
+    if contact < 2.50:
+        return False
+    if pinch_area(merged, P) > 0.10:
+        return False
+    if flat_aspect(merged) > MAX_FLAT_ASPECT:
+        return False
+    return True
+
+
 def donate_leftovers(P, seeds):
     """D-EU-80: every square metre of P belongs to exactly one flat. Absorb every
     leftover piece (a non-largest column fragment, or a genuine gap between column
     clips) into the flat it touches most, never dropped, never left blank. A flat
     that a donation would turn into a lobed room is skipped for the next-best
-    recipient instead (C4 must survive the donation)."""
+    recipient instead (C4 must survive the donation). D-EU-107 (`FINDING 244`
+    repair 2, T02b): a piece bigger than half the current mean flat area is not
+    dumped whole into its best recipient -- `_bounded_split_piece` first tries
+    to hand that recipient only up to half the mean, clearing C4/C5/C6/C10/C11
+    (`_clears_donation_gates`) on the merge, and feeds the un-donated remainder
+    back into the leftover pool for the next pass (a different flat, or the
+    same one once it is no longer oversized). Only tried for the best-ranked
+    recipient; if the split is geometrically degenerate or fails a gate, this
+    falls back to today's unbounded whole-piece donation for that piece,
+    honestly, never forced through."""
     flats = list(seeds)
     stuck = []
     for _ in range(25):
@@ -427,21 +514,36 @@ def donate_leftovers(P, seeds):
         pieces = _pieces(leftover)
         if not pieces:
             return flats, []
+        live_now = [f for f in flats if not f.is_empty]
+        mean_area = (sum(f.area for f in live_now) / len(live_now)) if live_now else 0.0
         progressed = False
         remaining = []
         for piece in pieces:
             candidates = _best_recipients(piece, flats)
             placed = False
-            for i in candidates:
-                merged = _clean_merge(flats[i], piece)
-                if merged is None:
-                    continue
-                if lobes_of(merged) is not None and lobes_of(flats[i]) is None:
-                    continue
-                flats[i] = merged
-                placed = True
-                progressed = True
-                break
+            if candidates and mean_area > 0.0 and piece.area > 0.5 * mean_area:
+                i = candidates[0]
+                split = _bounded_split_piece(piece, 0.5 * mean_area, flats[i])
+                if split is not None:
+                    near_piece, far_piece = split
+                    merged = _clean_merge(flats[i], near_piece)
+                    other_live = [f for j, f in enumerate(flats) if j != i and not f.is_empty]
+                    if merged is not None and _clears_donation_gates(merged, P, other_live):
+                        flats[i] = merged
+                        remaining.append(far_piece)
+                        placed = True
+                        progressed = True
+            if not placed:
+                for i in candidates:
+                    merged = _clean_merge(flats[i], piece)
+                    if merged is None:
+                        continue
+                    if lobes_of(merged) is not None and lobes_of(flats[i]) is None:
+                        continue
+                    flats[i] = merged
+                    placed = True
+                    progressed = True
+                    break
             if not placed:
                 remaining.append(piece)
         if not remaining:
@@ -1037,20 +1139,34 @@ def _coverage(poly, flats):
 
 def _plate_score(poly, flats):
     """Higher is better: (D-EU-80 coverage, C5 simple-outline, C6 facade contact,
-    C4-safe flat count, C11 proportion gate, -created-pinch area (D-EU-87), min
-    C6 contact value, -max flat aspect). Coverage, C5 and C6 are hard boolean
-    gates, never traded away for a wider plate -- T04's own residual (`FINDING`
-    note in the plan) showed a naive min-C10-first score silently trading a
-    passing C6 (>= 2.50 m facade contact) for a wider flat, which is exactly
-    the kind of regression rule 2 of this arc forbids. C4 (no lobed flat) ranks
-    next, since a wider plate that still fails C4 is not an improvement (T03
-    how, step 2: "keep whichever plate-wide result scores better on min(C10),
-    then C4, then C6"). C11 (D-EU-82, T03) outranks the pinch-area tie-break --
-    a plate is not an improvement if it turns a flat into a ribbon. `widest_fit`
-    no longer appears in this tuple at all (D-EU-87 clause 1): the created-pinch
-    area (D-EU-87 clause 2/3, `pinch_area`) is minimised instead, ranked beside
-    C11, and `-max_aspect` is the final tie-break, so among candidates that
-    already clear every gate the squarer, least-pinched one wins."""
+    C4-safe flat count, C11 proportion gate, C10 pinch gate, C12 area balance
+    (`D-EU-107`, `FINDING 244`, plan `eu-plan-homogeneity-2026-09-07` T02a),
+    -created-pinch area (D-EU-87) as the tie-break, min C6 contact value, -max
+    flat aspect). Coverage, C5 and C6 are hard boolean gates, never traded away
+    for a wider plate -- T04's own residual (`FINDING` note in the plan) showed
+    a naive min-C10-first score silently trading a passing C6 (>= 2.50 m facade
+    contact) for a wider flat, which is exactly the kind of regression rule 2 of
+    this arc forbids. C4 (no lobed flat) ranks next, since a wider plate that
+    still fails C4 is not an improvement (T03 how, step 2: "keep whichever
+    plate-wide result scores better on min(C10), then C4, then C6"). C11
+    (D-EU-82, T03) outranks the pinch-area tie-break -- a plate is not an
+    improvement if it turns a flat into a ribbon. C10 (`c10_ok = pinch_total <=
+    0.10`, director's ruling `D-EU-107 f`, 2026-09-07): booleanised and ranked
+    beside the other hard gates, the same pattern C6 (`c6_ok` then `min_c6`) and
+    C11 (`c11_ok` then `-max_aspect`) already use in this function -- T02a's
+    first cut ranked `spread` ahead of the *continuous* `-pinch_total` term
+    only, with no boolean C10 gate in the tuple at all, so a candidate could win
+    on spread while silently failing C10; measured fleet-wide as 458 PASS ->
+    FAIL regressions, all on C10, before this correction. `spread` (same
+    field/formula as `run_checks`, `min(area) / max(area)` over the live flats)
+    now ranks after C10 (as well as cov/C5/C6/C4/C11) and before the
+    pinch/aspect tie-break: it never overrides any hard gate, it only chooses
+    the more balanced candidate among those that already tie on every one of
+    them. `widest_fit` no longer appears in this tuple at all (D-EU-87 clause
+    1): the created-pinch area (D-EU-87 clause 2/3, `pinch_area`) is minimised
+    as the tie-break, and `-max_aspect` is the final tie-break, so among
+    candidates that already clear every gate the squarer, least-pinched, most
+    balanced one wins."""
     live = [f for f in flats if not f.is_empty]
     cov_ok = _coverage(poly, flats) >= 0.999
     no_holes = all(len(f.interiors) == 0 for f in live)
@@ -1063,9 +1179,13 @@ def _plate_score(poly, flats):
     c6_ok = min_c6 >= 2.50
     c4_ok = sum(1 for f in live if lobes_of(f) is None)
     pinch_total = sum(pinch_area(f, poly) for f in live)
+    c10_ok = pinch_total <= 0.10
     max_aspect = max((flat_aspect(f) for f in live), default=99.0)
     c11_ok = (len(live) <= 1) or (max_aspect <= MAX_FLAT_ASPECT)
-    return (cov_ok, c5_ok, c6_ok, c4_ok, c11_ok, round(-pinch_total, 3), round(min_c6, 3), round(-max_aspect, 3))
+    areas = [f.area for f in live]
+    spread = (min(areas) / max(areas)) if areas and max(areas) > 0 else 0.0
+    return (cov_ok, c5_ok, c6_ok, c4_ok, c11_ok, c10_ok, round(spread, 4),
+            round(-pinch_total, 3), round(min_c6, 3), round(-max_aspect, 3))
 
 
 def _fully_ok(poly, flats):
@@ -1076,8 +1196,8 @@ def _fully_ok(poly, flats):
     pinch <= 0.10 m2, the measured float-noise floor, never a widened
     allowance."""
     live = [f for f in flats if not f.is_empty]
-    cov_ok, c5_ok, c6_ok, c4_ok, c11_ok, neg_pinch, _, _ = _plate_score(poly, flats)
-    return cov_ok and c5_ok and c6_ok and c4_ok == len(live) and c11_ok and (-neg_pinch) <= 0.10
+    cov_ok, c5_ok, c6_ok, c4_ok, c11_ok, c10_ok, _spread, neg_pinch, _, _ = _plate_score(poly, flats)
+    return cov_ok and c5_ok and c6_ok and c4_ok == len(live) and c11_ok and c10_ok and (-neg_pinch) <= 0.10
 
 
 def _donate_the_neck(poly, flats):
@@ -1611,6 +1731,17 @@ def build_flats(poly, k):
 # does not run this session.
 MAX_FLAT_ASPECT = 2.5
 
+# D-EU-107 (`FINDING 244`, plan `eu-plan-homogeneity-2026-09-07`, CP-1 pinned
+# 2026-09-07): C12, the area-balance gate. `spread = min(flat area) / max(flat
+# area)` (same field/formula `run_checks` already stored). PASS at spread >=
+# 0.50 (max/min <= 2.0 : 1, `FINDING 244`'s own number). Waived at k <= 1,
+# same exemption and same reason C11 gets (D-EU-93): nothing was cut, so there
+# is nothing to compare. C12 is reported alongside the frozen seven checks but
+# never folds into `rec["verdict"]` -- hard rule 1/3 of the plan freeze
+# C1/C3/C4/C5/C6/C10/C11's own pass/fail gate; C12 is additive, measured,
+# never merged into it. Extracted (D-EU-95), not re-implemented, from
+# `scripts/eu21/07_nocore_tests.py`, T03 of the same plan.
+MIN_SPREAD = 0.50
 
 
 def flat_aspect(f):
@@ -1742,9 +1873,15 @@ def run_checks(rec, flats, poly):
     else:
         checks["C11"] = {"pass": max_aspect <= MAX_FLAT_ASPECT, "show": f"{max_aspect:.1f} : 1"}
 
-    rec["checks"] = checks
     areas = [f.area for f in live]
-    rec["spread"] = round((min(areas) / max(areas)) if areas and max(areas) > 0 else 0.0, 4)
+    spread = round((min(areas) / max(areas)) if areas and max(areas) > 0 else 0.0, 4)
+    if len(live) <= 1:
+        checks["C12"] = {"pass": True, "show": f"{spread:.4f} (k=1, D-EU-93 exemption)"}
+    else:
+        checks["C12"] = {"pass": spread >= MIN_SPREAD, "show": f"{spread:.4f}"}
+
+    rec["checks"] = checks
+    rec["spread"] = spread
     rec["verdict"] = "PASS" if all(checks[c]["pass"] for c in ("C1", "C3", "C4", "C5", "C6", "C10", "C11")) else "FAIL"
 
 

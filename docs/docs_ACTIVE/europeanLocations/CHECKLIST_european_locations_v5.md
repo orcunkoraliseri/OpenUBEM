@@ -21,6 +21,10 @@ Updated by the director after each dispatch audit, never by an executor.
 | `EU-20` | Morphology atlas — eleven groups | ✅ |
 | **`EU-21`** | **Flat-division rules, graded on 550 real plates** | 🟡 **The live front** |
 | engine carry-in | The written rule replaces the box-era logic | ⬜ Identified, not ordered |
+| `D-EU-106` | Repaint `outputs_3D` floor-plan modal in the `plans3D` style | ✅ |
+| `D-EU-107` | Balance the dwelling cut (`C12`), re-plan/re-simulate affected plates only | 🟡 In execution — `CP-3` hash half unsigned |
+| `D-EU-108` | London coverage recovery (terrace-row age/storey inheritance) | 🟡 In execution — complete through T05b |
+| `D-EU-109` | Recover discarded dwelling divisions; merges `D-EU-107`/`108`/`109` into one re-emission + Speed campaign | 🟡 In execution — merged re-emission running |
 
 ---
 
@@ -163,12 +167,15 @@ tasks (see the plan doc for full detail):
 
 ## Carried, unstarted, in the owner's order
 
-- [~] Carry the written rules into `openubem/geometry/european_residential.py` — ▶ in flight, `D-EU-95`, `PLAN_eu-engine-nocore-carryin-2026-09-03.md`
-- [ ] Close the 95 % coverage gap, biggest group first
-- [ ] The buildings demoted at IDF-writing time — a separate defect, never a morphology failure
-- [ ] Republish `plans3D/` from the new plans, geometry only
+- [x] Carry the written rules into `openubem/geometry/european_residential.py` — ✅ done, `D-EU-95`, `implementation/DONE/PLAN_eu-engine-nocore-carryin-2026-09-03.md`, bit-parity 0 mismatches on 2,529/2,529 plates.
+- [x] Close the 95 % coverage gap, biggest group first — superseded: `EU-19` ran on `D-EU-100`'s lifted gate, not on a re-passed 95 % bar; see `STATE` §7 items 2–3.
+- [ ] The buildings demoted at IDF-writing time — a separate defect, never a morphology failure — still open, not scheduled.
+- [x] Republish `plans3D/` from the new plans, geometry only — superseded by the merged `outputs_3D/` viewers, `PLAN_eu-viewer-eui-floorplan-2026-09-07.md`.
 - [x] Confirm the Speed queue is empty before `EU-19` is prepared — ✅ checked 2026-09-03: `squeue -u o_iseri` → **0 jobs**; EnergyPlus 23.1.0 present on `/speed-scratch`, 27 TB free. Re-check immediately before submitting.
+- [x] `EU-19` simulate — ✅ EU-11 ceiling82 harvest closed 2026-09-06, 3,344 run / 3,321 success / 23 failed, pooled EUI by district in `STATE` §8.
+- [x] EUI colour-by + EU-21 check badges on the 3D viewers — ✅ closed 2026-09-07, `PLAN_eu-viewer-eui-floorplan-2026-09-07.md`.
 - [ ] Housekeeping: `scripts/eu21/04_group_tests.py` still writes archived sheet filenames
+- [ ] 🔴 New, `FINDING 258`: some plates' floor-plan division is not homogeneous (tiny dwellings + one oversized one) despite `PASS ALL 7 CHECKS` — owner ruling: per-building fix only, never a full-batch re-cut/re-simulation, not scheduled.
 
 ---
 
@@ -179,9 +186,9 @@ Tracking view only — status and a pointer, nothing else. Full rulings, quotes 
 
 | Gate | Status | Pointer |
 |---|---|---|
-| `plans3D/` read + confirmation | 🔴 open, after the engine carry-in | `D-EU-54` |
+| `plans3D/` read + confirmation | ✅ closed 2026-09-07, one named exception carried as `FINDING 258` | `D-EU-54`, `D-EU-105` |
 | Simulation permission (≥ 95 % `PASS`, any one district) | ✅ met — Madrid 95.3 % | `D-EU-91`, `D-EU-94` |
-| Engine carry-in blocker (core-era engine) | 🔴 not cleared | `D-EU-94` cl. 3, `STATE` §4 |
+| Engine carry-in blocker (core-era engine) | ✅ cleared — bit-parity 0 mismatches | `D-EU-95`, `STATE` §7 item 2 |
 | `C11` not evaluated at `k = 1` | ✅ taken | `D-EU-93` |
 | 95 % coverage bar | ✅ retired | `D-EU-96` |
 | 107 low-density buildings | ✅ stay in, flagged | `D-EU-97`, `FINDING 248` |

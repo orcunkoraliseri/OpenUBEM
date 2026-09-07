@@ -18,12 +18,17 @@ A floor is divided into **dwellings only** — no circulation zone, no stair cor
 
 ## 2. Where it stands
 
-**Holding.** All 2,544 buildings build, carry shading geometry, and balance in area. The `plans3D/`
-pages exist for all four districts.
+🔴 **Done, 2026-09-07.** All four steps in §4 below closed: the rule was written and proven, carried into
+the engine (bit-parity, 0 mismatches), simulated on Speed (EU-11 ceiling82 harvest, four district EUIs),
+and you read and confirmed the floor plans. The 3D viewers (`outputs_3D/eu_<district>_viewer.html`) now
+show EUI colour and EU-21 PASS/FAIL badges on the same proven geometry. One item stays open, deliberately
+not blocking closure: `FINDING 258` — a few plates split unevenly (tiny dwellings next to one oversized
+one) despite passing all seven checks; your ruling was a per-building fix later, never a full-batch
+re-cut. Full numbers: `STATE_european_locations_v5.md` §7, §8.
 
-**Not done.** The floor plans themselves. Ruled coverage on the emitted IDFs is far below the 95 % bar
-and the parity gate still fails. You cannot repair an engine against a rule nobody has written down —
-so the arc stopped editing the engine and started writing the rule.
+**Historical, kept for context.** The rest of this document (§3–§6) describes the arc as it stood while
+still open, up to the 2026-09-04 log entries — read it for how the rule and the engine carry-in were
+built, not for current status.
 
 ---
 
@@ -55,14 +60,14 @@ Seven checks decide every plate:
 
 | | Package | What it does | Ends at |
 |---|---|---|---|
-| 1 | **`EU-21`** — write the rule | Eleven group rules, seven checks, 550 plates, `FAIL 0` | A rules document you have read |
-| 2 | **engine** — carry it in | The written rule replaces the box-era logic in `european_residential.py` | Coverage measured on the IDFs |
-| 3 | **`EU-18`** — prove it | `plans3D/` republished; parity gate back to 0 | **Your confirmation on `plans3D/`** |
-| 4 | **`EU-19`** — simulate | Four districts on Speed, harvest, viewers | Four fresh district EUIs |
+| 1 | **`EU-21`** — write the rule | Eleven group rules, seven checks, 550 plates, `FAIL 0` | ✅ A rules document you have read |
+| 2 | **engine** — carry it in | The written rule replaces the box-era logic, now in `european_nocore.py` | ✅ Bit-parity, 0 mismatches, 2,529/2,529 plates |
+| 3 | **`EU-18`** — prove it | `plans3D/` republished; parity gate back to 0 | ✅ Your confirmation, 2026-09-07 (`D-EU-54`/`D-EU-105`), one named exception (`FINDING 258`) |
+| 4 | **`EU-19`** — simulate | Four districts on Speed, harvest, viewers | ✅ Four fresh district EUIs, 2026-09-06 (London 97.08, Lyon 65.94, Madrid 77.15, Bologna 54.94 kWh/m²) |
 
-Steps 1 and 2 run to the end without stopping. Step 3 ends on your reading of the pages.
-**Step 4 has your sentence** — given 2026-09-03 as `D-EU-94`, conditional on 95 %, on Speed. It still waits
-on step 2: the engine that writes the IDFs is core-era, so a run before the carry-in simulates the wrong plans.
+**All four steps closed 2026-09-07.** Full closing detail — including the merge of EUI colour and EU-21
+check badges onto the `outputs_3D/` viewers — is `STATE_european_locations_v5.md` §7 items 2–5 and §8's
+final four entries.
 
 ---
 
@@ -183,3 +188,13 @@ Numbers are in `STATE_european_locations_v5.md` — this is the order of events 
   published in `DEBUG_why-not-100-percent-2026-09-04.md`: 100 % is unreachable and ~3,430 (≈82 %) is the true
   maximum, because 418 London footprints have never had a certificate lodged at all and 269 more carry
   certificates that contradict one another. Still blocked on the live 2,527-task Speed campaign draining.
+- **2026-09-06 (`EU-19` closed — the EU-11 ceiling82 harvest)** — all 10 Speed jobs drained and merged;
+  3,344 run / 3,321 success / 23 failed (stop-condition 0.7 %, never tripped). Four fresh district EUIs:
+  London 97.081151, Lyon 65.935928, Madrid 77.153998, Bologna 54.935569 kWh/m². Viewers regenerated on the
+  harvested data.
+- **2026-09-07 (`D-EU-54`/`D-EU-105` closed)** — you read the merged `outputs_3D/` floor-plan modals and
+  confirmed, with one named exception (`FINDING 258`, floor-plan division not homogeneous on some plates)
+  carried forward as open work, not as a reason to keep the gate open.
+- **2026-09-07 (viewer merge closed — the four-step order above is done)** — EU-11 EUI colour-by, EU-21
+  zone colours, and EU-21 check badges all merged onto the same EU-17 geometry in
+  `outputs_3D/eu_<district>_viewer.html`. Full numbers: `STATE_european_locations_v5.md` §8.

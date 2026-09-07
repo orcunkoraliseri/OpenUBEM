@@ -27,14 +27,33 @@ below it.
 
 ## 0. Identifier bookkeeping — read before allocating anything
 
-The arc has claimed **`D-EU-49` … `D-EU-101`** and **`FINDING 211` … `FINDING 256`**
+The arc has claimed **`D-EU-49` … `D-EU-109`** and **`FINDING 211` … `FINDING 263`**
 (`FINDING 215`–`219` were never allocated — skip them, do not backfill).
-**Next free: `D-EU-102`, `FINDING 257`.**
+**Next free: `D-EU-110`, `FINDING 264`.**
+
+⚠ **`D-EU-106`–`109` are lettered rulings taken 2026-09-07 inside the three second-wave plan docs and
+registered here by filename, provenance only** (the plan doc is the authority, this ledger only reserves
+the number): `D-EU-106` and `D-EU-109 a`…`g` in
+`implementation/PLAN_eu-dwelling-division-recovery-2026-09-07.md`; `D-EU-107 a`…`g` in
+`implementation/PLAN_eu-plan-homogeneity-2026-09-07.md`; `D-EU-108 a`…`f` in
+`implementation/PLAN_eu-london-coverage-2026-09-07.md` (Options 2+3 admission ruled in
+`debugs/docs/DECISION_REQUEST_D-EU-108_london_recovery_2026-09-07.md`). `FINDING 259`–`263` live in the
+same three docs; `FINDING 262` (232 of 344 imbalanced plates are also undivided, so the landing order
+`D-EU-109` → `D-EU-107` → `D-EU-108` is load-bearing) and `FINDING 263` (the near-duplicate-vertex path is
+non-deterministic, so every hash gate must exclude and name that population) are the two that constrain
+later work.
+
+⚠ **`D-EU-102`–`104` were claimed in `implementation/PLAN_eu-82pct-ceiling-2026-09-05.md` (T03's stop
+and T07a/b's authorization) and never registered back here — this ledger under-counted them until
+2026-09-07.** Re-registering by filename, not by re-deriving new numbers, to avoid a collision: they stay
+with the ceiling82 plan, provenance only. `D-EU-105` is the first number this ledger actually allocates
+past that gap (§8, 2026-09-07).
 
 Where the rulings live: `D-EU-49`…`D-EU-58` in `previous/STATE_european_locations_v4.md` §4 ·
 `D-EU-59`…`D-EU-63` in `prompts/previous/DIRECTOR_PROMPT_european_locations.md` ·
 `D-EU-64`…`D-EU-78` in `prompts/DIRECTOR_PROMPT_group_floor_planning_2026-09-01.md` §2 and §5
-(**parked path — provenance only**) · `D-EU-79`…`D-EU-100` in §4 below.
+(**parked path — provenance only**) · `D-EU-79`…`D-EU-100` in §4 below · `D-EU-102`…`D-EU-104` in
+`implementation/PLAN_eu-82pct-ceiling-2026-09-05.md` (provenance only) · `D-EU-105` in §8 below.
 
 ---
 
@@ -58,6 +77,18 @@ correctly, not how many buildings carry a plan. Never quote a test-sheet PASS co
 ⚠ Bologna carries `construction_period_provenance = IMPUTED_CENSUS_SECTION_CONSTRUCTION_PERIOD` on
 **100 %** of rows. Never quote a Bologna number without it.
 
+🔴 **As of 2026-09-07, the four published `EU-11` ceiling82 district EUIs (London 97.081151, Lyon
+65.935928, Madrid 77.153998, Bologna 54.935569 kWh/m²) are stale and may not be quoted as current.**
+`D-EU-107`, `D-EU-108` and `D-EU-109` are in execution against a merged re-emission
+(`openubem/outputs/eu_evidence/EU-11/<DISTRICT>_final_2026-09-07/`); the `*_ceiling82_2026-09-05/` trees
+are superseded and read-only, never overwritten
+(`implementation/PLAN_eu-dwelling-division-recovery-2026-09-07.md:341`). *"The four published EUIs …
+become stale the moment this lands — no district EUI may be quoted between T05 submission and T06's
+restatement"* (`implementation/PLAN_eu-plan-homogeneity-2026-09-07.md:266-267`); every district EUI moves
+and is restated once, at T07, with both the pre-fix and post-fix populations named
+(`implementation/PLAN_eu-dwelling-division-recovery-2026-09-07.md:235-238`, `D-EU-109 d`). Restatement has
+not happened yet.
+
 ---
 
 ## 2. Work packages
@@ -74,6 +105,10 @@ correctly, not how many buildings carry a plan. Never quote a test-sheet PASS co
 | `EU-19` | Four-district resimulation on proven plans | In progress — running in parallel on Speed (Jobs 1305158, 1305167, 1305176, 1305186) |
 | **`EU-20`** | **Morphology atlas: the eleven building groups, 2,544 rows** | **Completed 2026-09-01** |
 | **`EU-21`** | **The flat-division rules: one written rule per group, graded on 550 real plates** | **In progress — the live front** |
+| `D-EU-106` | Repaint `outputs_3D` floor-plan modal in the `plans3D` visual style | Completed 2026-09-07 |
+| `D-EU-107` | Balance the dwelling cut (`C12`), re-plan/re-simulate the affected plates only | In progress — `CP-1`/`CP-2`/`CP-3` parity half signed, `CP-3` hash half unsigned |
+| `D-EU-108` | London coverage recovery (terrace-row age/storey inheritance) | In progress — complete through T05b; harvest/final restatement pending |
+| `D-EU-109` | Recover discarded dwelling divisions (ring cleanup); merges `D-EU-107`/`D-EU-108`/`D-EU-109` into one re-emission and one Speed campaign | In progress — merged re-emission (T03m) running for `ES-MAD`/`IT-BOL`, Speed campaign not yet submitted |
 
 *Status is one of Completed / In progress / Not started / Blocked. This table carries no notes.*
 
@@ -1057,6 +1092,80 @@ owner's. Everything else `D-EU-99` set is unchanged: no `_r5` cutter edits (`D-E
 `openubem/idf/surfaces.py` edits (`D-EU-41`), cluster hard rules unchanged (`sbatch --array` only,
 `--time=7-00:00:00` minimum, `_ssh()` helper, never the login node, `D-EU-98`'s unattended-submit pattern).
 
+**`D-EU-106` — repaint the `outputs_3D` floor-plan modal in the `plans3D` visual style** (owner 2026-09-07,
+verbatim: *"floor plan visual style is different, i want to apply same style of this plan view
+[`plans3D/PLANS_ES-MAD-BERRUGUETE_nocore_2026-09-03_r5.html`] for the outputs
+[`outputs_3D/eu_ES-MAD-BERRUGUETE_viewer.html`]"*,
+`implementation/DONE/PLAN_eu-viewer-planstyle-2026-09-07.md:18`). Presentational only — no polygon, zone
+payload, join, or data-source change; scoped to `scripts/generate_eu_3d_viewers.py`'s CSS block, modal
+markup and `drawFloorPlan`; `08_district_viewer.py` and every `plans3D/PLANS_*.html` stay read-only style
+references, never edited or re-run. **Complete 2026-09-07** — T01-T05 all done, four viewers regenerated
+and mirrored, primary/mirror `sha256` matched (`PLAN_eu-viewer-planstyle-2026-09-07.md:167-243`).
+
+**`D-EU-107` — balance the dwelling cut; re-plan and re-simulate only the affected buildings** (owner
+2026-09-07, verbatim: *"based on the global rules […] we are aiming homogeneous floor planning, but there
+are some flaws […] please scan similar buildings, re-plan floor plans and re-simulate"*,
+`implementation/PLAN_eu-plan-homogeneity-2026-09-07.md:15-17`). Scopes, does not supersede, `D-EU-105`'s
+"per affected building only" clause: the affected set is measured, not assumed, at **344 plates fleet-wide**
+(`CP-1` SIGNED, T01), of which 340 sit in the simulated ceiling82 population. Sub-rulings:
+
+1. **`D-EU-107 f`** (`:182-230`) — corrects the T02a spec's `_plate_score` ranking tuple to booleanise `C10`
+   ahead of the new `spread` term, after the uncorrected order flipped 458 `PASS`→`FAIL` verdicts on `C10`
+   alone. Corrected order recovers **275 of 344 to `spread >= 0.50`, 69 residual**, **0 regressions** on all
+   seven checks (`CP-2` SIGNED, `:292-318`).
+2. **`D-EU-107 g`** (`:334-365`) — re-points the engine-parity gate at a freshly regenerated
+   `2026-09-07_r6` baseline, after the plan's own bench change invalidated the 2026-09-03 `_r5` reference as
+   a same-day comparator. Both runs land exactly as predicted: `--baseline-tag 2026-09-07_r6` → `0/0/0/0`
+   over 2,529 plates; `--baseline-tag 2026-09-03_r5` → `0/0/1,101/32`, matching T03's pre-correction numbers
+   (`CP-3` parity half SIGNED, `:598-621`).
+
+`CP-3`'s hash half is **UNSIGNED**, pending `D-EU-109`'s merged `T03m` re-emission (`:621`). T04
+(re-emit affected IDFs) not started. T05-T07 (Speed campaign, harvest, republish) are director-only and fold
+into `D-EU-109 e`'s single merged wave.
+
+**`D-EU-108` — London: why so few buildings are simulated, and how many more can be** (owner 2026-09-07,
+verbatim: *"most of the buildings are not simulated why, it looks like even similar buildings some
+simulated some excluded […] i think there could be more buildings to simulate"*,
+`implementation/PLAN_eu-london-coverage-2026-09-07.md:11`). T01 closed `FINDING 259` (the viewer read the
+wrong tree) — `CP-1` SIGNED (`:172-183`). T04's decision request
+(`debugs/docs/DECISION_REQUEST_D-EU-108_london_recovery_2026-09-07.md`) was **ruled 2026-09-07, owner
+verbatim "yes, admit 2 and 3" / "lets go"** (`PLAN_eu-london-coverage-2026-09-07.md:215`): **Option 2**
+(terrace-row age inheritance — inferred, not observed, provenance `INFERRED_TERRACE_NEIGHBOUR_AGE`) and
+**Option 3** (storey recovery) admitted; Option 1 moot (already in production, 0 recoverable); Option 4
+declined. Target London **451 -> 758 of 1,242 (36.3 % -> 61.0 %)**, of which 307 rows are inferred.
+`D-EU-108 f` (straddle disambiguation, `:414-443`) completed 2026-09-07 — `CP-4` SIGNED: **London
+706/1,242**, hash control **412/412** over the 39-building `FINDING 263`-excluded population (`:585-587`).
+The owner then separately instructed (verbatim *"start, building and simulations, lets go"*, `:588-591`) an
+**unfolded, London-only Speed campaign** for the 255 net-new buildings only — **submitted 2026-09-07, job
+`1310803`** (`:588-608`), explicitly **provisional**: emitted by the pre-`D-EU-109`/`D-EU-107` engine, 9 of
+255 already carry the discard defect, and the T07 restatement must be redone after the merged wave lands
+(`:613-621`). It does not supersede or fold into the merged wave's own scope. `D-EU-108` complete through
+T05b; T06/T07 (harvest, final restatement) fold into `D-EU-109`'s merged wave.
+
+**`D-EU-109` — recover the discarded dwelling divisions: 1,524 simulated buildings carry no floor
+division** (owner 2026-09-07, verbatim: *"even i am seeing these buildings under the EUI visualisation but
+they do not have floor division, this is absurd. witout floor division no simualtion"*; authorisation
+verbatim: *"go ahead, execute this plan too"*,
+`implementation/PLAN_eu-dwelling-division-recovery-2026-09-07.md:9-14`). Authorised end to end, including
+the merged re-emission (`D-EU-109 e`), the single Speed campaign (T06) and the EUI restatement (T07);
+director signs `CP-1`-`CP-3` on the plan's own measured gates, owner returned to only on a gate failure.
+Sub-rulings (`:214-249`): **a** — the remedy is vertex *removal*, not snapping; **b** — cleanup runs at two
+points (pre-cut footprint ring, post-cut zone rings); **c** — removal criterion is the detector's own
+unchanged math (`NEAR_DUPLICATE_VERTEX_TOLERANCE_M`, `COLLINEAR_VERTEX_ANGLE_TOLERANCE_DEG`), iterative to
+a fixed point; **d** — every district EUI is restated, not assumed, at T07; **e** — one merged re-emission
+and one Speed campaign covers `D-EU-107` + `D-EU-108` + `D-EU-109` together, this plan's engine change
+lands first. **`D-EU-109 f`** (`:477-512`) — after `CP-2` held the initial `1e-6` relative-area budget as
+self-defeating (measured 500x too tight to admit the flagged vertices), the final removal criterion is:
+perpendicular distance to chord `<= 0.010 m` **and** per-removal relative area change `<= 1e-3` **and**
+cumulative relative area change per ring `<= 2e-3`, chosen from T02b's measured distributions (171/173
+undivided buildings recoverable). **`D-EU-109 g` / T03m** (`:329-356`) — merges this plan's T03,
+`D-EU-107`'s T04 and `D-EU-108`'s re-emission into **one** pass over each district's final population
+(ceiling82 for `ES-MAD`/`FR-LYO`/`IT-BOL`, the 706-building `GB-LDN-STDUNSTANS_recovery_2026-09-07/` set for
+London), output to new `<DISTRICT>_final_2026-09-07/` trees; `*_ceiling82_2026-09-05/` trees are never
+written to. `CP-1` SIGNED (`:406-417`); `CP-2` HELD then superseded by `D-EU-109 f` (`:429-460`). **T03m is
+in execution as of 2026-09-07** (still running for `ES-MAD` and `IT-BOL`); T06 (merged Speed campaign) has
+not yet been submitted.
+
 ---
 
 ## 5. Acceptance
@@ -1108,6 +1217,23 @@ never repeated here.
   `TYPOLOGY_SIGNALS_DISAGREE` 186→10 (the 8+2 out-of-scope outliers, unchanged). Fleet 2,890→3,066/4,186
   (73.2 %). Decision request ruled and archived:
   `debugs/docs/DONE-docs/DECISION_REQUEST_D-EU-37_typology_table_extension_2026-09-04.md`.
+- ✅ **`D-EU-106` — repaint the `outputs_3D` floor-plan modal in the `plans3D` visual style.** Ruled and
+  completed 2026-09-07, `implementation/DONE/PLAN_eu-viewer-planstyle-2026-09-07.md`.
+- ▶ **`D-EU-107` — balance the dwelling cut (`C12`), re-plan/re-simulate the affected plates only.** In
+  execution as of 2026-09-07. `CP-1` (344 affected plates) and `CP-2` (0 regressions, 275/344 recovered)
+  SIGNED; `CP-3` parity half SIGNED, hash half UNSIGNED pending `D-EU-109`'s `T03m`. T04-T07 not started,
+  fold into `D-EU-109`'s merged wave.
+- ▶ **`D-EU-108` — London coverage recovery.** In execution as of 2026-09-07. `CP-1` (`FINDING 259`
+  closed), `CP-2` and `CP-4` (706/1,242, hash control 412/412 over the 39-building `FINDING 263` exclusion)
+  SIGNED, complete through T05b. A separately-instructed, London-only Speed campaign for the 255 net-new
+  buildings (job `1310803`) was submitted 2026-09-07 and is explicitly provisional; T07's final restatement
+  folds into `D-EU-109`'s merged wave.
+- ▶ **`D-EU-109` — recover the discarded dwelling divisions (1,524 undivided of 3,344 simulated,
+  `FINDING 261`).** In execution as of 2026-09-07, authorised end to end by the owner. `CP-1` SIGNED;
+  `CP-2` HELD, superseded by `D-EU-109 f`'s corrected removal criterion. The merged `T03m` re-emission
+  (`D-EU-109 g`, folding in `D-EU-107` and `D-EU-108`) writes to
+  `openubem/outputs/eu_evidence/EU-11/<DISTRICT>_final_2026-09-07/` and is running as of 2026-09-07 for
+  `ES-MAD` and `IT-BOL`; the merged Speed campaign (T06) has not yet been submitted.
 
 Everything else runs without a check-in, per the owner's standing "continue to the end" instruction.
 
@@ -1134,7 +1260,8 @@ Everything else runs without a check-in, per the owner's standing "continue to t
 | IDF build + reroute | `scripts/run_eu_s2_campaign.py:516-534`, `openubem/idf/surfaces.py:640` |
 | District campaign + manifests | `scripts/run_eu_s2_district_campaign.py` (areas `:408-418`) |
 | Emitted IDFs + `prepared_buildings.csv` | `openubem/outputs/eu_evidence/EU-11/`, `EU-17/<district>/` |
-| Floor-plan pages, geometry only (`D-EU-54`, `D-EU-90`) | `plans3D/` (active `*_nocore_2026-09-03_r5.html`; baseline, `_r2`, `_r3` and `_r4` all in `plans3D/archive/` — 16 files, none overwritten; pre-T12 in `plans3D/previous/`; entry table `plans3D/index.html`) |
+| Floor-plan pages, geometry only (`D-EU-54` **closed 2026-09-07**, `D-EU-90`) | `plans3D/` (active `*_nocore_2026-09-03_r5.html`; baseline, `_r2`, `_r3` and `_r4` all in `plans3D/archive/` — 16 files, none overwritten; pre-T12 in `plans3D/previous/`; entry table `plans3D/index.html`) |
+| 3D viewers, EUI colour + EU-21 checks merged on top of the same geometry | `outputs_3D/eu_<district>_viewer.html` (mirrored `openubem/outputs/3D/`), built by `scripts/generate_eu_3d_viewers.py`, plan `implementation/PLAN_eu-viewer-eui-floorplan-2026-09-07.md` |
 | Superseded v4 trio (historical) | `previous/STATE_european_locations_v4.md`, `previous/BRIEF_european_locations_v4.md`, `previous/CHECKLIST_european_locations_v4.md` |
 | Append-only progress log | `content/walkthrough_progress_log.csv` |
 | Progress board (update in place) | `https://claude.ai/code/artifact/080bec44-ec13-4669-94db-8bb4a7a6763f` |
@@ -1163,13 +1290,28 @@ failures in `tests/test_eu_real_footprint_feasibility.py` are known and untouche
    `2026-09-02` sets are both archived, `FINDING 239`: three of the five `2026-09-02` originals were
    overwritten in place before the archive and no longer show the delivered drawings). The four rules docs
    are re-dated `*_nocore_2026-09-03.*`; `EU-21` acceptance criterion 3 (§5) is **not met**.
-2. **Then, in the owner's order:** carry the written rules into the engine · close the 95 % gap biggest
-   group first (`COMPLEX_MULTI_WING` 362, `SLIVER` 390, `COURTYARD` 297, `U_OR_T_SHAPE` 217,
-   `L_SHAPE` 213) · the 939 buildings demoted at IDF-writing time (`ZeroDivisionError` in
-   `geomeppy/geom/vectors.py:105`, `IndexError` at `openubem/idf/surfaces.py:863`) — a separate defect,
-   never counted as a morphology failure · republish `plans3D/` from the new plans, geometry only.
-3. **Not before those:** `EU-18c`'s sample battery and `EU-19`. Both wait on `D-EU-55`, verbatim.
-4. Housekeeping, one pass, not urgent: `scripts/eu21/04_group_tests.py:184-192` still names the
+2. **Complete:** engine carry-in (`implementation/DONE/PLAN_eu-engine-nocore-carryin-2026-09-03.md`) — the
+   proven cutter is live in `openubem/geometry/european_nocore.py`, bit-parity with `_r5` confirmed 0
+   mismatches on 2,529/2,529 compared plates across all four districts. `CP-2` (the emitted-IDF audit)
+   itself **FAILED** (`FINDING 249`/`250`) and was never re-signed — the owner lifted the wait-for-`CP-2`
+   gate directly (`D-EU-100`, §4) rather than requiring a re-pass, so the campaign proceeded on the bit-parity
+   result, not on `CP-2`.
+3. **Complete:** `EU-18c`'s sample battery and `EU-19` (simulate) — the EU-11 ceiling82 harvest,
+   closed 2026-09-06 (§8). Pooled EUI by district: London 97.081151, Lyon 65.935928, Madrid 77.153998,
+   Bologna 54.935569 kWh/m². Both were waiting on `D-EU-55`, which the ceiling82 campaign's own submission
+   satisfies.
+4. **Complete, `D-EU-105` (§8):** `D-EU-54` — the owner has now read the `plans3D/`-derived floor plans
+   (via the merged `outputs_3D/` viewers) and confirmed, with one named exception carried as open work,
+   never a blocker (`FINDING 258`, item 6).
+5. **Complete:** `implementation/PLAN_eu-viewer-eui-floorplan-2026-09-07.md` — EU-11 EUI colour-by and
+   EU-21 check badges merged on top of the EU-17-geometry 3D viewers, closed 2026-09-07 (§8).
+6. 🔴 **Open, not scheduled — `FINDING 258`:** some buildings' floor-plan division is not homogeneous (a
+   few tiny strip dwellings alongside one oversized dwelling absorbing the rest of the plate), even when
+   the plate reports `PASS ALL 7 CHECKS` — the seven-check set does not penalize inter-dwelling area
+   imbalance on the same plate. Owner ruling, verbatim: *"we can finish outputs^D then we can return this
+   one, maybe for some buildings we need to re-design and re-simulate but not all batch, for some."* Any
+   fix is **per affected building only** — never a full-batch re-cut or re-simulation.
+7. Housekeeping, one pass, not urgent: `scripts/eu21/04_group_tests.py:184-192` still names the
    **core-era** test-sheet filenames as its outputs, so re-running `04` would resurrect sheets that were
    archived on 2026-09-03. Left as found; fix before `04` is ever run again.
 
@@ -1535,3 +1677,89 @@ Numbers here are the measured ones; the narrative-only version is `BRIEF_europea
   leave them ambiguous (199). Reaching 100 % would require inventing a build year for buildings that have
   never had one recorded anywhere — which the investigation scope forbids and the pipeline is built never to
   do.
+- **2026-09-06 — EU-11 ceiling82 harvest closed (`EU-19`, satisfies `D-EU-55`).** All 10 Speed jobs
+  (backlog ×4, Step2-delta ×4, `FINDING-253`-remedy ×2) drained and merged by
+  `scripts/cluster/harvest_eu11_ceiling82_final.py` against each district's `_ceiling82_2026-09-05/`
+  final-population snapshot: London 451/451 run/success, 0 failed, pooled **97.081151 kWh/m²** · Lyon
+  507/506, 1 failed, **65.935928** · Madrid 1174/1164, 10 failed, **77.153998** · Bologna 1212/1200, 12
+  failed, **54.935569**. Total 3344 run / 3321 success / 23 failed — matches stop point 3's own population
+  figure (3,344/4,186 = 79.9 %) and the arithmetic of the 30 originally-classified backlog failures minus
+  the 7 `FINDING 253` stems fixed by the remedy. Hard stop-condition (>10 % measured-vs-predicted
+  disagreement) never tripped: 23/3344 = 0.7 %. `scripts/generate_eu_3d_viewers.py` regenerated and
+  mirrored for all 4 districts on the harvested data; noted in passing, not fixed here: the "colour: EUI"
+  button already in the viewer template had no backing Python data (`b.eui` never set) — closed by the
+  next arc, §8 2026-09-07 below. Full detail:
+  `prompts/DIRECTOR_PROMPT_eu82pct-ceiling-harvest_2026-09-05.md`,
+  `implementation/PLAN_eu-82pct-ceiling-2026-09-05.md`.
+- **2026-09-07 — `D-EU-105`: `D-EU-54` closed.** Owner reviewed the merged `outputs_3D/` floor-plan
+  modals (built on the same `plans3D/`-proven geometry) and ruled, verbatim: *"i am okay with plans pages
+  mostly, except, [screenshot of `BATIMENT0000000240880367_part0`, Lyon] i am seeing that, some of them is
+  not homogenously divided as floor plans as it should, lets not this one. we can finish outputs^D then we
+  can return this one, maybe for some buildings we need to re-design and re-simulate but not all batch,
+  for some."* Read as confirmation with one named, non-blocking exception, carried forward as
+  `FINDING 258` below — not as a reason to keep the gate open.
+- **2026-09-07 — `FINDING 258`: floor-plan division not homogeneous on some plates, despite
+  `PASS ALL 7 CHECKS`.** Example: `BATIMENT0000000240880367_part0` (Lyon) — three tiny strip dwellings
+  plus one large L-shaped dwelling absorbing the rest of the plate. The seven-check set (`C1`, `C3`, `C4`,
+  `C5`, `C6`, `C10`, `C11`) has no check for inter-dwelling area balance on the same plate, so a valid,
+  passing cut can still be visually lopsided. Open, not scheduled. Owner ruling: fix **per affected
+  building only**, never a full-batch re-cut or re-simulation, and only after the viewer-merge arc below.
+- **2026-09-07 — viewer EUI + EU-21 checks merge closed.**
+  `implementation/PLAN_eu-viewer-eui-floorplan-2026-09-07.md`, T01–T03, all audited against the regenerated
+  HTML directly, not taken on trust. T01: EU-11 `eui_kwh_m2` wired into the existing "colour: EUI" button
+  (closes the gap noted 2026-09-06 above); hit a `pandas.DataFrame.iterrows()` dtype-upcast bug that zeroed
+  Bologna's join alone (plain-numeric `building_id` upcast to float against a float sibling column) — fixed
+  with `dtype={"building_id": str}` + `zip()`, registered in
+  `docs/docs_EXPLANATION/OpenUBEM_debug_References.md:1040-1047`. T02: `08_district_viewer.py`'s
+  `ZONE_COLORS` 12-hex cycle ported for `ruled` buildings. T03: EU-21 `checks`/`status`/`verdict` merged as
+  annotation onto `pl_obj` (never overriding IDF geometry, rule 3) and the PASS/FAIL badge-chip banner
+  ported into `openPopup`; checks-join 0 misses in all four districts (961/297/82/1204 hit), badge rendered
+  only where `status=="direct"` (955/295/75/1204 of those); 8 spot-checked buildings (PASS+FAIL × 4
+  districts) matched `PLANS_*_r5.html` exactly on verdict and full check-chip array, independently
+  re-verified against the regenerated scene JSON, not just the executor's report. All 4
+  `outputs_3D/eu_<district>_viewer.html` (+ `openubem/outputs/3D/` mirror) regenerated, primary/mirror
+  pairs byte-identical. **This closes the viewer-merge arc and, with it, the four-step order in
+  `BRIEF_european_locations_v5.md` §4.** Remaining open item: `FINDING 258` above.
+- **2026-09-07 — `FINDING 259`: the viewer's grey is not the campaign's grey.** The
+  `eu_<district>_viewer.html` pages drew geometry from the EU-17 rebuild tree while colouring EUI from the
+  EU-11 ceiling82 tree — two different populations. Measured by direct file count: London 82 IDFs in the
+  EU-17 tree vs. **451** actually simulated (under-reported by 369), Lyon 297 vs. 510 (213), Madrid 961 vs.
+  1,181 (220), Bologna 1,204 vs. 1,216 (12) (`implementation/PLAN_eu-london-coverage-2026-09-07.md:18-31`).
+  London's HUD line "1,160 have no IDF … shown grey" was true of the EU-17 tree and wrong as a coverage
+  statement. Closed in T01: the viewer now resolves ceiling82-first, falls back to EU-17, and reports a
+  fourth HUD state; post-change `simulated` counts (Madrid 1,174, Lyon 507, London 451, Bologna 1,212) all
+  equal each district's `population_run` exactly (`CP-1` SIGNED, `:172-183`). No simulation and no
+  published number changed — only what the viewer claims about itself.
+- **2026-09-07 — `FINDING 260`: reserved, not yet populated.** `implementation/PLAN_eu-plan-homogeneity-2026-09-07.md:276`
+  reserves `FINDING 260` for T07 ("register the outcome as `FINDING 260` if any measured behaviour differs
+  from this plan's predictions"). T07 is director-only and folds into `D-EU-109`'s single merged Speed wave
+  (`D-EU-107` §4 above), which has not run — no content exists yet.
+- **2026-09-07 — `FINDING 261`: 45.6 % of the simulated fleet was simulated with no dwelling division at
+  all.** Counted by grepping the emitted ceiling82 IDFs for a `…_F0_whole` zone and cross-checking against
+  each district manifest's `geometry_outcome`; the two agree to the building, fleet-wide **1,524 / 3,344**
+  (`ES-MAD` 642/1,174 = 54.7 %, `FR-LYO` 173/507 = 34.1 %, `GB-LDN` 49/451 = 10.9 %, `IT-BOL` 660/1,212 =
+  54.5 %). By `geometry_outcome`: 1,239 `DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED` (layout was
+  emitted, then force-rerouted to one zone per storey), 213 `FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT`,
+  72 `FALLBACK_PENDING_LAYOUT` (Madrid only). **1,167 of the 1,524 already have a valid, checked,
+  multi-dwelling no-core cut on disk**; the remaining 357 are genuinely `k <= 1` and are not a defect
+  (`implementation/PLAN_eu-dwelling-division-recovery-2026-09-07.md:42-64`, `CP-1` SIGNED `:406-417`).
+- **2026-09-07 — `FINDING 262`: the imbalance `D-EU-107` measures is mostly invisible today.** **232 of the
+  344** `D-EU-107`-affected plates (`ES-MAD` 88, `FR-LYO` 9, `GB-LDN` 1, `IT-BOL` 134) are also inside
+  `D-EU-109`'s 1,524-building undivided set: they carry a valid imbalanced cut in the census but were
+  rerouted to one zone per floor at emission, so no IDF in the current fleet expresses their imbalance —
+  including the owner's own exemplar, `BATIMENT0000000240880367_part0` (`FR-LYO`, k=4, spread 0.0527)
+  (`implementation/PLAN_eu-plan-homogeneity-2026-09-07.md:311-318`, `CP-2` SIGNED). Consequence, load-bearing
+  not a preference: no `C12` improvement may be claimed from a pre-`D-EU-109` emission, which forces the
+  landing order **`D-EU-109` -> `D-EU-107` -> `D-EU-108`**
+  (`implementation/PLAN_eu-dwelling-division-recovery-2026-09-07.md:96-97`).
+- **2026-09-07 — `FINDING 263`: the near-duplicate-vertex path is not deterministic.** The
+  `D-EU-108` executor reproduced non-identical `idf_sha256` hashes for two rows on a same-process double
+  build, with real ULP-level vertex and volume shifts and, in one case, an inserted wall surface with the
+  subsequent walls renumbered (`implementation/PLAN_eu-london-coverage-2026-09-07.md:460-467`). Binding on
+  the arc: `idf_sha256` is **not** a valid control over any building whose `geometry_outcome` is
+  `*_INTERZONE_MISMATCH_REROUTED` or whose `fallback_reason` is `near_duplicate_vertex_tolerated_box` —
+  **every hash gate in `D-EU-107`, `D-EU-108` and `D-EU-109` must exclude that population by name and state
+  the excluded count**; a gate quoted `N/N` without naming the exclusion is not a passed gate. `D-EU-108`'s
+  own control excluded 39 such London buildings and reported 412/412 over the rest. `D-EU-109`'s ring
+  cleanup removes this machinery fleet-wide, after which the hash control becomes valid over the full
+  population (`:467-474`).
