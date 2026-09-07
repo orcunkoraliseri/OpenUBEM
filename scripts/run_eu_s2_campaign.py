@@ -141,6 +141,115 @@ def _has_near_duplicate_vertex_surfaces(idf, interzone_only: bool = True) -> boo
     return False
 
 
+RING_VERTEX_REMOVAL_CHORD_DISTANCE_TOLERANCE_M = 0.010
+RING_VERTEX_REMOVAL_PER_REMOVAL_AREA_BUDGET = 1e-3
+RING_VERTEX_REMOVAL_CUMULATIVE_AREA_BUDGET = 2e-3
+
+
+def _drop_redundant_ring_vertices(ring):
+    """D-EU-109 a/c/f: remove every vertex ``_has_near_duplicate_vertex_surfaces``
+    would flag on this ring's own edges (near-duplicate adjacent vertex, or
+    near-/exactly-collinear interior angle), reading the same two frozen module
+    constants -- never a second, looser copy of them. Iterates to a fixed point
+    (removing one vertex can make its neighbour newly collinear), capped at the
+    ring's own vertex count. A removal is refused, leaving the vertex in place,
+    if its perpendicular distance to the chord joining its two neighbours exceeds
+    ``RING_VERTEX_REMOVAL_CHORD_DISTANCE_TOLERANCE_M`` (0.010 m), or its own
+    relative ring-area change exceeds ``RING_VERTEX_REMOVAL_PER_REMOVAL_AREA_BUDGET``
+    (1e-3), or the ring's cumulative relative area change across every removal made
+    in this call (measured against the ring's own starting area) would exceed
+    ``RING_VERTEX_REMOVAL_CUMULATIVE_AREA_BUDGET`` (2e-3), or the removal would take
+    the ring below 3 vertices. Criterion chosen by ``D-EU-109 f`` (``CP-2`` SIGNED,
+    PLAN_eu-dwelling-division-recovery-2026-09-07.md), superseding the earlier
+    ``1e-6`` relative-area-only budget.
+    """
+    import math
+
+    points = list(ring)
+    closed = len(points) >= 2 and tuple(points[0]) == tuple(points[-1])
+    if closed:
+        points = points[:-1]
+    if len(points) < 3:
+        return list(ring)
+
+    def _xyz(p):
+        return (p[0], p[1], p[2] if len(p) > 2 else 0.0)
+
+    def _ring_area(pts):
+        n = len(pts)
+        nx = ny = nz = 0.0
+        for i in range(n):
+            x1, y1, z1 = _xyz(pts[i])
+            x2, y2, z2 = _xyz(pts[(i + 1) % n])
+            nx += (y1 - y2) * (z1 + z2)
+            ny += (z1 - z2) * (x1 + x2)
+            nz += (x1 - x2) * (y1 + y2)
+        return math.sqrt(nx * nx + ny * ny + nz * nz) / 2.0
+
+    def _dist3(p0, p2):
+        x0, y0, z0 = _xyz(p0)
+        x2, y2, z2 = _xyz(p2)
+        return math.sqrt((x2 - x0) ** 2 + (y2 - y0) ** 2 + (z2 - z0) ** 2)
+
+    def _is_redundant(p0, p1, p2):
+        v1 = tuple(a - b for a, b in zip(p0, p1))
+        v2 = tuple(a - b for a, b in zip(p2, p1))
+        len1 = math.sqrt(sum(c * c for c in v1))
+        len2 = math.sqrt(sum(c * c for c in v2))
+        if len1 < NEAR_DUPLICATE_VERTEX_TOLERANCE_M or len2 < NEAR_DUPLICATE_VERTEX_TOLERANCE_M:
+            return True
+        cos_a = sum(a * b for a, b in zip(v1, v2)) / (len1 * len2)
+        cos_a = max(-1.0, min(1.0, cos_a))
+        angle_deg = math.degrees(math.acos(cos_a))
+        return angle_deg > 180.0 - COLLINEAR_VERTEX_ANGLE_TOLERANCE_DEG
+
+    initial_area = _ring_area(points)
+    cumulative_delta = 0.0
+    cap = len(points)
+    for _ in range(cap):
+        if len(points) <= 3:
+            break
+        removed_this_pass = False
+        i = 0
+        while i < len(points):
+            n = len(points)
+            if n <= 3:
+                break
+            p0 = points[i - 1]
+            p1 = points[i]
+            p2 = points[(i + 1) % n]
+            if _is_redundant(p0, p1, p2):
+                candidate = points[:i] + points[i + 1:]
+                original_area = _ring_area(points)
+                candidate_area = _ring_area(candidate)
+                area_delta = abs(candidate_area - original_area)
+                if original_area == 0.0:
+                    relative_change = 0.0 if candidate_area == 0.0 else float("inf")
+                else:
+                    relative_change = area_delta / original_area
+                chord_len = _dist3(p0, p2)
+                perp_dist = (2.0 * area_delta / chord_len) if chord_len > 0.0 else 0.0
+                if initial_area == 0.0:
+                    cumulative_relative = 0.0 if (cumulative_delta + area_delta) == 0.0 else float("inf")
+                else:
+                    cumulative_relative = (cumulative_delta + area_delta) / initial_area
+                if (
+                    perp_dist <= RING_VERTEX_REMOVAL_CHORD_DISTANCE_TOLERANCE_M
+                    and relative_change <= RING_VERTEX_REMOVAL_PER_REMOVAL_AREA_BUDGET
+                    and cumulative_relative <= RING_VERTEX_REMOVAL_CUMULATIVE_AREA_BUDGET
+                ):
+                    points = candidate
+                    cumulative_delta += area_delta
+                    removed_this_pass = True
+                    continue
+            i += 1
+        if not removed_this_pass:
+            break
+
+    if closed:
+        points = points + [points[0]]
+    return points
+
 
 PROJECTED_CRS = "EPSG:32631"
 FLOOR_TO_FLOOR_M = 3.0
@@ -527,6 +636,10 @@ def build_idf_for_building(
         encoding="utf-8",
     )
     idf = IDF(str(idf_path))
+    for zone in zones:
+        coords = zone.get("coords_m")
+        if coords:
+            zone["coords_m"] = _drop_redundant_ring_vertices(coords)
     extrude_geometry(idf, zones, context or [])
     # FINDING 210 residual (D-EU-42/D-EU-43 [OPEN] correction, 2026-08-31 root-cause
     # pass): geomeppy's own intersect_match (surfaces.py:866, non-editable, D-EU-41)

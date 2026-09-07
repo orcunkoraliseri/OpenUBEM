@@ -31,6 +31,12 @@ from scripts.eu_idf_plan_reader import BuildingPlan, ZonePlan, parse_idf_floor_z
 
 REPO_ROOT = Path("C:/Users/o_iseri/Desktop/OpenUBEM")
 EU17_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-17"
+EU11_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11"
+EU21_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-21" / "district_plans"
+
+# Same check-id order as `scripts/eu21/08_district_viewer.py:46` -- annotation
+# only (T03, hard rule 3): never a second source of truth for geometry.
+CHECK_IDS = ("C1", "C3", "C4", "C5", "C6", "C10", "C11")
 
 # HTML template parts
 HTML_HEADER_TEMPLATE = """<!doctype html>
@@ -90,21 +96,27 @@ button:disabled{{opacity:.42;cursor:not-allowed}}
 .m-badge.finding{{background:#0d3349;color:#58a6ff;border:1px solid #1f6feb}}
 .m-badge.fallback{{background:#3a2410;color:#f0c07a;border:1px solid #7a4b12}}
 .m-badge.noidf{{background:#22272e;color:#8b95a7;border:1px solid #373e47}}
+.checks{{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}}
+.chk{{font-family:"IBM Plex Mono",monospace;font-size:11px;padding:2px 7px;border:1px solid #262d3a;border-radius:3px;color:#8b95a7;background:#161b24}}
+.chk.ok{{border-color:#238636;color:#7ee787;background:#173d2a}}
+.chk.bad{{border-color:#9e3c2c;color:#f59e8b;background:#2e1a16}}
 .m-info-box{{background:#161b24;border:1px solid #262d3a;border-radius:8px;padding:10px 12px;font-size:12px;margin-bottom:14px}}
 .m-info-box p{{margin:3px 0}}
 .m-info-box code{{background:#0d1117;padding:1px 5px;border-radius:3px;font-size:11px;color:#e6e9ef}}
 .storey-bar{{display:flex;align-items:center;gap:6px;margin-bottom:10px;font-size:12px;flex-wrap:wrap}}
 .storey-btn{{background:#1a212c;border:1px solid #2d3646;color:#c8d1de;border-radius:4px;padding:2px 7px;font-size:11px;cursor:pointer}}
 .storey-btn.active{{background:#1f6feb;border-color:#388bfd;color:#fff;font-weight:bold}}
-#fp-container{{background:#fbfcfd;border:1px solid #212835;border-radius:8px;padding:10px;display:flex;flex-direction:column;align-items:center;margin-bottom:12px}}
-#fp-canvas{{display:block;background:#ffffff;border-radius:6px;border:1px solid #d9dee4}}
-#fp-legend{{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;margin-top:8px;font-size:11px;color:#49515b}}
+#fp-container{{background:#0a0d13;border:1px solid #212835;border-radius:8px;padding:12px;display:flex;flex-direction:column;align-items:center;margin-bottom:12px}}
+#fp-canvas{{display:block;background:#090c10;border-radius:6px;border:1px solid #1a212d}}
+#fp-legend{{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;margin-top:8px;font-size:11px;color:#8b95a7}}
 #fp-legend .sw{{display:inline-flex;align-items:center;gap:6px}}
 #fp-legend .sw i{{width:14px;height:14px;display:inline-block;border-radius:2px}}
-#m-zones{{font-size:11.5px;color:#8b95a7;margin-top:6px;width:100%}}
-#m-zones table{{width:100%;border-collapse:collapse;margin-top:6px}}
-#m-zones th,#m-zones td{{padding:3px 6px;text-align:left;border-bottom:1px solid #1e2531}}
-#m-zones th{{color:#6e7681;font-weight:normal}}
+#m-zones{{font-size:11.5px;color:#8b95a7;margin-top:8px;width:100%}}
+#m-zones table{{width:100%;border-collapse:collapse;margin-top:4px}}
+#m-zones th,#m-zones td{{padding:5px 8px;text-align:left;border-bottom:1px solid #1e2531}}
+#m-zones th{{color:#6e7681;font-weight:500;font-family:"IBM Plex Mono",monospace;font-size:11px}}
+#m-zones td{{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:#c8d1de}}
+#m-zones td code{{font-size:11px;color:#8fd0ff}}
 </style>
 </head>
 <body>
@@ -115,8 +127,8 @@ button:disabled{{opacity:.42;cursor:not-allowed}}
   <div class="warn" id="warn"></div>
   <div class="row"><span class="k">Residential</span><span id="nres"></span></div>
   <div class="row"><span class="k">Excluded / non-residential</span><span id="nexc"></span></div>
-  <div class="row"><span class="k">Dwelling layout ruled (IDF)</span><span id="nruled"></span></div>
-  <div class="row"><span class="k">Massing box (IDF)</span><span id="nmassing"></span></div>
+  <div class="row"><span class="k">Simulated (has EUI)</span><span id="nsim"></span></div>
+  <div class="row"><span class="k">IDF only, not simulated</span><span id="nidfonly"></span></div>
   <div class="row"><span class="k">No IDF</span><span id="nnoidf"></span></div>
   <div class="row"><span class="k">Height measured</span><span id="hm"></span></div>
   <div class="row"><span class="k">Height from storeys &times;3.0 m</span><span id="hl"></span></div>
@@ -131,7 +143,7 @@ button:disabled{{opacity:.42;cursor:not-allowed}}
     <button id="bH" class="on">colour: height</button>
     <button id="bP">colour: provenance</button>
     <button id="bY">colour: age</button>
-    <button id="bS">colour: layout state</button>
+    <button id="bS">colour: simulated</button>
     <button id="bU">colour: EUI</button>
     <button id="bE" class="on">show excluded</button>
     <button id="bR">reset view</button>
@@ -149,7 +161,7 @@ button:disabled{{opacity:.42;cursor:not-allowed}}
     <div class="m-info-box" id="m-status-box"></div>
     <div class="storey-bar" id="m-storey-bar"></div>
     <div id="fp-container">
-      <canvas id="fp-canvas" width="560" height="280"></canvas>
+      <canvas id="fp-canvas" width="580" height="320"></canvas>
       <div id="fp-legend"></div>
       <div id="m-zones"></div>
     </div>
@@ -167,9 +179,9 @@ document.getElementById("ttl").textContent=D.name;
 document.getElementById("place").textContent=D.place;
 document.getElementById("nres").textContent=D.n_res.toLocaleString();
 document.getElementById("nexc").textContent=D.n_exc.toLocaleString();
-document.getElementById("nruled").textContent=(D.layout_counts ? D.layout_counts.ruled : 0).toLocaleString();
-document.getElementById("nmassing").textContent=(D.layout_counts ? D.layout_counts.massing_box : 0).toLocaleString();
-document.getElementById("nnoidf").textContent=(D.layout_counts ? D.layout_counts.no_idf : D.n_res).toLocaleString();
+document.getElementById("nsim").textContent=(D.sim_counts ? D.sim_counts.simulated : 0).toLocaleString();
+document.getElementById("nidfonly").textContent=(D.sim_counts ? D.sim_counts.idf_only : 0).toLocaleString();
+document.getElementById("nnoidf").textContent=(D.sim_counts ? D.sim_counts.no_idf : D.n_res).toLocaleString();
 document.getElementById("hm").textContent=D.counts.measured.toLocaleString();
 document.getElementById("hl").textContent=D.counts.levels.toLocaleString();
 document.getElementById("ha").textContent=D.counts.assumed.toLocaleString();
@@ -201,11 +213,18 @@ function stateIdx(b){
   return 2;
 }
 function stateLabel(b){return b.ls?STATE_NAMES[stateIdx(b)]:"n/a";}
+var SIM_COLORS=[[34,197,94],[217,119,6],[148,163,184]];
+var SIM_NAMES=["simulated (has EUI)","IDF only, not simulated","no IDF"];
+function simIdx(b){
+  if(b.ss==="simulated")return 0;
+  if(b.ss==="idf_only")return 1;
+  return 2;
+}
 function baseColor(b){
   if(b.c===1)return [96,104,118];
   if(mode==="p")return PROV[b.p];
   if(mode==="y"){if(!b.y)return [80,88,100];return ramp((b.y-ymin)/Math.max(1,ymax-ymin));}
-  if(mode==="s")return STATE_COLORS[stateIdx(b)];
+  if(mode==="s")return SIM_COLORS[simIdx(b)];
   if(mode==="u"){if(b.eui==null)return [80,88,100];return ramp((b.eui-euimin)/Math.max(1,euimax-euimin));}
   return ramp(b.h/hmax);
 }
@@ -359,6 +378,21 @@ function hover(e){
   hide();
 }
 
+var ZONE_COLORS=[
+  "#287294",
+  "#328452",
+  "#937320",
+  "#9e4438",
+  "#7b5294",
+  "#b35c34",
+  "#2c8a85",
+  "#8a4f7d",
+  "#4f6b96",
+  "#82802b",
+  "#96425a",
+  "#387680"
+];
+
 /* Floor Plan Modal Logic */
 var modalBackdrop=document.getElementById("modal-backdrop"),
     modalClose=document.getElementById("modal-close"),
@@ -411,11 +445,32 @@ function openPopup(b){
     statusHtml += "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>One undivided zone per storey. No interior partition exists in the IDF.</p>";
   } else {
     statusHtml="<span class='m-badge noidf'>NO IDF</span> " +
-      (b.c===1 ? "Excluded / non-residential building." : "No IDF file exists for this building in the EU-17 tree.") +
+      (b.c===1 ? "Excluded / non-residential building." : "No IDF file exists for this building in the ceiling82 or EU-17 tree.") +
       "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>Showing footprint outline only.</p>";
   }
   if(pl && pl.f204){
     statusHtml += "<span class='m-badge finding'>FINDING 204</span> circulation outside the ruled 12.0&ndash;25.0 m&sup2; band<br>";
+  }
+  if(pl && pl.chk){
+    var chipsHtml="";
+    var failList=[];
+    if(pl.chk.ch && pl.chk.ch.length>0){
+      chipsHtml="<div class='checks'>";
+      for(var ci=0; ci<pl.chk.ch.length; ci++){
+        var cid=pl.chk.ch[ci][0], cval=pl.chk.ch[ci][1], cpass=pl.chk.ch[ci][2];
+        var ccls=cpass?"ok":"bad";
+        if(!cpass)failList.push(cid);
+        chipsHtml += "<span class='chk " + ccls + "'>" + cid + " " + cval + "</span> ";
+      }
+      chipsHtml += "</div>";
+    }
+    if(pl.chk.v==="PASS"){
+      statusHtml += "<span class='m-badge emitted'>PASS ALL 7 CHECKS</span> " +
+        "<b>Scheme:</b> nocore equal-area cut.<br>" + chipsHtml;
+    } else {
+      statusHtml += "<span class='m-badge fallback'>FAIL</span> " +
+        "<b>Failing checks:</b> " + (failList.length>0 ? failList.join(", ") : "see checks") + ".<br>" + chipsHtml;
+    }
   }
   mStatusBox.innerHTML=statusHtml;
 
@@ -432,7 +487,7 @@ function openPopup(b){
     mStoreyBar.style.display="flex";
   }
 
-  drawFloorPlan(b, 0);
+  drawFloorPlan(b, 0, -1);
   modalBackdrop.style.display="flex";
 }
 
@@ -443,8 +498,15 @@ window.selectStorey=function(sIdx){
     btns[i].classList.toggle("active", i===sIdx);
   }
   if(currentModalBuilding){
-    drawFloorPlan(currentModalBuilding, sIdx);
+    drawFloorPlan(currentModalBuilding, sIdx, -1);
   }
+};
+
+window.highlightDwelling=function(zIdx){
+  if(currentModalBuilding)drawFloorPlan(currentModalBuilding, currentStoreyIndex, zIdx);
+};
+window.unhighlightDwelling=function(){
+  if(currentModalBuilding)drawFloorPlan(currentModalBuilding, currentStoreyIndex, -1);
 };
 
 function circLabelText(lbl){
@@ -453,11 +515,10 @@ function circLabelText(lbl){
   return "Unconditioned circulation";
 }
 
-function drawFloorPlan(b, sIdx){
+function drawFloorPlan(b, sIdx, hlIdx){
+  if(hlIdx===undefined) hlIdx=-1;
   var cw=fpCanvas.width, ch=fpCanvas.height;
   fpCtx.clearRect(0,0,cw,ch);
-  fpCtx.fillStyle="#ffffff";
-  fpCtx.fillRect(0,0,cw,ch);
 
   var r=b.r;
   var minx=1e9,miny=1e9,maxx=-1e9,maxy=-1e9;
@@ -473,17 +534,17 @@ function drawFloorPlan(b, sIdx){
   function fx(x){return (x-bcx)*sc + cw/2;}
   function fy(y){return -(y-bcy)*sc + ch/2;} // North is up
 
-  // Draw building footprint outline (near-black on white, figure-4.2 style)
+  // Draw building footprint outline (dark ground, plans3D style)
   fpCtx.beginPath();
   for(var j=0;j<r.length;j++){
     var X=fx(r[j][0]), Y=fy(r[j][1]);
     if(j===0)fpCtx.moveTo(X,Y);else fpCtx.lineTo(X,Y);
   }
   fpCtx.closePath();
-  fpCtx.fillStyle="#ffffff";
-  fpCtx.fill();
-  fpCtx.strokeStyle="#172033";
-  fpCtx.lineWidth=4.5;
+  fpCtx.fillStyle="rgba(255,255,255,0.04)";
+  fpCtx.fill("evenodd");
+  fpCtx.strokeStyle="#8b95a7";
+  fpCtx.lineWidth=2;
   fpCtx.stroke();
 
   var pl=b.pl;
@@ -496,6 +557,7 @@ function drawFloorPlan(b, sIdx){
     for(var z=0;z<storey.z.length;z++){
       var zn=storey.z[z];
       var isWhole=(zn.ki==="w");
+      var zoneColor = isWhole ? "#e5e7eb" : ZONE_COLORS[(zn.di - 1) % ZONE_COLORS.length];
       fpCtx.beginPath();
       var zcx=0, zcy=0, nverts=0;
       for(var v=0;v<zn.r.length;v++){
@@ -504,23 +566,46 @@ function drawFloorPlan(b, sIdx){
         zcx += ZX; zcy += ZY; nverts++;
       }
       fpCtx.closePath();
-      fpCtx.fillStyle = isWhole ? "#e5e7eb" : "#dbeafe";
+      fpCtx.fillStyle = isWhole ? "rgba(255,255,255,0.07)" : zoneColor;
       fpCtx.fill();
-      fpCtx.strokeStyle = isWhole ? "#172033" : "#2563eb";
-      fpCtx.lineWidth = isWhole ? 3.5 : 3;
+      if(isWhole){
+        fpCtx.strokeStyle="#8b95a7";
+        fpCtx.lineWidth=2;
+      } else if(hlIdx===z){
+        fpCtx.strokeStyle="#ffffff";
+        fpCtx.lineWidth=2.4;
+      } else {
+        fpCtx.strokeStyle="rgba(255,255,255,0.85)";
+        fpCtx.lineWidth=1.4;
+      }
       fpCtx.stroke();
 
       zcx /= nverts; zcy /= nverts;
-      var label = isWhole ? "Undivided massing box" : ("Dwelling " + zn.di);
-      fpCtx.fillStyle="#172033";
-      fpCtx.font="bold 12px sans-serif";
-      fpCtx.textAlign="center";
-      fpCtx.textBaseline="middle";
-      fpCtx.fillText(label, zcx, zcy);
+      var label = isWhole ? "Undivided massing box" : ("D" + zn.di);
+      if(isWhole){
+        fpCtx.fillStyle="#c8d1de";
+        fpCtx.font="bold 12px sans-serif";
+        fpCtx.textAlign="center";
+        fpCtx.textBaseline="middle";
+        fpCtx.fillText(label, zcx, zcy);
+      } else {
+        fpCtx.save();
+        fpCtx.shadowColor="rgba(0,0,0,0.85)";
+        fpCtx.shadowBlur=4;
+        fpCtx.fillStyle="#ffffff";
+        fpCtx.font="bold 11px sans-serif";
+        fpCtx.textAlign="center";
+        fpCtx.textBaseline="middle";
+        fpCtx.fillText(label, zcx, zcy);
+        fpCtx.restore();
+      }
       if(isWhole) sawWhole=true; else sawDwelling=true;
 
       var elev=storey.z0.toFixed(1)+"–"+storey.z1.toFixed(1)+" m";
-      zonesTable += "<tr><td>" + label + "</td><td>" + zn.a.toFixed(1) + " m&sup2;</td><td>" + elev + "</td></tr>";
+      var swatch="<span style='display:inline-block;width:13px;height:13px;background:"+zoneColor+";border:1px solid rgba(255,255,255,0.7);border-radius:2px;vertical-align:middle;'></span>";
+      var dwIdx = isWhole ? "—" : ("Dwelling " + zn.di);
+      var rowAttrs = isWhole ? "" : " onmouseenter='highlightDwelling(" + z + ")' onmouseleave='unhighlightDwelling()' style='cursor:pointer'";
+      zonesTable += "<tr" + rowAttrs + "><td><code>" + zn.nm + "</code></td><td>" + swatch + "</td><td>" + dwIdx + "</td><td>" + zn.a.toFixed(1) + " m&sup2;</td><td>" + elev + "</td></tr>";
     }
 
     if(storey.c){
@@ -533,15 +618,15 @@ function drawFloorPlan(b, sIdx){
         ccx += CX; ccy += CY;
       }
       fpCtx.closePath();
-      fpCtx.fillStyle="#fef3c7";
+      fpCtx.fillStyle="#3a2410";
       fpCtx.fill();
-      fpCtx.strokeStyle="#d97706";
+      fpCtx.strokeStyle="#7a4b12";
       fpCtx.lineWidth=3;
       fpCtx.stroke();
 
       ccx /= cr.length; ccy /= cr.length;
       var clabel=circLabelText(storey.c.lbl);
-      fpCtx.fillStyle="#172033";
+      fpCtx.fillStyle="#f0c07a";
       fpCtx.font="bold 11px sans-serif";
       fpCtx.textAlign="center";
       fpCtx.textBaseline="middle";
@@ -554,48 +639,49 @@ function drawFloorPlan(b, sIdx){
       sawCirc=true;
 
       var celev=storey.z0.toFixed(1)+"–"+storey.z1.toFixed(1)+" m";
-      zonesTable += "<tr><td>" + clabel + "</td><td>" + storey.c.a.toFixed(1) + " m&sup2;</td><td>" + celev + "</td></tr>";
+      var circSwatch="<span style='display:inline-block;width:13px;height:13px;background:#3a2410;border:1px solid rgba(255,255,255,0.7);border-radius:2px;vertical-align:middle;'></span>";
+      zonesTable += "<tr><td>" + clabel + "</td><td>" + circSwatch + "</td><td>—</td><td>" + storey.c.a.toFixed(1) + " m&sup2;</td><td>" + celev + "</td></tr>";
     }
   }
 
   mZones.innerHTML = zonesTable
-    ? "<table><thead><tr><th>Zone</th><th>Area</th><th>Storey elevation</th></tr></thead><tbody>" + zonesTable + "</tbody></table>"
+    ? "<table><thead><tr><th>Zone Name</th><th>Colour</th><th>Dwelling Index</th><th>Area</th><th>Storey elevation</th></tr></thead><tbody>" + zonesTable + "</tbody></table>"
     : "";
 
   var lg="";
-  if(sawDwelling) lg += "<span class='sw'><i style='background:#dbeafe;border:1px solid #2563eb'></i>Dwelling zone</span>";
-  if(sawCirc) lg += "<span class='sw'><i style='background:#fef3c7;border:1px solid #d97706'></i>Circulation/core zone</span>";
-  if(sawWhole) lg += "<span class='sw'><i style='background:#e5e7eb;border:1px solid #172033'></i>Undivided massing box</span>";
+  if(sawDwelling) lg += "<span class='sw'><i style='background:"+ZONE_COLORS[0]+";border:1px solid rgba(255,255,255,0.85)'></i>Dwelling zone</span>";
+  if(sawCirc) lg += "<span class='sw'><i style='background:#3a2410;border:1px solid #7a4b12'></i>Circulation/core zone</span>";
+  if(sawWhole) lg += "<span class='sw'><i style='background:rgba(255,255,255,0.07);border:1px solid #8b95a7'></i>Undivided massing box</span>";
   fpLegend.innerHTML=lg;
 
-  // Draw Scale Bar (metric, dark-on-white)
+  // Draw Scale Bar (metric, light-on-dark)
   var barMeters=10;
   if(sc > 15) barMeters=5;
   if(sc > 35) barMeters=2;
   if(sc < 5) barMeters=20;
   if(sc < 2) barMeters=50;
   var barPx=barMeters * sc;
-  var bx0=20, by0=ch-18;
+  var bx0=24, by0=ch-20;
   fpCtx.beginPath();
   fpCtx.moveTo(bx0, by0-4); fpCtx.lineTo(bx0, by0); fpCtx.lineTo(bx0+barPx, by0); fpCtx.lineTo(bx0+barPx, by0-4);
-  fpCtx.strokeStyle="#334155";
+  fpCtx.strokeStyle="#c9d1d9";
   fpCtx.lineWidth=1.5;
   fpCtx.stroke();
-  fpCtx.fillStyle="#49515b";
-  fpCtx.font="10px sans-serif";
+  fpCtx.fillStyle="#8b95a7";
+  fpCtx.font="10px monospace";
   fpCtx.textAlign="left";
   fpCtx.textBaseline="bottom";
   fpCtx.fillText(barMeters + " m", bx0, by0-6);
 
-  // Draw North Arrow (dark-on-white)
-  var nx0=cw-24, ny0=24;
+  // Draw North Arrow (light-on-dark)
+  var nx0=cw-28, ny0=26;
   fpCtx.beginPath();
   fpCtx.moveTo(nx0, ny0-10); fpCtx.lineTo(nx0-5, ny0+6); fpCtx.lineTo(nx0, ny0+2); fpCtx.lineTo(nx0+5, ny0+6);
   fpCtx.closePath();
-  fpCtx.fillStyle="#2c5d8a";
+  fpCtx.fillStyle="#7fb3e0";
   fpCtx.fill();
-  fpCtx.fillStyle="#2c5d8a";
-  fpCtx.font="10px sans-serif";
+  fpCtx.fillStyle="#7fb3e0";
+  fpCtx.font="bold 10px sans-serif";
   fpCtx.textAlign="center";
   fpCtx.fillText("N", nx0, ny0+16);
 }
@@ -615,10 +701,10 @@ function legend(){
       '<div class="lab"><span>'+Math.round(euimin)+'</span><span>'+Math.round(euimax)+'</span></div>'+
       "<div class='keys' style='margin-top:6px'><div><span class='sw' style='background:rgb(80,88,100)'></span>not simulated</div></div>";
   } else if(mode==="s"){
-    lt.textContent="layout state (read from IDF)";
+    lt.textContent="simulation state";
     var out2="<div class='keys'>";
-    for(var i3=0;i3<3;i3++){var c3=STATE_COLORS[i3];
-      out2+="<div><span class='sw' style='background:rgb("+c3+")'></span>"+STATE_NAMES[i3]+"</div>";}
+    for(var i3=0;i3<3;i3++){var c3=SIM_COLORS[i3];
+      out2+="<div><span class='sw' style='background:rgb("+c3+")'></span>"+SIM_NAMES[i3]+"</div>";}
     out2+="<div><span class='sw' style='background:rgb(96,104,118)'></span>excluded / non-residential</div></div>";
     lb.innerHTML=out2;
   } else {
@@ -771,6 +857,50 @@ def _load_eu17_sidecar(district: str, building_id: str) -> dict | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _load_eu11_eui(district: str) -> dict[str, float | None]:
+    """``{building_id: eui_kwh_m2}`` from the EU-11 ceiling82 manifest
+    (T01), mirroring ``_load_eu17_sidecar``'s per-district single-file load
+    shape but for the CSV manifest, not a per-building JSON side-car. A
+    building with no manifest row (excluded / no_idf / failed-on-Speed) is
+    simply absent from the dict; a manifest row with a blank
+    ``eui_kwh_m2`` maps to ``None`` rather than being dropped."""
+    city_lower = district.lower().replace("-", "_")
+    path = EU11_ROOT / f"{district}_ceiling82_2026-09-05" / f"{city_lower}_manifest.csv"
+    if not path.exists():
+        return {}
+    df = pd.read_csv(path, usecols=["building_id", "eui_kwh_m2"], dtype={"building_id": str})
+    eui_by_id: dict[str, float | None] = {}
+    for bid, eui in zip(df["building_id"], df["eui_kwh_m2"]):
+        eui_by_id[bid] = float(eui) if pd.notna(eui) else None
+    return eui_by_id
+
+
+def _load_eu21_evidence(district: str) -> dict[str, dict[str, Any]]:
+    """``{building_id: {"status", "verdict", "checks", "scheme"}}`` from the
+    EU-21 no-core rules cutter's own evidence JSON (T03), mirroring
+    ``_load_eu17_sidecar``'s per-district single-file load shape but for one
+    JSON carrying a ``plates[]`` list rather than one file per building.
+    Annotation only (hard rule 3): geometry never comes from here, and a
+    building missing from this dict (or present with ``status`` other than
+    ``"direct"``, e.g. ``GENERIC_NO_CENSUS``/``REFUSED_K_GT_12``, which carry
+    no ``checks``) simply renders with no checks badge, never a fabricated
+    one."""
+    path = EU21_ROOT / f"{district}_nocore_2026-09-03_r5.json"
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    evidence_by_id: dict[str, dict[str, Any]] = {}
+    for plate in data.get("plates", []):
+        bid = str(plate["building_id"])
+        evidence_by_id[bid] = {
+            "status": plate.get("status"),
+            "verdict": plate.get("verdict"),
+            "checks": plate.get("checks"),
+            "scheme": plate.get("scheme"),
+        }
+    return evidence_by_id
+
+
 def _build_plan_payload(
     plan: BuildingPlan, idf_path: Path, sidecar: dict | None, cx: float, cy: float
 ) -> dict[str, Any]:
@@ -920,11 +1050,37 @@ def build_district(district: str) -> None:
         "assumed": int((res_subset["provenance_code"] == 2).sum()),
     }
 
-    # Geometry, read from the emitted IDFs (EU-17, post-T15) -- rule 3: never
-    # the layout side-cars. `read_district` walks `idfs/*.idf` once, keyed by
-    # the building id `prepared_buildings.csv` maps each stem to.
+    # Geometry, read from the emitted IDFs -- rule 3: never the layout
+    # side-cars. `read_district` walks `idfs/*.idf` once, keyed by the
+    # building id `prepared_buildings.csv` maps each stem to.
+    #
+    # T01 (FINDING 259): resolve each building's IDF against the EU-11
+    # ceiling82 tree first -- the tree that was actually simulated -- and
+    # fall back to the EU-17 rebuild tree only where ceiling82 has no file
+    # for that id. `idf_root_by_id` remembers which root each plan came
+    # from so the idf_path built below (`:1110`, `:1116`) points at the
+    # right `idfs/` directory.
     idf_evidence_root = EU17_ROOT / district
+    ceiling82_root = EU11_ROOT / f"{district}_ceiling82_2026-09-05"
     plans_by_id: dict[str, BuildingPlan] = {p.building_id: p for p in read_district(district, idf_evidence_root)}
+    idf_root_by_id: dict[str, Path] = {bid: idf_evidence_root for bid in plans_by_id}
+    for p in read_district(district, ceiling82_root):
+        plans_by_id[p.building_id] = p
+        idf_root_by_id[p.building_id] = ceiling82_root
+
+    # EU-11 ceiling82 manifest EUI, loaded once per district (T01) -- joined
+    # on the same `bid` used everywhere else in the `:1007` loop below. A
+    # building present in this dict (whether or not its `eui_kwh_m2` is
+    # null, e.g. an EnergyPlus severe/fatal-error run) has a manifest row
+    # and counts against `population_run`; a building absent from it never
+    # got a Speed job at all.
+    eui_by_id = _load_eu11_eui(district)
+
+    # EU-21 no-core cutter evidence (checks/status/verdict/scheme), loaded
+    # once per district (T03) -- annotation only, joined on the same `bid`,
+    # attached to `pl_obj` below (never to a `no_idf` building, rule 3).
+    evidence_by_id = _load_eu21_evidence(district)
+    chk_hit = chk_miss = 0
 
     # Load existing viewer's scene geometry rings if present to preserve exact vertex arrays
     existing_html = out_dir_3d / viewer_name
@@ -941,6 +1097,7 @@ def build_district(district: str) -> None:
     scene_buildings: list[dict[str, Any]] = []
     buildings_csv_rows: list[dict[str, Any]] = []
     ruled_count = massing_count = no_idf_count = 0
+    simulated_count = idf_only_count = 0
 
     for i, row in combined_gdf.iterrows():
         bid = str(row["osm_id"])
@@ -965,6 +1122,7 @@ def build_district(district: str) -> None:
             ring = [[round(pt[0] - cx, 2), round(pt[1] - cy, 2)] for pt in list(poly_s.exterior.coords)[:-1]]
 
         layout_state: str | None = None
+        sim_state: str | None = None
         pl_obj: dict[str, Any] | None = None
         if is_res:
             plan = plans_by_id.get(bid)
@@ -974,15 +1132,50 @@ def build_district(district: str) -> None:
             elif plan.is_ruled():
                 layout_state = "ruled"
                 ruled_count += 1
-                idf_path = idf_evidence_root / "idfs" / f"{plan.stem}.idf"
+                idf_path = idf_root_by_id[bid] / "idfs" / f"{plan.stem}.idf"
                 sidecar = _load_eu17_sidecar(district, bid)
                 pl_obj = _build_plan_payload(plan, idf_path, sidecar, cx, cy)
             else:
                 layout_state = "massing_box"
                 massing_count += 1
-                idf_path = idf_evidence_root / "idfs" / f"{plan.stem}.idf"
+                idf_path = idf_root_by_id[bid] / "idfs" / f"{plan.stem}.idf"
                 sidecar = _load_eu17_sidecar(district, bid)
                 pl_obj = _build_plan_payload(plan, idf_path, sidecar, cx, cy)
+
+            # T01 (FINDING 259): a fourth, orthogonal state -- was this
+            # building actually simulated (has a manifest row in the
+            # ceiling82 campaign, `bid in eui_by_id`, which equals
+            # `population_run`, not `population_success` -- a severe/fatal
+            # E+ error still counts as "run") vs. has an IDF but never got
+            # a Speed job vs. no IDF anywhere.
+            if layout_state == "no_idf":
+                sim_state = "no_idf"
+            elif bid in eui_by_id:
+                sim_state = "simulated"
+                simulated_count += 1
+            else:
+                sim_state = "idf_only"
+                idf_only_count += 1
+
+        if pl_obj is not None:
+            evidence = evidence_by_id.get(bid)
+            chk_obj: dict[str, Any] | None = None
+            if evidence is None:
+                chk_miss += 1
+            else:
+                chk_hit += 1
+                if evidence.get("status") == "direct":
+                    checks_raw = evidence.get("checks") or {}
+                    ch = [
+                        [
+                            cid,
+                            checks_raw.get(cid, {}).get("show", ""),
+                            1 if checks_raw.get(cid, {}).get("pass") else 0,
+                        ]
+                        for cid in CHECK_IDS
+                    ]
+                    chk_obj = {"v": evidence.get("verdict"), "ch": ch}
+            pl_obj["chk"] = chk_obj
 
         b_obj: dict[str, Any] = {
             "r": ring,
@@ -995,7 +1188,9 @@ def build_district(district: str) -> None:
             "l": levels,
             "y": year,
             "ls": layout_state,
+            "ss": sim_state,
             "pl": pl_obj,
+            "eui": eui_by_id.get(bid),
         }
         scene_buildings.append(b_obj)
 
@@ -1025,12 +1220,28 @@ def build_district(district: str) -> None:
         "no_idf": no_idf_count,
     }
 
+    # T01 (FINDING 259): the fourth HUD state -- distinguishes "was actually
+    # simulated" (`bid in eui_by_id`, ceiling82 tree) from "has an IDF but
+    # was never run" (idf_only, EU-17-only fallback) from "no IDF anywhere".
+    # `no_idf` is shared with `layout_counts` above -- both now read the
+    # same ceiling82-first / EU-17-fallback `plans_by_id`, so "no IDF" means
+    # the same population under either axis.
+    sim_counts = {
+        "simulated": simulated_count,
+        "idf_only": idf_only_count,
+        "no_idf": no_idf_count,
+    }
+
     geometry_note = (
         f"<b>Geometry for {n_res:,} residential buildings, read from the emitted IDFs "
-        f"(EU-17 rebuild tree).</b> {ruled_count:,} carry a dwelling layout ruled from their own "
-        f"IDF zones, {massing_count:,} are a massing box (one undivided zone per storey), "
-        f"{no_idf_count:,} have no IDF in the EU-17 tree and are shown grey. Zone polygons drawn "
-        "in the floor-plan modal come directly from these IDFs, never from the layout side-cars."
+        f"(EU-11 ceiling82 tree first, EU-17 rebuild tree as fallback).</b> "
+        f"{simulated_count:,} were actually simulated (have an EUI, matching "
+        f"<code>summary.json</code>'s <code>population_run</code>), {idf_only_count:,} have an "
+        f"IDF but were never run, {no_idf_count:,} have no IDF in either tree and are shown grey. "
+        f"Of the {simulated_count + idf_only_count:,} with an IDF, {ruled_count:,} carry a dwelling "
+        f"layout ruled from their own IDF zones and {massing_count:,} are a massing box (one "
+        "undivided zone per storey). Zone polygons drawn in the floor-plan modal come directly "
+        "from these IDFs, never from the layout side-cars."
     )
 
     # Construct scene dict
@@ -1047,6 +1258,7 @@ def build_district(district: str) -> None:
         "span": span,
         "counts": counts,
         "layout_counts": layout_counts,
+        "sim_counts": sim_counts,
         "data_dir": data_dir_name,
         "geometry_note": geometry_note,
         "buildings": scene_buildings,
@@ -1061,6 +1273,7 @@ def build_district(district: str) -> None:
     viewer_path = out_dir_3d / viewer_name
     viewer_path.write_text(html_content, encoding="utf-8")
     print(f"[{district}] Written viewer: {viewer_path} ({len(html_content)} bytes)")
+    print(f"[{district}] EU-21 checks join: {chk_hit} hit, {chk_miss} miss (of {chk_hit + chk_miss} buildings with pl_obj)")
 
     # Write buildings.csv
     b_df = pd.DataFrame(buildings_csv_rows)

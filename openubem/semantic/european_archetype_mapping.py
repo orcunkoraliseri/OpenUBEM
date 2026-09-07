@@ -151,22 +151,19 @@ def _observed_storeys(row: pd.Series) -> int | None:
     return int(numeric)
 
 
-def compute_footprint_adjacency(gdf: gpd.GeoDataFrame) -> pd.Series:
-    """Boolean Series, aligned to ``gdf.index``: True where a footprint shares a
-    boundary with another footprint in ``gdf``.
+def compute_footprint_adjacency_pairs(gdf: gpd.GeoDataFrame) -> dict[str, set[str]]:
+    """``osm_id`` -> set of touching ``osm_id`` values, within ``gdf`` only.
 
-    Reprojects to EPSG:2154 (Lambert-93) before any predicate.  A shared
-    boundary is a ``touches`` relationship, or an intersection whose geometry
-    is not a point/multipoint — a zero-metre buffer tolerance, no positive
-    buffer.  Self-matches are excluded by ``osm_id``.
+    Same predicate as :func:`compute_footprint_adjacency` (EPSG:2154, a
+    ``touches``/non-point intersection, self-matches excluded by ``osm_id``),
+    exposed as the pairwise graph rather than a per-building boolean.
     """
     projected = gdf.to_crs(epsg=2154).reset_index(drop=True)
     sindex = projected.sindex
     osm_ids = projected["osm_id"]
-    attached = []
+    pairs: dict[str, set[str]] = {str(oid): set() for oid in osm_ids}
     for position, geometry in enumerate(projected.geometry):
         own_id = osm_ids.iloc[position]
-        is_attached = False
         for candidate in sindex.query(geometry, predicate="intersects"):
             if candidate == position or osm_ids.iloc[candidate] == own_id:
                 continue
@@ -176,9 +173,19 @@ def compute_footprint_adjacency(gdf: gpd.GeoDataFrame) -> pd.Series:
                 "MultiPoint",
             ):
                 continue
-            is_attached = True
-            break
-        attached.append(is_attached)
+            pairs[str(own_id)].add(str(osm_ids.iloc[candidate]))
+    return pairs
+
+
+def compute_footprint_adjacency(gdf: gpd.GeoDataFrame) -> pd.Series:
+    """Boolean Series, aligned to ``gdf.index``: True where a footprint shares a
+    boundary with another footprint in ``gdf``.
+
+    Built from :func:`compute_footprint_adjacency_pairs` — a footprint is
+    attached iff its pair-set is non-empty.
+    """
+    pairs = compute_footprint_adjacency_pairs(gdf)
+    attached = [bool(pairs.get(str(oid), set())) for oid in gdf["osm_id"]]
     return pd.Series(attached, index=gdf.index, name="is_attached")
 
 

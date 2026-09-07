@@ -1347,6 +1347,12 @@ def generate_european_nocore_storey_layout(
     existing ``one_zone_per_floor`` massing-box route, exactly as any other
     unlayoutable building does today.
     """
+    from scripts.run_eu_s2_campaign import _drop_redundant_ring_vertices
+
+    if isinstance(footprint, Polygon):
+        cleaned_exterior = _drop_redundant_ring_vertices(list(footprint.exterior.coords))
+        footprint = Polygon(cleaned_exterior, list(footprint.interiors))
+
     try:
         plate, live, checks, verdict = cut_storey_nocore(footprint, dwelling_count)
     except Exception as exc:

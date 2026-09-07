@@ -42,12 +42,17 @@ def _load_module(name, path):
     return mod
 
 
-DISTRICT_FILES = [
-    "ES-MAD-BERRUGUETE_nocore_2026-09-03_r5.json",
-    "FR-LYO-HAUTCOEURPENTES_nocore_2026-09-03_r5.json",
-    "GB-LDN-STDUNSTANS_nocore_2026-09-03_r5.json",
-    "IT-BOL-GALVANI2_nocore_2026-09-03_r5.json",
+DISTRICT_NAMES = [
+    "ES-MAD-BERRUGUETE",
+    "FR-LYO-HAUTCOEURPENTES",
+    "GB-LDN-STDUNSTANS",
+    "IT-BOL-GALVANI2",
 ]
+
+
+def _district_files(baseline_tag):
+    return [f"{name}_nocore_{baseline_tag}.json" for name in DISTRICT_NAMES]
+
 
 CHECK_IDS = ("C1", "C3", "C4", "C5", "C6", "C10", "C11")
 GEOM_TOLERANCE_M2 = 1e-6
@@ -122,9 +127,9 @@ def _check_task(task):
     return district, _check_one_plate(plate, geom_wkb)
 
 
-def _load_all():
+def _load_all(baseline_tag):
     per_district = {}
-    for fname in DISTRICT_FILES:
+    for fname in _district_files(baseline_tag):
         data = json.load(open(DISTRICT_PLANS / fname, encoding="utf-8"))
         per_district[data["district"]] = data
     return per_district
@@ -133,10 +138,11 @@ def _load_all():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--jobs", type=int, default=8)
+    ap.add_argument("--baseline-tag", default="2026-09-03_r5")
     args = ap.parse_args()
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    per_district = _load_all()
+    per_district = _load_all(args.baseline_tag)
 
     # Census input, loaded once in the parent process (T02 correction, 2026-09-03):
     # `plate["footprint"]` is the cutter's rounded *output*, not the census's real

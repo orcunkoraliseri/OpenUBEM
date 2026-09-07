@@ -12,6 +12,7 @@ import csv
 import hashlib
 import io
 import json
+import re
 import shutil
 import zipfile
 from collections import Counter
@@ -35,7 +36,7 @@ from openubem.geometry.zoning import build_zones
 from openubem.semantic.construction_sets import select_tabula_archetype, tabula_period
 from openubem.semantic.european_archetype_mapping import (
     EU02_SITE_COUNTRY, apply_attribute_sidecar, compute_footprint_adjacency,
-    map_observed_building_to_tabula,
+    compute_footprint_adjacency_pairs, map_observed_building_to_tabula,
 )
 from scripts.run_eu_s2_campaign import (
     EUROPEAN_CONTEXT_RADIUS_M, FLOOR_TO_FLOOR_M, ZONE_WINDING_SIGN,
@@ -248,7 +249,7 @@ def _gb_sap_floor_storeys(certificate_numbers: list[str]) -> int | None:
     return best
 
 
-def _gb_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Counter]:
+def _gb_cert_lookups(gdf: gpd.GeoDataFrame) -> tuple[dict[str, list[str]], dict[str, list[str]], dict[str, set[int]]]:
     cert = pd.read_csv(GB_EPC)
     # T01/c3: every certificate on a footprint, not just the age-resolving one --
     # `sap_floor_dimensions` can sit on a certificate lacking a construction_age_band.
@@ -274,6 +275,63 @@ def _gb_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Co
         side = pd.read_csv(GB_EPC_YEARS)
         for key, group in side.groupby(side["osm_id"].astype(str)):
             year_lookup[key] = {int(v) for v in group["construction_year"]}
+    return cert_numbers_by_osm_id, bands_all_by_osm_id, year_lookup
+
+
+def _gb_row_outcome(
+    item: pd.Series, is_attached: bool, records: list[dict],
+    first: str | None, age_label: str, period_provenance: str,
+    cert_numbers: list[str], storey_override: tuple[int, str] | None = None,
+) -> tuple[dict | None, str]:
+    if first is None:
+        return None, age_label
+    building_id = str(item.osm_id)
+    tag = str(item.building_tag).casefold()
+    n_storeys = _valid_storeys(item)
+    # OSM `house` cannot distinguish SFH from TH on its own (D-EU-04-G rationale,
+    # openubem/semantic/european_archetype_mapping.py:28-30) -- split it by footprint
+    # adjacency, the same signal already used for FR/IT, rather than assume SFH.
+    if tag == "house":
+        building_type = "TH" if is_attached else "SFH"
+    elif tag == "residential":
+        # T03/c6 (D-EU-101): bare `building=residential` carries no SFH/TH/MFH/AB
+        # signal of its own -- apply the Bologna storey-ladder rule (report §7)
+        # to the storey count GB already has (levels, or `house`'s adjacency split).
+        if n_storeys is None:
+            building_type = None
+        elif n_storeys <= 2:
+            building_type = "TH" if is_attached else "SFH"
+        elif n_storeys in (3, 4):
+            building_type = "MFH"
+        else:
+            building_type = "AB"
+    else:
+        building_type = {"apartments": "AB", "detached": "SFH", "terrace": "TH"}.get(tag)
+    if building_type is None:
+        return None, "UNMAPPABLE_RESIDENTIAL_TYPE"
+    storey_provenance = ""
+    if n_storeys is None and tag in ("house", "terrace"):
+        # T01/c3 (D-EU-101): dwelling-level sap_floor_dimensions read as the
+        # building storey count, `apartments` excluded on purpose (report §2.2).
+        n_storeys = _gb_sap_floor_storeys(cert_numbers)
+        if n_storeys is not None:
+            storey_provenance = "SAP_FLOOR_DIMENSIONS"
+    if n_storeys is None and storey_override is not None:
+        n_storeys, storey_provenance = storey_override
+    if n_storeys is None:
+        return None, "MISSING_OBSERVED_STOREY_COUNT"
+    if storey_provenance:
+        item = item.copy(); item["levels"] = n_storeys
+    record = _record_for_period(records, "GB", building_type, first)
+    row = {**item.to_dict(), "building_id": building_id, "building_type": building_type,
+           "archetype_id": record["archetype_id"], "age_band": age_label or first,
+           "construction_period_provenance": period_provenance,
+           "storey_provenance": storey_provenance, "observed_dwellings": None}
+    return row, ""
+
+
+def _gb_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Counter]:
+    cert_numbers_by_osm_id, bands_all_by_osm_id, year_lookup = _gb_cert_lookups(gdf)
     is_attached_series = compute_footprint_adjacency(gdf)
     exclusions: Counter = Counter()
     result = []
@@ -282,48 +340,116 @@ def _gb_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Co
         first, age_label, period_provenance = _gb_age_decision_multi(
             bands_all_by_osm_id.get(building_id, []), year_lookup.get(building_id, set())
         )
-        if first is None:
-            exclusions[age_label] += 1; continue
-        tag = str(item.building_tag).casefold()
-        n_storeys = _valid_storeys(item)
-        # OSM `house` cannot distinguish SFH from TH on its own (D-EU-04-G rationale,
-        # openubem/semantic/european_archetype_mapping.py:28-30) -- split it by footprint
-        # adjacency, the same signal already used for FR/IT, rather than assume SFH.
-        if tag == "house":
-            building_type = "TH" if bool(is_attached_series.loc[idx]) else "SFH"
-        elif tag == "residential":
-            # T03/c6 (D-EU-101): bare `building=residential` carries no SFH/TH/MFH/AB
-            # signal of its own -- apply the Bologna storey-ladder rule (report §7)
-            # to the storey count GB already has (levels, or `house`'s adjacency split).
-            if n_storeys is None:
-                building_type = None
-            elif n_storeys <= 2:
-                building_type = "TH" if bool(is_attached_series.loc[idx]) else "SFH"
-            elif n_storeys in (3, 4):
-                building_type = "MFH"
-            else:
-                building_type = "AB"
-        else:
-            building_type = {"apartments": "AB", "detached": "SFH", "terrace": "TH"}.get(tag)
-        if building_type is None:
-            exclusions["UNMAPPABLE_RESIDENTIAL_TYPE"] += 1; continue
-        storey_provenance = ""
-        if n_storeys is None and tag in ("house", "terrace"):
-            # T01/c3 (D-EU-101): dwelling-level sap_floor_dimensions read as the
-            # building storey count, `apartments` excluded on purpose (report §2.2).
-            n_storeys = _gb_sap_floor_storeys(cert_numbers_by_osm_id.get(building_id, []))
-            if n_storeys is not None:
-                storey_provenance = "SAP_FLOOR_DIMENSIONS"
-        if n_storeys is None:
-            exclusions["MISSING_OBSERVED_STOREY_COUNT"] += 1; continue
-        if storey_provenance:
-            item = item.copy(); item["levels"] = n_storeys
-        record = _record_for_period(records, "GB", building_type, first)
-        result.append({**item.to_dict(), "building_id": building_id, "building_type": building_type,
-                       "archetype_id": record["archetype_id"], "age_band": age_label or first,
-                       "construction_period_provenance": period_provenance,
-                       "storey_provenance": storey_provenance, "observed_dwellings": None})
+        row, blocker = _gb_row_outcome(
+            item, bool(is_attached_series.loc[idx]), records, first, age_label, period_provenance,
+            cert_numbers_by_osm_id.get(building_id, []),
+        )
+        if row is None:
+            exclusions[blocker] += 1; continue
+        result.append(row)
     return result, exclusions
+
+
+_STRADDLE_SINGLE_BAND_RE = re.compile(r"^PERIOD_STRADDLE_[A-Z]_(GB\.\d+)_(GB\.\d+)$")
+
+
+def _gb_parse_straddle_periods(blocker_key: str) -> tuple[str, str] | None:
+    match = _STRADDLE_SINGLE_BAND_RE.match(blocker_key)
+    return (match.group(1), match.group(2)) if match else None
+
+
+def _gb_terrace_recovery_rows(
+    gdf: gpd.GeoDataFrame, records: list[dict], base_rows: list[dict],
+) -> tuple[list[dict], Counter]:
+    cert_numbers_by_osm_id, bands_all_by_osm_id, year_lookup = _gb_cert_lookups(gdf)
+    pairs = compute_footprint_adjacency_pairs(gdf)
+    is_attached_series = compute_footprint_adjacency(gdf)
+
+    base_by_id = {str(r["building_id"]): r for r in base_rows}
+    base_period_by_id: dict[str, str] = {}
+    base_storeys_by_id: dict[str, int] = {}
+    for bid, row in base_by_id.items():
+        first, _label, _prov = _gb_age_decision_multi(
+            bands_all_by_osm_id.get(bid, []), year_lookup.get(bid, set())
+        )
+        if first is not None:
+            base_period_by_id[bid] = first
+        storeys = _valid_storeys(pd.Series(row))
+        if storeys is not None:
+            base_storeys_by_id[bid] = storeys
+
+    exclusions: Counter = Counter()
+    recovered: list[dict] = []
+    for idx, item in gdf.sort_values("osm_id", kind="stable").iterrows():
+        building_id = str(item.osm_id)
+        if building_id in base_by_id:
+            continue
+        first, age_label, period_provenance = _gb_age_decision_multi(
+            bands_all_by_osm_id.get(building_id, []), year_lookup.get(building_id, set())
+        )
+        if first is not None:
+            continue
+        straddle_periods = _gb_parse_straddle_periods(age_label)
+        if age_label != "MISSING_OBSERVED_EPC_AGE_BAND" and straddle_periods is None:
+            continue
+        prepared_touching = pairs.get(building_id, set()) & base_by_id.keys()
+        if not prepared_touching:
+            exclusions[f"{age_label}_NO_PREPARED_NEIGHBOUR"] += 1; continue
+        neighbour_periods = {base_period_by_id[nid] for nid in prepared_touching if nid in base_period_by_id}
+        if len(neighbour_periods) != 1:
+            exclusions[f"{age_label}_NEIGHBOURS_DISAGREE"] += 1; continue
+        inherited_period = neighbour_periods.pop()
+        if straddle_periods is not None:
+            if inherited_period not in straddle_periods:
+                exclusions[f"{age_label}_NEIGHBOUR_OUTSIDE_STRADDLE"] += 1; continue
+            age_provenance = "INFERRED_TERRACE_NEIGHBOUR_PERIOD_WITHIN_STRADDLE"
+        else:
+            age_provenance = "INFERRED_TERRACE_NEIGHBOUR_AGE"
+        neighbour_storeys = {base_storeys_by_id[nid] for nid in prepared_touching if nid in base_storeys_by_id}
+        storey_override = (
+            (neighbour_storeys.pop(), "INFERRED_TERRACE_NEIGHBOUR_STOREYS")
+            if len(neighbour_storeys) == 1 else None
+        )
+        row, blocker = _gb_row_outcome(
+            item, bool(is_attached_series.loc[idx]), records,
+            inherited_period, "", age_provenance,
+            cert_numbers_by_osm_id.get(building_id, []), storey_override=storey_override,
+        )
+        if row is None:
+            exclusions[f"AGE_RECOVERED_THEN_{blocker}"] += 1; continue
+        recovered.append(row)
+
+    for idx, item in gdf.sort_values("osm_id", kind="stable").iterrows():
+        building_id = str(item.osm_id)
+        if building_id in base_by_id:
+            continue
+        first, age_label, period_provenance = _gb_age_decision_multi(
+            bands_all_by_osm_id.get(building_id, []), year_lookup.get(building_id, set())
+        )
+        if first is None:
+            continue
+        _row, blocker = _gb_row_outcome(
+            item, bool(is_attached_series.loc[idx]), records, first, age_label, period_provenance,
+            cert_numbers_by_osm_id.get(building_id, []),
+        )
+        if blocker != "MISSING_OBSERVED_STOREY_COUNT":
+            continue
+        prepared_touching = pairs.get(building_id, set()) & base_by_id.keys()
+        if not prepared_touching:
+            exclusions["MISSING_OBSERVED_STOREY_COUNT_NO_PREPARED_NEIGHBOUR"] += 1; continue
+        neighbour_storeys = {base_storeys_by_id[nid] for nid in prepared_touching if nid in base_storeys_by_id}
+        if len(neighbour_storeys) != 1:
+            exclusions["MISSING_OBSERVED_STOREY_COUNT_NEIGHBOURS_DISAGREE"] += 1; continue
+        storey_override = (neighbour_storeys.pop(), "INFERRED_TERRACE_NEIGHBOUR_STOREYS")
+        row2, blocker2 = _gb_row_outcome(
+            item, bool(is_attached_series.loc[idx]), records, first, age_label, period_provenance,
+            cert_numbers_by_osm_id.get(building_id, []), storey_override=storey_override,
+        )
+        if row2 is None:
+            exclusions[f"STOREY_RECOVERED_THEN_{blocker2}"] += 1; continue
+        recovered.append(row2)
+
+    return recovered, exclusions
 
 
 def _it_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Counter]:
@@ -481,7 +607,10 @@ def _mapped_rows(district: str, gdf: gpd.GeoDataFrame, records: list[dict]) -> t
     return result, exclusions
 
 
-def prepare(district: str, archetypes: Path | None, epw: Path | None, crs: str | None, out: Path) -> dict:
+def prepare(
+    district: str, archetypes: Path | None, epw: Path | None, crs: str | None, out: Path,
+    recover_terrace_neighbours: bool = False,
+) -> dict:
     cfg = DISTRICTS[district]; expected_crs = crs or cfg["crs"]
     manifest = ROOT / f"openubem/outputs/eu02/{district}/02_residential_manifest.gpkg"
     gdf = gpd.read_file(manifest)
@@ -502,6 +631,14 @@ def prepare(district: str, archetypes: Path | None, epw: Path | None, crs: str |
     # population -- before any per-building work starts.
     buildings_clean = gpd.read_file(ROOT / f"openubem/outputs/eu02/{district}/01_buildings_clean.gpkg")
     district_median_height_m = compute_district_median_residential_height_m(rows)
+    terrace_recovery_summary: dict = {}
+    if recover_terrace_neighbours and district == "GB-LDN-STDUNSTANS":
+        recovered_rows, recovery_exclusions = _gb_terrace_recovery_rows(gdf, records, rows)
+        rows = rows + recovered_rows
+        terrace_recovery_summary = {
+            "recovered": len(recovered_rows),
+            "refused": dict(sorted(recovery_exclusions.items())),
+        }
     context_height_fallback_census: Counter = Counter()
     prepared, geometry_exclusions = [], Counter()
     for data in rows:
@@ -602,6 +739,8 @@ def prepare(district: str, archetypes: Path | None, epw: Path | None, crs: str |
                "context_radius_m": EUROPEAN_CONTEXT_RADIUS_M,
                "context_district_median_residential_height_m": round(district_median_height_m, 4),
                "context_height_fallback_census": dict(sorted(context_height_fallback_census.items()))}
+    if recover_terrace_neighbours:
+        summary["terrace_recovery"] = terrace_recovery_summary
     (out / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return summary
 
@@ -611,8 +750,12 @@ def main() -> None:
     parser.add_argument("--district", choices=DISTRICTS, required=True)
     parser.add_argument("--archetypes", type=Path); parser.add_argument("--epw", type=Path); parser.add_argument("--crs")
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--recover-terrace-neighbours", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(prepare(args.district, args.archetypes, args.epw, args.crs, args.out), indent=2, sort_keys=True))
+    print(json.dumps(
+        prepare(args.district, args.archetypes, args.epw, args.crs, args.out, args.recover_terrace_neighbours),
+        indent=2, sort_keys=True,
+    ))
 
 if __name__ == "__main__":
     main()
