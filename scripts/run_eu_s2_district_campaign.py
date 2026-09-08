@@ -373,7 +373,8 @@ def _gb_row_outcome(
         item = item.copy(); item["levels"] = n_storeys
     record = _record_for_period(records, "GB", building_type, first)
     row = {**item.to_dict(), "building_id": building_id, "building_type": building_type,
-           "archetype_id": record["archetype_id"], "age_band": age_label or first,
+           "archetype_id": record["archetype_id"], "age_band": first,
+           "epc_age_label": age_label,
            "construction_period_provenance": period_provenance,
            "storey_provenance": storey_provenance, "observed_dwellings": None}
     return row, ""

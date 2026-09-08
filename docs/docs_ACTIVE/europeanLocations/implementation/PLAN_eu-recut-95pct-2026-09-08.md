@@ -274,6 +274,59 @@ T03 is measurement-only and independent of T01–T02, so it is dispatched to a s
 
 **Notes.** No traceback/runtime error was hit during this session's own work (the completeness gap in Deviation 1 was found by inspection and cross-checking, not by a failing assertion or exception), so nothing is registered in `OpenUBEM_debug_References.md` — there is no error string to quote. `--recover-terrace-neighbours` is fully retired; no remaining caller references it (checked: no test or script outside this file used the old flag or the old `recover_terrace_neighbours` parameter name). T03b remains cancelled per the CP-1 ruling; not reopened here. **STOP after T04 per the dispatch instruction — T05 not started.**
 
+#### T05 — One re-emission, four districts in parallel, delta by hash — completed 2026-09-08
+
+**Artifacts.** `scripts/run_eu_s2_district_campaign.py`: `compute_recut_simulate_list(out, district, evidence_root, baseline_tags)` (new function, after `prepare()`) — dependency decision 5's delta-by-hash logic did not already exist (checked first: `fleet.lst` was written unconditionally over every prepared building, `:1185-1186` pre-T05; no `recut_simulate_list`/`HASH_CHANGED`/`NET_NEW` writer anywhere in `scripts/`, confirmed by grep before writing new code, per the dispatch instruction). Reads `out/prepared_buildings.csv`, finds the newest earlier tree holding each building (`<district>_delta_2026-09-07` first, else `<district>_final_2026-09-07`, by trying `baseline_tags` in order against `evidence_root`), classifies every recut row as `HASH_CHANGED` (`idf_sha256` differs) or `NET_NEW` (no earlier row), writes `recut_simulate_list.csv` (`building_id, stem, reason`) and rewrites `fleet.lst` restricted to those stems. New CLI flag `--write-recut-simulate-list` (default off, so every other existing invocation of this script — EU-16/17/21 precedent, the T01-T04 unit tests — is unaffected) calls it right after `prepare()` in `main()`. `tests/test_eu_recut_95pct_2026_09_08.py`: T05 section appended — `_STOCK_2026_09_08` (fact 10 stock counts), `_T02_DRY_RUN_GAIN` (the T02 progress-log dry-run table), `_t05_recut_gates(district)` (reads baseline + recut `prepared_buildings.csv`, `recut_simulate_list.csv`, `fleet.lst`; computes G1-G6), `test_t05_recut_gates` (parametrised over the four `DISTRICTS`, skips if the recut tree is absent, prints the six lines, asserts 6 lines returned — no pass/fail assertion per gate, matching T05's "How to test": the director signs CP-2, not the executor).
+
+**Execution.** Four `run_eu_s2_district_campaign.py --write-recut-simulate-list` processes launched at once as background OS processes (not a loop) into `EU-11/<D>_recut_2026-09-08/`, all four alive simultaneously (confirmed via `ps -ef`), no serial waiting between them. Completion order: GB-LDN-STDUNSTANS, FR-LYO-HAUTCOEURPENTES, ES-MAD-BERRUGUETE, then IT-BOL-GALVANI2 (Bologna, largest). 0 tracebacks in any of the four logs; the `intersect_match raised .../purging and retrying` and shapely buffer `RuntimeWarning` lines are the same benign, already-registered behaviour seen in every prior campaign run.
+
+**Result — `recut_simulate_list.csv` per district.**
+- ES-MAD-BERRUGUETE: 64 rows (51 `HASH_CHANGED`, 13 `NET_NEW`); `fleet.lst` 64 lines; `population_prepared` 1187 of 1194.
+- FR-LYO-HAUTCOEURPENTES: 33 rows (13 `HASH_CHANGED`, 20 `NET_NEW`); `fleet.lst` 33 lines; `population_prepared` 529 of 530.
+- GB-LDN-STDUNSTANS: 539 rows (5 `HASH_CHANGED`, 534 `NET_NEW`); `fleet.lst` 539 lines; `population_prepared` 1240 of 1242.
+- IT-BOL-GALVANI2: 139 rows (135 `HASH_CHANGED`, 4 `NET_NEW`); `fleet.lst` 139 lines; `population_prepared` 1215 of 1220.
+- Baseline for every district: `_delta_2026-09-07` (present for all four; the `_final_2026-09-07` fallback was never needed).
+
+**Result — six gates, "N of M", per district (`test_t05_recut_gates -s`, verbatim):**
+```
+G1 regression (ES-MAD-BERRUGUETE): 1033 of 1033
+G2 divided count (ES-MAD-BERRUGUETE): 1158 of 1085 expected minimum (PASS)
+G3 imputed rows (ES-MAD-BERRUGUETE): 13 of 13
+G4 side-car reason coverage (ES-MAD-BERRUGUETE): 29 of 29
+G5 fleet/simulate/staged (ES-MAD-BERRUGUETE): fleet.lst=64, recut_simulate_list=64, idfs_staged=64 (equal); population_prepared 1187 of 1194
+G6 unchanged-hash area byte-identical (ES-MAD-BERRUGUETE): 1123 of 1123
+
+G1 regression (FR-LYO-HAUTCOEURPENTES): 459 of 459
+G2 divided count (FR-LYO-HAUTCOEURPENTES): 515 of 471 expected minimum (PASS)
+G3 imputed rows (FR-LYO-HAUTCOEURPENTES): 20 of 20
+G4 side-car reason coverage (FR-LYO-HAUTCOEURPENTES): 14 of 14
+G5 fleet/simulate/staged (FR-LYO-HAUTCOEURPENTES): fleet.lst=33, recut_simulate_list=33, idfs_staged=33 (equal); population_prepared 529 of 530
+G6 unchanged-hash area byte-identical (FR-LYO-HAUTCOEURPENTES): 496 of 496
+
+G1 regression (GB-LDN-STDUNSTANS): 685 of 685
+G2 divided count (GB-LDN-STDUNSTANS): 1207 of 690 expected minimum (PASS)
+G3 imputed rows (GB-LDN-STDUNSTANS): 534 of 534
+G4 side-car reason coverage (GB-LDN-STDUNSTANS): 33 of 33
+G5 fleet/simulate/staged (GB-LDN-STDUNSTANS): fleet.lst=539, recut_simulate_list=539, idfs_staged=539 (equal); population_prepared 1240 of 1242
+G6 unchanged-hash area byte-identical (GB-LDN-STDUNSTANS): 701 of 701
+
+G1 regression (IT-BOL-GALVANI2): 951 of 951
+G2 divided count (IT-BOL-GALVANI2): 1174 of 1086 expected minimum (PASS)
+G3 imputed rows (IT-BOL-GALVANI2): 4 of 4
+G4 side-car reason coverage (IT-BOL-GALVANI2): 41 of 41
+G5 fleet/simulate/staged (IT-BOL-GALVANI2): fleet.lst=139, recut_simulate_list=139, idfs_staged=139 (equal); population_prepared 1215 of 1220
+G6 unchanged-hash area byte-identical (IT-BOL-GALVANI2): 1076 of 1076
+```
+All 24 gate cells (6 × 4) are `N of M` with `N == M` or, for G2, `N ≥ M` — zero regressions, zero coverage gaps, zero unequal fleet/simulate/staged counts, zero non-identical unchanged-hash areas.
+
+**Test status.** New: `test_t05_recut_gates[ES-MAD-BERRUGUETE|FR-LYO-HAUTCOEURPENTES|GB-LDN-STDUNSTANS|IT-BOL-GALVANI2]` — 4 passed. Full file: `tests/test_eu_recut_95pct_2026_09_08.py -q` — **19 passed** in 1029 s (17:09, dominated by the pre-existing T02 dry-run test; 640 benign shapely warnings, same as the T02 entry). No regression suite re-run this pass (T05 touched only `compute_recut_simulate_list`/CLI flag, additive and off by default; T01-T04 code paths untouched).
+
+**Deviations.** None from the plan's `What`/`How`. The delta-by-hash function is new code, as the dispatch instruction anticipated after confirming no existing implementation ("this logic may already exist... check before writing new code" — checked, absent, written).
+
+**Concurrent change flagged, not authored here.** At report time, `git diff -- scripts/run_eu_s2_district_campaign.py` shows one small uncommitted hunk this session did not make: `_gb_row_outcome` (`:376-378`) changes GB's `age_band` from `age_label or first` to `first` and adds a new `epc_age_label` field — this is the exact fix `FINDING 268` (T04 entry above) called for, evidently in progress by another concurrent process/session, not this one. It landed in the working file after this session's four prepare subprocesses had already started (their Python interpreters had already imported the pre-change module), so it did **not** affect any T05 output reported here; `tests/test_eu_recut_95pct_2026_09_08.py -q` (19 passed, including all T04 tests) was run against the file in its current, partially-edited state and still passed. Not reverted, not committed — outside this task's file ownership (rule 12; only `scripts/run_eu_s2_district_campaign.py`, `tests/test_eu_recut_95pct_2026_09_08.py` and this plan doc are this task's files, and this hunk inside the first one is not this task's edit). Also observed, untouched by this session: an untracked `docs/docs_ACTIVE/europeanLocations/messages_GSSCanada/2026-09-08_OpenUBEM_to_4J_CP2_populations_freeze.md` (matches dependency decision 10 — director-authored, not the executor) and three untracked files under `IT-BOL-GALVANI2_delta_2026-09-07/`, `_final_2026-09-07/`, `_merged_2026-09-07/` (director/harvest activity, not read from or written to by this task — this task only read `_delta_2026-09-07/prepared_buildings.csv` from those trees).
+
+**CP-2.** STOP. Six gates × four districts above, all green. Director to sign, tell 4J (dependency decision 10 — not done here), and release T06 (Speed, director-only). T06/T07/T08 not started.
+
 #### Director audit — T04 — 2026-09-08 13:55
 
 T04 is **accepted**; T05 is released. No checkpoint sits after T04, so this is an audit note, not a ruling.
@@ -426,3 +479,177 @@ TABULA period (`GB.01` … `GB.08`) and **435 of 1,240** carry the EPC letter la
 and simultaneously every `idf_sha256` identical to `t05b_baseline/prepared_buildings.prefix.csv`
 and `recut_simulate_list.csv` row-for-row identical to `t05b_baseline/recut_simulate_list.prefix.csv`.
 Three numbers, all three required; two out of three is a failed task.
+
+#### Director ruling — CP-2 — 2026-09-08 14:41
+
+**Verdict: PASS, all six gates in all four districts.** Re-derived by the director, not taken from
+an executor report: `.venv/Scripts/python.exe -m pytest tests/test_eu_recut_95pct_2026_09_08.py -k
+"t05_recut_gates" -q -s` → **4 passed, 15 deselected**, no skips (the four `not prepared yet` skips
+of the T04 audit entry are now gone, which is itself the proof that all four trees exist).
+
+The 24 measured lines, verbatim:
+
+```
+G1 regression (ES-MAD-BERRUGUETE): 1033 of 1033
+G2 divided count (ES-MAD-BERRUGUETE): 1158 of 1085 expected minimum (PASS)
+G3 imputed rows (ES-MAD-BERRUGUETE): 13 of 13
+G4 side-car reason coverage (ES-MAD-BERRUGUETE): 29 of 29
+G5 fleet/simulate/staged (ES-MAD-BERRUGUETE): fleet.lst=64, recut_simulate_list=64, idfs_staged=64 (equal); population_prepared 1187 of 1194
+G6 unchanged-hash area byte-identical (ES-MAD-BERRUGUETE): 1123 of 1123
+G1 regression (FR-LYO-HAUTCOEURPENTES): 459 of 459
+G2 divided count (FR-LYO-HAUTCOEURPENTES): 515 of 471 expected minimum (PASS)
+G3 imputed rows (FR-LYO-HAUTCOEURPENTES): 20 of 20
+G4 side-car reason coverage (FR-LYO-HAUTCOEURPENTES): 14 of 14
+G5 fleet/simulate/staged (FR-LYO-HAUTCOEURPENTES): fleet.lst=33, recut_simulate_list=33, idfs_staged=33 (equal); population_prepared 529 of 530
+G6 unchanged-hash area byte-identical (FR-LYO-HAUTCOEURPENTES): 496 of 496
+G1 regression (GB-LDN-STDUNSTANS): 685 of 685
+G2 divided count (GB-LDN-STDUNSTANS): 1207 of 690 expected minimum (PASS)
+G3 imputed rows (GB-LDN-STDUNSTANS): 534 of 534
+G4 side-car reason coverage (GB-LDN-STDUNSTANS): 33 of 33
+G5 fleet/simulate/staged (GB-LDN-STDUNSTANS): fleet.lst=539, recut_simulate_list=539, idfs_staged=539 (equal); population_prepared 1240 of 1242
+G6 unchanged-hash area byte-identical (GB-LDN-STDUNSTANS): 701 of 701
+G1 regression (IT-BOL-GALVANI2): 951 of 951
+G2 divided count (IT-BOL-GALVANI2): 1174 of 1086 expected minimum (PASS)
+G3 imputed rows (IT-BOL-GALVANI2): 4 of 4
+G4 side-car reason coverage (IT-BOL-GALVANI2): 41 of 41
+G5 fleet/simulate/staged (IT-BOL-GALVANI2): fleet.lst=139, recut_simulate_list=139, idfs_staged=139 (equal); population_prepared 1215 of 1220
+G6 unchanged-hash area byte-identical (IT-BOL-GALVANI2): 1076 of 1076
+```
+
+**Fleet roll-up.** Prepared **4,171 of 4,186** (99.64 %): 1,187 of 1,194 · 529 of 530 · 1,240 of
+1,242 · 1,215 of 1,220. Divided **4,054 of 4,171** against a baseline of 3,128 — Madrid 1,033 →
+1,158 (+125), Lyon 459 → 515 (+56), London 685 → 1,207 (+522), Bologna 951 → 1,174 (+223). To
+simulate at T06a: **775 buildings** (64 + 33 + 539 + 139), delta-by-hash.
+
+**The 15 not prepared, named and classified** (each id verified absent from that district's
+`prepared_buildings.csv`; `excluded_buildings.csv` blocker rows are stage blockers, not exclusions —
+Madrid 20 rows → 7 lost, Lyon 21 → 1, London 794 → 2, Bologna 9 → 5):
+
+- **13 engine failures**, all `idf_build` / `IDF_ASSEMBLY_FAILED_RuntimeError`, all the `FINDING 210`
+  interzone-vertex family — Madrid `relation/12707193`, `relation/12803902`, `relation/12837456`,
+  `relation/12876437`, `relation/12882211`, `relation/13430481`, `relation/5662802`; Lyon
+  `BATIMENT0000000240880120_part0`; Bologna `29376`, `29695`, `30646`, `30810`, `32473`.
+  **Correction to the earlier count in this log: the fleet total is 13, not 7 and not 8.** The 7 was
+  a Madrid-only figure read from a superseded `_final_2026-09-07` summary; Bologna's 5 were not
+  measurable until its prepare finished at 14:38. The owner's ruling of 14:30 (*"ok leave the 7
+  out"*) is a ruling on this class, not on a count, and applies unchanged to all 13.
+- **2 London data failures**, closed by the owner at 14:25 (*"we can exclude them."*):
+  `relation/19609965` (`MISSING_OBSERVED_EPC_AGE_BAND`, then
+  `MISSING_OBSERVED_EPC_AGE_BAND_NO_PREPARED_NEIGHBOUR`, then
+  `IMPUTED_THEN_UNMAPPABLE_RESIDENTIAL_TYPE`) and `way/820000871`
+  (`PERIOD_STRADDLE_DISJOINT_BANDS_A|B|C`, then `IMPUTED_THEN_UNMAPPABLE_RESIDENTIAL_TYPE`).
+
+0.36 % of stock lost, against a plan target of 95 %. No remedy is authorised for either class.
+
+**Signed.** T05 is closed. Order from here: (1) T05b, GB `age_band`, London-only re-prepare, three
+acceptance numbers as recorded at 14:34; (2) T06a ships to Speed after T05b's hashes are proven
+unchanged — shipping before it would stage IDFs the fix must not alter and would leave no way to
+tell a fix defect from a ship defect; (3) the inherited Bologna/Lyon 2026-09-07 harvest tail is
+director-only and runs in parallel (3 tasks still RUNNING at 14:40, 0 PENDING: `1311708_54`,
+`1312355_14`, `1312355_81` — fewer than 32 tasks remain in the whole fleet, so the `%32` cap is
+not binding and nothing is to be raised).
+
+#### T05b — GB age_band carries the resolved TABULA period — completed 2026-09-08
+
+**Artifacts.** `scripts/run_eu_s2_district_campaign.py:376-377` — `_gb_row_outcome`'s row dict now
+writes `"age_band": first` (the resolved TABULA period already passed to `_record_for_period`) and
+adds `"epc_age_label": age_label` as a new key, preserving the certificate letter label without
+discarding it. `_MANIFEST_COLUMNS`/`MANIFEST_COLUMNS` (line 62) untouched.
+**Deviations.** None to the fix itself. Operational: re-running into the existing
+`GB-LDN-STDUNSTANS_recut_2026-09-08/` tree hit a pre-existing `FileExistsError` in `prepare()`
+(`schedule_dir.mkdir()`, line ~1125, not `exist_ok`, unrelated to this fix — `stem` is a hash of
+`building_id`, stable across the fix, so the per-building schedule folder from the pre-fix run
+already existed). Deleted the stale output tree before re-running, per "it overwrites the existing
+tree in place" — the pre-fix baseline was already snapshotted separately in scratchpad before this
+task started, so nothing was lost. No script code was touched beyond the specified `age_band` edit.
+**Test status.**
+1. `age_band` form in `gb_ldn_stdunstans_manifest.csv`: 1240 of 1240 period-form, 0 of 1240
+   letter-form. (Pre-fix: 805 period-form / 435 letter-form.)
+2. `idf_sha256` vs. baseline, joined on `building_id`, both directions: 1240 of 1240 identical,
+   0 missing, 0 extra.
+3. `recut_simulate_list.csv` vs. `recut_simulate_list.prefix.csv`: row-for-row identical (539 rows).
+**Notes.** Concurrent, unrelated diffs appeared under `IT-BOL-GALVANI2_final_2026-09-07/` during
+this task's run — these are the director-only Bologna/Lyon 2026-09-07 harvest tail already noted
+above as running in parallel, not touched by this task. Only `GB-LDN-STDUNSTANS_recut_2026-09-08/`
+was written by this task's command.
+
+#### Director audit — T05b — 2026-09-08 14:55
+
+**Accepted.** All three acceptance numbers re-derived by the director from the files on disk, not
+read from the executor's report:
+
+```
+(1) age_band period-form 1240 of 1240; letter-form 0 of 1240      (pre-fix 805 / 435)
+(2) idf_sha256 identical 1240 of 1240; missing 0; extra 0; changed 0
+(3) recut_simulate_list identical=True rows=539
+(4) epc_age_label present in manifest columns: False
+```
+
+Line (4) is the director's own extra check, not asked of the executor: it proves `_MANIFEST_COLUMNS`
+(`:62`) was not widened, so the preserved EPC letter label lives on the row dict only and no
+downstream reader of the manifest sees a new column. The edit is
+`scripts/run_eu_s2_district_campaign.py:376-377` — `"age_band": first` in place of
+`"age_band": age_label or first`, plus `"epc_age_label": age_label`. GB now matches ES/FR/IT
+(`:624`, `:656`, `:952`, `:1014`). `FINDING 268` part (1) is closed; part (2) stays ruled-not-a-defect.
+
+**Deviation, accepted with a correction to record.** Re-running `prepare()` into an existing tree
+raises `FileExistsError` on the per-building schedule folders, so the executor deleted the London
+recut tree before re-running. Hard rule 6 is not breached — it names `_final_2026-09-07`,
+`_delta_2026-09-07` and `_merged_2026-09-07` as read-only, and the recut tree is this plan's own
+working output — and the 14:22 baseline snapshot made the deletion recoverable and the hash proof
+runnable. The `FileExistsError` is nevertheless a real defect in a script that is meant to be
+re-runnable: **binding on T08**, register it in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`
+in house format with the `[OPEN]` prefix (cause known, deliberately unfixed inside this arc), naming
+`prepare()` and the content-hashed schedule directory as the cause. Do not fix it in this arc.
+
+**Concurrency note.** Two processes not launched by T05b were live in its window and are visible in
+its `git status`: `harvest_eu11_merged.py --district IT-BOL-GALVANI2` (started 14:47:45) writing
+`IT-BOL-GALVANI2_final_2026-09-07/{it_bol_galvani2_manifest.csv,summary.json}` at 14:49:55, and a
+`pytest tests/test_eu_recut_95pct_2026_09_08.py -q` from 14:39:31. Both are the director's §4.1 tail
+and audit, not executor escapes; the executor was right to flag them rather than silently absorb
+them. A second `harvest_eu11_district.py --district IT-BOL-GALVANI2 --tag delta_2026-09-07` launched
+by the director at 14:51 collided with the running fetch and died on
+`PermissionError: [WinError 32]` over the 840 MB `fetch_IT-BOL-GALVANI2_delta_2026-09-07.tgz`; it
+was **not** retried, because the already-running merged harvest performs the same fetch. One writer
+per tree, always.
+
+**T06a is now unblocked.** London's staged IDFs are proven byte-identical to what CP-2 measured, so
+shipping cannot confuse a fix defect with a ship defect.
+
+#### T06a — four recut fleets shipped and submitted (director) — 2026-09-08 15:00
+
+**Job ids.** `ES-MAD-BERRUGUETE` **1314028** (64 tasks) · `FR-LYO-HAUTCOEURPENTES` **1314065** (33) ·
+`GB-LDN-STDUNSTANS` **1314066** (539) · `IT-BOL-GALVANI2` **1314067** (139). **775 tasks total**,
+matching the four `recut_simulate_list.csv` counts ruled at CP-2 exactly. All four submitted between
+the remote clock's `15:00:23` and `15:00:50` — the same minute, as dependency 6 requires. Every one
+is `--array=1-N%32 --time=7-00:00:00 -p ps --cpus-per-task=1` (the last from the template); no
+`%<32` throttle was used at any point and none is to be introduced later.
+
+**Staging, restricted and verified twice.** Each fleet ships only what its simulate list names:
+IDFs and per-building schedule directories selected by `fleet.lst` stem, plus the single `.epw`.
+Local check before packing and remote check after extraction both returned
+`fleet == idfs == schedules` — 64/64/64, 33/33/33, 539/539/539, 139/139/139. Tarballs are 2, 1, 5
+and 3 MB: the `idfs/` directories in the recut trees hold 1,194 / 530 / 1,240 / 1,220 files, and
+shipping them whole would have sent ~1 GB of schedules for buildings that are not to be re-run and
+whose earlier results must be reused unchanged. The schedule reference in every IDF is
+`../../schedules/<stem>/…`, which resolves from the template's `cd $FLEET_DIR/out/<stem>`; that is
+why the per-stem directory, not a flat copy, is the correct unit.
+
+**Runner.** `submit_recut.sbatch` in each fleet dir is a byte copy of the proven
+`submit_fleet_t08_frgb_2026-09-07.sbatch` from that district's `_delta_2026-09-07` fleet — same
+EnergyPlus 23.1.0 resolution, same `ExpandObjects` step, same output trimming that keeps
+`eplusout.{eio,sql,end,err}` and `task.rc`. Nothing about the runner changed between 2026-09-07 and
+this wave, so a difference in results cannot come from the runner. The template's baked
+`--time=01:30:00` is overridden on the CLI by `--time=7-00:00:00`, per the standing rule.
+
+**Saturation confirmed, not assumed.** `squeue -u o_iseri` immediately after submission: **32
+RUNNING, 4 PENDING**. 32 is the hard account ceiling (`GrpTRES=cpu=32`), so this is full
+subscription and there is nothing to raise. ETA is to be measured with `sacct` once the first tasks
+complete — never estimated.
+
+**Inherited tail, Bologna half closed.** Job `1311708` drained at **694 COMPLETED / 9 FAILED**
+(failed tasks `_89 _96 _139 _181 _343 _352 _378 _386 _596`, to be classified at harvest).
+`harvest_eu11_merged.py --district IT-BOL-GALVANI2` completed at 14:55:52 and wrote
+`IT-BOL-GALVANI2_merged_2026-09-07/` (`it_bol_galvani2_manifest.csv`, `summary.json`), so all four
+districts now have a 2026-09-07 merged tree for T06b's fallback chain to rest on. Job `1312355`
+still had 2 tasks running at submission time; its harvest is still owed.
