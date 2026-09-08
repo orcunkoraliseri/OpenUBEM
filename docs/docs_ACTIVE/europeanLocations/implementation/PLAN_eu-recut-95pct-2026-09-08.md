@@ -416,3 +416,13 @@ same entry's standing claim that the `RuntimeError` message is not persisted: it
 `detail` column of `excluded_buildings.csv` in every `_recut_2026-09-08` tree. The final table
 states each district as `N of M` with these buildings inside the excluded count, and must not
 describe them as recoverable.
+
+#### Director amendment — T05b acceptance numbers measured — 2026-09-08 14:34
+
+Measured on the pre-fix London recut manifest so T05b has a falsifiable target rather than a
+description. `gb_ldn_stdunstans_manifest.csv`, 1,240 rows: **805 of 1,240** carry the resolved
+TABULA period (`GB.01` … `GB.08`) and **435 of 1,240** carry the EPC letter label (`A`, `I`, `G`,
+`C|D`, …). After the fix the counts must read **1,240 of 1,240 period-form, 0 of 1,240 letter-form**,
+and simultaneously every `idf_sha256` identical to `t05b_baseline/prepared_buildings.prefix.csv`
+and `recut_simulate_list.csv` row-for-row identical to `t05b_baseline/recut_simulate_list.prefix.csv`.
+Three numbers, all three required; two out of three is a failed task.
