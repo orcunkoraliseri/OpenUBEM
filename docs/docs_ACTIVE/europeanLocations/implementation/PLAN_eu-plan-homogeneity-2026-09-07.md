@@ -630,3 +630,344 @@ vs `_r5` is the same 1,101/32 drift).
 always writes; not published anywhere, per the ruling's item 5.
 
 **Notes:** `CP-3` remains unsigned (director-only, per §7). T04 not started.
+
+---
+
+#### Director note — gate-battery method, 2026-09-07
+
+🔴 **FINDING 264 — the emitted-token gate battery is self-fulfilling and must never be quoted as a gate
+result.** The `_final_2026-09-07/` trees do not persist check outcomes, so every gate battery is a
+re-derivation. Two re-derivation routes were used: `gates_fr.py` takes the dwelling count `k` from the
+**allocator** (`allocate_european_dwellings` over `_mapped_rows` / `_gb_rows`), while
+`gates_<D>_offline.py` takes `k` from the **emitted** `schedules/<stem>/` `F<floor>_dwelling_<idx>`
+filename tokens. The emitted route only observes plates the engine already divided successfully — a
+plate that failed a check was rerouted or left undivided at emission time and therefore contributes no
+`dwelling_N` tokens to be counted, so its failure is invisible to the measurement.
+
+Control run on FR, same district, same `cut_storey_nocore`, both routes:
+
+| route | buildings | plates | C1 | C3 | C4 | C5 | C6 | C10 | C11 | C12 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| allocator (`gates_fr.py`) | 509 | 726 | 0 | 0 | 2 | 8 | 1 | 9 | 10 | 11 |
+| emitted tokens (`gates_fr_offline.py`) | 509 | 641 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3 |
+
+Join key `osm_id` == `building_id`, 0 unjoined, so the gap is not a join artefact: 85 plates are simply
+absent from the emitted route, and every one of the 30 seven-check failures disappears with them.
+
+**Correction, same day, after tracing the failures back to `prepared_buildings.csv`.** The two routes are
+not right-and-wrong; they measure **two different populations**, and the original wording of this finding
+was too strong. All 22 FR buildings behind the 30 seven-check failures carry
+`geometry_outcome = FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT` — the engine declined to divide them,
+so those plates were never emitted. Of the 7 FR buildings failing `C12`, 5 are in that same fallback set
+and only **2** shipped with a dwelling layout. District-wide FR emission outcomes: 459
+`DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT`, 25 `..._INTERZONE_MISMATCH_REROUTED`, 25
+`FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT`.
+
+So the correct standing rule is that **every gate number must name its population**:
+
+- **Shipped population** (emitted-token route, `gates_<D>_offline.py`): of the plates actually emitted as
+  dwelling divisions, how many violate a check. This is the number that describes the deliverable, and it
+  is the one to quote to an external consumer. FR: 641 plates, 0 seven-check failures, 3 `C12`.
+- **Full population** (allocator route, `gates_fr.py`): what the cutter would do on every building given an
+  imputed `k`, including buildings the emission refused to divide. This is the number that describes the
+  rule's coverage, and it is the one to quote when arguing the rule is sound. FR: 726 plates, 30
+  seven-check failures, 11 `C12`.
+
+Differencing the two, or quoting either without its population label, is the actual error. Neither number
+is retracted; both are recorded per district.
+
+Consequence for `IT-BOL-GALVANI2`: its full-population number remains **unmeasured** — `_it_rows`
+(`scripts/run_eu_s2_district_campaign.py:455-495`) needs two live Bologna OpenData GeoJSON fetches for
+`observed_dwellings`, neither is cached (`EU-04/D-EU-22/_cache/` holds only `dati-cpa_2011.zip`), and the
+live-fetch embargo is still in force. Its **shipped-population** number is measured and stands, so IT is
+not blocked for delivery; only the coverage claim is deferred.
+
+**Owner ruling, 2026-09-07 — IT ships on the shipped-population number alone.** The owner declined to lift
+the live-fetch embargo for the two Bologna OpenData GeoJSON endpoints and authorised delivery of
+`IT-BOL-GALVANI2` with its shipped-population gate result only. IT's full-population number stays
+permanently absent from this arc unless the embargo is lifted later; it must be reported as
+**not measured**, never as passing, and never as zero.
+
+#### Director note — full-population control for ES and GB, 2026-09-07
+
+Both districts were re-derived through the allocator route so every district now carries both populations
+(`FINDING 264`). Artifacts: `gates_ES-MAD-BERRUGUETE_allocator_2026-09-07.json`,
+`gates_GB-LDN-STDUNSTANS_allocator_2026-09-07.json`; the shipped-population files were not overwritten.
+Every one of the six gate JSONs now carries a `population` field (`shipped` / `full`), a `population_note`,
+and a `finding` pointer, so no number can be quoted without its label.
+
+| district | population | buildings | plates | C1 | C3 | C4 | C5 | C6 | C10 | C11 | C12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| ES-MAD-BERRUGUETE | shipped | 1175 | 1533 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 36 |
+| ES-MAD-BERRUGUETE | full | 1175 | 1757 | 0 | 0 | 9 | 6 | 5 | 46 | 18 | 54 |
+| FR-LYO-HAUTCOEURPENTES | shipped | 509 | 641 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 3 |
+| FR-LYO-HAUTCOEURPENTES | full | 509 | 726 | 0 | 0 | 2 | 8 | 1 | 9 | 10 | 11 |
+| GB-LDN-STDUNSTANS | shipped | 706 | 738 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 |
+| GB-LDN-STDUNSTANS | full | 706 | 761 | 0 | 0 | 0 | 0 | 0 | 4 | 2 | 4 |
+| IT-BOL-GALVANI2 | shipped | 1211 | 1754 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 56 |
+| IT-BOL-GALVANI2 | full | — | — | not measured (live-fetch embargo, owner ruling above) |||||||||
+
+`buildings_missing_row = 0` and `cutter_errors = 0` on both new artifacts.
+
+Two method points, both load-bearing for anyone re-running these:
+
+- GB's allocator route needed `_gb_terrace_recovery_rows` appended after `_gb_rows`, mirroring
+  `prepare(..., recover_terrace_neighbours=True)`, which is the path the final 2026-09-07 GB campaign used
+  (`summary.json` records `terrace_recovery.recovered = 255`). Without it the route drops 255 buildings and
+  reports `buildings_missing_row = 255`. This is purely geometric — no network.
+- GB is the only district where the two populations agree on `C12` (4 and 4). ES diverges most (36 vs 54).
+  The divergence is the undivided-building tail, not a rule change, and must not be reported as a regression.
+
+#### 🔴 FINDING 265 — the carried-over population is not all hash-identical, 2026-09-07
+
+`D-EU-109` T03's spec says the simulate list is *"every building whose `idf_sha256` changed, plus the 255
+net-new London buildings — this list, and only this list, is what reaches Speed"*. Two lists were written and
+they do not agree:
+
+- `EU-21/division_recovery/simulate_list_2026-09-07.csv` — **2,473** rows (ES 945, FR 254, GB 336, IT 938).
+- The four per-district files `EU-11/simulate_list_<CC>_2026-09-07.csv` — **899** rows (ES 274, FR 91, GB 299,
+  IT 235). These are `changed + net_new` **after** removing the `FINDING 263` non-deterministic population.
+
+The four Speed fleets were staged from the smaller pair, so **899 buildings were re-simulated and 2,702 were
+carried over from the `ceiling82_2026-09-05` harvest**. Carrying over is only sound where the final IDF is
+byte-identical to the ceiling82 one. Measured, per district (`prepared_buildings.csv` `idf_sha256` joined to
+the ceiling82 manifest on `building_id`):
+
+| district | total | simulated | carried, hash identical | carried, **hash differs** |
+|---|---|---|---|---|
+| ES-MAD-BERRUGUETE | 1175 | 274 | 230 | **671** |
+| FR-LYO-HAUTCOEURPENTES | 509 | 91 | 255 | **163** |
+| GB-LDN-STDUNSTANS | 706 | 299 | 370 | **37** |
+| IT-BOL-GALVANI2 | 1211 | 235 | 273 | **703** |
+| **fleet** | **3601** | **899** | **1128** | **1574** |
+
+`FINDING 263`'s exclusion rule is a rule about the **hash proof** — you cannot read change out of a
+non-deterministic hash. It was applied to the **simulation population**, which is a different question: the
+shipped IDF for those 1,574 buildings is a different file from the one whose EUI is on record, so publishing
+the ceiling82 EUI against it would attribute a number to a file that never produced it. Whether the
+difference is only vertex reordering is an assumption, and it has not been measured.
+
+**Disposition.** No EUI may be published for a hash-different carried building until it is re-simulated. The
+1,574 are staged as four delta fleets in `FINDING 263`-blind order — FR first (163, it is the GSSCanada
+deliverable), then GB (37), then ES (671) and IT (703). The 1,128 hash-identical carries stand as they are;
+that carry is exact and needs no run.
+
+Also recorded: `EU-11/<D>_final_2026-09-07/` holds the full district population (FR 509, GB 706, ES 1175,
+IT 1211) while the remote fleet dirs hold only the simulate-list subset, so a harvest of a `_final_` tree
+reports the carried rows as `rc=<NA>`. That is expected, not a staging defect — GB's first harvest showed
+407 such rows against 299 successes. The final manifest must be a **merge** of the delta harvest and the
+ceiling82 harvest, with the source of every row recorded.
+
+#### Director note — the hash half of `CP-3`, 2026-09-07
+
+Attempted director-side reproduction and it cannot be done from the persisted artifacts. Reconstructing the
+control from `prepared_buildings.csv` vs the ceiling82 manifest, excluding only the
+`*_INTERZONE_MISMATCH_REROUTED` population that `geometry_outcome` records, gives FR core-changed 235 against
+the 88 T03m reported. The gap is the `near_duplicate_vertex_tolerated_box` half of the `FINDING 263`
+exclusion, which is **not** a `geometry_outcome` value and is not stored in any `_final_2026-09-07` tree.
+Per-building hash state was persisted for two districts only —
+`EU-11/es_hash_control_state.csv` and `EU-11/it_hash_control_state.csv` — so FR and GB have no reproducible
+record and the executor's counts for them cannot be re-derived by anyone, including me.
+
+The hash half therefore **stays unsigned**, and `FINDING 265` removes the reason to chase it: once the four
+delta fleets land, every building whose IDF hash differs from ceiling82 has been simulated on its own shipped
+IDF, so no published EUI depends on the hash proof any more. The proof's remaining value is as evidence that
+the `D-EU-109` engine change was surgical, which is a claim about the engine, not about the deliverable.
+
+If it is ever signed, the missing artifact is the one to produce first: a per-building
+`<CC>_hash_control_state.csv` for FR and GB carrying both exclusion flags by name, written the same way the ES
+and IT ones were.
+
+
+
+
+#### Director note — FR C12 population, 2026-09-07
+
+FR's 11 `C12` plate-failures resolve to **7 unique building ids**, of which 4 are in the
+`affected_buildings_2026-09-07.csv` census and 3 are outside it
+(`BATIMENT0000000240880119_part0`, `BATIMENT0000000240880572_part0`, `BATIMENT0000000240881274_part0`).
+This does **not** contradict CP-2's census figure `FR-LYO 17 → 3`: the emission population includes
+plates that were never in the parity census, so the two counts are over different populations and must
+not be differenced.
+
+#### Director note — the FR before/after diff is not a regression test, 2026-09-07
+
+The FR before/after comparison (before 507 buildings / 722 plates, after 509 / 726, identical failed-id
+sets on all eight checks, 0 new / 0 fixed) is **vacuous as a regression test**. Because checks are not
+persisted, both sides were re-derived with today's engine; the run therefore proves only that the
+footprint and dwelling-count inputs are stable, not that the engine did not regress. The load-bearing
+regression evidence remains CP-2's bench measurement — 0 regressions on the seven checks, 275/344 `C12`
+recovery. Do not cite the before/after diff as regression coverage.
+
+### T06a — Merged harvester, one manifest per district (executor may write, director runs)
+
+**What:** a new `scripts/cluster/harvest_eu11_merged.py`. No other file may be created. Only one other file
+may be edited: `scripts/cluster/harvest_eu11_district.py`, and only to add rows to `TAGGED_DISTRICT_JOBS`.
+
+**Why:** `FINDING 265`. A harvest of one tree is not the district. The published manifest must merge three
+sources and name the source of every row; no EUI may be carried for a building whose shipped IDF differs
+from the `ceiling82_2026-09-05` one.
+
+**How:**
+
+1. Register these in `TAGGED_DISTRICT_JOBS` of `harvest_eu11_district.py`:
+
+   | district | `final_2026-09-07` | `delta_2026-09-07` |
+   |---|---|---|
+   | FR-LYO-HAUTCOEURPENTES | 1311158 | 1311699 |
+   | GB-LDN-STDUNSTANS | 1311214 | 1311701 |
+   | ES-MAD-BERRUGUETE | 1311215 | 1311703 |
+   | IT-BOL-GALVANI2 | 1311244 | 1311708 |
+
+2. `harvest_eu11_merged.py --district <D>` imports `harvest_eu11_district` and calls its `harvest_district`
+   once with `tag="final_2026-09-07"` and once with `tag="delta_2026-09-07"`. It does not reimplement the
+   SQL, rc, or area logic.
+
+3. Row population = every `building_id` in `EU-11/<D>_final_2026-09-07/prepared_buildings.csv`.
+
+4. `eui_source` per building, first match wins:
+   - `delta_2026-09-07` — the delta harvest has a row with `eplus_return_code == 0`.
+   - `final_2026-09-07` — the final harvest has a row with `eplus_return_code == 0`.
+   - `ceiling82_carry` — `prepared_buildings.csv.idf_sha256` equals the `ceiling82_2026-09-05` manifest's
+     `idf_sha256` for that `building_id`, and that row has `eplus_return_code == 0`.
+   - `pending_resimulation` — otherwise. Every result column stays blank. This is a published row with no EUI,
+     not a dropped row.
+
+5. Output `EU-11/<D>_merged_2026-09-07/<slug>_manifest.csv`, columns =
+   `harvest_eu11_district.MANIFEST_COLUMNS` + `eui_source` + `idf_sha256_matches_ceiling82`.
+
+6. Output `EU-11/<D>_merged_2026-09-07/summary.json`: counts per `eui_source`; `n_rows`, `n_with_eui`,
+   `n_pending`; `pooled_eui_kwh_m2` = `sum(heating_kwh) / sum(floor_area_m2)` over rows with an EUI, beside
+   `pooled_eui_population` naming that subset in words; `ceiling82_pooled_eui_kwh_m2` and the delta; and a
+   `disclosures` list. FR's list must contain: stem `cee45cbc2718154c` was rebuilt from 29 dwelling zones to
+   8 `one_zone_per_floor` zones with the courtyard filled, so its floor area and EUI denominator differ from
+   every earlier manifest.
+
+7. `--dry-run` resolves `eui_source` from local artifacts only, fetches nothing, writes nothing, prints the
+   four counts.
+
+**How to test:** `--district FR-LYO-HAUTCOEURPENTES --dry-run`. Report the four counts. Do not run without
+`--dry-run`; the delta fleets are still in flight and the director runs the real harvest.
+
+**Hard rules:** no `sbatch`, no `scontrol`, no job submission, no writes under any `*_ceiling82_2026-09-05/`
+tree, no code comments, no files beyond the two named above.
+
+#### T06a — Merged harvester — completed 2026-09-07
+
+Artifacts: `scripts/cluster/harvest_eu11_merged.py` (new); `scripts/cluster/harvest_eu11_district.py`
+(`TAGGED_DISTRICT_JOBS` only — added the 7 missing `(district, tag)` entries from the T06a table; the
+pre-existing `("GB-LDN-STDUNSTANS", "final_2026-09-07"): 1311214` entry already matched the table and was
+left as-is).
+
+Deviations: none from the written spec. One interpretation was needed where the spec was silent: "every
+result column stays blank" for `pending_resimulation` was read as the 9 post-`weather_sha256` MANIFEST_COLUMNS
+(`eplus_return_code` … `energyplus_version`) — the identity/provenance columns through `weather_sha256`
+(including `idf_sha256`, needed for the ceiling82 match) are always populated from the district's
+`prepared_buildings.csv`.
+
+Test status: `--district FR-LYO-HAUTCOEURPENTES --dry-run` ran clean. Counts: `delta_2026-09-07`=0,
+`final_2026-09-07`=0, `ceiling82_carry`=255, `pending_resimulation`=254 (sums to the 509-row population).
+Both local tag manifests exist on disk already; `final_2026-09-07`'s `eplus_return_code` is all-NaN (509/509),
+consistent with "delta fleets still in flight." No network call made, no directory written under
+`EU-11/FR-LYO-HAUTCOEURPENTES_merged_2026-09-07/` (verified absent post-run).
+
+Notes: real (non-`--dry-run`) invocation calls `harvest_district` twice per district (final, delta tags) per
+spec item 2 — untested here per the plan's instruction that the director runs the real harvest.
+
+#### T06/T07 — Lyon harvested and restated — completed 2026-09-07
+
+Artifacts: `openubem/outputs/eu_evidence/EU-11/FR-LYO-HAUTCOEURPENTES_merged_2026-09-07/`
+(`fr_lyo_hautcoeurpentes_manifest.csv`, 509 rows; `summary.json`);
+`FR-LYO-HAUTCOEURPENTES_delta_2026-09-07/` staged evidence dir (`prepared_buildings.csv` copied from the
+final tree, `fleet.lst` 163 stems pulled from `EU11_FR-LYO-HAUTCOEURPENTES_delta_2026-09-07`);
+`scripts/generate_eu_3d_viewers.py:860-878` (`_load_eu11_eui` now prefers `_merged_2026-09-07`, falls back
+to `_ceiling82_2026-09-05`); `openubem/outputs/3D/eu_FR-LYO-HAUTCOEURPENTES_viewer.html` + `_data/` and the
+`docs_ACTIVE/europeanLocations/outputs_3D/` mirror, regenerated for Lyon only.
+
+Restatement: pooled EUI **65.935928 → 69.595307 kWh/m²**, `+3.659379` (`+5.55 %`), population
+**505 of 509 buildings**. `eui_source`: `final_2026-09-07` 91, `delta_2026-09-07` 159, `ceiling82_carry`
+255, `pending_resimulation` 4. Per `FINDING 264` both halves of that number name their population; the
+pooled figure is the *shipped* route over the 505 buildings that carry a result column.
+
+Deviations: the delta fleets were built and pushed to Speed without a local `_delta_2026-09-07/` evidence
+directory, so `harvest_district` failed on the missing `prepared_buildings.csv`. Resolved by copying the
+final tree's `prepared_buildings.csv` (which enumerates the whole 509-building district, not just its own
+91-stem fleet) after verifying all 163 delta IDFs are byte-identical to the `idf_sha256` recorded there —
+163/163 match, 0 missing, 0 differing. The same staging and verification was done for GB (37/37), ES
+(671/671) and IT (703/703) ahead of their harvests. `TAGGED_DISTRICT_JOBS[("FR-LYO-HAUTCOEURPENTES",
+"final_2026-09-07")]` remains `1311158`, but stem `cee45cbc2718154c` (task 54) actually ran under job
+`1311891`; the only consequence is a blank `run_seconds` for that one row, since job id is used solely for
+`sacct` elapsed and the `speed_job_id` column.
+
+Test status: viewer carries 505 non-null and 263 null `"eui"` values over 768 features (509 district + 259
+context/excluded); 509 − 505 = 4 `pending_resimulation`, 768 − 509 = 259 context — both reconcile. Manifest
+re-measured independently: 509 rows, 505 non-blank `eui_kwh_m2`.
+
+Notes: four buildings ship as `pending_resimulation` with every result column blank rather than carrying an
+EUI from a different IDF (`FINDING 265`): `dd1d33feca834272` (`FINDING 210` recurrence, fatal),
+`5e0376cc50cbea69` (5 h 10 m with a 0-byte `eplusout.err`, no `task.rc`), and delta tasks 147/148
+(`aec18ccb210f0bca`, `4a1d49fc78fa56c6`) which were still running when the owner authorised harvesting at
+505. `summary.json` carries the `cee45cbc2718154c` rezoning disclosure (29 dwelling zones → 8
+`one_zone_per_floor`, courtyard filled) required by T06a. London, Madrid and Bologna EUIs remain stale.
+
+#### T06/T07 — London harvested and restated — completed 2026-09-07
+
+Artifacts: `openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS_merged_2026-09-07/`
+(`gb_ldn_stdunstans_manifest.csv`, 706 rows; `summary.json`), produced by
+`scripts/cluster/harvest_eu11_merged.py --district GB-LDN-STDUNSTANS` from the `_final_2026-09-07` harvest
+(job `1311214`, 299 tasks) and the `_delta_2026-09-07` harvest (job `1311701`, 37 tasks). Viewer
+regenerated by `scripts/generate_eu_3d_viewers.py::build_district('GB-LDN-STDUNSTANS')` and mirrored to
+`docs/docs_ACTIVE/europeanLocations/outputs_3D/`.
+
+Restatement: **120.064327 kWh/m² over 706 of 706 buildings**, replacing the ceiling82 **97.081151** — a
+**+22.983176 kWh/m²** move, and the population also changed (ceiling82 pooled 451 buildings, the restated
+number pools all 706). `eui_source` counts: `final_2026-09-07` 299, `delta_2026-09-07` 37,
+`ceiling82_carry` 370, `pending_resimulation` 0. Per `FINDING 264` the pooled figure is the *shipped*
+route over the full 706-building allocator population; unlike Lyon there is no pending subset, so the
+shipped and full populations coincide here. No `FINDING 264` disclosure and no rezoning disclosure ride
+with this number — `disclosures` is empty.
+
+Deviations: none. The `_delta_2026-09-07` evidence directory had already been staged and hash-verified
+ahead of the harvest (37/37 delta IDFs byte-identical to `idf_sha256` in the final tree's
+`prepared_buildings.csv`, 0 missing, 0 differing), so the `prepared_buildings.csv` failure seen on Lyon did
+not recur.
+
+Test status: delta fleet drained with 37 `out/` directories, 37 `task.rc` = 0, 37 `eplusout.sql`, 0 fatal;
+main fleet 299/299 `COMPLETED`. Viewer carries 706 non-null and 645 null `"eui"` values over 1,351 features
+(706 district + 645 context/excluded); 706 − 706 = 0 `pending_resimulation`, 1351 − 706 = 645 context —
+both reconcile, and both mirror copies measure identically.
+
+Notes: the district's `_final_` fleet reports `success=299 failed=407` in isolation, which is the
+`FINDING 265` artefact, not a failure — the 407 "failed" rows are buildings that fleet never simulated and
+that the merge resolves as `ceiling82_carry` (370) or `delta_2026-09-07` (37). The `_final_`-only pooled
+figure of 149.9371 kWh/m² and the `_delta_`-only 69.2127 kWh/m² are per-fleet diagnostics and may not be
+quoted as district EUIs. Madrid and Bologna remain stale.
+
+#### T06/T07 — Madrid harvested and restated — completed 2026-09-08
+
+Artifacts: `openubem/outputs/eu_evidence/EU-11/ES-MAD-BERRUGUETE_merged_2026-09-07/` (summary.json +
+`es_mad_berruguete_manifest.csv`, 1,175 rows), regenerated viewer
+`openubem/outputs/3D/eu_ES-MAD-BERRUGUETE_viewer.html` + `_data/` mirrored to
+`docs/docs_ACTIVE/europeanLocations/outputs_3D/`.
+
+Restatement: **80.694006 kWh/m² over 1,166 of 1,175 buildings**, replacing the ceiling82 **77.153998** — a
+**+3.540008 kWh/m²** move, and the population also changed (ceiling82 pooled 1,174 buildings and reported
+10 failed; the restated number pools 1,166 and holds 9 back as `pending_resimulation`). `eui_source`
+counts: `final_2026-09-07` 272, `delta_2026-09-07` 664, `ceiling82_carry` 230, `pending_resimulation` 9.
+`disclosures` is empty. The 9 pending rows carry blank result columns, not an EUI from a different IDF
+(`FINDING 265`).
+
+Deviations: none. Both `_final_` and `_delta_` IDF trees were staged locally ahead of the harvest
+(1,181 and 671 IDFs), so neither the `prepared_buildings.csv` failure seen on Lyon nor a plan-vintage
+mismatch recurred.
+
+Test status: main fleet 1311215 drained 272 rc=0 / 2 rc=1; delta fleet 1311703 drained 671 `out/`
+directories, 664 rc=0 / 7 rc=1. Five-line audit all pass — summary population string matches the counts;
+manifest 1,175 rows / 1,166 non-null EUI, all 9 pending rows blank; viewer 1,398 features with 1,166
+non-null and 232 null `"eui"` (1,398 − 1,175 = 223 context/excluded plus the 9 pending, which reconciles);
+EU-21 checks joined 1,181 hit / 0 miss; both mirror copies md5-identical to the source.
+
+Notes: the `_final_`-only pooled figure of 112.3050 kWh/m² and the `_delta_`-only 74.4311 kWh/m² are
+per-fleet diagnostics — the same `FINDING 265` artefact as London (`success=272 failed=903` in isolation)
+— and may not be quoted as district EUIs. Layout states across the viewer population: 1,038 `ruled`,
+143 `massing_box`, 13 `no_idf`, 204 unclassified. Bologna remains stale.

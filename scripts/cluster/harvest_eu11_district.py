@@ -53,6 +53,18 @@ DISTRICT_JOBS = {
     "IT-BOL-GALVANI2": 1299947,
 }
 
+# SLURM array job IDs for tagged re-runs, keyed by (district, tag).
+TAGGED_DISTRICT_JOBS = {
+    ("FR-LYO-HAUTCOEURPENTES", "final_2026-09-07"): 1311158,
+    ("FR-LYO-HAUTCOEURPENTES", "delta_2026-09-07"): 1311699,
+    ("GB-LDN-STDUNSTANS", "final_2026-09-07"): 1311214,
+    ("GB-LDN-STDUNSTANS", "delta_2026-09-07"): 1311701,
+    ("ES-MAD-BERRUGUETE", "final_2026-09-07"): 1311215,
+    ("ES-MAD-BERRUGUETE", "delta_2026-09-07"): 1311703,
+    ("IT-BOL-GALVANI2", "final_2026-09-07"): 1311244,
+    ("IT-BOL-GALVANI2", "delta_2026-09-07"): 1311708,
+}
+
 MANIFEST_COLUMNS = [
     "building_id", "archetype_id", "building_type", "age_band", "geometry_outcome",
     "construction_period_provenance",
@@ -78,11 +90,12 @@ def _ssh(cmd: str, timeout: int = 120) -> str:
     return r.stdout + r.stderr
 
 
-def _remote_fleet_dir(district: str) -> str:
-    return f"{_REMOTE_FLEET_BASE}/EU11_{district}"
+def _remote_fleet_dir(district: str, tag: str | None = None) -> str:
+    base = f"{_REMOTE_FLEET_BASE}/EU11_{district}"
+    return f"{base}_{tag}" if tag else base
 
 
-def fetch_district_out(district: str, work_base: Path) -> Path:
+def fetch_district_out(district: str, work_base: Path, tag: str | None = None) -> Path:
     """Fetch every task's out/<stem>/ directory contents for one district.
 
     The file list (`*/eplusout.sql`, etc.) is a shell glob expanded by the
@@ -90,8 +103,9 @@ def fetch_district_out(district: str, work_base: Path) -> Path:
     the Windows ~32k-char command-line limit at fleet sizes >~150 (see
     docs/docs_EXPLANATION/OpenUBEM_debug_References.md ch.12).
     """
-    remote_dir = _remote_fleet_dir(district)
-    sim_out = work_base / district
+    remote_dir = _remote_fleet_dir(district, tag)
+    label = f"{district}_{tag}" if tag else district
+    sim_out = work_base / label
     sim_out.mkdir(parents=True, exist_ok=True)
 
     print(f"  [{district}] fetching from {remote_dir}/out ...")
@@ -101,7 +115,7 @@ def fetch_district_out(district: str, work_base: Path) -> Path:
         f"*/eplusout.sql */eplusout.err */eplusout.eio */task.rc "
         f"*/platform.txt */energyplus_version.txt"
     )
-    tgz = work_base / f"fetch_{district}.tgz"
+    tgz = work_base / f"fetch_{label}.tgz"
     with open(tgz, "wb") as fh:
         proc = subprocess.Popen(
             ["ssh", REMOTE_HOST, f"bash -lc '{remote_cmd}'"],
@@ -206,8 +220,8 @@ def parse_task(bdir: Path) -> dict:
 
 # ── harvest one district ────────────────────────────────────────────────────
 
-def harvest_district(district: str, work_base: Path) -> dict:
-    dist_dir = EVIDENCE_ROOT / district
+def harvest_district(district: str, work_base: Path, tag: str | None = None) -> dict:
+    dist_dir = EVIDENCE_ROOT / (f"{district}_{tag}" if tag else district)
     prepared_path = dist_dir / "prepared_buildings.csv"
     if not prepared_path.exists():
         raise FileNotFoundError(f"missing {prepared_path} — run run_eu_s2_district_campaign.py first")
@@ -215,8 +229,9 @@ def harvest_district(district: str, work_base: Path) -> dict:
 
     fleet_lst = [s.strip() for s in (dist_dir / "fleet.lst").read_text(encoding="utf-8").splitlines() if s.strip()]
 
-    sim_out = fetch_district_out(district, work_base)
-    elapsed = fetch_sacct_elapsed(DISTRICT_JOBS[district])
+    sim_out = fetch_district_out(district, work_base, tag)
+    job_id = TAGGED_DISTRICT_JOBS.get((district, tag), DISTRICT_JOBS[district]) if tag else DISTRICT_JOBS[district]
+    elapsed = fetch_sacct_elapsed(job_id)
 
     rows = []
     for idx, stem in enumerate(fleet_lst, start=1):
@@ -303,7 +318,7 @@ def harvest_district(district: str, work_base: Path) -> dict:
         "pooled_eui_kwh_m2": round(pooled_eui, 6) if n_success else None,
         "platform_observed": platforms,
         "energyplus_version_observed": versions,
-        "speed_job_id": DISTRICT_JOBS[district],
+        "speed_job_id": job_id,
         "status": "HARVESTED_FROM_SPEED",
     }
     summary_path = dist_dir / "summary.json"
@@ -318,6 +333,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--district", choices=sorted(DISTRICT_JOBS), help="single district")
     parser.add_argument("--all", action="store_true", help="harvest all three submitted districts")
+    parser.add_argument("--tag", default=None, help="harvest a tagged re-run instead of the default campaign")
     args = parser.parse_args()
     if not args.district and not args.all:
         parser.error("pass --district <NAME> or --all")
@@ -330,7 +346,7 @@ def main() -> None:
     summaries = {}
     for district in districts:
         print(f"\n=== District: {district} ===")
-        summaries[district] = harvest_district(district, work_base)
+        summaries[district] = harvest_district(district, work_base, args.tag)
 
     print("\n" + "=" * 80)
     for district, s in summaries.items():

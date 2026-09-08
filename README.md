@@ -30,9 +30,10 @@ Give OpenUBEM a neighbourhood (address, coordinate, bounding box, or OSM XML exp
 10. [Test Suite](#test-suite)
 11. [Requirements & Installation](#requirements--installation)
 12. [Quick Start](#quick-start)
-13. [Status & Validation](#status--validation)
-14. [Documentation Map](#documentation-map)
-15. [License](#license)
+13. [European Locations](#european-locations)
+14. [Status & Validation](#status--validation)
+15. [Documentation Map](#documentation-map)
+16. [License](#license)
 
 ---
 
@@ -383,7 +384,7 @@ Once a run's `05_results.*` exist, the neighbourhood exports as **one self-conta
 
 It also carries **per-building provenance** (resolution-mode border, trust badge, failure hatch, raw `data_quality_flag` tokens) and honest data-gap styling (footprints with no OSM height are badged *"Height: not in OSM"*, not rendered as broken buildings). Step 6 UTCI can be switched on as an optional layer; off by default, and a run without it rebuilds byte-identically.
 
-Pre-built viewers for all 12 validation cells: `openubem/outputs/3D/`.
+Pre-built viewers for all 12 U.S. validation cells and the four European districts: `openubem/outputs/3D/`.
 
 ---
 
@@ -595,10 +596,10 @@ Rules that are non-negotiable on the Concordia *Speed* cluster and generalise we
 
 ## Test Suite
 
-95 test modules cover all pipeline stages, the imputation framework, the microclimate stage and the viewer.
+150 test modules cover all pipeline stages, the imputation framework, the European locations arc (51 modules), the microclimate stage and the viewer.
 
 ```bash
-pytest -q tests/                          # the suite baseline; always scope to tests/
+pytest -q -n 8 tests/                     # the suite baseline; always scope to tests/ (pytest-xdist, ~7 min)
 pytest -m "not slow"                      # skip integration tests
 pytest -m "not energyplus"                # skip tests requiring the EnergyPlus binary
 pytest tests/test_building_classifier.py  # single module
@@ -608,7 +609,7 @@ pytest tests/test_building_classifier.py  # single module
 
 Markers: `slow` (integration tests that hit the network or take significant time); `energyplus` (requires EnergyPlus 23.1 installed).
 
-Latest full run of the scoped suite: **0 failed · 1,859 passed · 55 skipped · 0 errors**. Every skip names the open item it waits on; a skip is tracked as a debt, not counted as a pass.
+Latest full run of the scoped suite: **0 failed · 2,345 passed · 55 skipped · 0 errors** (2026-08-28). Every skip names the open item it waits on; a skip is tracked as a debt, not counted as a pass — **cite the enumerated 55-skip list, never the bare count**, since a count alone cannot identify the one skip that flipped to a pass.
 
 Golden fixtures (GeoPackage files, EnergyPlus SQL, labelled classifier exams) live in `tests/fixtures/`.
 
@@ -717,6 +718,45 @@ py -3 scripts/run_step6_microclimate.py --run-dir my_neighbourhood/results
 
 ---
 
+## European Locations
+
+The pipeline runs outside North America. Four European residential districts are modelled end to end, with country-specific archetypes and a dwelling-level zoning path that does not exist in the U.S. cells.
+
+| District | Country | Buildings | Status |
+|---|---|---|---|
+| `FR-LYO-HAUTCOEURPENTES` — Lyon, Haut-Cœur / Pentes | France | 509 | ✅ published |
+| `GB-LDN-STDUNSTANS` — London, St Dunstan's | United Kingdom | 706 | ✅ published |
+| `ES-MAD-BERRUGUETE` — Madrid, Berruguete | Spain | 1,175 | ✅ published |
+| `IT-BOL-GALVANI2` — Bologna, Galvani 2 | Italy | 1,211 | ⏳ simulating |
+
+**What is different from the U.S. path:**
+
+- **Archetypes come from TABULA / EPISCOPE**, per country and construction period, instead of the DOE/ASHRAE reference set.
+- **Weather is `TMYx.2009-2023`** for every fold — the only window covering all fieldwork periods — with the station chosen by scoring candidates against TABULA's own monthly temperatures, not by nearest-distance.
+- **Buildings are divided into dwellings, not floors.** A ruled grid regularizes the footprint, allocates up to 12 dwellings per floor, and branches on morphology (L-shape, U/T-shape, multi-wing) with a habitability retry. Where the ruled grid refuses — the reason is recorded per building (`L_SHAPE_DECOMPOSITION_FAILED`, `DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_12`, `REGULARIZATION_AREA_DELTA_GT_2PCT`) — the building falls back to one undivided zone per storey and is badged as such in the viewer. Refusals are shown, never hidden.
+
+**Published numbers** (pooled: total simulated energy ÷ total simulated floor area):
+
+| District | Pooled EUI | Population |
+|---|---|---|
+| Lyon | **69.595307 kWh/m²** | 505 of 509 buildings |
+| London | **120.064327 kWh/m²** | 706 of 706 buildings |
+| Madrid | **80.694006 kWh/m²** | 1,166 of 1,175 buildings |
+
+Every quoted figure names its population. A building whose EUI was carried from a different IDF than the one finally simulated is never published as a result: it is marked `pending_resimulation` with blank result columns until it is re-simulated.
+
+**Definition of done, per district.** A district is not published until five measured checks pass, reported pass/fail rather than summarised:
+
+1. The merged summary carries a pooled EUI *and* the population it was pooled over.
+2. The manifest row count equals the district building count, and its non-null EUI count equals the summary's.
+3. The viewer draws floor plans from the same IDF vintage the EUI came from — a fresh number on a superseded plan is a defect, not a cosmetic issue.
+4. The viewer's EUI join matches the manifest exactly, and the `docs_ACTIVE` mirror is byte-identical.
+5. Every superseded figure still in the docs carries an explicit supersession marker.
+
+Evidence trees: `openubem/outputs/eu_evidence/` (per campaign, per district). Working state and findings: `docs/docs_ACTIVE/europeanLocations/`.
+
+---
+
 ## Status & Validation
 
 Validated at neighbourhood scale across **three U.S. cities** against independent measured-energy benchmarks. All gates are report-only, never tuned to pass.
@@ -727,7 +767,7 @@ Validated at neighbourhood scale across **three U.S. cities** against independen
 
 | Metric | Result |
 |---|---|
-| Fleet EUI | **157.1 kWh/m²**, *pooled*: total simulated energy ÷ total simulated floor area over all 8,154 successful buildings |
+| Fleet EUI | **153.8231 kWh/m²**, *pooled*: total simulated energy ÷ total simulated floor area over 8,153 buildings (restated 2026-08-19; **157.1 and 158.0 are superseded and must not be quoted**) |
 | City-Overall vs. measured | NYC **−31.3%** · LA **−3.6%** · Austin **−30.5%** (LL84 / EBEWE / CBECS proxy) |
 | Archetype-level R² | NYC **0.877** · LA **0.902** · Austin **0.723** |
 | National CBECS 2018 | scored across all three census regions (mid-Atlantic, Pacific, West-South-Central) |
@@ -737,7 +777,9 @@ Validated at neighbourhood scale across **three U.S. cities** against independen
 
 **Known limitations, stated plainly:**
 
-- **The published fleet figure is not yet end-to-end reproducible from `HEAD`.** The adopted run came from a working tree whose elevator wiring was never committed. The wiring has since been restored and regenerates the elevator column exactly, but a separate window-geometry re-randomisation defect (mechanism fixed 2026-08-17) means the confirming third fleet re-run has not been done. `157.1 kWh/m²` is correct and complete for the run that produced it; the provenance caveat stays live until that re-run lands.
+- **The published fleet figure is not yet end-to-end reproducible from `HEAD`.** The adopted run came from a working tree whose elevator wiring was never committed. The wiring has since been restored and regenerates the elevator column exactly, but a separate window-geometry re-randomisation defect (mechanism fixed 2026-08-17) means the confirming third fleet re-run has not been done. `153.8231 kWh/m²` is correct and complete for the run that produced it; the provenance caveat stays live until that re-run lands.
+- **The fleet figure is not volume-correct.** 91.64% of zones carry a 10 m³ volume stub; the effect is about **+1.0 kWh/m²**, which is *not* in the published number. `154.8` was measured but is **not adopted**.
+- **District heating is absent from the total.** Measured at **19.47 kWh/m² (12.7%)** over an 8,144-building census, 70% of it concentrated on 116 `SuperTall`/`Tall` buildings — an archetype effect, never a flat offset. The code fix exists; the restatement was ruled **not adopted** (2026-08-22) because it lands on a different population and carbon does not follow it. Never difference the restated value against `153.8231`.
 - **`layout_assign` is not certified for fleet EUI reporting**: see [Simulation Resolution Modes](#simulation-resolution-modes).
 - **Step 6 (UTCI) is not validated against measurement** and is deliberately excluded from `05_results.*`.
 - **Distribution-shape gates** (CV(RMSE), KS) are structural for an archetype-deterministic UBEM, reported for transparency rather than used as pass/fail.

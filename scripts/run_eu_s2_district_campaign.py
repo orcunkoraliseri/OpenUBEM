@@ -72,6 +72,39 @@ GB_EPC_BANDS = {
 }
 
 
+class _ExclusionCounter(Counter):
+    """T01 (`eu-recut-95pct-2026-09-08`): a ``Counter`` that also keeps the
+    per-building row behind every increment, so ``excluded_buildings.csv``
+    and the existing ``blocker_exclusions`` histogram always come from the
+    same source. Still a plain ``Counter`` to every existing caller that only
+    reads it as one (``.items()``, ``+``, membership) -- ``.records`` and
+    ``.log()`` are additions, not a new interface.
+    """
+
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.records: list[dict] = []
+
+    def log(self, building_id: object, stage: str, blocker: str, detail: str = "") -> None:
+        self[blocker] += 1
+        self.records.append(
+            {"building_id": str(building_id), "stage": stage, "blocker": blocker, "detail": detail}
+        )
+
+
+class _GeometryOutcome(str):
+    """T01: ``_geometry``'s outcome token, also carrying the storey layout's
+    own ``fallback_reason`` (or best-effort tag) as ``.layout_reason``. A
+    plain ``str`` subclass so every existing 2-unpack caller of ``_geometry``
+    keeps working unchanged.
+    """
+
+    def __new__(cls, value: str, layout_reason: str | None = None) -> "_GeometryOutcome":
+        self = str.__new__(cls, value)
+        self.layout_reason = layout_reason
+        return self
+
+
 def _registry_weather(fold: str, requested: Path | None) -> tuple[Path, str]:
     target = next(x for x in json.loads(REGISTRY.read_text(encoding="utf-8"))["targets"] if x["fold"] == fold)
     epw = requested or (ROOT / target["weather_file"])
@@ -150,11 +183,27 @@ def _geometry(row: pd.Series, records: list[dict]) -> tuple[list[dict], str]:
     building_layout = generate_european_building_dwelling_layout(
         footprint, floor_allocations=allocation.floor_allocations,
     )
+    # T01: the layout's own reason (refusal reason when not emitted, or the
+    # first non-empty per-storey best-effort tag when emitted) -- thrown away
+    # by every caller until now (fact 4).
+    layout_reason = building_layout.fallback_reason or next(
+        (reason for reason in building_layout.fallback_reason_by_storey if reason), None
+    )
     if building_layout.dwelling_layout_emitted:
         zones = european_building_layout_to_zone_specs(
             building_layout, building_id=row["building_id"], height_m=FLOOR_TO_FLOOR_M,
         )
-        outcome = "DWELLING_LAYOUT_EMITTED" if is_observed else "DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT"
+        # D-EU-111 (T02): a best-effort storey rides `fallback_reason_by_storey`
+        # unchanged (fact 3) -- surface it as its own outcome token, never
+        # folded into the plain `DWELLING_LAYOUT_EMITTED*` tokens.
+        is_best_effort = any(
+            reason and reason.startswith("NOCORE_BEST_EFFORT_")
+            for reason in building_layout.fallback_reason_by_storey
+        )
+        if is_best_effort:
+            outcome = "DWELLING_LAYOUT_EMITTED_BEST_EFFORT" if is_observed else "DWELLING_LAYOUT_EMITTED_BEST_EFFORT_IMPUTED_COUNT"
+        else:
+            outcome = "DWELLING_LAYOUT_EMITTED" if is_observed else "DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT"
     else:
         zones = build_zones(row["building_id"], footprint, row["archetype_id"], n_storey, "one_zone_per_floor", FLOOR_TO_FLOOR_M)
         outcome = "FALLBACK_PENDING_LAYOUT" if is_observed else "FALLBACK_PENDING_LAYOUT_MISSING_DWELLING_COUNT"
@@ -167,7 +216,7 @@ def _geometry(row: pd.Series, records: list[dict]) -> tuple[list[dict], str]:
         # applied above -- re-stabilize here, the actual last point before
         # `coords_m` is baked into the IDF, so the fix survives orientation.
         zone["coords_m"] = _stabilize_ring_coords(poly)
-    return zones, outcome
+    return zones, _GeometryOutcome(outcome, layout_reason)
 
 
 def _gb_age_decision(band: str | None, observed_years: set[int]) -> tuple[str, str, str] | tuple[None, str, str]:
@@ -333,7 +382,7 @@ def _gb_row_outcome(
 def _gb_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Counter]:
     cert_numbers_by_osm_id, bands_all_by_osm_id, year_lookup = _gb_cert_lookups(gdf)
     is_attached_series = compute_footprint_adjacency(gdf)
-    exclusions: Counter = Counter()
+    exclusions: Counter = _ExclusionCounter()
     result = []
     for idx, item in gdf.sort_values("osm_id", kind="stable").iterrows():
         building_id = str(item.osm_id)
@@ -345,7 +394,7 @@ def _gb_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Co
             cert_numbers_by_osm_id.get(building_id, []),
         )
         if row is None:
-            exclusions[blocker] += 1; continue
+            exclusions.log(building_id, "base_mapping", blocker); continue
         result.append(row)
     return result, exclusions
 
@@ -378,7 +427,7 @@ def _gb_terrace_recovery_rows(
         if storeys is not None:
             base_storeys_by_id[bid] = storeys
 
-    exclusions: Counter = Counter()
+    exclusions: Counter = _ExclusionCounter()
     recovered: list[dict] = []
     for idx, item in gdf.sort_values("osm_id", kind="stable").iterrows():
         building_id = str(item.osm_id)
@@ -394,14 +443,14 @@ def _gb_terrace_recovery_rows(
             continue
         prepared_touching = pairs.get(building_id, set()) & base_by_id.keys()
         if not prepared_touching:
-            exclusions[f"{age_label}_NO_PREPARED_NEIGHBOUR"] += 1; continue
+            exclusions.log(building_id, "recovery_pass", f"{age_label}_NO_PREPARED_NEIGHBOUR"); continue
         neighbour_periods = {base_period_by_id[nid] for nid in prepared_touching if nid in base_period_by_id}
         if len(neighbour_periods) != 1:
-            exclusions[f"{age_label}_NEIGHBOURS_DISAGREE"] += 1; continue
+            exclusions.log(building_id, "recovery_pass", f"{age_label}_NEIGHBOURS_DISAGREE"); continue
         inherited_period = neighbour_periods.pop()
         if straddle_periods is not None:
             if inherited_period not in straddle_periods:
-                exclusions[f"{age_label}_NEIGHBOUR_OUTSIDE_STRADDLE"] += 1; continue
+                exclusions.log(building_id, "recovery_pass", f"{age_label}_NEIGHBOUR_OUTSIDE_STRADDLE"); continue
             age_provenance = "INFERRED_TERRACE_NEIGHBOUR_PERIOD_WITHIN_STRADDLE"
         else:
             age_provenance = "INFERRED_TERRACE_NEIGHBOUR_AGE"
@@ -416,7 +465,7 @@ def _gb_terrace_recovery_rows(
             cert_numbers_by_osm_id.get(building_id, []), storey_override=storey_override,
         )
         if row is None:
-            exclusions[f"AGE_RECOVERED_THEN_{blocker}"] += 1; continue
+            exclusions.log(building_id, "recovery_pass", f"AGE_RECOVERED_THEN_{blocker}"); continue
         recovered.append(row)
 
     for idx, item in gdf.sort_values("osm_id", kind="stable").iterrows():
@@ -436,17 +485,17 @@ def _gb_terrace_recovery_rows(
             continue
         prepared_touching = pairs.get(building_id, set()) & base_by_id.keys()
         if not prepared_touching:
-            exclusions["MISSING_OBSERVED_STOREY_COUNT_NO_PREPARED_NEIGHBOUR"] += 1; continue
+            exclusions.log(building_id, "recovery_pass", "MISSING_OBSERVED_STOREY_COUNT_NO_PREPARED_NEIGHBOUR"); continue
         neighbour_storeys = {base_storeys_by_id[nid] for nid in prepared_touching if nid in base_storeys_by_id}
         if len(neighbour_storeys) != 1:
-            exclusions["MISSING_OBSERVED_STOREY_COUNT_NEIGHBOURS_DISAGREE"] += 1; continue
+            exclusions.log(building_id, "recovery_pass", "MISSING_OBSERVED_STOREY_COUNT_NEIGHBOURS_DISAGREE"); continue
         storey_override = (neighbour_storeys.pop(), "INFERRED_TERRACE_NEIGHBOUR_STOREYS")
         row2, blocker2 = _gb_row_outcome(
             item, bool(is_attached_series.loc[idx]), records, first, age_label, period_provenance,
             cert_numbers_by_osm_id.get(building_id, []), storey_override=storey_override,
         )
         if row2 is None:
-            exclusions[f"STOREY_RECOVERED_THEN_{blocker2}"] += 1; continue
+            exclusions.log(building_id, "recovery_pass", f"STOREY_RECOVERED_THEN_{blocker2}"); continue
         recovered.append(row2)
 
     return recovered, exclusions
@@ -498,7 +547,7 @@ def _it_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Co
     }
 
     mapped_rows = []
-    exclusions: Counter = Counter()
+    exclusions: Counter = _ExclusionCounter()
 
     for idx, item in gdf.sort_values("osm_id", kind="stable").iterrows():
         bid = str(item.osm_id)
@@ -526,18 +575,18 @@ def _it_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Co
         # Census section
         match_sec = sec_joined[sec_joined["osm_id"] == bid]
         if len(match_sec) == 0 or pd.isna(match_sec.iloc[0]["sez2011"]):
-            exclusions["UNMAPPED_CENSUS_SECTION"] += 1
+            exclusions.log(bid, "base_mapping", "UNMAPPED_CENSUS_SECTION")
             continue
         sez_num = int(match_sec.iloc[0]["sez2011"])
         sec_row = sections_data.get(sez_num)
         if not sec_row:
-            exclusions["CENSUS_SECTION_DATA_MISSING"] += 1
+            exclusions.log(bid, "base_mapping", "CENSUS_SECTION_DATA_MISSING")
             continue
 
         e_counts = {f"E{k}": int(sec_row.get(f"E{k}", 0) or 0) for k in range(8, 17)}
         tot_res = sum(e_counts.values())
         if tot_res == 0:
-            exclusions["CENSUS_SECTION_NO_RESIDENTIAL_BUILDINGS"] += 1
+            exclusions.log(bid, "base_mapping", "CENSUS_SECTION_NO_RESIDENTIAL_BUILDINGS")
             continue
 
         max_k = max(e_counts, key=e_counts.get)
@@ -550,21 +599,21 @@ def _it_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Co
             if sez_num in (1287, 1266):
                 max_k = min(ties, key=lambda k: int(k[1:]))
             else:
-                exclusions[f"CENSUS_SECTION_PERIOD_TIE_{'_'.join(ties)}"] += 1
+                exclusions.log(bid, "base_mapping", f"CENSUS_SECTION_PERIOD_TIE_{'_'.join(ties)}")
                 continue
 
         t_period, ref_year = ISTAT_TO_TABULA.get(max_k, (None, None))
         if t_period == "STRADDLE":
-            exclusions[f"PERIOD_STRADDLE_{max_k}"] += 1
+            exclusions.log(bid, "base_mapping", f"PERIOD_STRADDLE_{max_k}")
             continue
         if not t_period or not ref_year:
-            exclusions[f"UNMAPPABLE_PERIOD_{max_k}"] += 1
+            exclusions.log(bid, "base_mapping", f"UNMAPPABLE_PERIOD_{max_k}")
             continue
 
         try:
             rec = select_tabula_archetype(records, "IT", btype, ref_year)
         except Exception as exc:
-            exclusions[f"ARCHETYPE_RESOLUTION_FAILED_{exc}"] += 1
+            exclusions.log(bid, "base_mapping", f"ARCHETYPE_RESOLUTION_FAILED_{exc}", detail=str(exc))
             continue
 
         mapped_rows.append({
@@ -593,13 +642,14 @@ def _mapped_rows(district: str, gdf: gpd.GeoDataFrame, records: list[dict]) -> t
         gdf = gdf.assign(is_attached=compute_footprint_adjacency(gdf))
     if district == "FR-LYO-HAUTCOEURPENTES":
         gdf = gdf.assign(is_attached=compute_footprint_adjacency(gdf))
-    exclusions: Counter = Counter(); result = []
+    exclusions: Counter = _ExclusionCounter(); result = []
     for _, item in gdf.sort_values("osm_id", kind="stable").iterrows():
+        building_id = str(item.osm_id)
         decision = map_observed_building_to_tabula(item, neighbourhood_id=district, country_stock_code=country, records=records)
         if not decision.archetype_id:
-            exclusions[decision.reason or decision.mapping_status] += 1; continue
+            exclusions.log(building_id, "base_mapping", decision.reason or decision.mapping_status); continue
         if _valid_storeys(item) is None:
-            exclusions["MISSING_OBSERVED_STOREY_COUNT"] += 1; continue
+            exclusions.log(building_id, "base_mapping", "MISSING_OBSERVED_STOREY_COUNT"); continue
         record = next(x for x in records if x["archetype_id"] == decision.archetype_id)
         age = tabula_period(country, int(decision.year_built))
         result.append({**item.to_dict(), **asdict(decision), "building_id": str(item.osm_id),
@@ -607,9 +657,397 @@ def _mapped_rows(district: str, gdf: gpd.GeoDataFrame, records: list[dict]) -> t
     return result, exclusions
 
 
+# ---------------------------------------------------------------------------
+# T04 (`eu-recut-95pct-2026-09-08`, D-EU-112): neighbour imputation for the
+# never-simulated. `_nearest_prepared_id` / `_neighbour_field_mode` /
+# `_neighbour_ladder_value` are the shared rungs of dependency 3's ladder
+# (touching -> nearest within 30 m -> district mode), generic over whichever
+# field (period, storeys, typology) is being inherited. `_counter_from_records`
+# keeps a Counter's histogram and its `.records` list built from the same
+# rows, same discipline as T01's `_ExclusionCounter`.
+# ---------------------------------------------------------------------------
+
+
+def _counter_from_records(records: list[dict]) -> Counter:
+    counter = _ExclusionCounter()
+    for rec in records:
+        counter[rec["blocker"]] += 1
+    counter.records = list(records)
+    return counter
+
+
+def _nearest_prepared_id(
+    geom: object, prepared_gdf: gpd.GeoDataFrame, max_distance_m: float = 30.0,
+) -> tuple[str | None, float | None]:
+    """Dependency 3 rung 2: the nearest already-prepared building within
+    ``max_distance_m``, found through ``prepared_gdf``'s spatial index rather
+    than an all-pairs distance scan."""
+    if geom is None or len(prepared_gdf) == 0:
+        return None, None
+    candidate_pos = list(prepared_gdf.sindex.query(geom.buffer(max_distance_m), predicate="intersects"))
+    if not candidate_pos:
+        return None, None
+    candidates = prepared_gdf.iloc[candidate_pos]
+    distances = candidates.geometry.distance(geom)
+    best = int(distances.values.argmin())
+    best_distance = float(distances.iloc[best])
+    if best_distance > max_distance_m:
+        return None, None
+    return str(candidates["osm_id"].iloc[best]), best_distance
+
+
+def _neighbour_field_mode(rows: list[dict], field: str) -> tuple[dict[object, object], object | None]:
+    """Dependency 3 rung 3: the district mode for ``field``, grouped by
+    ``building_type`` (and, separately, over every type combined -- the "all
+    types" fallback dependency 3 names for when the type itself is missing)."""
+    per_type: dict[object, Counter] = {}
+    overall: Counter = Counter()
+    for row in rows:
+        value = row.get(field)
+        if value is None or (isinstance(value, float) and pd.isna(value)):
+            continue
+        overall[value] += 1
+        btype = row.get("building_type")
+        if btype is not None:
+            per_type.setdefault(btype, Counter())[value] += 1
+    mode_by_type = {btype: counter.most_common(1)[0][0] for btype, counter in per_type.items()}
+    mode_all = overall.most_common(1)[0][0] if overall else None
+    return mode_by_type, mode_all
+
+
+def _neighbour_ladder_value(
+    building_id: str, pairs: dict[str, set[str]], base_ids: object, value_by_id: dict[str, object],
+    nearest_by_id: dict[str, tuple[str | None, float | None]],
+    mode_by_type: dict[object, object], mode_all: object | None, building_type: object | None,
+) -> tuple[object | None, str]:
+    """Dependency 3's three-rung ladder, generic over whichever field
+    ``value_by_id`` carries."""
+    touching = pairs.get(building_id, set()) & set(base_ids)
+    touching_values = {value_by_id[nid] for nid in touching if nid in value_by_id}
+    if len(touching_values) == 1:
+        return touching_values.pop(), "IMPUTED_NEIGHBOUR_TOUCHING"
+    nearest_id, nearest_distance = nearest_by_id.get(building_id, (None, None))
+    if nearest_id is not None and nearest_id in value_by_id and nearest_distance is not None:
+        return value_by_id[nearest_id], f"IMPUTED_NEIGHBOUR_NEAREST_{nearest_distance:.1f}M"
+    mode = mode_by_type.get(building_type) if building_type is not None else None
+    if mode is None:
+        mode = mode_all
+    if mode is not None:
+        return mode, "IMPUTED_DISTRICT_MODE"
+    return None, ""
+
+
+def _gb_straddle_containment(
+    candidate: str | None, tag: str, straddle_periods: tuple[str, str] | None,
+) -> tuple[str | None, str]:
+    """Dependency 3's GB straddle rule: an inherited period must lie inside the
+    known ``(older, newer)`` straddle set (existing D-EU-108 f containment);
+    when it does not, take the older band -- the same tie rule D-EU-101 c5
+    uses for a Bologna census-section tie (`:599-600`, smallest suffix wins).
+    """
+    if candidate is None or straddle_periods is None or candidate in straddle_periods:
+        return candidate, tag
+    older = min(straddle_periods, key=lambda period: int(period.split(".")[-1]))
+    return older, "IMPUTED_NEIGHBOUR_STRADDLE_OLDER_BAND"
+
+
+def _gb_impute_rows(
+    gdf: gpd.GeoDataFrame, records: list[dict], base_rows: list[dict],
+) -> tuple[list[dict], Counter]:
+    """GB already has a rung-1 (touching only) recovery pass,
+    `_gb_terrace_recovery_rows` (`:410-501`), pinned byte-for-byte by
+    `tests/test_eu_london_recovery_2026_09_07.py` -- left unmodified here.
+    This calls it first, then extends whatever it still excluded with rungs 2
+    (nearest within 30 m) and 3 (district mode), the D-EU-112 generalisation.
+    """
+    recovered, base_exclusions = _gb_terrace_recovery_rows(gdf, records, base_rows)
+    for row in recovered:
+        # `_gb_terrace_recovery_rows` only ever inherits from a touching
+        # neighbour (rung 1) -- its legacy `INFERRED_TERRACE_NEIGHBOUR_*` tags
+        # (kept unchanged in `construction_period_provenance`/`storey_provenance`
+        # for regression safety) always correspond to that rung.
+        row["imputation_provenance"] = "IMPUTED_NEIGHBOUR_TOUCHING"
+
+    cert_numbers_by_osm_id, bands_all_by_osm_id, year_lookup = _gb_cert_lookups(gdf)
+    is_attached_series = compute_footprint_adjacency(gdf)
+    pairs = compute_footprint_adjacency_pairs(gdf)
+    base_by_id = {str(r["building_id"]): r for r in base_rows}
+    geom_by_id = {str(oid): geom for oid, geom in zip(gdf["osm_id"].astype(str), gdf.geometry)}
+    base_gdf = gdf[gdf["osm_id"].astype(str).isin(base_by_id)]
+
+    period_by_id: dict[str, str] = {}
+    storeys_by_id: dict[str, int] = {}
+    type_by_id: dict[str, str] = {}
+    for bid, row in base_by_id.items():
+        first, _label, _prov = _gb_age_decision_multi(bands_all_by_osm_id.get(bid, []), year_lookup.get(bid, set()))
+        if first is not None:
+            period_by_id[bid] = first
+        storeys = _valid_storeys(pd.Series(row))
+        if storeys is not None:
+            storeys_by_id[bid] = storeys
+        type_by_id[bid] = row.get("building_type")
+
+    period_mode_by_type, period_mode_all = _neighbour_field_mode(
+        [{"building_type": type_by_id.get(bid), "period": period} for bid, period in period_by_id.items()], "period",
+    )
+    storey_mode_by_type, storey_mode_all = _neighbour_field_mode(
+        [{"building_type": type_by_id.get(bid), "storeys": storeys} for bid, storeys in storeys_by_id.items()], "storeys",
+    )
+
+    # `_gb_terrace_recovery_rows` only ever visits a building whose *own*
+    # exclusion reason it independently recomputes as age-related (fact 6);
+    # a building excluded for type/storeys alone, with a perfectly
+    # resolvable period, is never reached by either of its two loops and
+    # never logged -- silently dropped rather than imputed or excluded.
+    # Measured on London: 135 of the 536 never-simulated fell through this
+    # gap. This final pass is therefore independent of
+    # `base_exclusions.records` -- it re-derives every remaining gdf row's
+    # own period, then imputes period and/or storeys together as needed,
+    # covering every excluded building exactly once.
+    already_ids = set(base_by_id) | {str(r["building_id"]) for r in recovered}
+    extra_recovered: list[dict] = []
+    extra_records: list[dict] = []
+
+    for idx, item in gdf.sort_values("osm_id", kind="stable").iterrows():
+        bid = str(item.osm_id)
+        if bid in already_ids:
+            continue
+        first, age_label, period_provenance = _gb_age_decision_multi(
+            bands_all_by_osm_id.get(bid, []), year_lookup.get(bid, set())
+        )
+        period_tag = ""
+        if first is None:
+            nearest_by_id_single = {bid: _nearest_prepared_id(geom_by_id.get(bid), base_gdf)}
+            candidate, period_tag = _neighbour_ladder_value(
+                bid, pairs, base_by_id.keys(), period_by_id, nearest_by_id_single,
+                period_mode_by_type, period_mode_all, None,
+            )
+            if candidate is None:
+                extra_records.append({"building_id": bid, "stage": "recovery_pass_extended", "blocker": f"{age_label}_NO_LADDER_VALUE", "detail": ""})
+                continue
+            straddle_periods = _gb_parse_straddle_periods(age_label)
+            candidate, period_tag = _gb_straddle_containment(candidate, period_tag, straddle_periods)
+            first, age_label, period_provenance = candidate, "", period_tag
+
+        storey_override = None
+        storey_tag = ""
+        if _valid_storeys(item) is None:
+            nearest_by_id_single = {bid: _nearest_prepared_id(geom_by_id.get(bid), base_gdf)}
+            storeys_val, storey_tag = _neighbour_ladder_value(
+                bid, pairs, base_by_id.keys(), storeys_by_id, nearest_by_id_single,
+                storey_mode_by_type, storey_mode_all, None,
+            )
+            if storeys_val is None:
+                extra_records.append({"building_id": bid, "stage": "recovery_pass_extended", "blocker": "MISSING_OBSERVED_STOREY_COUNT_NO_LADDER_VALUE", "detail": ""})
+                continue
+            storey_override = (int(storeys_val), storey_tag)
+
+        row, blocker2 = _gb_row_outcome(
+            item, bool(is_attached_series.loc[idx]), records, first, age_label, period_provenance or period_tag,
+            cert_numbers_by_osm_id.get(bid, []), storey_override=storey_override,
+        )
+        if row is None:
+            extra_records.append({"building_id": bid, "stage": "recovery_pass_extended", "blocker": f"IMPUTED_THEN_{blocker2}", "detail": ""})
+            continue
+        tags = [t for t in (period_tag, storey_tag) if t]
+        row["imputation_provenance"] = "+".join(tags)
+        extra_recovered.append(row)
+
+    resolved_ids = {str(r["building_id"]) for r in extra_recovered}
+    combined_records = [rec for rec in base_exclusions.records if rec["building_id"] not in resolved_ids] + extra_records
+    return recovered + extra_recovered, _counter_from_records(combined_records)
+
+
+def _impute_es_fr_rows(
+    district: str, gdf: gpd.GeoDataFrame, records: list[dict], base_rows: list[dict],
+) -> tuple[list[dict], Counter]:
+    """ES/FR base mapping (`_mapped_rows`) runs through
+    `map_observed_building_to_tabula`, which requires `provenance_year_built`
+    to end `_OBSERVED` (fully evidenced only) and is never edited or fed a
+    fabricated observation. This calls it once, read-only, on the *original*
+    row to learn which field(s) are missing, imputes only those from
+    `base_rows` neighbours, and resolves the archetype directly through
+    `select_tabula_archetype` -- the same function `map_observed_building_to_tabula`
+    itself calls internally -- bypassing the observed-only gate for these rows.
+    """
+    country = DISTRICTS[district]["country"]
+    base_by_id = {str(r["building_id"]): r for r in base_rows}
+    pairs = compute_footprint_adjacency_pairs(gdf)
+    geom_by_id = {str(oid): geom for oid, geom in zip(gdf["osm_id"].astype(str), gdf.geometry)}
+    base_gdf = gdf[gdf["osm_id"].astype(str).isin(base_by_id)]
+
+    type_by_id: dict[str, str] = {str(r["building_id"]): r.get("building_type") for r in base_rows}
+    year_by_id: dict[str, int] = {
+        str(r["building_id"]): r["year_built"] for r in base_rows if pd.notna(r.get("year_built"))
+    }
+    storeys_by_id: dict[str, int] = {}
+    for r in base_rows:
+        storeys = _valid_storeys(pd.Series(r))
+        if storeys is not None:
+            storeys_by_id[str(r["building_id"])] = storeys
+
+    year_mode_by_type, year_mode_all = _neighbour_field_mode(
+        [{"building_type": type_by_id.get(bid), "year_built": year} for bid, year in year_by_id.items()], "year_built",
+    )
+    type_mode_by_type, type_mode_all = _neighbour_field_mode(
+        [{"building_type": None, "type_only": t} for t in type_by_id.values() if t], "type_only",
+    )
+    storey_mode_by_type, storey_mode_all = _neighbour_field_mode(
+        [{"building_type": type_by_id.get(bid), "storeys": s} for bid, s in storeys_by_id.items()], "storeys",
+    )
+
+    recovered: list[dict] = []
+    excluded_records: list[dict] = []
+    for _, item in gdf.sort_values("osm_id", kind="stable").iterrows():
+        building_id = str(item.osm_id)
+        if building_id in base_by_id:
+            continue
+        decision = map_observed_building_to_tabula(
+            item, neighbourhood_id=district, country_stock_code=country, records=records,
+        )
+        needs_type = decision.building_type is None
+        needs_year = decision.year_built is None
+        needs_storeys = _valid_storeys(item) is None
+        if not (needs_type or needs_year or needs_storeys):
+            continue
+        base_blocker = decision.reason or decision.mapping_status or "MAPPING_INCOMPLETE"
+        nearest_by_id_single = {building_id: _nearest_prepared_id(geom_by_id.get(building_id), base_gdf)}
+        type_tag = year_tag = storey_tag = ""
+        final_type = decision.building_type
+        if needs_type:
+            final_type, type_tag = _neighbour_ladder_value(
+                building_id, pairs, base_by_id.keys(), type_by_id, nearest_by_id_single,
+                {}, type_mode_all, None,
+            )
+            if final_type is None:
+                excluded_records.append({"building_id": building_id, "stage": "recovery_pass", "blocker": f"{base_blocker}_NO_LADDER_VALUE", "detail": ""})
+                continue
+        final_year = decision.year_built
+        if needs_year:
+            final_year, year_tag = _neighbour_ladder_value(
+                building_id, pairs, base_by_id.keys(), year_by_id, nearest_by_id_single,
+                year_mode_by_type, year_mode_all, final_type,
+            )
+            if final_year is None:
+                excluded_records.append({"building_id": building_id, "stage": "recovery_pass", "blocker": "MISSING_OBSERVED_YEAR_BUILT_NO_LADDER_VALUE", "detail": ""})
+                continue
+        final_storeys = _valid_storeys(item)
+        if needs_storeys:
+            final_storeys, storey_tag = _neighbour_ladder_value(
+                building_id, pairs, base_by_id.keys(), storeys_by_id, nearest_by_id_single,
+                storey_mode_by_type, storey_mode_all, final_type,
+            )
+            if final_storeys is None:
+                excluded_records.append({"building_id": building_id, "stage": "recovery_pass", "blocker": "MISSING_OBSERVED_STOREY_COUNT_NO_LADDER_VALUE", "detail": ""})
+                continue
+        try:
+            archetype = select_tabula_archetype(records, country, final_type, int(final_year))
+        except ValueError as error:
+            excluded_records.append({"building_id": building_id, "stage": "recovery_pass", "blocker": f"IMPUTED_ARCHETYPE_RESOLUTION_FAILED_{type(error).__name__}", "detail": str(error)})
+            continue
+        age = tabula_period(country, int(final_year))
+        imputation_provenance = "+".join(tag for tag in (type_tag, year_tag, storey_tag) if tag)
+        row = {
+            **item.to_dict(), "building_id": building_id, "building_type": final_type,
+            "archetype_id": archetype["archetype_id"], "age_band": age, "year_built": int(final_year),
+            "levels": final_storeys, "observed_dwellings": item.get("observed_dwellings"),
+            "construction_period_provenance": year_tag, "storey_provenance": storey_tag,
+            "imputation_provenance": imputation_provenance,
+        }
+        recovered.append(row)
+    return recovered, _counter_from_records(excluded_records)
+
+
+def _impute_it_rows(
+    gdf: gpd.GeoDataFrame, records: list[dict], base_rows: list[dict],
+) -> tuple[list[dict], Counter]:
+    """Bologna's own base mapping (`_it_rows`) never excludes a building for
+    its type or storey count -- a missing CTC eaves-height measurement already
+    falls back to an assumed 9.0 m / 3-storey default (`:557-560`), so type and
+    storeys are always resolvable. Only the census-section construction period
+    ever excludes (dependency 3's field list names only
+    `CENSUS_SECTION_NO_RESIDENTIAL_BUILDINGS` for IT). This reuses that same
+    already-declared default rather than a second live CTC/census HTTP round
+    trip for the handful of never-simulated Bologna buildings, and imputes
+    only the period.
+    """
+    base_by_id = {str(r["building_id"]): r for r in base_rows}
+    pairs = compute_footprint_adjacency_pairs(gdf)
+    geom_by_id = {str(oid): geom for oid, geom in zip(gdf["osm_id"].astype(str), gdf.geometry)}
+    base_gdf = gdf[gdf["osm_id"].astype(str).isin(base_by_id)]
+    is_attached_series = compute_footprint_adjacency(gdf)
+
+    type_by_id: dict[str, str] = {str(r["building_id"]): r.get("building_type") for r in base_rows}
+    year_by_id: dict[str, int] = {
+        str(r["building_id"]): r["year_built"] for r in base_rows if pd.notna(r.get("year_built"))
+    }
+    year_mode_by_type, year_mode_all = _neighbour_field_mode(
+        [{"building_type": type_by_id.get(bid), "year_built": year} for bid, year in year_by_id.items()], "year_built",
+    )
+
+    recovered: list[dict] = []
+    excluded_records: list[dict] = []
+    for idx, item in gdf.sort_values("osm_id", kind="stable").iterrows():
+        bid = str(item.osm_id)
+        if bid in base_by_id:
+            continue
+        # Same storeys<=2/3-4/>=5 -> SFH-or-TH/MFH/AB ladder `_it_rows` uses
+        # (`:568-573`); the assumed-height default always lands on storeys=3.
+        storeys = 3
+        btype = "MFH"
+        nearest_by_id_single = {bid: _nearest_prepared_id(geom_by_id.get(bid), base_gdf)}
+        final_year, tag = _neighbour_ladder_value(
+            bid, pairs, base_by_id.keys(), year_by_id, nearest_by_id_single,
+            year_mode_by_type, year_mode_all, btype,
+        )
+        if final_year is None:
+            excluded_records.append({"building_id": bid, "stage": "recovery_pass", "blocker": "CENSUS_SECTION_PERIOD_NO_LADDER_VALUE", "detail": ""})
+            continue
+        try:
+            archetype = select_tabula_archetype(records, "IT", btype, int(final_year))
+        except ValueError as error:
+            excluded_records.append({"building_id": bid, "stage": "recovery_pass", "blocker": f"IMPUTED_ARCHETYPE_RESOLUTION_FAILED_{type(error).__name__}", "detail": str(error)})
+            continue
+        age = tabula_period("IT", int(final_year))
+        row = {
+            **item.to_dict(), "building_id": bid, "building_type": btype,
+            "archetype_id": archetype["archetype_id"], "age_band": age, "year_built": int(final_year),
+            "levels": storeys, "height_m": None, "height_source": "assumed 9.0 m (impute_from_neighbours, no second CTC round trip)",
+            "is_attached": bool(is_attached_series.loc[idx]), "observed_dwellings": None,
+            "construction_period_provenance": tag, "storey_provenance": "",
+            "imputation_provenance": tag,
+        }
+        recovered.append(row)
+    return recovered, _counter_from_records(excluded_records)
+
+
+def impute_from_neighbours(
+    gdf: gpd.GeoDataFrame, base_rows: list[dict], records: list[dict], district: str,
+) -> tuple[list[dict], Counter]:
+    """T04 (D-EU-112): a building the base mapping excluded only for a missing
+    construction period, storey count, dwelling count or typology inherits it
+    from its prepared neighbours -- touching (rung 1), else the nearest
+    prepared building within 30 m (rung 2), else the district mode for its
+    type (rung 3) -- and enters the campaign, provenance-tagged
+    `IMPUTED_NEIGHBOUR_*` / `IMPUTED_DISTRICT_MODE`. Dwelling count is not
+    imputed here: a building with a known type/period/storeys but no observed
+    dwelling count already enters `_mapped_rows`/`_gb_rows`/`_it_rows` and gets
+    its unit count from the existing `_geometry` imputation
+    (`..._IMPUTED_COUNT`), unchanged by this function.
+    """
+    if district == "GB-LDN-STDUNSTANS":
+        return _gb_impute_rows(gdf, records, base_rows)
+    if district == "IT-BOL-GALVANI2":
+        return _impute_it_rows(gdf, records, base_rows)
+    return _impute_es_fr_rows(district, gdf, records, base_rows)
+
+
 def prepare(
     district: str, archetypes: Path | None, epw: Path | None, crs: str | None, out: Path,
-    recover_terrace_neighbours: bool = False,
+    # T04 (D-EU-112): named `impute_from_neighbours_enabled`, not
+    # `impute_from_neighbours`, so this local parameter never shadows the
+    # module-level `impute_from_neighbours` function called below.
+    impute_from_neighbours_enabled: bool = True,
 ) -> dict:
     cfg = DISTRICTS[district]; expected_crs = crs or cfg["crs"]
     manifest = ROOT / f"openubem/outputs/eu02/{district}/02_residential_manifest.gpkg"
@@ -631,16 +1069,24 @@ def prepare(
     # population -- before any per-building work starts.
     buildings_clean = gpd.read_file(ROOT / f"openubem/outputs/eu02/{district}/01_buildings_clean.gpkg")
     district_median_height_m = compute_district_median_residential_height_m(rows)
-    terrace_recovery_summary: dict = {}
-    if recover_terrace_neighbours and district == "GB-LDN-STDUNSTANS":
-        recovered_rows, recovery_exclusions = _gb_terrace_recovery_rows(gdf, records, rows)
+    # T04 (D-EU-112): district-agnostic, default on -- replaces the GB-only
+    # `recover_terrace_neighbours` gate (fact 6: `_gb_terrace_recovery_rows`
+    # implemented rung 1 for GB only; this runs the full three-rung ladder for
+    # all four districts).
+    imputation_summary: dict = {}
+    imputation_records: list[dict] = []
+    imputation_exclusions_counter: Counter = Counter()
+    if impute_from_neighbours_enabled:
+        recovered_rows, imputation_exclusions = impute_from_neighbours(gdf, rows, records, district)
+        imputation_exclusions_counter = imputation_exclusions
         rows = rows + recovered_rows
-        terrace_recovery_summary = {
+        imputation_summary = {
             "recovered": len(recovered_rows),
-            "refused": dict(sorted(recovery_exclusions.items())),
+            "refused": dict(sorted(imputation_exclusions.items())),
         }
+        imputation_records = imputation_exclusions.records
     context_height_fallback_census: Counter = Counter()
-    prepared, geometry_exclusions = [], Counter()
+    prepared, geometry_exclusions = [], _ExclusionCounter()
     for data in rows:
         row = pd.Series(data)
         try:
@@ -650,6 +1096,7 @@ def prepare(
             model_row = row.copy()
             model_row["building_id"] = stem
             zones, outcome = _geometry(model_row, records)
+            layout_reason = outcome.layout_reason
             context = build_european_context(
                 row.osm_id, row.geometry, buildings_clean, district_median_height_m,
                 context_height_fallback_census,
@@ -670,7 +1117,7 @@ def prepare(
             # geometry instead of raising. Surface it as its own manifest column so it
             # is auditable (never folded into `geometry_outcome`, which keeps its
             # existing meaning unchanged).
-            fallback_reason = next((z["fallback_reason"] for z in zones if z.get("fallback_reason")), "")
+            fallback_reason = next((z["fallback_reason"] for z in zones if z.get("fallback_reason")), "") or (layout_reason or "")
             # The accepted S2 emitter uses absolute Schedule:File paths.  Copy
             # the byte-identical schedules into the fleet and retarget only the
             # path to a POSIX-relative location visible from out/<stem>.
@@ -695,6 +1142,9 @@ def prepare(
                              "idf_sha256": sha256_file(target), "weather_sha256": weather_sha,
                              "construction_period_provenance": row.get("construction_period_provenance", ""),
                              "storey_provenance": row.get("storey_provenance", ""),
+                             # T04 (D-EU-112): empty string for every observed row -- only a
+                             # row `impute_from_neighbours` built carries this key at all.
+                             "imputation_provenance": row.get("imputation_provenance", ""),
                              "floor_area_m2": gross_footprint_area_m2,
                              "gross_footprint_area_m2": gross_footprint_area_m2,
                              "conditioned_floor_area_m2": conditioned_floor_area_m2,
@@ -706,14 +1156,16 @@ def prepare(
                              "context_building_count": len(context),
                              "fallback_reason": fallback_reason})
         except ValueError as exc:
-            geometry_exclusions[str(exc)] += 1
+            geometry_exclusions.log(row.building_id, "idf_build", str(exc))
         except (RuntimeError, ZeroDivisionError, IndexError) as exc:
             # EU-13B T09: geomeppy's intersect_match can still fail numerically on a
             # live noisy footprint even after both reroute safety nets in
             # openubem/idf/surfaces.py give up (e.g. a degenerate zero-length edge
             # surviving the ruled-grid partition). Fail this one building closed
             # rather than aborting the whole district's regeneration.
-            geometry_exclusions[f"IDF_ASSEMBLY_FAILED_{type(exc).__name__}"] += 1
+            geometry_exclusions.log(
+                row.building_id, "idf_build", f"IDF_ASSEMBLY_FAILED_{type(exc).__name__}", detail=str(exc)
+            )
     pd.DataFrame(prepared).to_csv(out / "prepared_buildings.csv", index=False)
     # T10 / dependency decision §4.8: "That script builds IDFs and a manifest
     # and does not simulate." EU-11's <slug>_manifest.csv is written post-hoc
@@ -733,16 +1185,74 @@ def prepare(
     with (out / "fleet.lst").open("w", encoding="utf-8", newline="\n") as stream:
         stream.write("\n".join(x["stem"] for x in prepared) + ("\n" if prepared else ""))
     summary = {"district": district, "population_attempted": len(gdf), "population_prepared": len(prepared),
-               "blocker_exclusions": dict(sorted((exclusions + geometry_exclusions).items())),
+               "blocker_exclusions": dict(sorted((exclusions + geometry_exclusions + imputation_exclusions_counter).items())),
                "epw": str(weather.relative_to(ROOT)).replace("\\", "/"), "weather_sha256": weather_sha,
                "status": "PREPARED_FOR_SPEED", "platform": "Speed (not yet run)", "energyplus_version": "not yet measured",
                "context_radius_m": EUROPEAN_CONTEXT_RADIUS_M,
                "context_district_median_residential_height_m": round(district_median_height_m, 4),
                "context_height_fallback_census": dict(sorted(context_height_fallback_census.items()))}
-    if recover_terrace_neighbours:
-        summary["terrace_recovery"] = terrace_recovery_summary
+    if impute_from_neighbours_enabled:
+        summary["imputation_summary"] = imputation_summary
     (out / "summary.json").write_text(json.dumps(summary, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    # T01: one row per excluded building across every stage (`:348, :397-449,
+    # :529-567, :596-...` fact 5, `:716` IDF build) -- the reasons the base
+    # mapping, the recovery pass and the IDF build already compute and,
+    # until now, only ever threw away into a bare count. T04: buildings
+    # `impute_from_neighbours` still could not resolve (no touching/nearest/
+    # mode value found, or a re-resolved archetype still failed) stay excluded
+    # here too -- dependency decision 5's "excluded_buildings.csv must still
+    # correctly record what remains excluded and why" after this change.
+    excluded_records = list(exclusions.records) + imputation_records + list(geometry_exclusions.records)
+    pd.DataFrame(
+        excluded_records, columns=["building_id", "stage", "blocker", "detail"]
+    ).to_csv(out / "excluded_buildings.csv", index=False)
     return summary
+
+
+def compute_recut_simulate_list(
+    out: Path, district: str, evidence_root: Path = EVIDENCE,
+    baseline_tags: tuple[str, ...] = ("delta_2026-09-07", "final_2026-09-07"),
+) -> dict:
+    """T05 / dependency decision 5: ``recut_simulate_list.csv`` = every
+    building in ``out/prepared_buildings.csv`` whose ``idf_sha256`` differs
+    from the newest earlier tree that holds it (``_delta_2026-09-07`` first,
+    else ``_final_2026-09-07``), plus buildings with no earlier IDF at all.
+    Rewrites ``fleet.lst`` to that restricted list -- only those buildings
+    reach Speed (T06).
+    """
+    out = out.resolve()
+    recut = pd.read_csv(out / "prepared_buildings.csv", dtype={"building_id": str})
+    baseline_dir = None
+    baseline_tag = None
+    for tag in baseline_tags:
+        candidate = evidence_root / f"{district}_{tag}" / "prepared_buildings.csv"
+        if candidate.exists():
+            baseline_dir = candidate
+            baseline_tag = tag
+            break
+    if baseline_dir is None:
+        raise FileNotFoundError(
+            f"No baseline tree found for {district} among {baseline_tags} under {evidence_root}"
+        )
+    baseline = pd.read_csv(baseline_dir, dtype={"building_id": str})
+    baseline_hash = dict(zip(baseline["building_id"], baseline["idf_sha256"]))
+    rows = []
+    for _, row in recut.iterrows():
+        bid = row["building_id"]
+        if bid not in baseline_hash:
+            rows.append({"building_id": bid, "stem": row["stem"], "reason": "NET_NEW"})
+        elif baseline_hash[bid] != row["idf_sha256"]:
+            rows.append({"building_id": bid, "stem": row["stem"], "reason": "HASH_CHANGED"})
+    simulate = pd.DataFrame(rows, columns=["building_id", "stem", "reason"])
+    simulate.to_csv(out / "recut_simulate_list.csv", index=False)
+    with (out / "fleet.lst").open("w", encoding="utf-8", newline="\n") as stream:
+        stream.write("\n".join(simulate["stem"]) + ("\n" if len(simulate) else ""))
+    return {
+        "district": district, "baseline_tag": baseline_tag,
+        "n_prepared": len(recut), "n_simulate": len(simulate),
+        "n_hash_changed": int((simulate["reason"] == "HASH_CHANGED").sum()) if len(simulate) else 0,
+        "n_net_new": int((simulate["reason"] == "NET_NEW").sum()) if len(simulate) else 0,
+    }
 
 
 def main() -> None:
@@ -750,12 +1260,20 @@ def main() -> None:
     parser.add_argument("--district", choices=DISTRICTS, required=True)
     parser.add_argument("--archetypes", type=Path); parser.add_argument("--epw", type=Path); parser.add_argument("--crs")
     parser.add_argument("--out", type=Path, required=True)
-    parser.add_argument("--recover-terrace-neighbours", action="store_true")
+    parser.add_argument(
+        "--impute-from-neighbours", dest="impute_from_neighbours", action=argparse.BooleanOptionalAction, default=True,
+    )
+    parser.add_argument(
+        "--write-recut-simulate-list", dest="write_recut_simulate_list", action="store_true", default=False,
+        help="T05 / dependency decision 5: after prepare(), compute recut_simulate_list.csv "
+             "against the newest earlier tree (_delta_2026-09-07 first, else _final_2026-09-07) "
+             "and restrict fleet.lst to it.",
+    )
     args = parser.parse_args()
-    print(json.dumps(
-        prepare(args.district, args.archetypes, args.epw, args.crs, args.out, args.recover_terrace_neighbours),
-        indent=2, sort_keys=True,
-    ))
+    result = prepare(args.district, args.archetypes, args.epw, args.crs, args.out, args.impute_from_neighbours)
+    if args.write_recut_simulate_list:
+        result["recut_simulate_list"] = compute_recut_simulate_list(args.out, args.district)
+    print(json.dumps(result, indent=2, sort_keys=True))
 
 if __name__ == "__main__":
     main()

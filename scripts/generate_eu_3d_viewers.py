@@ -435,7 +435,13 @@ function openPopup(b){
     "<b>Area:</b> " + areaStr;
 
   var statusHtml="";
-  if(b.ls==="ruled"){
+  var bestEffortIds=(pl && pl.reason && pl.reason.indexOf("NOCORE_BEST_EFFORT_")===0)
+    ? pl.reason.slice("NOCORE_BEST_EFFORT_".length).split("_").join(", ") : null;
+  if(b.ls==="ruled" && bestEffortIds){
+    statusHtml="<span class='m-badge fallback'>DIVIDED &mdash; BEST EFFORT (shape check failed: " + bestEffortIds + ")</span>";
+    if(pl && pl.scheme) statusHtml += " <b>Scheme:</b> " + pl.scheme + ".";
+    statusHtml += "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>D-EU-111: this cut failed a shape check (thin flat / short facade / pinch) but every dwelling is still drawn with real party walls. Zone geometry read directly from the emitted IDF, storey by storey.</p>";
+  } else if(b.ls==="ruled"){
     statusHtml="<span class='m-badge emitted'>DWELLING LAYOUT &mdash; RULED (read from IDF)</span>";
     if(pl && pl.scheme) statusHtml += " <b>Scheme:</b> " + pl.scheme + ".";
     statusHtml += "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>Zone geometry read directly from the emitted IDF, storey by storey.</p>";
@@ -858,14 +864,18 @@ def _load_eu17_sidecar(district: str, building_id: str) -> dict | None:
 
 
 def _load_eu11_eui(district: str) -> dict[str, float | None]:
-    """``{building_id: eui_kwh_m2}`` from the EU-11 ceiling82 manifest
-    (T01), mirroring ``_load_eu17_sidecar``'s per-district single-file load
-    shape but for the CSV manifest, not a per-building JSON side-car. A
-    building with no manifest row (excluded / no_idf / failed-on-Speed) is
-    simply absent from the dict; a manifest row with a blank
-    ``eui_kwh_m2`` maps to ``None`` rather than being dropped."""
+    """``{building_id: eui_kwh_m2}`` from the EU-11 merged manifest
+    (``_merged_2026-09-07``) when present, else the ceiling82 manifest
+    (``_ceiling82_2026-09-05``, T01), mirroring ``_load_eu17_sidecar``'s
+    per-district single-file load shape but for the CSV manifest, not a
+    per-building JSON side-car. A building with no manifest row (excluded
+    / no_idf / failed-on-Speed) is simply absent from the dict; a manifest
+    row with a blank ``eui_kwh_m2`` maps to ``None`` rather than being
+    dropped."""
     city_lower = district.lower().replace("-", "_")
-    path = EU11_ROOT / f"{district}_ceiling82_2026-09-05" / f"{city_lower}_manifest.csv"
+    path = EU11_ROOT / f"{district}_merged_2026-09-07" / f"{city_lower}_manifest.csv"
+    if not path.exists():
+        path = EU11_ROOT / f"{district}_ceiling82_2026-09-05" / f"{city_lower}_manifest.csv"
     if not path.exists():
         return {}
     df = pd.read_csv(path, usecols=["building_id", "eui_kwh_m2"], dtype={"building_id": str})
@@ -1067,6 +1077,14 @@ def build_district(district: str) -> None:
     for p in read_district(district, ceiling82_root):
         plans_by_id[p.building_id] = p
         idf_root_by_id[p.building_id] = ceiling82_root
+
+    for _tag in ("final_2026-09-07", "delta_2026-09-07"):
+        _root = EU11_ROOT / f"{district}_{_tag}"
+        if not (_root / "idfs").is_dir():
+            continue
+        for p in read_district(district, _root, skip_missing=True):
+            plans_by_id[p.building_id] = p
+            idf_root_by_id[p.building_id] = _root
 
     # EU-11 ceiling82 manifest EUI, loaded once per district (T01) -- joined
     # on the same `bid` used everywhere else in the `:1007` loop below. A

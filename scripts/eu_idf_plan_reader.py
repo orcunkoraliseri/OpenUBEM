@@ -324,7 +324,7 @@ def load_manifest(district: str, evidence_root: Path | None = None) -> pd.DataFr
     return pd.read_csv(root / manifest_name, dtype=str)
 
 
-def read_district(district: str, evidence_root: Path | None = None) -> list[BuildingPlan]:
+def read_district(district: str, evidence_root: Path | None = None, skip_missing: bool = False) -> list[BuildingPlan]:
     """Read every building's plan for one district's IDF tree.
 
     ``evidence_root`` overrides the EU-11 default (used by T12 to point at
@@ -344,9 +344,13 @@ def read_district(district: str, evidence_root: Path | None = None) -> list[Buil
         stem = row["stem"]
         idf_path = idf_dir / f"{stem}.idf"
         if not idf_path.exists():
+            if skip_missing:
+                continue
             raise FileNotFoundError(f"{district}: prepared_buildings.csv names {stem} but {idf_path} is missing")
         geometry_outcome = geometry_outcome_by_id.get(building_id)
         if geometry_outcome is None:
+            if skip_missing:
+                continue
             raise ValueError(f"{district}: {building_id} is in prepared_buildings.csv but not in the manifest")
         plans.append(
             read_building_plan(
