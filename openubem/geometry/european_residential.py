@@ -1372,21 +1372,40 @@ def generate_european_nocore_storey_layout(
             topology_tolerance_fraction=EUROPEAN_TOPOLOGY_TOLERANCE_FRACTION,
         )
         fallback_reason = None
+        emitted = True
     else:
-        partition_audit = None
         failed_ids = [check_id for check_id in ("C1", "C3", "C4", "C5", "C6", "C10", "C11") if not checks[check_id]["pass"]]
-        fallback_reason = "NOCORE_CHECK_FAILED_" + "_".join(failed_ids)
+        # D-EU-111 (T02, amended 2026-09-08 13:05): a cut that fails only the
+        # three *shape* checks (C6/C10/C11 -- thin flat / short facade /
+        # pinch) still has every dwelling drawn; the partition audit is
+        # recorded exactly as the PASS branch above records it, never a gate
+        # on either branch (980 of 1,036 Bologna best-effort cuts audit
+        # `passed=false` on topology tolerance alone -- gating here would
+        # refuse almost every eligible cut). C1/C3/C4/C5 and a short polygon
+        # count still refuse exactly as before.
+        best_effort_eligible = set(failed_ids) <= {"C6", "C10", "C11"} and len(live) == dwelling_count
+        if best_effort_eligible:
+            partition_audit = audit_european_floor_partition(
+                plate, live, expected_dwelling_count=dwelling_count,
+                topology_tolerance_fraction=EUROPEAN_TOPOLOGY_TOLERANCE_FRACTION,
+            )
+            fallback_reason = "NOCORE_BEST_EFFORT_" + "_".join(failed_ids)
+            emitted = True
+        else:
+            partition_audit = None
+            fallback_reason = "NOCORE_CHECK_FAILED_" + "_".join(failed_ids)
+            emitted = False
 
     return EuropeanGridLayout(
         scheme="nocore_equal_area", grid=f"nocore_{dwelling_count}", nu=dwelling_count, nv=1,
-        dwelling_polygons=live if verdict == "PASS" else (),
+        dwelling_polygons=live if emitted else (),
         circulation_polygon=None, circulation_area_m2=0.0, circulation_pct_of_plate=0.0,
         circulation_outside_ruled_absolute_band=False,
         facade_contact_lengths_m=_facade_contact_lengths(plate, live),
         habitability_rotation_applied=False, habitability_downgrade_applied=False,
         partition_audit=partition_audit,
         fallback_reason=fallback_reason,
-        dwelling_layout_emitted=(verdict == "PASS"),
+        dwelling_layout_emitted=emitted,
     )
 
 

@@ -278,19 +278,35 @@ def emit_layouts_for_district(district: str, evidence_root: Path | None = None) 
         )
 
         if building_layout.dwelling_layout_emitted and not idf_reroute_divergence:
-            outcome = "DWELLING_LAYOUT_EMITTED" if is_observed else "DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT"
+            scheme_by_storey = list(building_layout.scheme_by_storey)
+            fallback_reason_by_storey = list(building_layout.fallback_reason_by_storey)
+            # D-EU-111 (T02): a best-effort storey rides `fallback_reason_by_storey`
+            # unchanged (fact 3) -- its own outcome token, never folded into the
+            # plain `DWELLING_LAYOUT_EMITTED*` tokens, same as the campaign.
+            best_effort_reasons = [
+                reason for reason in fallback_reason_by_storey if reason and reason.startswith("NOCORE_BEST_EFFORT_")
+            ]
+            if best_effort_reasons:
+                outcome = "DWELLING_LAYOUT_EMITTED_BEST_EFFORT" if is_observed else "DWELLING_LAYOUT_EMITTED_BEST_EFFORT_IMPUTED_COUNT"
+                best_effort_failed_checks = sorted({
+                    check_id
+                    for reason in best_effort_reasons
+                    for check_id in reason[len("NOCORE_BEST_EFFORT_"):].split("_")
+                })
+            else:
+                outcome = "DWELLING_LAYOUT_EMITTED" if is_observed else "DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT"
+                best_effort_failed_checks = []
             if is_observed:
                 observed_emitted_count += 1
             else:
                 imputed_emitted_count += 1
-            scheme_by_storey = list(building_layout.scheme_by_storey)
-            fallback_reason_by_storey = list(building_layout.fallback_reason_by_storey)
             scheme_str = scheme_by_storey[0] if scheme_by_storey else None
-            fb_reason = (
-                fallback_reason_by_storey[0]
-                if scheme_str == "equal_strip_multi_angle_sweep" and fallback_reason_by_storey
-                else None
-            )
+            if best_effort_reasons:
+                fb_reason = best_effort_reasons[0]
+            elif scheme_str == "equal_strip_multi_angle_sweep" and fallback_reason_by_storey:
+                fb_reason = fallback_reason_by_storey[0]
+            else:
+                fb_reason = None
             if scheme_str == "equal_strip_multi_angle_sweep":
                 strip_cutter_reason_counter[fb_reason or "UNKNOWN"] += 1
             zones = european_building_layout_to_zone_specs(
@@ -318,6 +334,7 @@ def emit_layouts_for_district(district: str, evidence_root: Path | None = None) 
             # payload keep this from ever being read as simulated/certified.
             outcome = "DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED"
             fb_reason = None
+            best_effort_failed_checks = []
             scheme_by_storey = list(building_layout.scheme_by_storey)
             scheme_str = scheme_by_storey[0] if scheme_by_storey else None
             zones = european_building_layout_to_zone_specs(
@@ -329,6 +346,7 @@ def emit_layouts_for_district(district: str, evidence_root: Path | None = None) 
         else:
             outcome = "FALLBACK_PENDING_LAYOUT"
             fb_reason = building_layout.fallback_reason
+            best_effort_failed_checks = []
             if fb_reason == "NARROW_FOOTPRINT_LT_8M":
                 narrow_fallback_count += 1
             elif fb_reason == DWELLING_DENSITY_REFUSAL_TOKEN:
@@ -464,6 +482,27 @@ def emit_layouts_for_district(district: str, evidence_root: Path | None = None) 
                 if building_layout.dwelling_layout_emitted else None
             ) if not idf_reroute_divergence else None
         )
+        # 4J ask 1 of 2026-09-08 (director amendment 13:05): report-only
+        # fields beside `passed`/`area_error_fraction` -- never a gate.
+        _storey_audits = [
+            g.layout.partition_audit for g in building_layout.storey_groups if g.layout.partition_audit
+        ]
+        combined_failures = (
+            (sorted({failure for a in _storey_audits for failure in a.failures}) if building_layout.dwelling_layout_emitted else None)
+            if not idf_reroute_divergence else None
+        )
+        combined_gap_area = (
+            (round(max((a.gap_area_m2 for a in _storey_audits), default=0.0), 6) if building_layout.dwelling_layout_emitted else None)
+            if not idf_reroute_divergence else None
+        )
+        combined_overlap_area = (
+            (round(max((a.overlap_area_m2 for a in _storey_audits), default=0.0), 6) if building_layout.dwelling_layout_emitted else None)
+            if not idf_reroute_divergence else None
+        )
+        combined_outside_area = (
+            (round(max((a.outside_area_m2 for a in _storey_audits), default=0.0), 6) if building_layout.dwelling_layout_emitted else None)
+            if not idf_reroute_divergence else None
+        )
 
         sidecar = {
             "building_id": str(row["building_id"]),
@@ -505,8 +544,16 @@ def emit_layouts_for_district(district: str, evidence_root: Path | None = None) 
             "partition_audit": {
                 "passed": combined_audit_passed,
                 "area_error_fraction": combined_area_error,
+                "failures": combined_failures,
+                "gap_area_m2": combined_gap_area,
+                "overlap_area_m2": combined_overlap_area,
+                "outside_area_m2": combined_outside_area,
             } if building_layout.dwelling_layout_emitted else None,
             "fallback_reason": fb_reason,
+            # D-EU-111 (T02): non-empty only for a best-effort emission -- the
+            # shape checks (C6/C10/C11) it failed, parsed from `fb_reason`, so
+            # the FAIL verdict stays visible even though the building drew.
+            "best_effort_failed_checks": best_effort_failed_checks,
             "crs": cfg["crs"],
             "regularization": regularization_record,
         }

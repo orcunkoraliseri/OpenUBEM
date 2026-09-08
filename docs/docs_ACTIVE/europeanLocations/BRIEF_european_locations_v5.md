@@ -192,6 +192,7 @@ Numbers are in `STATE_european_locations_v5.md` — this is the order of events 
   3,344 run / 3,321 success / 23 failed (stop-condition 0.7 %, never tripped). Four fresh district EUIs:
   London 97.081151, Lyon 65.935928, Madrid 77.153998, Bologna 54.935569 kWh/m². Viewers regenerated on the
   harvested data.
+  ⚠ Lyon's 65.935928 is **superseded** by the 2026-09-07 T07 restatement, **69.595307 kWh/m² over 505 of 509** (`EU-11/FR-LYO-HAUTCOEURPENTES_merged_2026-09-07/summary.json`), and London's 97.081151 by **120.064327 kWh/m² over 706 of 706** (`EU-11/GB-LDN-STDUNSTANS_merged_2026-09-07/summary.json`), and Madrid's 77.153998 by **80.694006 kWh/m² over 1,166 of 1,175** (`EU-11/ES-MAD-BERRUGUETE_merged_2026-09-07/summary.json`); Bologna is still the ceiling82 number and remains stale pending its delta harvest.
 - **2026-09-07 (`D-EU-54`/`D-EU-105` closed)** — you read the merged `outputs_3D/` floor-plan modals and
   confirmed, with one named exception (`FINDING 258`, floor-plan division not homogeneous on some plates)
   carried forward as open work, not as a reason to keep the gate open.
