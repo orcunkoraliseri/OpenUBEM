@@ -54,6 +54,7 @@
 - `evidence/open48_refleet4/<cell>/01_buildings.gpkg` — inputs, provenance columns.
 - `openubem/outputs/comparisons/open35_fallback_population_2026-08-21.csv` — the 39.
 - `openubem/outputs/comparisons/open53_meter_only_eui_2026-08-21.csv` — 8,153 rows, meter vs published.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - `openubem/outputs/comparisons/open03_storey_census_zfix.csv` — the storey census, 8,160 rows.
 
 **Write:** only the three patterns in rule 6, plus §8 of this file.
@@ -68,6 +69,7 @@
 - **12 cells:** `{austin,la,nyc}_{centre,rural,suburban,urban}`.
 - **Population:** 8,160 rows; **8,153 `simulation_status == "success"`**; the pooled headline is taken
   over the 8,153.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - **Pooled EUI is always Σ energy ÷ Σ area** (OPEN-43) — `Σ(eui × area) / Σ(area)`. **Never** the mean
   of per-building EUIs. Never merge per-cell results by averaging cell numbers.
 - **Stem ↔ `osm_id` normalisation:** directory stems use `_` where `osm_id` uses `/`
@@ -81,6 +83,7 @@
   that header is present in the file you are reading.**
 - **Adopted fleet figure: 153.8231 kWh/m² pooled over 8,153.** It is **not** to be restated by any
   task here. T01 investigates why it does not reproduce exactly; that is not permission to change it.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ---
 
@@ -113,14 +116,18 @@
   floor_area_m2, floor_area_provenance, centroid_lon, centroid_lat`.
 - **F6 — the fleet denominator is 24,333,586.4 m²**, director-verified as the sum of `floor_area_m2`
   over all 8,160 rows (identical over the 8,153 successes; the 7 failures carry zero area).
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - **F7 — 🔴 the adopted headline does not reproduce exactly.** Two independent recomputations of
   `Σ(total_eui × floor_area)/Σ(floor_area)` over the 8,153 — one by the predecessor's T09, one by the
   director at CP-A — both return **153.8304**, not the adopted **153.8231**. Gap 0.0073 kWh/m²
   (0.005 %); some cells off by up to 0.18. **Unexplained. T01 owns this.**
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - **F8 — the elevator adder explains most of the meter-vs-published gap.**
   `published_eui − meter_only_eui == elevators_eui_kwh_m2` to 1e-6 for **3,823 of 8,153**; pooled
   elevators **2.2421** against a pooled gap of **2.5539**. Residual pooled **0.31 kWh/m² (≈0.2 %)**,
-  median 0, tail min **−502.68** / max **+873.37**. *(director addendum in
+  median 0, tail min **−502.68** / max **+873.37**.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+  *(director addendum in
   `extra/MEASUREMENT_open-53_meter-only-eui-cost.md`)*
 - **F9 — OPEN-35's undecided branch is 39 buildings**, token `GROUPMEDIAN_LEVELS_MED` in
   `archetype_source`; 38 simulated; reverting to `return 1` moves the denominator **−3.21 %**; the
@@ -148,9 +155,11 @@
 ## 6. Tasks
 
 ### T01 — the 153.8231 that will not reproduce
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **What.** Find why two independent recomputations return 153.8304 and the adopted record says
 153.8231, or prove the difference is not recoverable from what is on disk.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Why.** F7. A headline that is "very nearly reproducible" is not reproducible. This is small enough
 to be immaterial and important enough that it must not be rounded past silently.
@@ -160,16 +169,20 @@ report all of them side by side: (a) all 8,160; (b) the 8,153 successes; (c) suc
 `floor_area_m2 > 0`; (d) successes with `total_eui_kwh_m2` non-null; (e) per-cell pooled, then
 compared against the per-cell numbers in the fleet-restatement table the register cites for CP-2 of
 2026-08-19 — locate that table by `grep -rn "153.82" docs/ | head -20` and cite the file:line you
-used. Then test the two cheap hypotheses: **rounding** (does any subset round to 153.8231 at any
+used.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Then test the two cheap hypotheses: **rounding** (does any subset round to 153.8231 at any
 sensible precision?) and **a different source** (does an older `05_results.csv` under
 `evidence/open48_refleet*` — there are five other run directories — reproduce 153.8231 exactly?).
 Report which cells differ and by how much.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **How to test.**
 - **C1** — your recomputation of row set (b) must return **153.8304 ± 0.0002**, reproducing F7. If it
   does not, stop: your join or your denominator is wrong, not the record.
 - **C2** — state explicitly, as a headline sentence, whether **any** row set or run directory on disk
   reproduces **153.8231**. "No" is a complete and acceptable answer.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ### T02 — OPEN-56: the volume stub, counted exactly, fleet-wide
 
@@ -247,7 +260,9 @@ the fleet floor-area denominator as `footprint_area_m2 × storeys` for every bui
 the pooled EUI as `Σ(total_eui × published_area) ÷ Σ(redefined_area)` — i.e. **hold the per-building
 energy fixed and vary only the denominator**, which is exactly what a definition change does without
 re-simulation. Report, per definition: the fleet denominator, the pooled EUI, and the delta against
-the adopted 153.8231. **State in one sentence, in the doc, that this is a denominator-only
+the adopted 153.8231.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+**State in one sentence, in the doc, that this is a denominator-only
 sensitivity and not a re-simulated result.**
 
 **How to test.**
@@ -382,6 +397,7 @@ director prompt and the board. **The board is updated on every pass, without bei
 ## 8. Progress log
 
 #### T01 — the 153.8231 that will not reproduce — completed 2026-08-21
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Artifacts:** `scripts/analysis/t01_headline-reproduction_2026-08-21b.py`,
 `openubem/outputs/comparisons/t01_headline-reproduction_percell_2026-08-21b.csv`,
@@ -389,10 +405,13 @@ director prompt and the board. **The board is updated on every pass, without bei
 
 **Result.** C1 reproduced: row set (b) (8,153 successes over `evidence/open48_refleet4`) pools to
 **153.8304**, matching F7. Row sets (a)/(b)/(c)/(d) are all identical (153.8304, n=8,153,
-area=24,333,586.4) because the 7 failures already carry zero floor area. Per-cell recompute is
+area=24,333,586.4) because the 7 failures already carry zero floor area.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Per-cell recompute is
 within 0.02–0.18 kWh/m² of the restatement table at
 `docs/docs_ACTIVE/openings/extra/MEASUREMENT_fleet-restatement-2026-08-19.md:26-38` (located via
 `grep -rn "153.82" docs/`). Rounding hypothesis rejected: 153.8304 at 0–5 dp never lands on 153.8231.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 Different-source hypothesis tested and rejected two ways: (1) the restatement doc's own cited
 provenance path, `%LOCALAPPDATA%\Temp\ubem_validation\open48_refleet4\`, still exists on disk and
 reproduces **153.8304 exactly** — identical to `evidence/open48_refleet4`, with an identical sorted
@@ -404,11 +423,13 @@ reproduces **153.8304 exactly** — identical to `evidence/open48_refleet4`, wit
 **C2 headline: No.** Nothing on disk — including the record's own cited source directory —
 reproduces 153.8231. The 0.0073 kWh/m² (0.005 %) gap is not recoverable from what is on disk. The
 adopted 153.8231 figure is not restated or changed by this task.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Deviations.** None from the plan's How. One addition beyond the plan's explicit "How": the TEMP
 provenance path check, done because the restatement doc names it as the actual source of the
 original 153.8231 computation and it is a legitimate "different source... on disk" test within T01's
 own charge — not the `%TEMP%\ubem_e02_harvest` corpus §4 excludes (a different, meter-only harvest).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Test status.** C1 passed (153.8304 ± 0.0002, exact match). C2 answered as required — a stated "no"
 with the disk evidence behind it.
@@ -423,18 +444,26 @@ in-script by skipping with a stated reason, not a bug.
 `openubem/outputs/comparisons/open53_residual-after-elevators_2026-08-21b.csv` (8,153 rows),
 `openubem/outputs/comparisons/open53_residual-outliers_2026-08-21b.csv` (639 rows),
 `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-53_residual-after-elevators.md`.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Result.** C6 reproduced F8 exactly: join of `open53_meter_only_eui_2026-08-21.csv` to
 `05_results.csv` on `(cell, osm_id)` gave 8,153/8,153 matched, pooled elevators **2.2421**, pooled
-gap **2.5539**, exact-match count **3,823 of 8,153** — all match F8. C7: pooled residual
+gap **2.5539**, exact-match count **3,823 of 8,153** — all match F8.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+C7: pooled residual
 **+0.3118 kWh/m²** (n=8,153), median 0, tail −502.68/+873.37, largest single contributor by
 `|resid × area|` is `relation/7480583` (`austin_centre`, resid +100.75, area 301,996.4 m²) — the same
-building F9 flags as 45-storey-assigned. Concentration: 9 buildings (0.11 %) carry 50 % of the
+building F9 flags as 45-storey-assigned.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Concentration: 9 buildings (0.11 %) carry 50 % of the
 absolute residual mass, 26 (0.32 %) carry 80 %, 41 (0.50 %) carry 90 %. Outliers `|resid|>10`:
 639 of 8,153 (7.84 %), strongly associated with `archetype_id == OpenUBEMUnknown` (613/650 Unknowns
 are outliers, 94.3 %), `single_zone` zoning (496/3,238, 15.3 % vs 2–3 % for the other two strategies),
 and the `VINTAGE_NAN_PERMISSIVE_DEFAULT` data-quality flags (up to 71.7 % outlier rate in one
-category). `floor_area_provenance` is uninformative — all 8,153 rows are `eio_simulated`.
+category).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+`floor_area_provenance` is uninformative — all 8,153 rows are `eio_simulated`.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 T02's per-building zone-count output was not available (T02 not run in this pass); the cross-tab
 proceeded without it, per the plan's stated fallback.
 
@@ -489,6 +518,7 @@ rebuilt and no EnergyPlus run occurred.
 **Result.** C10 reproduced F10's three agreement rates exactly (29.07 % / 39.78 % / 23.75 %) before
 computing anything new. Per-definition, over the 8,153 successes: `auto_storey_count` (baseline)
 denominator 24,320,581.9 m², pooled EUI **153.9127** (Δ +0.0896 vs adopted 153.8231);
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 `layout_assign_storey_count` denominator 12,634,619.6 m², pooled EUI **296.2690** (Δ +142.4459);
 `layout_assign_storey_count_naive` denominator 8,464,264.2 m², pooled EUI **442.2412** (Δ
 +288.4181); `layout_assign_storey_count_floor` denominator 15,841,047.7 m², pooled EUI **236.3004**
@@ -714,7 +744,8 @@ directly, not by a checking agent.
 
 C1–C7 all reported and reproduced. T01 answered C2 as a **stated negative**: nothing on disk returns
 153.8231, including `%LOCALAPPDATA%\Temp\ubem_validation\open48_refleet4\` — the path the restatement
-doc itself names as the source of the original computation. That check was beyond the plan's literal
+doc itself names as the source of the original computation.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. That check was beyond the plan's literal
 "How"; it is **accepted and adopted**, because it converts the loose end from "unexplained" into
 "not recoverable from the record's own cited source". The five other `evidence/open48_refleet*` dirs
 are correctly excluded on schema and coverage grounds.

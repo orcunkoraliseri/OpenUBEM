@@ -270,16 +270,15 @@ class TestD9InvariantWithDistrictHeating:
         ) < 1e-12
 
 
-class TestDistrictHeatingServingSpaceHeatingNotFoldedIn:
-    """OPEN-64 / T01b guard: a real .sql (tests/fixtures/golden_sql/r1_single_zone.sql) whose
-    District Heating column has a non-zero Heating row and a zero Water Systems row must read
-    dhw_district_eui_kwh_m2 == 0.0, and total_eui_kwh_m2 must be bit-identical to the
-    no-district-heating case — the golden_expected.json total, computed before OPEN-61 existed
-    and therefore with no district-heating contribution at all. This is the fixture that broke
-    T01's original 'Total End Uses' read (148.24 GJ, 100% under Heating, F11) and is used here
-    directly per the director's T01b instruction rather than a fresh synthetic .sql."""
+class TestDistrictHeatingServingSpaceHeatingFoldedIntoHeating:
+    """OPEN-64 T03: a real .sql (tests/fixtures/golden_sql/r1_single_zone.sql) whose
+    District Heating column has a non-zero Heating row and a zero Water Systems row must
+    still read dhw_district_eui_kwh_m2 == 0.0 (Water Systems row is 0.0 for this fixture),
+    but now folds the Heating row (148.24 GJ, F11) into heating_eui_kwh_m2 and
+    total_eui_kwh_m2 — superseding the OPEN-61/T01b behaviour where thirteen of the
+    fourteen ABUPS District Heating rows, including this one, were read by no code path."""
 
-    def test_r1_district_heating_serving_heating_reads_zero_and_total_matches_golden(self):
+    def test_r1_district_heating_serving_heating_folds_into_heating_and_total(self):
         with open(GOLDEN_DIR / "golden_expected.json", encoding="utf-8") as fh:
             expected = json.load(fh)
 
@@ -293,6 +292,9 @@ class TestDistrictHeatingServingSpaceHeatingNotFoldedIn:
         })
         result = parse_building(sql, None, row)
         assert result["dhw_district_eui_kwh_m2"] == 0.0
+
+        exp_heating = expected["R1"]["eui"]["heating_eui_kwh_m2"]
+        assert abs(result["heating_eui_kwh_m2"] - exp_heating) < 1e-6 * abs(exp_heating)
 
         exp_total = expected["R1"]["eui"]["total_eui_kwh_m2"]
         assert abs(result["total_eui_kwh_m2"] - exp_total) < 1e-6 * abs(exp_total)

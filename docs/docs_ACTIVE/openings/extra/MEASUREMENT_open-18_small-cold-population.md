@@ -64,7 +64,9 @@ fleet's only cold-climate representation is one cell, not two.
 
 ## 4. Population size
 
-Fleet-wide (all 12 cells, `simulation_status == 'success'`): **8,153** buildings. `footprint_area_m2
+Fleet-wide (all 12 cells, `simulation_status == 'success'`): **8,153** buildings.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+`footprint_area_m2
 <= p35` (per-cell): **2,855** buildings fleet-wide — but almost none of them are also cold, because
 only `nyc_rural` qualifies as cold:
 

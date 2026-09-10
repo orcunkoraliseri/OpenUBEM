@@ -1,7 +1,8 @@
 # MEASUREMENT — OPEN-61 fleet restatement, 2026-08-22
 
-**The adopted published fleet figure remains 153.8231 kWh/m² pooled over n = 8,153, unchanged.
-This document proposes no replacement for it.** It produces a CANDIDATE restated figure, derived
+**The adopted published fleet figure remains 153.8231 kWh/m² pooled over n = 8,153, unchanged.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+**This document proposes no replacement for it.** It produces a CANDIDATE restated figure, derived
 from a different population, for CP-2's adoption question only. Nothing here is adopted by writing
 it down.
 
@@ -11,7 +12,9 @@ corpus walk. Output: `openubem/outputs/comparisons/open61_fleet_restatement_2026
 
 ⚠️ **152.3011 and 153.8231 are different populations and must never be differenced.** 152.3011 is
 the census rebuild's pooled "before" figure over n = 8,144 (this document's population). 153.8231
-is run 4's adopted figure over a different n = 8,153 population. Any apparent gap between them is
+is run 4's adopted figure over a different n = 8,153 population.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Any apparent gap between them is
 not a measurement of anything and is not reported here.
 
 ## Gates (pre-registered, plan §7 T03)

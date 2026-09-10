@@ -87,6 +87,7 @@ def compute_gwp(
 
     f_gas = config.GWP_NATURAL_GAS_KGCO2_KWH
     f_elec = get_elec_factor(state)
+    f_dh = config.GWP_DISTRICT_HEATING_KGCO2_KWH
 
     # Phase-E columns default to 0.0 if absent (pre-Phase-E rows)
     fans_eui = _safe("fans_eui_kwh_m2", 0.0)
@@ -97,16 +98,45 @@ def compute_gwp(
     refrig_eui = _safe("refrigeration_eui_kwh_m2", 0.0)
     elevators_eui = _safe("elevators_eui_kwh_m2", 0.0)  # OPEN-46: electric, already de-folded
 
-    gwp_h = heating_eui * f_gas
-    gwp_c = cooling_eui * f_elec
-    gwp_l = lighting_eui * f_elec
-    gwp_e = equipment_eui * f_elec
-    gwp_fans = fans_eui * f_elec
-    gwp_pumps = pumps_eui * f_elec
-    gwp_dhw = dhw_gas_eui * f_gas + dhw_elec_eui * f_elec
-    gwp_cooking = cooking_eui * f_gas                  # D10: cooking gas × f_gas
-    gwp_refrig = refrig_eui * f_elec
+    # T06 (D-C amendment, D-B): district-heating provenance. Each *_district_eui_kwh_m2
+    # SPLITS its matching *_eui_kwh_m2 column (default 0.0 for rows/fixtures that carry
+    # none, and for any pre-T06 row that predates the provenance columns) — the district
+    # part is charged at f_dh, the remainder at the column's own gas/electric factor.
+    heating_district_eui = _safe("heating_district_eui_kwh_m2", 0.0)
+    cooling_district_eui = _safe("cooling_district_eui_kwh_m2", 0.0)
+    lighting_district_eui = _safe("lighting_district_eui_kwh_m2", 0.0)
+    equipment_district_eui = _safe("equipment_district_eui_kwh_m2", 0.0)
+    fans_district_eui = _safe("fans_district_eui_kwh_m2", 0.0)
+    pumps_district_eui = _safe("pumps_district_eui_kwh_m2", 0.0)
+    refrigeration_district_eui = _safe("refrigeration_district_eui_kwh_m2", 0.0)
+    dhw_district_eui = _safe("dhw_district_eui_kwh_m2", 0.0)
+
+    # T06: the six pure-district columns (OPEN-64 T03) carry no gas/electric part at all —
+    # charged at f_dh in full.
+    exterior_lighting_eui = _safe("exterior_lighting_eui_kwh_m2", 0.0)
+    exterior_equipment_eui = _safe("exterior_equipment_eui_kwh_m2", 0.0)
+    heat_rejection_eui = _safe("heat_rejection_eui_kwh_m2", 0.0)
+    humidification_eui = _safe("humidification_eui_kwh_m2", 0.0)
+    heat_recovery_eui = _safe("heat_recovery_eui_kwh_m2", 0.0)
+    generators_eui = _safe("generators_eui_kwh_m2", 0.0)
+
+    gwp_h = (heating_eui - heating_district_eui) * f_gas + heating_district_eui * f_dh
+    gwp_c = (cooling_eui - cooling_district_eui) * f_elec + cooling_district_eui * f_dh
+    gwp_l = (lighting_eui - lighting_district_eui) * f_elec + lighting_district_eui * f_dh
+    gwp_e = (equipment_eui - equipment_district_eui) * f_elec + equipment_district_eui * f_dh
+    gwp_fans = (fans_eui - fans_district_eui) * f_elec + fans_district_eui * f_dh
+    gwp_pumps = (pumps_eui - pumps_district_eui) * f_elec + pumps_district_eui * f_dh
+    gwp_dhw = dhw_gas_eui * f_gas + dhw_elec_eui * f_elec + dhw_district_eui * f_dh
+    gwp_cooking = cooking_eui * f_gas                  # D10: cooking gas × f_gas (no district row)
+    gwp_refrig = (refrig_eui - refrigeration_district_eui) * f_elec + refrigeration_district_eui * f_dh
     gwp_elevators = elevators_eui * f_elec
+
+    gwp_exterior_lighting = exterior_lighting_eui * f_dh
+    gwp_exterior_equipment = exterior_equipment_eui * f_dh
+    gwp_heat_rejection = heat_rejection_eui * f_dh
+    gwp_humidification = humidification_eui * f_dh
+    gwp_heat_recovery = heat_recovery_eui * f_dh
+    gwp_generators = generators_eui * f_dh
 
     return {
         "gwp_heating_kgco2_m2": gwp_h,
@@ -119,8 +149,16 @@ def compute_gwp(
         "gwp_cooking_kgco2_m2": gwp_cooking,
         "gwp_refrigeration_kgco2_m2": gwp_refrig,
         "gwp_elevators_kgco2_m2": gwp_elevators,
+        "gwp_exterior_lighting_kgco2_m2": gwp_exterior_lighting,
+        "gwp_exterior_equipment_kgco2_m2": gwp_exterior_equipment,
+        "gwp_heat_rejection_kgco2_m2": gwp_heat_rejection,
+        "gwp_humidification_kgco2_m2": gwp_humidification,
+        "gwp_heat_recovery_kgco2_m2": gwp_heat_recovery,
+        "gwp_generators_kgco2_m2": gwp_generators,
         "gwp_total_kgco2_m2": gwp_h + gwp_c + gwp_l + gwp_e
-            + gwp_fans + gwp_pumps + gwp_dhw + gwp_cooking + gwp_refrig + gwp_elevators,
+            + gwp_fans + gwp_pumps + gwp_dhw + gwp_cooking + gwp_refrig + gwp_elevators
+            + gwp_exterior_lighting + gwp_exterior_equipment + gwp_heat_rejection
+            + gwp_humidification + gwp_heat_recovery + gwp_generators,
     }
 
 

@@ -34,7 +34,7 @@ from openubem.semantic.european_archetype_mapping import (
 from openubem.semantic.construction_sets import tabula_period
 from scripts.run_eu_s2_district_campaign import (
     _records, _valid_storeys, DISTRICTS, ES_SIDECAR, GB_EPC, GB_EPC_BANDS,
-    _gb_rows, _it_rows, _mapped_rows, FLOOR_TO_FLOOR_M, ZONE_WINDING_SIGN
+    _gb_rows, _gb_impute_rows, _it_rows, _mapped_rows, FLOOR_TO_FLOOR_M, ZONE_WINDING_SIGN
 )
 from scripts.eu_idf_plan_reader import read_district
 
@@ -135,10 +135,19 @@ def safe_update_manifest_columns(
     return new_df
 
 
-def emit_layouts_for_district(district: str, evidence_root: Path | None = None) -> dict[str, Any]:
+def emit_layouts_for_district(
+    district: str,
+    evidence_root: Path | None = None,
+    population_manifest: Path | None = None,
+) -> dict[str, Any]:
     """``evidence_root`` overrides the EU-11 default (T10/T12: point at the
     EU-17 rebuild tree, same layout as EU-11 per dependency decision §4.8).
-    Default unchanged so every existing EU-11 call site behaves identically."""
+    Default unchanged so every existing EU-11 call site behaves identically.
+
+    ``population_manifest`` (T07c/D-EU-114) overrides only the source of
+    ``simulated_ids`` -- IDFs still come from ``evidence_root``'s ``dist_dir``
+    and output still goes to ``dist_dir/layouts``. When given, the manifest
+    write-back (``safe_update_manifest_columns``) is skipped entirely."""
     cfg = DISTRICTS[district]
     dist_dir = (evidence_root if evidence_root is not None else (
         REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11" / district
@@ -166,7 +175,11 @@ def emit_layouts_for_district(district: str, evidence_root: Path | None = None) 
         }
 
     manifest_df = pd.read_csv(manifest_path)
-    simulated_ids = set(manifest_df["building_id"].astype(str))
+    if population_manifest is not None:
+        population_df = pd.read_csv(population_manifest)
+        simulated_ids = set(population_df["building_id"].astype(str))
+    else:
+        simulated_ids = set(manifest_df["building_id"].astype(str))
 
     # T09(b) / FINDING 213: this emitter recomputes a layout from the raw
     # footprint (below) and has no way to know `build_idf_for_building`
@@ -197,6 +210,8 @@ def emit_layouts_for_district(district: str, evidence_root: Path | None = None) 
     # IT-BOL-GALVANI2 (root cause of the manifest-corruption bug, see T01).
     if district == "GB-LDN-STDUNSTANS":
         rows, _ = _gb_rows(gdf, records)
+        recovered_rows, _ = _gb_impute_rows(gdf, records, rows)
+        rows = rows + recovered_rows
     elif district == "IT-BOL-GALVANI2":
         rows, _ = _it_rows(gdf, records)
     else:
@@ -572,14 +587,17 @@ def emit_layouts_for_district(district: str, evidence_root: Path | None = None) 
     # recomputed this run; row count, building_id set and every previously
     # non-blank cell elsewhere are asserted unchanged before anything is
     # written to disk. See safe_update_manifest_columns above.
-    manifest_df = safe_update_manifest_columns(
-        manifest_path,
-        column_updates={
-            "geometry_outcome": dict(updated_outcomes),
-            "layout_json": dict(layout_paths),
-        },
-    )
-    print(f"[{district}] Updated manifest {manifest_path} ({len(manifest_df)} rows)")
+    if population_manifest is not None:
+        print(f"[{district}] --population-manifest given: skipping manifest write-back to {manifest_path}")
+    else:
+        manifest_df = safe_update_manifest_columns(
+            manifest_path,
+            column_updates={
+                "geometry_outcome": dict(updated_outcomes),
+                "layout_json": dict(layout_paths),
+            },
+        )
+        print(f"[{district}] Updated manifest {manifest_path} ({len(manifest_df)} rows)")
     print(f"[{district}] Written {len(layout_paths)} layout side-cars to {layouts_dir}")
     print(f"[{district}] Outcomes: {dict(outcome_counter)}")
     print(f"[{district}] Fallback reasons: {dict(fallback_counter)}")
@@ -623,6 +641,14 @@ def main() -> None:
         default=None,
         help="DISTRICT=path override (T10/T12: point at the EU-17 rebuild tree).",
     )
+    parser.add_argument(
+        "--population-manifest",
+        action="append",
+        default=None,
+        help="DISTRICT=path override for the source of simulated_ids only "
+             "(T07c/D-EU-114: re-emit against the full recut population "
+             "instead of dist_dir's own manifest). Skips manifest write-back.",
+    )
     args = parser.parse_args()
 
     roots: dict[str, Path] = {}
@@ -630,11 +656,18 @@ def main() -> None:
         district, _, path = entry.partition("=")
         roots[district] = Path(path)
 
+    pop_manifests: dict[str, Path] = {}
+    for entry in args.population_manifest or []:
+        district, _, path = entry.partition("=")
+        pop_manifests[district] = Path(path)
+
     targets = args.district if args.district else list(DISTRICTS)
     results = {}
     for district in targets:
         print(f"\n=== Emitting layout side-cars for {district} ===")
-        results[district] = emit_layouts_for_district(district, roots.get(district))
+        results[district] = emit_layouts_for_district(
+            district, roots.get(district), pop_manifests.get(district)
+        )
 
     print("\n=== Summary of Layout Emission across all 4 districts ===")
     print(json.dumps(results, indent=2))

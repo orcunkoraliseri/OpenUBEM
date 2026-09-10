@@ -14,7 +14,8 @@
 26 simulation-derived columns register at least one differing row somewhere in 8,153 both-success
 buildings -- but that count is misleading on its own: for most of those columns the typical
 difference is rounding-scale (median relative difference ~0.002% or less on `heating`, `cooling`,
-`lighting`, `equipment`, `fans`, `dhw` and their `gwp_*` counterparts). Looking at the per-building
+`lighting`, `equipment`, `fans`, `dhw` and their `gwp_*` counterparts).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. Looking at the per-building
 ratio of re-run to fixture `total_eui_kwh_m2` instead: **48.2% of buildings are unchanged within
 0.1%, 48.6% are unchanged within 1%, and a 9.0% tail moves by more than 5%.** In 48.4% of buildings,
 all six core end uses (`heating`, `cooling`, `lighting`, `equipment`, `fans`, `dhw`) move by one
@@ -110,7 +111,8 @@ At the strict 1e-9 float-equality bar (both-NaN counts as a match; strings exact
 have at least one differing row. That bar alone is the wrong way to read this fleet -- see Sec.0. This
 table adds, per column, over all 8,153 both-success buildings (director-derived; not re-run here):
 the share of rows that differ at all, the median relative difference *among rows that differ*, and
-the share of *differing* rows that move by more than 1%. Two `max_rel_diff` values
+the share of *differing* rows that move by more than 1%.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. Two `max_rel_diff` values
 (`heating_eui_kwh_m2` 156376, `iod` 15928) are artefacts of dividing by a near-zero fixture value on
 a single row, not real >100x changes -- the median is the number to read for those two, not the max.
 Full table: `openubem/outputs/comparisons/open06_26col_reproducibility.csv`.
@@ -134,6 +136,9 @@ Full table: `openubem/outputs/comparisons/open06_26col_reproducibility.csv`.
 | `simulation_status` | 8,160 | 0.012% (1 row) | -- | -- | DIFFERS -- 1 row, immaterial |
 | `error_summary` | 8,160 | 0% | -- | -- | **REPRODUCES exactly** |
 
+All figures above are pooled over the pre-restatement 8,153-building population.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+
 **Result, read for materiality rather than raw column count:** `error_summary` reproduces exactly;
 `refrigeration`/`gwp_refrigeration` reproduce in every practical sense (5 rows, max relative
 difference ~0); the six core end uses (`heating`, `cooling`, `lighting`, `equipment`, `fans`, `dhw`)
@@ -148,7 +153,8 @@ immaterial by count.
 ### Distributional structure (the substantive finding)
 
 Per-building ratio of re-run `total_eui_kwh_m2` to fixture `total_eui_kwh_m2`, over the 8,153
-both-success buildings: **median 1.000031, 5th percentile 0.8236, 95th percentile 1.0338.** The
+both-success buildings: **median 1.000031, 5th percentile 0.8236, 95th percentile 1.0338.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. The
 fleet splits cleanly: **48.2% of buildings are unchanged within 0.1%; 48.6% are unchanged within 1%;
 a 9.0% tail moves by more than 5%.** In **48.4% of buildings, all six core end uses move by a single
 common ratio** (spread across end uses < 1e-3) -- the signature of one denominator changing under an
@@ -296,6 +302,7 @@ again and see if the failure is reproducible.
   per instruction those numbers were **reused as given, not re-derived or re-run** — this document's
   own comparison (§2 gate, §3 column list, §4 extra-column list, §6 code-drift adjudication) is
   unchanged from the prior pass, only the presentation and the materiality read of §5/§7 changed.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - Per task instructions: no files under `openubem/` were edited other than overwriting
   `openubem/outputs/comparisons/open06_26col_reproducibility.csv`; the open items register was not
   touched; no git write commands were run.

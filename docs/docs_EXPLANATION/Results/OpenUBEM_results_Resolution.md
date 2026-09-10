@@ -324,6 +324,8 @@ towers, hospitals), sometimes less. The point is not "more zones is better"; it 
 success, median `total_eui` 122.23 kWh/m²/yr** (the prior harvest, T19, was 7,990/8,160 = 97.92%,
 median 103.75).
 
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+
 **The improvement is not credited to the storey-matching arc.** The +163 additional passing
 buildings decompose as:
 

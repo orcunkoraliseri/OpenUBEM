@@ -95,6 +95,8 @@ All line numbers below were verified 2026-08-05.
 122.23 kWh/m²/yr.** (T19 was 7,990/8,160 = 97.92%, median 103.75.) Adopted fleet baseline
 (E-R3-3 + Phase-E + elevators) = 158.0 kWh/m²/yr.
 
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+
 **Attribution, and it must travel with the number** (`:534–545`): the +163 gain decomposes as
 `+150 (E-LA-20, fixed 2026-07-25, pre-dates the arc) + 2 + 14 − 3 (regressions) = +163`.
 **The success-rate improvement is overwhelmingly not the storey-matching arc's own work.** Do not
@@ -415,6 +417,7 @@ At each checkpoint, append your progress-log entries under §8 **before** report
   - 8,153/8,160 = 99.914%, median 122.23; T19 7,990/8,160 = 97.92%, median 103.75; +163 =
     +150(E-LA-20)+2+14−3 — all reproduce verbatim from
     `.../figures/OpenUBEM_results_LayoutAssigner.md:527, 534–539`.
+    - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
   - Transformer cliff 0/114 (0.0%) and 117/117 (100%), population 439 — reproduces from
     `:725–733`.
   - `builder.py:481` call site and reach condition — reproduces per T02 above.
@@ -534,6 +537,7 @@ broken path and a false status sitting directly above §5.1.2. Now **T09**, scop
   - **Fleet success** (10.3): `openubem/outputs/comparisons/t20_layout_assign_eui.csv`, `status`
     value counts → 8,153/8,160 success = **99.914%** (computed: 99.91421568627452), median
     `total_eui` on successful rows = **122.227… ≈ 122.23**. Both reproduce exactly.
+    - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
   - **Attribution decomposition** (10.3): quoted verbatim from
     `.../figures/OpenUBEM_results_LayoutAssigner.md:534–539` (+150/+2/+14/−3 = +163) — a citation,
     not a re-derivable CSV computation; text matches the named lines exactly.

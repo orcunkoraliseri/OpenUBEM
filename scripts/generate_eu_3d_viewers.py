@@ -857,6 +857,10 @@ def _circulation_label(rings: tuple[tuple[tuple[float, float], ...], ...]) -> st
 
 
 def _load_eu17_sidecar(district: str, building_id: str) -> dict | None:
+    for _tag in ("recut_2026-09-08", "delta_2026-09-07", "final_2026-09-07", "ceiling82_2026-09-05"):
+        _path = EU11_ROOT / f"{district}_{_tag}" / "layouts" / f"{building_id}.json"
+        if _path.exists():
+            return json.loads(_path.read_text(encoding="utf-8"))
     path = EU17_ROOT / district / "layouts" / f"{building_id}.json"
     if not path.exists():
         return None
@@ -864,16 +868,18 @@ def _load_eu17_sidecar(district: str, building_id: str) -> dict | None:
 
 
 def _load_eu11_eui(district: str) -> dict[str, float | None]:
-    """``{building_id: eui_kwh_m2}`` from the EU-11 merged manifest
-    (``_merged_2026-09-07``) when present, else the ceiling82 manifest
-    (``_ceiling82_2026-09-05``, T01), mirroring ``_load_eu17_sidecar``'s
-    per-district single-file load shape but for the CSV manifest, not a
-    per-building JSON side-car. A building with no manifest row (excluded
-    / no_idf / failed-on-Speed) is simply absent from the dict; a manifest
-    row with a blank ``eui_kwh_m2`` maps to ``None`` rather than being
-    dropped."""
+    """``{building_id: eui_kwh_m2}`` from the EU-11 merged manifest,
+    preferring ``_merged_2026-09-08`` (T07), then ``_merged_2026-09-07``,
+    then the ceiling82 manifest (``_ceiling82_2026-09-05``, T01), mirroring
+    ``_load_eu17_sidecar``'s per-district single-file load shape but for the
+    CSV manifest, not a per-building JSON side-car. A building with no
+    manifest row (excluded / no_idf / failed-on-Speed) is simply absent from
+    the dict; a manifest row with a blank ``eui_kwh_m2`` maps to ``None``
+    rather than being dropped."""
     city_lower = district.lower().replace("-", "_")
-    path = EU11_ROOT / f"{district}_merged_2026-09-07" / f"{city_lower}_manifest.csv"
+    path = EU11_ROOT / f"{district}_merged_2026-09-08" / f"{city_lower}_manifest.csv"
+    if not path.exists():
+        path = EU11_ROOT / f"{district}_merged_2026-09-07" / f"{city_lower}_manifest.csv"
     if not path.exists():
         path = EU11_ROOT / f"{district}_ceiling82_2026-09-05" / f"{city_lower}_manifest.csv"
     if not path.exists():
@@ -1078,7 +1084,7 @@ def build_district(district: str) -> None:
         plans_by_id[p.building_id] = p
         idf_root_by_id[p.building_id] = ceiling82_root
 
-    for _tag in ("final_2026-09-07", "delta_2026-09-07"):
+    for _tag in ("final_2026-09-07", "delta_2026-09-07", "recut_2026-09-08"):
         _root = EU11_ROOT / f"{district}_{_tag}"
         if not (_root / "idfs").is_dir():
             continue
@@ -1307,17 +1313,34 @@ def build_district(district: str) -> None:
         if stale_path.exists():
             stale_path.unlink()
 
-    # Copy the EU-17 layout side-cars (same rebuild tree the IDFs came from,
-    # used only as narrow annotation per rule 3 -- never the EU-11 side-cars
-    # this arc's own FINDING 213/215 found disagreeing with the IDFs).
-    eu17_layouts_dir = idf_evidence_root / "layouts"
+    # Build the target from the four EU-11 waves alone (D-EU-116: the EU-17
+    # base seed is dropped -- it leaked pre-2026-09-08 payloads through for
+    # ids the recut emitted no layout for, giving a mixed-vintage tree the
+    # 4J peer's own R10/R5 checks refuse). Overlay in the same tag priority
+    # `_load_eu17_sidecar` (:859-863) uses -- ceiling82_2026-09-05,
+    # final_2026-09-07, delta_2026-09-07, recut_2026-09-08 -- so the newest
+    # wave always wins and the mirrored tree can never disagree with the
+    # viewer's own reads again (D-EU-115). The recut tree covers every
+    # building that has an IDF, so nothing real is lost by dropping EU-17.
+    # FINDING 213/215 ("never the EU-11 side-cars -- they disagreed with the
+    # IDFs") is superseded: emit_eu11_layout_sidecars.py now derives every
+    # side-car from read_district(district, dist_dir) on the same tree it
+    # writes into, so a recut side-car agrees with its IDF by construction.
     target_layouts_dir = target_data_dir / "layouts"
-    n_sidecars = sum(1 for _ in eu17_layouts_dir.glob("**/*.json")) if eu17_layouts_dir.exists() else 0
-    if eu17_layouts_dir.exists() and n_sidecars > 0:
-        if target_layouts_dir.exists():
-            shutil.rmtree(target_layouts_dir)
-        shutil.copytree(eu17_layouts_dir, target_layouts_dir)
-        print(f"[{district}] Copied {n_sidecars} EU-17 layout side-cars to {target_layouts_dir}")
+    if target_layouts_dir.exists():
+        shutil.rmtree(target_layouts_dir)
+    target_layouts_dir.mkdir(parents=True, exist_ok=True)
+    for _tag in ("ceiling82_2026-09-05", "final_2026-09-07", "delta_2026-09-07", "recut_2026-09-08"):
+        _overlay_src = EU11_ROOT / f"{district}_{_tag}" / "layouts"
+        if not _overlay_src.exists():
+            continue
+        for _overlay_file in _overlay_src.glob("**/*.json"):
+            _rel = _overlay_file.relative_to(_overlay_src)
+            _overlay_dst = target_layouts_dir / _rel
+            _overlay_dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(_overlay_file, _overlay_dst)
+    n_sidecars = sum(1 for _ in target_layouts_dir.glob("**/*.json")) if target_layouts_dir.exists() else 0
+    print(f"[{district}] Installed {n_sidecars} layout side-cars to {target_layouts_dir} (EU-11 overlays only, recut_2026-09-08 highest priority)")
 
     # Construct sources.json
     generated_from = [

@@ -8,7 +8,7 @@ module -- a GeoPackage is a SQLite database, so no new dependency is needed).
 If every cell's counts match, OPEN-34's "was any published result produced from a batch
 small enough for the batch-composition effect to matter" question is answered: no.
 
-Plan: docs/docs_ACTIVE/openings/implemenation/PLAN_e02-audit-and-closure.md, T06(a).
+Plan: docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md, T06(a).
 This script performs part (a) ONLY -- no register/board/checklist edits.
 """
 

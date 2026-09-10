@@ -5,7 +5,7 @@ ubem_e02_harvest: per array directory (cell x mode), the number of building
 directories and the number of eplusout.err / eplusout.eio / eplusout.end
 files present. Does not open or hash any file.
 
-Plan: docs/docs_ACTIVE/openings/implemenation/PLAN_e02-audit-and-closure.md, T01.
+Plan: docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md, T01.
 """
 
 import csv

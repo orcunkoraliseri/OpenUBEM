@@ -4,6 +4,7 @@
 > Script: `scripts/analysis/open62_denominator-sensitivity_2026-08-21b.py`
 > CSV: `openubem/outputs/comparisons/open62_denominator-sensitivity_2026-08-21b.csv` (32,562 rows,
 > one row per building per definition over the 8,153 successes)
+> ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## This is a denominator-only sensitivity, not a re-simulated result
 
@@ -15,6 +16,8 @@ denominator without touching the simulated energy. Pooled EUI under each definit
 `Σ(total_eui × published_area) ÷ Σ(footprint_area_m2 × storeys)` over the 8,153
 `simulation_status == success` rows, joined `open03_storey_census_zfix.csv` (8,160 rows) to
 `05_results.csv` per cell.
+
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## C10 — reproduce F10's agreement rates first
 
@@ -31,6 +34,8 @@ census-to-results join is 8,160/8,160 with no missing rows.
 | `layout_assign_storey_count` | 8,153 | 12,634,619.6 | 296.2690 | +142.4459 | −48.077 % |
 | `layout_assign_storey_count_naive` | 8,153 | 8,464,264.2 | 442.2412 | +288.4181 | −65.216 % |
 | `layout_assign_storey_count_floor` | 8,153 | 15,841,047.7 | 236.3004 | +82.4773 | −34.900 % |
+
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. (applies to the "n" and "Δ vs adopted 153.8231" columns in the table above)
 
 ## C11 — baseline denominator against F6
 

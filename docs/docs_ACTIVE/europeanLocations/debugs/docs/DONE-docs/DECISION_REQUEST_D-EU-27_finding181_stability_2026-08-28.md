@@ -21,6 +21,7 @@
 **What a ruling here does *not* do, whichever box is ticked:**
 
 - It does **not** move any published OpenUBEM figure. The adopted fleet baseline (153.8 kWh/m², n = 8,153) contains nothing from this campaign.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - It does **not** re-open `D-EU-23` (`S3 = 96`, mixed mode), `D-EU-24` (`S3` promotion), `D-EU-26` (the `Wall_1` host check), or the frozen `eu_campaign_cell_spec_v1.0.json`.
 - It does **not** authorise editing `openubem/idf/*.py` or any builder. Options B and C are campaign-configuration choices, not code changes.
 - It does **not** decide `D-EU-25`, which remains the arc's other open decision.

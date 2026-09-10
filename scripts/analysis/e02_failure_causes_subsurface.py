@@ -11,7 +11,7 @@ then:
       anywhere in the file, fleet-wide, in all five modes -- not only in the
       44 fatals.
 
-Plan: docs/docs_ACTIVE/openings/implemenation/PLAN_e02-audit-and-closure.md, T02.
+Plan: docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md, T02.
 """
 
 import csv

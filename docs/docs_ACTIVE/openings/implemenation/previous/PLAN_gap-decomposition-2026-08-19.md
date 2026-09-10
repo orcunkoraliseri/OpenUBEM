@@ -37,6 +37,7 @@ do not rebuild it.
 7. **Sample discipline.** Task A is **n=48** and every sentence carrying one of its numbers must say
    so. The adopted fleet figure — **153.8231 kWh/m² pooled** (total simulated energy ÷ total
    simulated floor area) over **8,153** buildings / **24,320,582 m²** — is untouched by this plan.
+   ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 8. **Report failures; never substitute a weaker number.** A `.sql` that will not open is a result.
 9. **Cap your own output.** `head`, `--stat`, `grep -c`. Report the conclusion and the `file:line`,
    never file contents.

@@ -1,5 +1,60 @@
 # European locations × Step 8 — arc state (v5)
 
+🔴 **CLOSURE ATTEMPTED 2026-09-09, REOPENED THE SAME DAY, NOW CLOSED AGAIN — `T08` landed.** The
+owner ruled the arc complete, then reversed on reading that the 2026-09-08 recut results were still
+sitting unharvested: *"why to leave them if the bologna results are currently old, lets update"*. The
+arc reopened for exactly three tasks — `T06b`, `T07`, `T08` of
+`implementation/PLAN_eu-recut-95pct-2026-09-08.md` — and all three landed 2026-09-09 (`CP-3c`/`D-EU-117`
+signed, `T08`'s audit/ledger entry appended to that plan's §8 and to this document's §0/§1/§2/§8). Nothing
+in this plan is pending.
+
+⚠ **Correction to the first closure block, which said Bologna had never been restated: it had.**
+Bologna was restated 2026-09-08 14:55 to **54.502146 kWh/m² over 1,202 of 1,211 buildings**
+(`openubem/outputs/eu_evidence/EU-11/IT-BOL-GALVANI2_merged_2026-09-07/summary.json`), replacing
+54.935569 — a **−0.433423 kWh/m²** move. §1 was corrected at `T08`; Bologna's final restatement is the 2026-09-08 value below, not this one.
+
+**The four district EUIs as they stand right now** — all from `<D>_merged_2026-09-08/summary.json`,
+written by `T06b` on 2026-09-09, heating-only, pooled: Madrid **81.387738 over 1,170 of 1,187**, Lyon
+**70.345716 over 527 of 529**, London **93.729757 over 1,240 of 1,240**, Bologna **54.671865 over 1,205
+of 1,215**. Fleet: **66.295394 over 4,142 of 4,171**.
+
+⚠ **Every 2026-09-07 value is superseded and must not be quoted**: London 120.064327 over 706 of 706,
+Lyon 69.595307 over 505 of 509, Madrid 80.694006 over 1,166 of 1,175, Bologna 54.502146 over 1,202 of
+1,211. London moved the most, −26.334570, because its population went from 706 to 1,240.
+
+**Layout side-cars, delivered 2026-09-09** (`T07`/`T07b`/`T07c`, `D-EU-113`–`D-EU-116`): single vintage
+2026-09-08, installed at `outputs_3D/eu_<D>_data/layouts/` — 1,174 / 509 / 1,240 / 1,211 files for
+Madrid / Lyon / London / Bologna, CRLF throughout with no final newline, two schemes only
+(`nocore_equal_area` 1,151 / 496 / 1,207 / 1,171 and `scheme: null` + `FALLBACK_PENDING_LAYOUT`
+23 / 13 / 33 / 40), `has_unconditioned_core: true` 0 of 0 everywhere. Distinct zone names equal
+`dwellings_total` on 4,025 of 4,025 drawn buildings, zero mismatches — the `FINDING 201` invariant holds
+on this emission. Announced to GSSCanada/4J with per-district sha256; they reproduced all four and
+their preflight passes on all three fold districts.
+
+**What is being harvested.** The 2026-09-08 recut wave drained on Speed — jobs `1314028` (Madrid 64),
+`1314065` (Lyon 33), `1314066` (London 539), `1314067` (Bologna 139), **765 COMPLETED + 10 FAILED of
+775**, results confirmed present in the four remote `out/` directories 2026-09-09, queue empty. The
+recut also re-prepared each district at a larger population — Madrid 1,187, Lyon 529, London **1,240**,
+Bologna 1,215, **4,171 of the 4,186 stock** — so `T06b` restates every district over a bigger
+denominator, not just Bologna.
+
+**Open by ruling:** `FINDING 258` (uneven plate splits, per-building fix later), `FINDING 263` (12 London
+`INTERZONE_MISMATCH_REROUTED` payloads). Both remain open; no fix authorised inside `T06b`/`T07`/`T08`
+(Ruling 5, T06b entry), the peer session GSSCanada/4J is told by the director, not by any executor.
+
+🔴 **Correction, `T08`: `FINDING 268` as named just above (zone-naming, 233 of 1,100 Madrid / 35 of 1,036
+Bologna) is RETRACTED, 2026-09-09** — measured over the frozen payload sets, 0 of 268 repeated zone-name
+entries carry differing geometry; the reporter had summed zone entries across storey rows instead of storey
+groups (full account: `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`, wall-B second-pass chapter).
+It is **not** a live blocker any more. Separately and **unrelated**, this same plan's own T04 task also used
+the number `FINDING 268` for a GB `age_band` finding (format gap, closed by T05b; 98 genuine oracle
+disagreements, ruled not a defect) — a two-sided number collision, registered in §0 above, neither half
+renumbered.
+
+**Identifiers:** next free `D-EU-118`, `FINDING 270`.
+
+---
+
 **Opened:** 2026-09-03. **Scope of v5: the flat-division rules, under the no-core regime.** Everything
 else in the arc is carried by pointer, not restated.
 
@@ -14,8 +69,11 @@ executed, not appended to, not deleted.
 
 - Plain-language brief: [`BRIEF_european_locations_v5.md`](BRIEF_european_locations_v5.md)
 - Progress checklist, work-package view: [`CHECKLIST_european_locations_v5.md`](CHECKLIST_european_locations_v5.md)
-- 🔴 **Operating prompt for the live front** — read this before touching anything in `EU-21`:
-  [`prompts/DIRECTOR_PROMPT_group_floor_planning_2026-09-01.md`](prompts/DIRECTOR_PROMPT_group_floor_planning_2026-09-01.md)
+- Operating prompts — **all closed 2026-09-09, none in force**:
+  [`prompts/DONE/DIRECTOR_PROMPT_eu-ceiling82-recut_2026-09-09.md`](prompts/DONE/DIRECTOR_PROMPT_eu-ceiling82-recut_2026-09-09.md)
+  (the last one), [`prompts/DONE/IMP_PROMPT.md`](prompts/DONE/IMP_PROMPT.md) (the recut handover), and
+  [`prompts/DONE/DIRECTOR_PROMPT_group_floor_planning_2026-09-01.md`](prompts/DONE/DIRECTOR_PROMPT_group_floor_planning_2026-09-01.md)
+  (the `EU-21` prompt this line used to point at, in the arc root).
 - Arc-local error index (`D-EU-52`): [`debugs/DEBUG_REFERENCES_european_locations.md`](debugs/DEBUG_REFERENCES_european_locations.md)
 - Live rules (no-core): [`rules/`](rules/) — the four `*_nocore_*` documents; core versions in `rules/archive/`.
 - History: `previous/` (v2, v3, v4 states and briefs, MVP, walkthrough).
@@ -29,7 +87,9 @@ below it.
 
 The arc has claimed **`D-EU-49` … `D-EU-110`** and **`FINDING 211` … `FINDING 263`**
 (`FINDING 215`–`219` were never allocated — skip them, do not backfill).
-**Next free: `D-EU-113`, `FINDING 268`.** (`D-EU-111`, `D-EU-112` and `FINDING 267` are allocated by `implementation/PLAN_eu-recut-95pct-2026-09-08.md`, 2026-09-08.)
+**Next free: `D-EU-118`, `FINDING 270`.** (superseded 2026-09-09, T08 of `implementation/PLAN_eu-recut-95pct-2026-09-08.md` — see below.)
+
+⚠ **`D-EU-111`–`117` and `FINDING 267`–`269` are registered here by filename, provenance only** (the plan doc is the authority): `D-EU-111` (best-effort tier, `C6`/`C10`/`C11`) and `D-EU-112` (neighbour imputation, 576 of 585 recovered) in `implementation/PLAN_eu-recut-95pct-2026-09-08.md` §4/T02/T04, signed at `CP-1`; `FINDING 267` (wall-B: all 184 residual defects trace to a vertex `intersect_match` manufactures during extrusion, ring-cleanup budgets never see it) in T03, ruled a closed honest residual at `CP-1` (T03b part), no remedy authorised; `D-EU-113` (viewer resolution chain repointed at the recut, T07's Line 3 only) at `CP-3`, executed as T07b; `D-EU-114` (side-car re-emission over the full recut population authorised, reversing `D-EU-113`'s refusal) at `CP-3b`, executed as T07c; `D-EU-115`/`D-EU-116` (layout-install block rebuilt from the four EU-11 waves, `EU17_ROOT` seed copy dropped) mid-task amendments inside T07c; `D-EU-117` (CP-3c signed, L3/L4 residual ruled closed as `FINDING 269`, backup-folder deletion authorised, `T08` released) at `CP-3c`. `FINDING 268` is a **number collision, two-sided**: part (a), inside this same plan's T04 (GB `age_band` format gap, closed by T05b; 98 genuine oracle disagreements, ruled not a defect) is unrelated to part (b), the zone-naming report from GSSCanada/4J registered in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` and **retracted 2026-09-09** (0 of 268 repeated entries carry differing geometry — a consumer-side miscount, not an emitter bug). Neither half is renumbered here; a citation to `FINDING 268` must say which one. `FINDING 269` (layout `row_map` misses 27 buildings with a `prepared_buildings.csv` row and an on-disk IDF — ES 6 / FR 18 / IT 3, zero in London; an earlier count of 29 double-counted 2 Lyon ids, corrected 2026-09-09; no energy number affected) is not fixed in this arc (`D-EU-117`).
 
 ⚠ **`D-EU-106`–`109` are lettered rulings taken 2026-09-07 inside the three second-wave plan docs and
 registered here by filename, provenance only** (the plan doc is the authority, this ledger only reserves
@@ -104,6 +164,8 @@ and is restated once, at T07, with both the pre-fix and post-fix populations nam
 (`implementation/PLAN_eu-dwelling-division-recovery-2026-09-07.md:235-238`, `D-EU-109 d`). Lyon and London
 were restated 2026-09-07; Madrid and Bologna are still pending their `_delta_2026-09-07` harvests.
 
+🔴 **Superseded 2026-09-09 (T08 of `implementation/PLAN_eu-recut-95pct-2026-09-08.md`) — the sentence above is wrong on two counts and this whole paragraph's four EUIs are stale.** Madrid *was* restated 2026-09-07 (80.694006 kWh/m² over 1,166 of 1,175, already quoted two paragraphs above — never "still pending"); Bologna *was* restated, 2026-09-08 14:55, to 54.502146 kWh/m² over 1,202 of 1,211 (superseding 54.935569). All four of those 2026-09-07/08 values are, in turn, superseded again by the 2026-09-08 recut wave this plan closed: **Madrid 81.387738 kWh/m² over 1,170 of 1,187 · Lyon 70.345716 over 527 of 529 · London 93.729757 over 1,240 of 1,240 · Bologna 54.671865 over 1,205 of 1,215 · fleet 66.295394 over 4,142 of 4,171** (`<D>_merged_2026-09-08/summary.json`, T06b). These are the current quotable `EU-11` numbers; nothing above this marker in §1 may be quoted as current.
+
 ---
 
 ## 2. Work packages
@@ -121,9 +183,9 @@ were restated 2026-09-07; Madrid and Bologna are still pending their `_delta_202
 | **`EU-20`** | **Morphology atlas: the eleven building groups, 2,544 rows** | **Completed 2026-09-01** |
 | **`EU-21`** | **The flat-division rules: one written rule per group, graded on 550 real plates** | **In progress — the live front** |
 | `D-EU-106` | Repaint `outputs_3D` floor-plan modal in the `plans3D` visual style | Completed 2026-09-07 |
-| `D-EU-107` | Balance the dwelling cut (`C12`), re-plan/re-simulate the affected plates only | In progress — `CP-1`/`CP-2`/`CP-3` parity half signed, `CP-3` hash half unsigned |
-| `D-EU-108` | London coverage recovery (terrace-row age/storey inheritance) | In progress — complete through T05b; harvest/final restatement pending |
-| `D-EU-109` | Recover discarded dwelling divisions (ring cleanup); merges `D-EU-107`/`D-EU-108`/`D-EU-109` into one re-emission and one Speed campaign | In progress — merged re-emission (T03m) running for `ES-MAD`/`IT-BOL`, Speed campaign not yet submitted |
+| `D-EU-107` | Balance the dwelling cut (`C12`), re-plan/re-simulate the affected plates only | **Completed 2026-09-09** — closed by the `eu-recut-95pct-2026-09-08` wave (T05/T06/T06b/T07/T07b/T07c); `CP-3c` signed, `D-EU-117` |
+| `D-EU-108` | London coverage recovery (terrace-row age/storey inheritance) | **Completed 2026-09-09** — closed by the `eu-recut-95pct-2026-09-08` wave (T05/T06/T06b/T07/T07b/T07c); `CP-3c` signed, `D-EU-117` |
+| `D-EU-109` | Recover discarded dwelling divisions (ring cleanup); merges `D-EU-107`/`D-EU-108`/`D-EU-109` into one re-emission and one Speed campaign | **Completed 2026-09-09** — closed by the `eu-recut-95pct-2026-09-08` wave (T05/T06/T06b/T07/T07b/T07c); `CP-3c` signed, `D-EU-117` |
 
 *Status is one of Completed / In progress / Not started / Blocked. This table carries no notes.*
 
@@ -1888,3 +1950,23 @@ Numbers here are the measured ones; the narrative-only version is `BRIEF_europea
   Also verified by 4J across all 2,837 installed files: `conditioned_floor_area_m2 / gross_footprint_area_m2`
   has min **1.000000** and max **1.000000**, zero files outside a 0.999–1.001 band — a stronger external
   control on `D-EU-80`'s every-square-metre-is-a-flat premise than anything run on this side.
+- **2026-09-09 — `T08` of `implementation/PLAN_eu-recut-95pct-2026-09-08.md`: audit, ledger, references. Arc closes.**
+  Documentation-only pass, `CP-3c`/`D-EU-117` released it. Registered `D-EU-111`…`D-EU-117` and
+  `FINDING 267`…`269` in §0 above; corrected the stale "Bologna still pending" sentence in §1 with a
+  supersession marker carrying the final 2026-09-08 recut EUIs (**Madrid 81.387738/1,170 of 1,187 · Lyon
+  70.345716/527 of 529 · London 93.729757/1,240 of 1,240 · Bologna 54.671865/1,205 of 1,215 · fleet
+  66.295394/4,142 of 4,171**, `<D>_merged_2026-09-08/summary.json`); closed `D-EU-107`/`108`/`109` in §2.
+  `FINDING 268` is flagged as a two-sided number collision, not one finding: this plan's own T04 usage
+  (GB `age_band` format gap, closed by T05b; 98 genuine oracle disagreements, ruled not a defect) is
+  unrelated to the zone-naming report already registered and **retracted** under the same number in
+  `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`. `FINDING 210`'s mid-drain survival figure
+  corrected to 10 of 19 (52.6 %) over the fully drained 703-task job, and the courtyard-fill remedy (three
+  costs, not authorised) registered as an extension; the `IDF_ASSEMBLY_FAILED_RuntimeError` entry's "message
+  not on disk" claim corrected (it is, in `excluded_buildings.csv`'s `detail` column, every `_recut_2026-09-08`
+  tree); the EU-13B `FileExistsError` entry extended with its `_recut_2026-09-08` recurrence, `[OPEN]`. One
+  deletion, authorised and recorded first: `outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts_pre_D-EU-113_backup_2026-09-08/`,
+  451 files, sha256 of the sorted relative file list `ec2641e48945921b9cea33406f72c18b6586f7c01b92bc2dd9e01a8074a2c740`,
+  then deleted. Full per-district final table (stock/simulated/divided/box/never-simulated/engine-failures/EUI/
+  installed side-cars, every figure traced) is in the plan doc's own T08 entry, not restated here. `D-EU-118`
+  and `FINDING 270` are next free. Nothing in this plan is pending; no message sent to 4J/GSSCanada (director
+  action, out of scope here).

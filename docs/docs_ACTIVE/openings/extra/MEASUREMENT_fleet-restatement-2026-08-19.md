@@ -11,7 +11,7 @@
 | | pooled EUI (kWh/m²) | buildings | floor area (m²) |
 |---|---:|---:|---:|
 | Adopted baseline (`phaseE_elevrb`, OPEN-43, 2026-08-12) | **157.0552** | 8,154 | 23,545,868 |
-| Run 4 (`open48_refleet4`, 2026-08-19) | **153.8231** | 8,153 | 24,320,582 |
+| Run 4 (`open48_refleet4`, 2026-08-19) | **153.8231** (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | 8,153 | 24,320,582 |
 | **Delta** | **−3.2321** | −1 | +774,714 |
 
 **−2.06 %.** Twelve cells on both sides, same building set on both sides (the osm_id sets are
@@ -171,17 +171,21 @@ this measurement does not make. It is raised to the user in §9.
 
 ## 8. What this number still carries — stated without hedging
 
-**The restated 153.8231 is not volume-correct.** OPEN-56 is open and unremedied: every building in
+**The restated 153.8231 is not volume-correct.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+OPEN-56 is open and unremedied: every building in
 the fleet still simulates with its zone air volume replaced by a 10 m³ stub, 8,160/8,160, because
 EnergyPlus computes a negative volume from the geometry it is handed. The fleet-scale cost of that
 stub was measured on a 69-building control (X01/X02, 2026-08-19): a fixed per-building offset of
 **≈ +1.0 kWh/m²** (mean +0.98 %, median +0.84 %, 65/69 same direction). That correction is **not**
 applied here and is **not** inside 153.8231.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 A volume-correct fleet on run-4 code would therefore be **≈ 154.8 kWh/m²**. That figure is not
 adopted, because OPEN-56's remedy is unauthorised and unimplemented and the offset was measured on
 69 buildings rather than 8,160. But the direction and the rough size are known, and 153.8231 should
 be read as understating a volume-correct fleet by about that much.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## 9. Limits, and what is not established
 

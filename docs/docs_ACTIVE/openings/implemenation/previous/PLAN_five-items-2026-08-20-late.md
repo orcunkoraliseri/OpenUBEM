@@ -119,6 +119,7 @@ cited as evidence in a report. Figures, if any, go flat in `openubem/outputs/`, 
 - `run_ep_isolated()` — `scripts/analysis/open35_storey_intervention_2026-08-19.py:95`.
 - Adopted fleet figure: **153.8231 kWh/m² pooled over 8,153 buildings**, not volume-correct
   (**OPEN-56** ≈ +1.0 not included). **No task in this plan restates it.**
+  ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ---
 
@@ -342,6 +343,8 @@ nyc_rural 5.12 · **nyc_suburban 30.88** · nyc_urban 2.88. ⚠️ **This transf
 buildings (only 14 of them `MidriseApartment`) onto 8,153. It sizes the exposure; it does not settle
 it.** A census-scale measurement is the obvious next arc and is **not** authorised by this plan.
 
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+
 **T03 audit — a fourth carried figure does not generalise, and the item's framing was wrong.** The
 44 % wall deficit reproduces **only on the single building it was originally measured on**
 (`nyc_centre/way_265424467`, 0.5606). Across the other seven cells with a valid pair the wall ratio
@@ -390,6 +393,7 @@ the baseline to carry forward.**
   production, and **an order of magnitude larger than the item states**. Blast radius is no longer
   "unmeasured"; it is sized on 60 and estimated on 8,153 (D11, D12). **Stays open, re-scoped and
   raised in priority.**
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - **OPEN-03** — the 44 % wall figure is retracted (reproduces on exactly one building, the one it was
   measured on). **The item's stated mechanism is wrong**; the live question is a storey-count
   disagreement between `layout_assign` and `auto`. **Stays open, re-framed.**

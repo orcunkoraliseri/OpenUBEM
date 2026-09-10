@@ -67,7 +67,9 @@ on this statistic). The pooled/floor-area figure (Unknown *below* classified) is
 real, and equally reproducible fact** driven by a small number of large Unknown buildings, and it
 does not contradict the median finding — it describes a different population weighting. Both
 belong in the item; neither supersedes the other. This does not touch F1 (153.8231 kWh/m² pooled,
-`success` only) directly, since Unknown's 3.7 % floor-area share pooled at 107.22 vs classified's
+`success` only) directly.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Since Unknown's 3.7 % floor-area share pooled at 107.22 vs classified's
 155.56 is already the mechanism inside F1 that the restatement measured — this task confirms that
 number and explains *why* it looks low despite typical Unknown buildings running hot.
 

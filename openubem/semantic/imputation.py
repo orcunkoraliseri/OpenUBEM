@@ -540,7 +540,7 @@ def load_ml_imputer(path) -> MLImputer:
 # tier selection, strict "impute-nothing, hard-fail" audit mode).
 # ═══════════════════════════════════════════════════════════════════════════
 
-_CANONICAL_TIER_ORDER: tuple[str, ...] = ("fusion", "spatial", "ml", "statistical")
+_CANONICAL_TIER_ORDER: tuple[str, ...] = ("fusion", "spatial", "ml", "draw", "statistical")
 
 # Continuous attributes impute_missing routes by default in Phase B -- the two
 # named in the T07 PINNED CONTRACT ("resolve_vintage, the T05 group-median
@@ -682,6 +682,56 @@ def _ml_feature_cols_for(gdf, attr: str) -> list:
     return cols
 
 
+def _apply_ml_debias(gdf, attr: str, value: pd.Series, filled_idx: list, rng: np.random.Generator) -> None:
+    """T11.8 -- opt-in newer-skew quantile-mapping correction for `_ml_tier`'s
+    `knn` fills (`config.IMPUTE_DEBIAS_NEWERSKEW`). Mutates `value` (the
+    tier's own fill Series) and `gdf`'s `data_quality_flag` column IN PLACE
+    for `filled_idx` rows -- a secondary adjustment layered onto an
+    already-stamped `ML_KNN_*` token, not a new fill source, so it carries
+    its own flag rather than a `provenance_<attr>` token. Stratifier
+    precedence mirrors `_draw_stratum_col_for` (`use_class` else
+    `archetype_id`); a thin stratum (`< debias.DEFAULT_MIN_DONORS` observed
+    donors) is skipped and flagged `DEBIAS_SKIPPED_THINSTRATUM`, a corrected
+    one `DEBIAS_NEWERSKEW_QMAP`. With no stratifier column present, applies
+    the correction globally once the observed-donor pool clears the floor
+    (`DEBIAS_NEWERSKEW_QMAP_GLOBAL`); below floor, a no-op."""
+    from openubem.semantic import debias
+    from openubem.semantic.provenance import append_flag_token
+
+    observed_mask = gdf[attr].notna()
+    donors = gdf.loc[observed_mask, attr].astype(float)
+    fills = value.loc[filled_idx].astype(float)
+
+    if "data_quality_flag" not in gdf.columns:
+        gdf["data_quality_flag"] = ""
+
+    strat_col = _draw_stratum_col_for(gdf, attr)
+    if strat_col is not None:
+        strata = gdf[strat_col]
+        thin = debias._thin_strata(donors, strata, min_donors=debias.DEFAULT_MIN_DONORS)
+        corrected = debias.debias_stratified(
+            fills, donors, strata, rng=rng, min_donors=debias.DEFAULT_MIN_DONORS
+        )
+        value.loc[filled_idx] = corrected
+        for idx in filled_idx:
+            stratum = strata.loc[idx]
+            flag = (
+                "DEBIAS_SKIPPED_THINSTRATUM"
+                if pd.isna(stratum) or stratum in thin
+                else "DEBIAS_NEWERSKEW_QMAP"
+            )
+            gdf.loc[idx, "data_quality_flag"] = append_flag_token(gdf.loc[idx, "data_quality_flag"], flag)
+        return
+
+    if len(donors) >= debias.DEFAULT_MIN_DONORS:
+        corrected = debias.debias_newer_skew(fills, donors, rng=rng, min_donors=debias.DEFAULT_MIN_DONORS)
+        value.loc[filled_idx] = corrected
+        for idx in filled_idx:
+            gdf.loc[idx, "data_quality_flag"] = append_flag_token(
+                gdf.loc[idx, "data_quality_flag"], "DEBIAS_NEWERSKEW_QMAP_GLOBAL"
+            )
+
+
 def _ml_tier(gdf, attr: str, mask: pd.Series, rng: np.random.Generator):
     """T11.3 -- real classical-ML tier (Phase C, `build_ml_imputer`). Checks
     the per-target complete-case floor; below floor -> all-null `(value,
@@ -689,7 +739,11 @@ def _ml_tier(gdf, attr: str, mask: pd.Series, rng: np.random.Generator):
     outcome, not an error). Mirrors `_spatial_tier` (imputation.py §5-D):
     HIGH/MEDIUM confidence fills only, LOW discarded and left for the next
     tier. Opt-in only -- reached only when a caller explicitly enables `ml`
-    for `attr` (never in `config.IMPUTE_ENABLED_TIERS`'s default tuple)."""
+    for `attr` (never in `config.IMPUTE_ENABLED_TIERS`'s default tuple).
+
+    T11.8: when `method == "knn"` and `config.IMPUTE_DEBIAS_NEWERSKEW.get(attr,
+    False)`, `_apply_ml_debias` corrects the raw fills' shape in place before
+    returning (default all-False -- byte-identical no-op otherwise)."""
     is_numeric = pd.api.types.is_numeric_dtype(gdf[attr])
     value = (
         pd.Series(np.nan, index=gdf.index, dtype=float) if is_numeric
@@ -716,6 +770,7 @@ def _ml_tier(gdf, attr: str, mask: pd.Series, rng: np.random.Generator):
     X = work.loc[rows]
     preds = imputer.predict(X)
     confs = imputer.confidence(X)
+    filled_idx = []
     for idx in rows:
         conf = confs.loc[idx]
         val = preds.loc[idx]
@@ -723,6 +778,13 @@ def _ml_tier(gdf, attr: str, mask: pd.Series, rng: np.random.Generator):
             value.loc[idx] = val
             suffix = _ML_TOKEN_HIGH if conf == "HIGH" else _ML_TOKEN_MED
             token.loc[idx] = f"ML_{method.upper()}_{suffix}"
+            filled_idx.append(idx)
+
+    if method == "knn" and filled_idx:
+        from openubem import config
+        if config.IMPUTE_DEBIAS_NEWERSKEW.get(attr, False):
+            _apply_ml_debias(gdf, attr, value, filled_idx, rng)
+
     return value, token
 
 
@@ -875,6 +937,134 @@ def _statistical_tier(gdf, attr: str, mask: pd.Series, rng: np.random.Generator)
     return value, token
 
 
+def _draw_stratum_col_for(gdf, attr: str) -> "str | None":
+    """Stratifier precedence for the `draw` tier's dict/targets-shaped
+    methods, mirroring `_statistical_tier` exactly: `use_class` else
+    `archetype_id`, with the same self-stratification leakage guard
+    (never stratify a column by itself)."""
+    for candidate in ("use_class", "archetype_id"):
+        if candidate == attr:
+            continue
+        if candidate in getattr(gdf, "columns", []):
+            return candidate
+    return None
+
+
+def _draw_confidence(val: float, stratum_observed, global_observed, min_n: int) -> str:
+    """Part II §II.3 confidence rule (CP-B-flagged interpretation, T07
+    correction record): HIGH when `val` falls within [Q1, Q3] of its own
+    stratum's observed distribution once that stratum clears
+    `draw_methods._MIN_STRATUM_N`, else the pooled/global observed IQR;
+    else MED. LOW is never emitted -- a degenerate stratum abstains inside
+    the draw function itself and never reaches this step."""
+    ref = stratum_observed if len(stratum_observed) >= min_n else global_observed
+    if len(ref) == 0:
+        return "MED"
+    q1 = float(np.quantile(ref, 0.25))
+    q3 = float(np.quantile(ref, 0.75))
+    return "HIGH" if q1 <= val <= q3 else "MED"
+
+
+def _draw_tier(gdf, attr: str, mask: pd.Series, rng: np.random.Generator):
+    """Part II T07 -- variance-preserving `draw` tier router hook. Opt-in
+    only: reached exclusively via an explicit `ImputeConfig.per_input_tiers`
+    request naming `"draw"` for `attr` (never `config.IMPUTE_ENABLED_TIERS`'s
+    default tuple -- Part II §II.1 rule 4).
+
+    Dispatches `config.IMPUTE_DRAW_METHOD_BY_TARGET[attr]` to
+    `draw_methods.DRAW_METHODS`. An unconfigured target or an unknown method
+    name abstains (all-null) rather than raising -- falls through to the
+    next enabled tier, same contract as every other tier's degenerate case.
+
+    For the four dict/targets-shaped methods (`kde`/`pmm`/`resid`/`abb`):
+    groups `gdf`'s OBSERVED `attr` rows by `_draw_stratum_col_for(gdf, attr)`
+    (or a single `"__global__"` key when no stratifier column exists) into
+    `observed_by_stratum`, builds `targets` as the per-mask-row stratum key
+    list, and calls the registered function directly. For the two gdf-shaped
+    methods (`hotdeck`/`catfreq`): calls the function directly with
+    `(gdf, attr, mask, rng)` -- both own their donor-pool/stratifier
+    selection internally.
+    """
+    from openubem import config
+    from openubem.semantic import draw_methods as dm
+
+    is_numeric = pd.api.types.is_numeric_dtype(gdf[attr])
+    value = (
+        pd.Series(np.nan, index=gdf.index, dtype=float) if is_numeric
+        else pd.Series([None] * len(gdf), index=gdf.index, dtype=object)
+    )
+    token = pd.Series([None] * len(gdf), index=gdf.index, dtype=object)
+    if not mask.any():
+        return value, token
+
+    method = config.IMPUTE_DRAW_METHOD_BY_TARGET.get(attr)
+    if method is None or method not in dm.DRAW_METHODS:
+        return value, token
+
+    fn = dm.DRAW_METHODS[method]
+    token_high = getattr(dm, f"DRAW_{method.upper()}_HIGH")
+    token_med = getattr(dm, f"DRAW_{method.upper()}_MED")
+    observed_mask = gdf[attr].notna()
+
+    if method == "catfreq":
+        filled = fn(gdf, attr, mask, rng)
+        global_mode = (
+            _observed_mode(gdf.loc[observed_mask, attr], rng) if observed_mask.any() else None
+        )
+        for idx in gdf.index[mask]:
+            val = filled.loc[idx]
+            if val is None or (isinstance(val, float) and pd.isna(val)):
+                continue
+            value.loc[idx] = val
+            token.loc[idx] = (
+                token_high if global_mode is not None and val == global_mode else token_med
+            )
+        return value, token
+
+    if method == "hotdeck":
+        filled = fn(gdf, attr, mask, rng)
+        global_observed = gdf.loc[observed_mask, attr].dropna().astype(float).to_numpy()
+        for idx in gdf.index[mask]:
+            val = filled.loc[idx]
+            if pd.isna(val):
+                continue
+            value.loc[idx] = val
+            conf = _draw_confidence(float(val), [], global_observed, dm._MIN_STRATUM_N)
+            token.loc[idx] = token_high if conf == "HIGH" else token_med
+        return value, token
+
+    # dict/targets-shaped methods: kde, pmm, resid, abb
+    strat_col = _draw_stratum_col_for(gdf, attr)
+    observed = gdf.loc[observed_mask]
+
+    observed_by_stratum: dict = {}
+    if strat_col is not None:
+        for stratum, group in observed.groupby(strat_col)[attr]:
+            observed_by_stratum[stratum] = group.to_numpy()
+    else:
+        observed_by_stratum["__global__"] = observed[attr].to_numpy()
+
+    rows = gdf.index[mask]
+    targets = (
+        [gdf.at[idx, strat_col] for idx in rows] if strat_col is not None
+        else ["__global__"] * len(rows)
+    )
+
+    draws = fn(observed_by_stratum, targets, rng)
+    global_observed = observed[attr].dropna().astype(float).to_numpy()
+
+    for i, idx in enumerate(rows):
+        val = draws[i]
+        if pd.isna(val):
+            continue
+        value.loc[idx] = val
+        stratum_observed = np.asarray(observed_by_stratum.get(targets[i], []), dtype=float)
+        conf = _draw_confidence(float(val), stratum_observed, global_observed, dm._MIN_STRATUM_N)
+        token.loc[idx] = token_high if conf == "HIGH" else token_med
+
+    return value, token
+
+
 # Name-string registry (not direct function references) resolved via
 # `globals()` at call time in `impute_missing`, so tests may monkeypatch the
 # module-level `_spatial_tier`/`_statistical_tier`/etc. names directly.
@@ -883,6 +1073,7 @@ _TIER_HANDLER_NAMES = {
     "spatial": "_spatial_tier",
     "statistical": "_statistical_tier",
     "ml": "_ml_tier",
+    "draw": "_draw_tier",
 }
 
 

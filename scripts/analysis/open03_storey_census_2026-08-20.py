@@ -98,6 +98,7 @@ import importlib.util
 import os
 import re
 import sys
+from concurrent.futures import ProcessPoolExecutor
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, REPO)
@@ -144,6 +145,16 @@ Z_ORIGIN_COLLAPSE_RISK_ARCHETYPES = {
 }
 
 
+def _parse_one_auto_idf(task):
+    cell, osm_id_key, path = task
+    d = envmod.parse_idf(path)
+    gt1, maxval = zone_multiplier_gt1(path)
+    return (
+        cell, osm_id_key, d["storey_count"], d["storey_count_naive"],
+        d["storey_count_floor"], d["attic_zone_count"], gt1, maxval,
+    )
+
+
 def zone_multiplier_gt1(idf_path):
     """Returns (any_gt1: bool, max_value: float|None) by reading ZONE objects' Multiplier field
     directly out of the IDF text -- same block-splitting convention as parse_idf()."""
@@ -183,28 +194,33 @@ def main():
     print(f"[1] source rows (05_results.csv, all cells) = {len(src)}")
     assert src["levels"].isna().sum() == 0, "unexpected NaN in levels -- source storey count must be always-present"
 
-    # ---- 2. auto arm: storey_count + zone-multiplier check, read off all 8,160 on-disk IDFs ----
-    auto_rows = {}
-    n_auto = 0
+    # ---- 2. auto arm: storey_count + zone-multiplier check, read off all 8,160 on-disk IDFs,
+    # parallelised over a process pool (pure-Python parse, no EnergyPlus) ----
+    tasks = []
     for cell in CELLS:
         idf_dir = os.path.join(AUTO_ROOT, cell, "fleet_staging", "idfs")
         for fn in sorted(os.listdir(idf_dir)):
             if not fn.endswith(".idf"):
                 continue
             osm_id_key = fn[:-4]
-            path = os.path.join(idf_dir, fn)
-            d = envmod.parse_idf(path)
-            gt1, maxval = zone_multiplier_gt1(path)
+            tasks.append((cell, osm_id_key, os.path.join(idf_dir, fn)))
+
+    auto_rows = {}
+    n_auto = 0
+    with ProcessPoolExecutor(max_workers=min(32, os.cpu_count() or 4)) as ex:
+        for cell, osm_id_key, storey_count, storey_count_naive, storey_count_floor, attic_zone_count, gt1, maxval in ex.map(
+            _parse_one_auto_idf, tasks, chunksize=20
+        ):
             auto_rows[(cell, osm_id_key)] = {
-                "auto_storey_count": d["storey_count"],
+                "auto_storey_count": storey_count,
                 # internal only, not a CSV column (T02 scopes the new column to
                 # layout_assign_storey_count_naive) -- used below to derive the naive value
                 # for the 2 no-baseline archetypes, which copy the auto arm's count either way.
-                "auto_storey_count_naive": d["storey_count_naive"],
+                "auto_storey_count_naive": storey_count_naive,
                 # internal only, not a CSV column (T06 scopes the new column to
                 # layout_assign_storey_count_floor) -- used below for the 2 no-baseline archetypes.
-                "auto_storey_count_floor": d["storey_count_floor"],
-                "auto_attic_zone_count": d["attic_zone_count"],
+                "auto_storey_count_floor": storey_count_floor,
+                "auto_attic_zone_count": attic_zone_count,
                 "auto_zone_multiplier_gt1": gt1,
                 "auto_zone_multiplier_max": maxval,
             }

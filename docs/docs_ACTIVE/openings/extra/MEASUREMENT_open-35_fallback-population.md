@@ -71,7 +71,9 @@ pre-OPEN-35 branch (1 floor each), the same 38 buildings' footprint-area-based f
 to **59,157.9 m²**.
 
 **Fleet floor-area denominator (Σ `floor_area_m2` over all 8,153 successfully-simulated buildings,
-fleet-wide) = 24,333,586.4 m².** Swapping only these 38 buildings from the current branch to the
+fleet-wide) = 24,333,586.4 m².**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Swapping only these 38 buildings from the current branch to the
 pre-OPEN-35 branch would take that denominator to **23,553,430.3 m²** — a **-3.21 %** shift.
 **Denominator only, per the plan's instruction — the pooled EUI headline itself is not restated
 here.**

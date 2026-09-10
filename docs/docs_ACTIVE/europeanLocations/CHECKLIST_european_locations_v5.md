@@ -1,5 +1,21 @@
 # European locations × Step 8 — progress checklist (v5)
 
+🔴 **CLOSED 2026-09-09.** Closed, reopened the same day for `T06b`, `T07`, `T08` of
+`implementation/PLAN_eu-recut-95pct-2026-09-08.md`, then closed again once all three landed. Read-only:
+not executed, not appended to, not deleted. Statuses below were refreshed at `T08`. Current truth: the
+block at the head of [`STATE_european_locations_v5.md`](STATE_european_locations_v5.md).
+
+---
+
+<!-- superseded closure note, kept: -->
+🔴 **CLOSED 2026-09-09 — owner ruling ("we have completed this project"). Read-only: not executed,
+not appended to, not deleted.** Every status below is frozen as it stood on 2026-09-08; the rows still
+marked 🟡 *in execution* (`D-EU-107`, `D-EU-108`, `D-EU-109`) and ⬜ *not started* (`EU-19`, engine
+carry-in) stopped there and were never completed. What actually landed, and what was left open, is the
+closure block at the head of [`STATE_european_locations_v5.md`](STATE_european_locations_v5.md).
+
+---
+
 Tracking view only — no rulings, no findings, no numbers, no notes. Those live in
 [`STATE_european_locations_v5.md`](STATE_european_locations_v5.md) and in each plan's own §8 progress log.
 Updated by the director after each dispatch audit, never by an executor.

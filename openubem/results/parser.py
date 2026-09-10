@@ -61,6 +61,25 @@ _ELEVATOR_METER = "Elevators:InteriorEquipment:Electricity"
 # .sql on disk (plan F1). Populated from the ABUPS "End Uses" table (F2), not from METER_QUERY.
 _DISTRICT_HEATING_KEY = "WaterSystems:DistrictHeating"
 
+# OPEN-64 T03: all fourteen ABUPS "District Heating" End Uses rows, each mapped to its own
+# pseudo-meter key. "Water Systems" reuses _DISTRICT_HEATING_KEY (OPEN-61, unchanged).
+_DISTRICT_HEATING_ROWS: dict[str, str] = {
+    "Heating": "Heating:DistrictHeating",
+    "Cooling": "Cooling:DistrictHeating",
+    "Interior Lighting": "InteriorLighting:DistrictHeating",
+    "Exterior Lighting": "ExteriorLighting:DistrictHeating",
+    "Interior Equipment": "InteriorEquipment:DistrictHeating",
+    "Exterior Equipment": "ExteriorEquipment:DistrictHeating",
+    "Fans": "Fans:DistrictHeating",
+    "Pumps": "Pumps:DistrictHeating",
+    "Heat Rejection": "HeatRejection:DistrictHeating",
+    "Humidification": "Humidification:DistrictHeating",
+    "Heat Recovery": "HeatRecovery:DistrictHeating",
+    "Water Systems": _DISTRICT_HEATING_KEY,
+    "Refrigeration": "Refrigeration:DistrictHeating",
+    "Generators": "Generators:DistrictHeating",
+}
+
 J_TO_KWH = 1.0 / 3.6e6
 
 # ── §3B zone regex (DESIGN lines 78-81) ──────────────────────────────────────
@@ -136,6 +155,29 @@ def _read_abups_district_heating(conn: sqlite3.Connection) -> float:
     return gj * (1_000_000.0 / 3600.0)
 
 
+def _read_abups_district_heating_rows(conn: sqlite3.Connection) -> dict[str, float]:
+    """OPEN-64 T03: read all fourteen ABUPS District Heating End Uses rows (F2), not only
+    Water Systems (OPEN-61 T01b). Same report/table/column as _read_abups_district_heating;
+    returns {RowName: kWh} for every row in _DISTRICT_HEATING_ROWS. A missing table, missing
+    row, None, or blank string leaves that row at 0.0 — same contract as the single-row reader.
+    """
+    result = {row_name: 0.0 for row_name in _DISTRICT_HEATING_ROWS}
+    rows = conn.execute(
+        "SELECT RowName, Value FROM TabularDataWithStrings "
+        "WHERE ReportName='AnnualBuildingUtilityPerformanceSummary' "
+        "AND TableName='End Uses' AND ColumnName='District Heating'"
+    ).fetchall()
+    for row_name, value in rows:
+        if row_name not in result or value is None or str(value).strip() == "":
+            continue
+        try:
+            gj = float(value)
+        except (TypeError, ValueError):
+            continue
+        result[row_name] = gj * (1_000_000.0 / 3600.0)
+    return result
+
+
 def _parse_meters_sql(sql_path: Path) -> dict[str, float]:
     """Read RunPeriod HVAC end-use meters from SQL; return {meter_name: kWh}.
     Missing meters (e.g. all-electric → no Heating:NaturalGas) return 0.0, not NaN.
@@ -145,12 +187,13 @@ def _parse_meters_sql(sql_path: Path) -> dict[str, float]:
     (every run built before the meter was added to HVAC_METERS). _compute_eui treats that
     0.0 as "meter absent" and performs no de-folding.
 
-    OPEN-61: `_DISTRICT_HEATING_KEY` is not read from METER_QUERY (no such meter exists,
-    F1) — it is read from ABUPS via `_read_abups_district_heating()` on the same open
-    connection. That read is wrapped in its OWN try/except so a corrupt or ABUPS-less
-    .sql falls through to 0.0 for the district-heating key alone, without stopping the
-    nine real meters above from being read — the existing except-clause below still
-    covers the case where the connection itself cannot be opened at all.
+    OPEN-61/OPEN-64: none of the fourteen `_DISTRICT_HEATING_ROWS` pseudo-meter keys is read
+    from METER_QUERY (no such meters exist, F1) — they are read from ABUPS via
+    `_read_abups_district_heating_rows()` on the same open connection. That read is wrapped
+    in its OWN try/except so a corrupt or ABUPS-less .sql falls through to 0.0 for all
+    fourteen district-heating keys, without stopping the real meters above from being read —
+    the existing except-clause below still covers the case where the connection itself cannot
+    be opened at all.
     """
     meters: dict[str, float] = {
         "Cooling:Electricity": 0.0,
@@ -163,7 +206,7 @@ def _parse_meters_sql(sql_path: Path) -> dict[str, float]:
         "InteriorEquipment:NaturalGas": 0.0,
         "Refrigeration:Electricity": 0.0,
         _ELEVATOR_METER: 0.0,
-        _DISTRICT_HEATING_KEY: 0.0,
+        **{pseudo_key: 0.0 for pseudo_key in _DISTRICT_HEATING_ROWS.values()},
     }
     try:
         with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
@@ -172,7 +215,9 @@ def _parse_meters_sql(sql_path: Path) -> dict[str, float]:
                 if name in meters and value_j is not None:
                     meters[name] += float(value_j) * J_TO_KWH
             try:
-                meters[_DISTRICT_HEATING_KEY] = _read_abups_district_heating(conn)
+                dh_rows = _read_abups_district_heating_rows(conn)
+                for row_name, pseudo_key in _DISTRICT_HEATING_ROWS.items():
+                    meters[pseudo_key] = dh_rows.get(row_name, 0.0)
             except Exception:
                 pass
     except Exception:
@@ -573,14 +618,17 @@ def _compute_eui(
     def _m(key: str) -> float:
         return meters.get(key, 0.0)
 
-    cooling_kwh = _m("Cooling:Electricity")
-    heating_kwh = _m("Heating:Electricity") + _m("Heating:NaturalGas")
-    fans_kwh = _m("Fans:Electricity")
-    pumps_kwh = _m("Pumps:Electricity")
+    def _dh(row_name: str) -> float:
+        return _m(_DISTRICT_HEATING_ROWS[row_name])
+
+    cooling_kwh = _m("Cooling:Electricity") + _dh("Cooling")
+    heating_kwh = _m("Heating:Electricity") + _m("Heating:NaturalGas") + _dh("Heating")
+    fans_kwh = _m("Fans:Electricity") + _dh("Fans")
+    pumps_kwh = _m("Pumps:Electricity") + _dh("Pumps")
     dh_kwh = _m(_DISTRICT_HEATING_KEY)  # OPEN-61: ABUPS-read district-heating DHW, folded into dhw_kwh
     dhw_kwh = _m("WaterSystems:NaturalGas") + _m("WaterSystems:Electricity") + dh_kwh
     cooking_kwh = _m("InteriorEquipment:NaturalGas")  # gas cooking; elec cooking lives in equipment
-    refrigeration_kwh = _m("Refrigeration:Electricity")  # CompressorRack; lumped is in equipment
+    refrigeration_kwh = _m("Refrigeration:Electricity") + _dh("Refrigeration")  # CompressorRack; lumped is in equipment
 
     dhw_gas_kwh = _m("WaterSystems:NaturalGas")
     dhw_elec_kwh = _m("WaterSystems:Electricity")
@@ -597,6 +645,34 @@ def _compute_eui(
     eui["dhw_eui_kwh_m2"] = dhw_kwh / floor_area            # combined total for D9 (gas+elec+district)
     eui["cooking_eui_kwh_m2"] = cooking_kwh / floor_area    # gas only (InteriorEquipment:NaturalGas)
     eui["refrigeration_eui_kwh_m2"] = refrigeration_kwh / floor_area
+
+    # T06 (D-C amendment): district-heating provenance for the four mixed columns already
+    # folded above. Each *_district_eui_kwh_m2 SPLITS the matching *_eui_kwh_m2 column — it
+    # does not add to it — so carbon.py can charge the district part at the district factor
+    # and the remainder at the gas/electric factor. total_eui_kwh_m2 is unaffected.
+    eui["cooling_district_eui_kwh_m2"] = _dh("Cooling") / floor_area
+    eui["heating_district_eui_kwh_m2"] = _dh("Heating") / floor_area
+    eui["fans_district_eui_kwh_m2"] = _dh("Fans") / floor_area
+    eui["pumps_district_eui_kwh_m2"] = _dh("Pumps") / floor_area
+    eui["refrigeration_district_eui_kwh_m2"] = _dh("Refrigeration") / floor_area
+
+    # OPEN-64 T03: the two zone-metered end-uses (lighting, equipment already computed
+    # above from hourly zone variables) also each carry an ABUPS District Heating row.
+    eui["lighting_eui_kwh_m2"] += _dh("Interior Lighting") / floor_area
+    eui["equipment_eui_kwh_m2"] += _dh("Interior Equipment") / floor_area
+    # T06 (D-C amendment): provenance for the two columns just folded above (same split
+    # contract as the five columns above).
+    eui["lighting_district_eui_kwh_m2"] = _dh("Interior Lighting") / floor_area
+    eui["equipment_district_eui_kwh_m2"] = _dh("Interior Equipment") / floor_area
+
+    # OPEN-64 T03: the six remaining ABUPS District Heating rows with no pre-existing
+    # matching column each get their own new column, folded into total_eui_kwh_m2 below.
+    eui["exterior_lighting_eui_kwh_m2"] = _dh("Exterior Lighting") / floor_area
+    eui["exterior_equipment_eui_kwh_m2"] = _dh("Exterior Equipment") / floor_area
+    eui["heat_rejection_eui_kwh_m2"] = _dh("Heat Rejection") / floor_area
+    eui["humidification_eui_kwh_m2"] = _dh("Humidification") / floor_area
+    eui["heat_recovery_eui_kwh_m2"] = _dh("Heat Recovery") / floor_area
+    eui["generators_eui_kwh_m2"] = _dh("Generators") / floor_area
 
     # OPEN-46 T05 — GUARDED, ADDITIVE elevator breakout.
     # De-folding is performed ONLY when the meter actually carried elevator energy.
@@ -621,6 +697,12 @@ def _compute_eui(
         + eui["cooking_eui_kwh_m2"]
         + eui["refrigeration_eui_kwh_m2"]
         + eui["elevators_eui_kwh_m2"]
+        + eui["exterior_lighting_eui_kwh_m2"]
+        + eui["exterior_equipment_eui_kwh_m2"]
+        + eui["heat_rejection_eui_kwh_m2"]
+        + eui["humidification_eui_kwh_m2"]
+        + eui["heat_recovery_eui_kwh_m2"]
+        + eui["generators_eui_kwh_m2"]
     )
     return eui, data_quality_flag, None
 

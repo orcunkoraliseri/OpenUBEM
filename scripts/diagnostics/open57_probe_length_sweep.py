@@ -13,7 +13,7 @@ remote side. This makes the outcome a pure parse signal:
   - exit 1, stderr "Unmatched '."  -> the command did NOT parse
 
 Usage: only ever invoked by this repo's own diagnostic tasks (T01-T03 of
-docs/docs_ACTIVE/openings/implemenation/PLAN_open-57-and-58_2026-08-19.md), never on
+docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-57-and-58_2026-08-19.md), never on
 its own from an ad hoc shell — always sequential, always logged.
 """
 from __future__ import annotations

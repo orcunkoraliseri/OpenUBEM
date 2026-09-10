@@ -49,6 +49,7 @@ Zone multipliers are written in exactly one module (`openubem/geometry/layout_as
 IDFs were read directly and every `Multiplier` field is 1. **The adopted 153.8231 kWh/m² pooled over
 8,153 buildings is untouched by this fix** — every zone_multipliers.get() lookup on that corpus
 would return the default of 1.0 even if the map were populated, because there is nothing to look up.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## 4. Test
 

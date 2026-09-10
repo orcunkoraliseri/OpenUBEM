@@ -352,7 +352,7 @@ exists to catch it.
 
 **Result.** Pooled fleet EUI **153.8231 kWh/m²** over **8,153** successful buildings and
 **24,320,582 m²**, against the adopted **157.0552** over **8,154** and **23,545,868 m²** —
-**−3.2321 kWh/m², −2.06 %**. The baseline side was recomputed from `phaseE_elevrb`'s own twelve
+**−3.2321 kWh/m², −2.06 %**. ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. The baseline side was recomputed from `phaseE_elevrb`'s own twelve
 `05_results.csv` by the same code path and reproduces `157.0552` to 4 dp, so the two are comparable.
 Per-cell success/failure counts are in §2 of the measurement doc; failures are **7** in run 4 against
 **6** in the baseline (la_rural 5 and la_urban 1 in both — pre-existing temperature-out-of-bounds
@@ -400,6 +400,7 @@ the draw side at **−3.8872**, confirming the same reading from the other direc
 **The OPEN-56 caveat is stated unhedged, as §5 of this plan required.** `153.8231` is **not**
 volume-correct: OPEN-56 is open and unremedied, 8,160/8,160 buildings still simulate with a 10 m³
 zone-volume stub, measured at **≈ +1.0 kWh/m²** per building on the 69-building twelve-cell control.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 That correction is **not** inside the restated figure. A volume-correct run-4 fleet would be
 **≈ 154.8 kWh/m²** — named in the doc, explicitly not adopted.
 
@@ -416,7 +417,9 @@ had already been passed to an executor and would otherwise propagate.
 ### ✅ CP-2 — SIGNED 2026-08-19 (late), director
 
 **What was reported, per the checkpoint's own terms.** The pooled figure and the delta:
-**`153.8231 kWh/m²` over 8,153 buildings, −3.2321 / −2.06 % against `157.0552`.** The checkpoint says
+**`153.8231 kWh/m²` over 8,153 buildings, −3.2321 / −2.06 % against `157.0552`.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+The checkpoint says
 the executor does not publish it and the director restates it in the register, the checklist and the
 board. **Done, in all four places:**
 

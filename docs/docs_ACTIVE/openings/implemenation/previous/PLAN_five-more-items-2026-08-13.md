@@ -482,6 +482,7 @@ DESIGN/OVERVIEW, and the claim actively misleads). Dispatched as a scoped docstr
 **Artifacts.** `scripts/analysis/open32_layout_assign_net.py`;
 `openubem/outputs/comparisons/open32_layout_assign_net.csv` (8,153 rows, 20 columns);
 `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-32_net-of-open01-open03.md`.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Result.** **At the median the two errors nearly cancel (~12% net), but the cancellation is
 coincidental and does not hold per building:** only **12.6%** of buildings land within ±10% of exact
@@ -504,6 +505,7 @@ denominator leg. This answers OPEN-32's own question and confirms the concern th
    found that `t20_layout_assign_eui.csv` **already carries per-building lighting/equipment/total EUI**,
    and measured the share instead: median **39.9%**, IQR [33%, 44%], n=8,153. **A measured input
    replaced an assumed one** — strictly better, and it kept the vintage ratios as a range
+   ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
    (lighting 1.256–2.502, equipment 1.000–1.267) flagged as a **lower bound**, since 92.9% of the fleet
    is older than the 2013 baseline those ratios were measured against.
 

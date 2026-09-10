@@ -208,6 +208,7 @@ what makes the fallback adoptable or not — and it is worth far more than the 8
   and confirm agreement to 6 significant figures.
 - **C6** — if the pooled meter-only figure lands within 1 % of **153.8231 kWh/m²**, say so plainly
   and say plainly that it is *not* a validation of the census (both read the same simulations).
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ---
 
@@ -425,6 +426,7 @@ codebase where a code year could even be carried.
 - **C20** — the pooled figure over all twelve cells reproduces **153.8231 kWh/m²** over **8,153**
   buildings (the adopted number). If it does not, stop and report the mismatch — that would be a
   bigger finding than OPEN-19.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - **C21** — the archetype-matched comparison names the archetypes it used and the n behind each.
 
 ---
@@ -500,6 +502,7 @@ OPEN-53 to its second question, measured in T02.
 **Artifacts:** `scripts/analysis/open53_meter_only_eui_2026-08-21.py`;
 `openubem/outputs/comparisons/open53_meter_only_eui_2026-08-21.csv` (8,153 rows);
 `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-53_meter-only-eui-cost.md`.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Deviations:** none.
 
@@ -507,10 +510,13 @@ OPEN-53 to its second question, measured in T02.
 agreed to full float precision). C6 — pooled meter-only EUI (151.28 kWh/m²) is **not** within 1 % of
 153.8231 kWh/m² (gap 1.66 %); stated explicitly in the doc that this would not have been a validation
 of the census either way.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Notes:** median `pct_diff` ~0 %, IQR −2.29 % to 0 %; 548/8,153 (6.7 %) exceed ±10 %, concentrated in
 the `OpenUBEMUnknown` archetype (n=650, median +33.9 %) and a scatter of individual buildings, not a
-whole archetype family. Only two meters found fleet-wide (`Electricity:Facility`,
+whole archetype family.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Only two meters found fleet-wide (`Electricity:Facility`,
 `NaturalGas:Facility`) — no district heating/cooling meter present in the auto arm.
 
 #### T06 — OPEN-62: the storey-definition decision table — completed 2026-08-21
@@ -588,7 +594,9 @@ definition, not drawn from any OpenUBEM doc).
 **Test status:** C18 PASS — every criterion is either quoted with file:line or labelled
 `EXECUTOR-PROPOSED`. C19 PASS — qualifying set drawn only from `simulation_status == 'success'`.
 
-**Numbers:** fleet success population 8,153. Per-cell footprint p35 filter alone: 2,855 buildings.
+**Numbers:** fleet success population 8,153.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Per-cell footprint p35 filter alone: 2,855 buildings.
 Cross-checking each cell's climate zone against `02a_climate_epw.parquet` found the register's own
 "coldest cells" proxy (`nyc_rural`/`nyc_centre`) is **not climatically uniform** — `nyc_centre` is
 ASHRAE 4A (same as `nyc_suburban`/`nyc_urban`), only `nyc_rural` is 6A. Under the zone-5+ definition,
@@ -611,7 +619,9 @@ plan actually specifies, which is a different number answering a different quest
 the adopted **153.8231**, 0.0047 % relative, not bit-for-bit; per-cell gaps up to 0.18 kWh/m²
 (`austin_suburban` 159.02 here vs 159.20 in `MEASUREMENT_fleet-restatement-2026-08-19.md`) were found
 against that doc's per-cell table and are reported, not adjusted or root-caused — both sides use the
-identical Σ(EUI×area)/Σ(area) definition over the same on-disk files. Judged not to rise to "a bigger
+identical Σ(EUI×area)/Σ(area) definition over the same on-disk files.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Judged not to rise to "a bigger
 finding than OPEN-19" given the fleet-level closeness, but flagged as an open, unexplained
 discrepancy. C21 PASS — archetype-matched comparison names all 15 shared archetypes and each city's n.
 
@@ -765,6 +775,7 @@ re-derivation returned 153.8304 as well. Two recomputations from the adopted evi
 the adopted number exactly (0.005 %). Immaterial to every conclusion here; **the adopted baseline is
 unchanged at 153.8231 pooled over 8,153**, and the discrepancy is recorded in the register as an open
 loose end rather than resolved by adjustment.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Outcome of the pass: no item closed, no item opened, no published number moved, no ruling taken.**
 Six items now hold a measurement they lacked this morning; three of the pass's findings contradict

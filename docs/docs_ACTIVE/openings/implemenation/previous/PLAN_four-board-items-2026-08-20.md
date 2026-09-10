@@ -598,5 +598,6 @@ counts; `base_completed` and `treat_completed` both True for all 21. **All three
 **The result is accepted and carried into the register, the checklist, the board and the director
 prompt as within-cell medians only.** It does **not** restate `153.8231 kWh/m2`, does **not**
 estimate a population effect, and does **not** decide which fallback is correct.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **This closes the 2026-08-20 four-board-item pass. All four rows (AA7, S03, W9, C05) are done.**

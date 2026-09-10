@@ -11,7 +11,7 @@ state: the two e02_generation_summary__*.json files, the manifest column schema
 across all 60 files, IDF/manifest mtimes per (cell, mode), and the two e02_run*.log
 files. States what this evidence does and does not prove.
 
-Plan: docs/docs_ACTIVE/openings/implemenation/PLAN_e02-audit-and-closure.md, T03.
+Plan: docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md, T03.
 """
 
 import csv

@@ -1,7 +1,7 @@
 """OPEN-42 T01 — per-building, per-mode failure cause for the six manifest-empty rows.
 
 Measurement only. Locates the six `Warehouse` buildings named in the plan
-(`docs/docs_ACTIVE/openings/implemenation/PLAN_two-measurements-2026-08-13.md`, T01) under the
+(`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_two-measurements-2026-08-13.md`, T01) under the
 E02 harvest corpus, checks every mode directory that contains each building stem (not only the
 mode the manifest happened to record), and for every `eplusout.err` that carries a fatal, scans
 BACKWARDS from the fatal line for the nearest preceding `** Severe **` line using the project's

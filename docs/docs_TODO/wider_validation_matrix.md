@@ -36,6 +36,8 @@ including the adopted **153.8231 kWh/m²**, which is a pooled statistic over exa
 Its precision *within* the population is not in question; its reach beyond it is what this document
 bounds. **Retiring the ID does not retire the caveat.**
 
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+
 ## What
 
 Extend OpenUBEM validation beyond the current 12-cell matrix to broader

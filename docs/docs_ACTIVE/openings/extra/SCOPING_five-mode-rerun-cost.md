@@ -53,7 +53,7 @@ costed alternatives.
 | metric | value |
 |---|---|
 | tasks | 8,160 (12 cells × 680) |
-| completed / failed | 8,153 / 7 (0.09% failure rate) |
+| completed / failed | 8,153 / 7 (0.09% failure rate) (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) |
 | total CPU-time | **240.3 CPU-hours** |
 | mean task time | 1.8 min |
 | **max task time** | **119.2 min** — 0.8 min under the sbatch `--time=02:00:00` limit |

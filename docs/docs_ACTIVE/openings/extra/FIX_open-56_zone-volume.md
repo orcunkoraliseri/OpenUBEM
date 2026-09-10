@@ -100,6 +100,7 @@ because the synthetic test footprint has no context shading to trim the floor su
 ## Scope / not done
 
 - No fleet re-run. `153.8231` over 8,153 is untouched, per plan §3 and hard rule §2.8.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - `layout_assign` strategy (baseline-IDF path) is untouched — it returns from `build()`
   before `extrude_geometry`/`extruded_zones` exist, uses its own baseline geometry, and is
   OPEN-60's territory, not OPEN-56's.

@@ -101,6 +101,7 @@ R09 and R06c audits. **All 15 ship.**
     + 14 (other cells, cause not investigated) − 3 (E-LA-40 regressions) = +163`, taking 7,990/8,160
     (97.92%) to 8,153/8,160 (99.914%). **The headline success-rate improvement is overwhelmingly not
     this arc's work.** Say so in the sentence that reports it, not in a following one.
+    ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 14. 🆕 **E-LA-41 — the EUI denominator is wrong by `n_storeys_represented / num_floors` for every
     non-`applied` building.** Registered by AUDIT — R06c; read §3 of that entry and reproduce its
     separation of measured from inferred **exactly**:
@@ -147,6 +148,7 @@ R09 and R06c audits. **All 15 ship.**
 - Fleet headline: **8,153 / 8,160 = 99.914% success, median `total_eui` 122.23 kWh/m²/yr** (T19
   103.75; adopted fleet baseline 158.0). **E-LA-22 still stands** — this delta is reported as a fact,
   not credited to or blamed on R01/R02/R03/R10.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## R07 — reduced, absorbed into R08
 

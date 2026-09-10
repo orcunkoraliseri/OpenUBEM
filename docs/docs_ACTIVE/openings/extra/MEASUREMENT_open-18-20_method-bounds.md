@@ -66,6 +66,7 @@ density/context rings) within each of three represented US climate zones, for th
 building-stock composition present in these three specific metro areas."* Every published fleet
 statistic (F1's `153.8231 kWh/m²`) is a pooled statistic over exactly this population — its precision
 within this population is not in question; its reach beyond it is what OPEN-20 bounds.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ### What it does NOT support
 

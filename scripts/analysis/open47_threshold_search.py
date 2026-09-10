@@ -1,6 +1,6 @@
 """OPEN-47 / T07 — search downloaded documents for the office size-tier thresholds.
 
-Plan: docs/docs_ACTIVE/openings/implemenation/PLAN_three-new-items-2026-08-12.md, T07.
+Plan: docs/docs_ACTIVE/openings/implemenation/previous/PLAN_three-new-items-2026-08-12.md, T07.
 
 Searches plain-text extractions (produced with `pdftotext -layout`, page breaks kept as
 form-feed \\f characters) of documents downloaded to the scratchpad for the strings that would

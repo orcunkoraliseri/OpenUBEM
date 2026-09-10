@@ -158,9 +158,67 @@ Baseline populations (from `<D>_delta_2026-09-07/prepared_buildings.csv`, measur
 **What.** (1) `generate_eu_3d_viewers.py:862-880`: prefer `_merged_2026-09-08`, then `_merged_2026-09-07`, then ceiling82; badges per dependency 9; `build_district` for all four; mirror to `outputs_3D/eu_<D>_viewer.html` + `_data/buildings.csv` + `sources.json` (byte-identical copies). (2) `emit_eu11_layout_sidecars.py --evidence-root <D>=EU-11/<D>_recut_2026-09-08` for **all four** districts (Lyon has never had side-cars) → `<D>_layouts_2026-09-08b/`, installed into `outputs_3D/eu_<D>_data/layouts/` in the shape the viewer of that district already reads (Madrid/London `layouts/relation|way/<id>.json`, Bologna flat `layouts/<id>.json`; Lyon: follow the FR id shape the viewer's loader expects — check `generate_eu_3d_viewers.py` for the FR path before writing).
 **How to test.** Per district, five lines: feature count == merged manifest rows; EUI non-null == `n_with_eui`; badge counts (ruled / best-effort / box / no-IDF) == manifest token counts; side-car files == `population_prepared`, 0 files with `has_unconditioned_core: true`, `circulation_area == 0` everywhere; mirror `fc` byte-identical. **STOP → CP-3.**
 
+### T07b — Viewer resolution chains repointed at the recut (D-EU-113)
+
+**What.** CP-3 measured 12 of 20 lines short. Director ruling D-EU-113: two of the three causes are mis-specified test lines (restated below, no code change); one is a real defect and is authorised here, scoped to exactly two edits in `scripts/generate_eu_3d_viewers.py` and nothing else.
+
+1. **IDF resolution chain** (`:1082-1088`, the `for _tag in ("final_2026-09-07", "delta_2026-09-07")` loop): append `"recut_2026-09-08"` as the last tag so `_recut_2026-09-08/idfs/` wins highest priority, by the loop's own existing later-wins semantics. Do not restructure the loop.
+2. **Layout side-car resolution** (`_load_eu17_sidecar`, `:859-863`): today it reads only `EU17_ROOT/<district>/layouts/<id>.json`, so every EU-11 layout ever emitted is invisible to the viewer. Give it the same priority order as the IDF chain — try `EU11_ROOT/<district>_<tag>/layouts/<id>.json` for `recut_2026-09-08`, then `delta_2026-09-07`, then `final_2026-09-07`, then `ceiling82_2026-09-05`, then fall through to the existing EU-17 path unchanged. Same return shape (`dict | None`). Rename it only if the name becomes wrong; keep every call site working.
+3. Re-run `generate_eu_3d_viewers.py` once (its own four-district loop) and re-mirror all four.
+4. **Not authorised, do not do:** re-emitting or re-scoping side-cars, changing which rows the viewer draws, touching `emit_eu11_layout_sidecars.py`, any cluster access, any new script.
+
+**Why.** The wave restated every district's heating number; the viewer now carries those new numbers on 2026-09-07-and-older geometry classifications, so it ships a new number on an old picture — the one failure mode the finishing rule names. Every `NOCORE_BEST_EFFORT_*` cut exists only in `_recut_2026-09-08/idfs/`, which no chain reached.
+
+**How to test — CP-3b, five lines × four districts.** Lines 1 and 4 as written in T07 were mis-specified by the director and are replaced; report the restated form, "N of M" everywhere.
+
+- **L1 (restated).** Viewer feature count == residential rows in the Step 2 `.gpkg` (1194 / 530 / 1242 / 1220), **and** features − merged-manifest rows == the never-imputed residual (7 / 1 / 2 / 5). Report both halves.
+- **L2.** EUI non-null == `n_with_eui` (1170 / 527 / 1240 / 1205).
+- **L3.** Badge counts both sides: viewer ruled / best-effort / box / no-IDF == merged-manifest token counts. Acceptance: best-effort == 46 / 14 / 17 / 127 (was 0 everywhere) and viewer no-IDF == manifest no-IDF (London must fall from 501 to 2).
+- **L4 (restated).** For every building whose merged-manifest `geometry_outcome` names an emitted dwelling layout, an installed side-car file exists and resolves through the new chain — report "N of M"; plus 0 files with `has_unconditioned_core: true` and 0 with `circulation_area == 0`.
+- **L5.** Mirror byte-identical, 3 of 3 per district.
+
+Any line still short after these two edits: **stop and quote it**, do not widen scope. **STOP → CP-3b.**
+
+### T07c — Side-cars re-emitted over the full recut population (D-EU-114)
+
+**What.** CP-3b left L4 short in 3 of 4 districts and Lyon's L3 short by 2. Director ruling D-EU-114 authorises the re-emission that D-EU-113 refused, because the measurement changed the picture: `<D>_recut_2026-09-08/idfs/` already holds the **whole** stock (1194 / 530 / 1240 / 1220 IDFs), so the only thing that bounded the emitter to 51 / 13 / 539 / 135 files was its id filter, not missing geometry.
+
+1. `scripts/emit_eu11_layout_sidecars.py`: add one additive, optional CLI flag `--population-manifest <D>=<path>` that replaces the source of `simulated_ids` (`:169`) only. Everything else unchanged: IDFs still come from `--evidence-root`'s `dist_dir` (`:181`), output still `dist_dir/layouts`. When the flag is given, **skip the manifest write-back entirely** (`safe_update_manifest_columns`) — the merged manifest is the audited T06b deliverable and must not be rewritten. No other edit to this file.
+2. Run all four districts as four concurrent OS processes (never one after another), each with `--evidence-root <D>=openubem/outputs/eu_evidence/EU-11/<D>_recut_2026-09-08` and `--population-manifest <D>=openubem/outputs/eu_evidence/EU-11/<D>_merged_2026-09-08/<slug>_manifest.csv`.
+3. Refresh `EU-11/<D>_layouts_2026-09-08b/` from the emitted `layouts/`, and install into `outputs_3D/eu_<D>_data/layouts/` in each district's existing shape. This install **overwrites** stale files from earlier waves on purpose — that is the point of the task, and D-EU-114 is the authorisation the "never regenerate a delivered artifact" rule requires.
+4. Re-run `generate_eu_3d_viewers.py` once and re-mirror all four. **No** further edit to `generate_eu_3d_viewers.py`. No cluster access. No new script or doc.
+
+**Why.** Three separate defects share this one cause. (a) 433 buildings across Madrid, Lyon and Bologna declare an emitted dwelling layout in the merged manifest but have no side-car file anywhere, so the viewer shows them without their floor plan. (b) 244 installed side-cars still carry `has_unconditioned_core: true` on the pre-2026-09-08 `ruled_grid_2x1` scheme — a direct violation of the no-core regime this wave established, surviving only because those files were never re-emitted. (c) London's installed set is a mix of two vintages (539 from the recut, 706 from `final_2026-09-07`); the 4J peer's own R10 refuses a mixed-emission population, so the set we are about to announce would be refused as two campaigns.
+
+**How to test — CP-3c, five lines × four districts,** the CP-3b lines with L3 and L4 tightened:
+
+- **L1.** Unchanged from CP-3b: features == stock (1194 / 530 / 1242 / 1220) and gap == never-imputed residual (7 / 1 / 2 / 5).
+- **L2.** Unchanged: EUI non-null == `n_with_eui` (1170 / 527 / 1240 / 1205).
+- **L3.** Best-effort badges == 46 / 14 / 17 / 127 — Lyon must now reach 14 of 14; viewer no-IDF == manifest no-IDF.
+- **L4.** Side-cars resolved for every building whose merged-manifest `geometry_outcome` names an emitted layout — target 1085 of 1085, 489 of 489, 1190 of 1190, 1081 of 1081. Plus **0** files with `has_unconditioned_core: true` (was 72 / 28 / 0 / 144). Report the zero-`circulation_area_m2_total` count as an informational number, not a failure: CP-3b established every such file carries `scheme: "nocore_equal_area"`, a no-separate-corridor layout by design.
+- **L5.** Mirror byte-identical, 3 of 3, plus the per-district installed side-car file count.
+
+Any line still short: **stop and quote it.** **STOP → CP-3c.**
+
+**Amendment to T07c — D-EU-115, added 2026-09-09 mid-task.** The 4J peer census of `outputs_3D/eu_<D>_data/layouts/` at 07:15 found 961 / 297 / 82 / 1204 files, all dated 2026-09-01, zero carrying `scheme: "nocore_equal_area"`. Root cause found director-side, in `generate_eu_3d_viewers.py:1319-1325`: `build_district` **deletes** `<target>/layouts/` (`shutil.rmtree`) and re-copies it wholesale from `EU17_ROOT/<district>/layouts` on every run. Every "install into `outputs_3D/.../layouts/`" step in T07 and T07b was therefore undone by the very next viewer rebuild, and T07c step 4 as written would have undone its own step 3.
+
+A **third edit** to `generate_eu_3d_viewers.py` is authorised, in that block only: build the target by copying `EU17_ROOT/<district>/layouts` first, then overlaying `EU11_ROOT/<district>_<tag>/layouts` for `_tag` in `ceiling82_2026-09-05`, `final_2026-09-07`, `delta_2026-09-07`, `recut_2026-09-08` in that order — newest wins, same priority as `_load_eu17_sidecar`, so the mirrored tree and the viewer's own reads can never disagree again. Keep the `rmtree` of the target before the first copy; report the final file count in the print line. Nothing else in the block changes.
+
+The block's comment cites FINDING 213/215 ("never the EU-11 side-cars — they disagreed with the IDFs"). That reason is spent: `emit_eu11_layout_sidecars.py` now derives every side-car from `read_district(district, dist_dir)` on the same tree it writes into, so a recut side-car agrees with its IDF by construction. Record that supersession in the T07c entry; do not delete the comment, rewrite it to say what is true now.
+
+Order of operations for T07c is therefore: emit → **edit** → run viewer once (which now installs the layouts itself) → measure. Do not hand-install into `outputs_3D/.../layouts/`; the generator owns that folder. Add to CP-3c: **L6** — per district, installed file count and the count carrying `scheme: "nocore_equal_area"`, both "N of M", and 0 files dated before 2026-09-08.
+
+**Second amendment to T07c — D-EU-116, added 2026-09-09 mid-task.** With D-EU-115 in place the mirrored tree measures 1181 / 509 / 1240 / 1216 files, of which **7 (Madrid) and 5 (Bologna) are still dated before 2026-09-08** — the EU-17 base copy leaking through for ids the recut emitted no layout for. Those twelve are core-era payloads for buildings the viewer itself draws as `no_idf` or `massing_box`; they carry a superseded `scheme` and would refuse their whole district under the 4J peer's R5.
+
+**Drop the EU-17 seed copy entirely** in the same block: keep the `rmtree`, delete the `copytree(eu17_layouts_dir, …)` seed and the now-unused `eu17_layouts_dir`, and build the target from the four EU-11 overlays alone. The recut tree covers every building that has an IDF (1194 / 530 / 1240 / 1220 IDFs against a stock of 1194 / 530 / 1242 / 1220), so nothing real is lost and the mirrored tree becomes single-vintage 2026-09-08 — the condition the peer's R10 requires. Expected L6 after this edit: 1174 / 509 / 1240 / 1211 installed, all dated 2026-09-08, 0 older.
+
+
+
 ### T08 — Audit, ledger, references
 
-**What.** (1) The final table in §8: per district and fleet — stock, simulated, divided (ruled / best-effort), boxes (vertex-bug residual / rule residual / density), never simulated (with residual blockers), EUI "N of M" — every number traced to a file. (2) Append the supersession markers: debug doc §2/§8 numbers and `STATE_european_locations_v5.md` §0 (next free `D-EU-113` / `FINDING 268`), §8 ledger entries for `D-EU-111`, `D-EU-112`, `FINDING 267` (T03), the table row statuses for `D-EU-107/108/109` that this wave closes. (3) Register every error met in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`. (4) Nothing else — no message to 4J (director), no README edits, no new docs.
+**What.** (1) The final table in §8: per district and fleet — stock, simulated, divided (ruled / best-effort), boxes (vertex-bug residual / rule residual / density), never simulated (with residual blockers), EUI "N of M" — every number traced to a file. (2) Append the supersession markers: debug doc §2/§8 numbers and `STATE_european_locations_v5.md` §0 (next free `D-EU-118` / `FINDING 270`), §8 ledger entries for `D-EU-111`, `D-EU-112`, `FINDING 267` (T03) **and for `D-EU-113`, `D-EU-114`, `D-EU-115`, `D-EU-116`, `D-EU-117`, `FINDING 268` (retracted, two-sided), `FINDING 269`**, the table row statuses for `D-EU-107/108/109` that this wave closes. `STATE_european_locations_v5.md` §1 still says Bologna was never restated — that sentence is wrong and must carry a supersession marker: Bologna was restated 54.671865 kWh/m² over 1205 of 1215. (3) Register every error met in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`. (4) Record the file count and a `sha256` of the sorted file list of `outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts_pre_D-EU-113_backup_2026-09-08/` (451 files) in the §8 entry, **then delete that folder** — it is an unauthorised artifact inside a tree an external consumer scans, and it holds the superseded 451-filter side-car set (D-EU-117). (5) Nothing else — no message to 4J (director), no README edits, no new docs.
+
+**Numbers to carry into the final table** (T06b, unchanged by T07/T07b/T07c): ES-MAD-BERRUGUETE 81.387738 kWh/m² over 1170 of 1187; FR-LYO-HAUTCOEURPENTES 70.345716 over 527 of 529; GB-LDN-STDUNSTANS 93.729757 over 1240 of 1240; IT-BOL-GALVANI2 54.671865 over 1205 of 1215; fleet 66.295394 over 4142 of 4171. Installed side-car counts: 1174 / 509 / 1240 / 1211, single vintage 2026-09-08.
 
 ---
 
@@ -169,6 +227,8 @@ Baseline populations (from `<D>_delta_2026-09-07/prepared_buildings.csv`, measur
 - **CP-1 — after T03.** Director reads `wallB_defects.csv` histogram, rules T03b (a)/(b)/(c) with the exact value, and signs T01/T02 tests. Executor stops until the ruling is in §8.
 - **CP-2 — after T05.** Six gates × four districts, all "N of M". Director signs, tells 4J, ships to Speed (T06a). Executor stops.
 - **CP-3 — after T07.** Five audit lines × four districts. Director signs; T08 released.
+- **CP-3b — after T07b.** The five restated lines × four districts. Director signs; T08 released.
+- **CP-3c — after T07c.** The five lines again, with L3 and L4 at full target. Director signs; T08 released.
 - **Any test failure, any gate < M of M, any ambiguity in a cited line range** → stop, quote, wait.
 
 ---
@@ -653,3 +713,444 @@ complete — never estimated.
 `IT-BOL-GALVANI2_merged_2026-09-07/` (`it_bol_galvani2_manifest.csv`, `summary.json`), so all four
 districts now have a 2026-09-07 merged tree for T06b's fallback chain to rest on. Job `1312355`
 still had 2 tasks running at submission time; its harvest is still owed.
+
+#### Director note — T06a first-failure classification — 2026-09-08 15:12
+
+**Not a new defect class, and not an ETA.** Nine minutes into the wave, Madrid job `1314028` had
+already returned **8 `FAILED` of 44 dispatched** (indices `_2 _5 _8 _9 _17 _18 _40 _41`), every one
+of them terminating in **2–4 s** with `EnergyPlus Terminated--Fatal Error Detected`. Read the real
+`eplusout.err` rather than inferring: the signature is the `FINDING 210` family verbatim —
+`** Severe ** CheckConvexity: Surface="..." is non-planar` followed by
+`** Severe ** RoofCeiling:Detailed="BLOCK <STEM>_n STOREY k CEILING 0001_j", Vertex size mismatch
+between base surface ... and outside boundary surface: BLOCK <STEM>_m STOREY k+1 FLOOR 0001_i`
+repeated on every interzone ceiling/floor pair (24 severes, 96 warnings on stem
+`8912451f8d1d6584`). `geomeppy`'s `intersect_match` recomputing boundary vertices per surface in
+live floating point, exactly as the root-cause pass of 2026-08-31 established.
+
+**The failures are confined to the best-effort tier.** Measured, not sampled — all eight failed
+stems and their `prepared_buildings.csv` rows:
+
+```
+8912451f8d1d6584  near_duplicate_vertex_tolerated_box  DWELLING_LAYOUT_EMITTED_BEST_EFFORT
+919157f68be36042  near_duplicate_vertex_tolerated_box  DWELLING_LAYOUT_EMITTED_BEST_EFFORT
+f734f8445bc66815  near_duplicate_vertex_tolerated_box  DWELLING_LAYOUT_EMITTED_BEST_EFFORT
+869223a6b12365f5  near_duplicate_vertex_tolerated_box  DWELLING_LAYOUT_EMITTED_BEST_EFFORT
+10875c0a365889df  near_duplicate_vertex_tolerated_box  DWELLING_LAYOUT_EMITTED_BEST_EFFORT
+fc1c83df2d9b8786  NOCORE_BEST_EFFORT_C10               DWELLING_LAYOUT_EMITTED_BEST_EFFORT
+8a85ae6cc2d33dd2  NOCORE_BEST_EFFORT_C11               DWELLING_LAYOUT_EMITTED_BEST_EFFORT
+6bf5a53b01f3f920  NOCORE_BEST_EFFORT_C6_C10            DWELLING_LAYOUT_EMITTED_BEST_EFFORT
+```
+
+Five carry `near_duplicate_vertex_tolerated_box`, the `D-EU-58` branch the owner ruled on
+2026-09-01 (retain the emitted geometry rather than lose the building); three carry a
+`NOCORE_BEST_EFFORT_*` reason, i.e. the `D-EU-111` tier this plan itself introduced. Both are
+buildings that would not exist at all under the pre-recut gate. **No fix is proposed and none is
+authorised** — the disposition is already ruled, and a geometry remedy here would alter accepted
+IDF hashes.
+
+**Why this concentration was predictable, and what it costs.** Every one of the 204 best-effort
+buildings is in a fleet list by construction (they are all new or hash-changed), so the whole tier
+is being simulated in this one wave:
+
+```
+ES-MAD-BERRUGUETE       best-effort 46 of 46 in fleet (fleet 64)
+FR-LYO-HAUTCOEURPENTES  best-effort 14 of 14 in fleet (fleet 33)
+GB-LDN-STDUNSTANS       best-effort 17 of 17 in fleet (fleet 539)
+IT-BOL-GALVANI2         best-effort 127 of 127 in fleet (fleet 139)
+```
+
+The number to publish at T06b is therefore **the best-effort tier's EnergyPlus survival rate**, per
+district, measured at drain — not a single fleet-wide failure percentage, which would blend a tier
+admitted on a best-effort promise with the ordinary population. The 2026-09-08 Bologna precedent
+(job `1311708`) measured that survival at 7 of 15 for the tolerated subset; this wave will give the
+first measurement over the full 204.
+
+**Nothing is being cancelled.** These tasks die in seconds and free their CPU immediately, so they
+cost the wave nothing. The `~10 min silent = dead` rule does not apply to them: they are not
+silent, they wrote a complete `eplusout.err` and exited.
+
+**ETA still unmeasured.** Six Madrid tasks had completed at `15:09` with elapsed `00:01:29`,
+`00:06:16`, `00:07:23`, `00:03:23`, `00:05:06`, `00:07:31`, while 30 were still `RUNNING` past
+`00:08:53` — so a mean over the six finishers would be biased low by exactly the tasks that finish
+first. Measurement deferred until a large enough completed set exists; no estimate is recorded in
+the meantime.
+
+#### Director ruling — Lyon 2026-09-07 stragglers are alive, do not cancel — 2026-09-08 15:12
+
+Job `1312355` (Lyon `_delta_2026-09-07`) still holds 2 of the account's 32 CPUs, which is why the
+Madrid recut array runs 30 wide rather than 32. Both tasks had been `RUNNING` **02:02:29** and
+**02:02:43** at `15:11`. Applied the standing test rather than the elapsed-time impression:
+
+```
+1312355_81  = raw 1313974   AveCPU 02:02:37 / Elapsed 02:02:43  (99.9 %)  MaxRSS 784 MB
+                            newest file eplusout.sql written 15:11:58, 24 s before the check
+1312355_148 = raw 1312355   AveCPU 02:02:14 / Elapsed 02:02:29  (99.8 %)  MaxRSS 2.20 GB
+                            newest file eplusout.eio written 13:09:58, silent 2h 02m
+```
+
+Task `_148` shows the full silent-straggler signature — two hours without a single file write — and
+would have been cancelled on the mtime evidence alone. It is **alive**: its batch step has consumed
+CPU time equal to 99.8 % of its wall clock and holds 2.2 GB resident, i.e. it is deep in an
+EnergyPlus sizing phase on a large multi-zone building, the exact case the `~10 min silent = dead`
+rule carves out. Cancelling it would have thrown away two hours of compute. Neither task is
+touched; the drain watcher stands.
+
+The measurement also confirms the account is fully subscribed at 32 (30 Madrid + 2 Lyon), so there
+is no throttle to raise.
+
+#### Director — inherited tail closed: job `1311708` (Bologna `_delta_2026-09-07`) classified — 2026-09-08 15:25
+
+Job drained **694 COMPLETED / 9 FAILED of 703**. All nine failures read directly from their
+`eplusout.err` "Last severe error" line — measured, not sampled:
+
+```
+idx  stem              signature
+ 89  4f47a3941f7067c9  FINDING 210  RoofCeiling:Detailed vertex size mismatch (S4 floor / S3 ceiling)
+ 96  c1a0da4dcda7a8e2  FINDING 210  vertex size mismatch (S4 floor / S3 ceiling)
+139  19aed30fa5b6afa7  FINDING 210  vertex size mismatch (S4 floor / S3 ceiling)
+181  acb6af4c0a661cee  D-EU-43      GetSurfaceData: Zero or negative surface area[5.77027E-009]
+343  56360df35f445afa  FINDING 210  vertex size mismatch (S3 ceiling / S4 floor, cross-block)
+352  9845d84fa4365361  FINDING 210  vertex size mismatch (S5 floor / S4 ceiling)
+378  908ebf96c2b75929  FINDING 210  vertex size mismatch (S1 floor / S0 ceiling)
+386  f04a1a2ece7f9ca6  FINDING 210  vertex size mismatch (S1 floor / S0 ceiling)
+596  981bcdac6a8ba683  FINDING 210  vertex size mismatch (S4 floor / S3 ceiling)
+```
+
+Eight of nine are `FINDING 210`; one is `D-EU-43`, which the root-cause pass of 2026-08-31
+established is the same defect resolved by a different EnergyPlus check. **No new signature** — no
+`FINDING 253` construction-mirror, no `CalcCoordinateTransformation` class.
+
+**Specificity is exact, and now final.** All nine carry `fallback_reason =
+near_duplicate_vertex_tolerated_box` (the `D-EU-58` branch); 19 of the 703 fleet entries carry that
+reason. So over the fully drained job:
+
+```
+tolerated set (D-EU-58):      10 COMPLETED of 19   (52.6 % survive EnergyPlus)
+everything else:             684 COMPLETED of 684  (100 %)
+failures outside the set:      0
+```
+
+This **supersedes the mid-drain 7 of 15 figure** recorded in `OpenUBEM_debug_References.md` under
+`FINDING 210`, which was measured while 4 tolerated tasks had not yet run, and it supersedes the
+"463 finished tasks" scope in that same sentence. T08 must correct that entry to `10 of 19 over
+703 finished tasks` and add task `_596` / stem `981bcdac6a8ba683` to the enumerated list, which
+currently names only 8 stems.
+
+**Disposition unchanged.** The toleration is the owner's 2026-09-01 `D-EU-58` ruling: retain
+emitted geometry rather than lose the building. These 9 stay as they are; they are published under
+`FINDING 265` as `eui_source = pending_resimulation` with blank result columns, never carried with
+an EUI from a different IDF. No remedy proposed, none authorised.
+
+**Cross-check against the live recut wave.** The first 8 Madrid recut failures (15:12 entry above)
+land in the same place — every one of them best-effort geometry, 5 of the 8 under this identical
+`near_duplicate_vertex_tolerated_box` reason. Two independent campaigns now agree that this class,
+and only this class, is what fails.
+
+#### Director — session closed, watch handed over — 2026-09-08 15:28
+
+The owner ruled at 15:20 that the monitoring passes to a cheaper session and that this one closes
+(*"that is great. you can update this prompt ... and we can close this session"*). Everything not
+blocked on the running arrays is finished: CP-1, T04, T05, T05b, CP-2, T06a, and the inherited
+Bologna tail (15:25 entry above). `prompts/IMP_PROMPT.md` was updated in the same pass — §3 now
+says steps 1 to 5 are done and the next session starts at step 6, §4.1 records the Bologna tail as
+CLOSED with the `FINDING 210` survival correction T08 must carry, §4.2 carries the four live job
+ids and the three standing do-nots (do not raise a throttle, do not cancel the two live Lyon
+stragglers, do not treat the best-effort failures as a defect), and §8 carries the handover entry.
+
+Every background watcher of this session dies with it; the next session re-establishes the watch
+from `squeue -u o_iseri` and `sacct` on `1314028` / `1314065` / `1314066` / `1314067`. No ETA is
+recorded, because none was measurable yet.
+
+#### Director — arc reopened, `T06a` closed at full drain, `T06b` authorized — 2026-09-09
+
+The owner closed the arc on 2026-09-09 and reversed within the same exchange, on being told the recut
+results had never been collected: *"why to leave them if the bologna results are currently old, lets
+update"*. `T06b`, `T07` and `T08` are back in force; nothing else reopens.
+
+**`T06a` is closed. Measured, not assumed** (`sacct -j 1314028,1314065,1314066,1314067 -n -X -o State`
+2026-09-08 ~23:xx, re-checked on Speed 2026-09-09):
+
+| Job | District | Tasks | COMPLETED | FAILED | remote `out/` present 2026-09-09 |
+|---|---|---:|---:|---:|---:|
+| `1314028` | ES-MAD-BERRUGUETE | 64 | 56 | 8 | 64 |
+| `1314065` | FR-LYO-HAUTCOEURPENTES | 33 | 32 | 1 | 33 |
+| `1314066` | GB-LDN-STDUNSTANS | 539 | 539 | 0 | 539 |
+| `1314067` | IT-BOL-GALVANI2 | 139 | 138 | 1 | 139 |
+| | **fleet** | **775** | **765** | **10** | **775** |
+
+`squeue -u o_iseri` is empty. The 10 failures are the pre-existing best-effort/tolerated-box signature
+already classified in the 2026-09-08 15:12 entry — no new signature, no remedy authorized.
+
+**Ruling 1 — hard rule 2 is relaxed for `T06b`, in one direction only.** The executor **may** run
+`scripts/cluster/harvest_eu11_district.py` and `scripts/cluster/harvest_eu11_merged.py`, which fetch
+`out/` over `ssh`/`scp`. That is a read-only pull. Still forbidden, without exception: `sbatch`,
+`srun`, `scancel`, `scontrol`, and any command that writes to `/speed-scratch`. This resolves the
+conflict between hard rule 2 and `T06b`'s own instruction; the executor does not stop on it.
+
+**Ruling 2 — the four recut job ids are pinned** and must be added to `TAGGED_DISTRICT_JOBS`
+(`harvest_eu11_district.py:57-66`) keyed `(district, "recut_2026-09-08")` with the ids in the table
+above, so `run_seconds` comes from the right array.
+
+**Ruling 3 — the merge joins on `idf_sha256`, not on `building_id` alone.** The 2026-09-07 chain
+(`harvest_eu11_merged.py:104-111`) carries an older result forward on a `building_id` match only; over
+a re-emission that would attach an EUI to a building whose IDF has changed. For `_merged_2026-09-08`
+the priority chain is `recut_2026-09-08` → `delta_2026-09-07` → `final_2026-09-07` → `ceiling82_carry`,
+and **every non-recut source additionally requires `idf_sha256` equal to the `_recut_2026-09-08`
+hash**; when it is not equal the row is `pending_resimulation` with blank result columns. This is the
+plan's own `T06b` test ("no building has an EUI from an IDF whose hash is not the one in
+`_recut_2026-09-08`") made explicit.
+
+**Ruling 4 — the population base is `_recut_2026-09-08/prepared_buildings.csv`**, not the `final`
+tree: Madrid 1,187 · Lyon 529 · London 1,240 · Bologna 1,215 = **4,171 of the 4,186 stock**. Every
+restated EUI is quoted "N of M" against that denominator, and the progress-log entry names both the
+new value and the 2026-09-07 value it supersedes (London 120.064327 / 706 of 706 · Lyon 69.595307 /
+505 of 509 · Madrid 80.694006 / 1,166 of 1,175 · Bologna 54.502146 / 1,202 of 1,211).
+
+**Ruling 5 — no fix is authorized for `FINDING 268` or `FINDING 263` inside `T06b`/`T07`/`T08`.** Both
+stay open; the peer session is told by the director, never by the executor.
+
+**Note for `T08`:** the first closure block written into `STATE_european_locations_v5.md` on 2026-09-09
+asserted Bologna had never been restated. It had — 54.502146 over 1,202 of 1,211, 2026-09-08 14:55. The
+head block already carries the correction; §1 of that document still carries the stale sentence and is
+`T08`'s to repair.
+
+#### T06b — Merge the recut harvest into `_merged_2026-09-08`, all four districts — completed 2026-09-09
+
+**Artifacts.** `scripts/cluster/harvest_eu11_district.py`: `TAGGED_DISTRICT_JOBS` (`:57-66`) gains `("ES-MAD-BERRUGUETE","recut_2026-09-08"): 1314028`, `("FR-LYO-HAUTCOEURPENTES","recut_2026-09-08"): 1314065`, `("GB-LDN-STDUNSTANS","recut_2026-09-08"): 1314066`, `("IT-BOL-GALVANI2","recut_2026-09-08"): 1314067` (Ruling 2). `scripts/cluster/harvest_eu11_merged.py`: `RECUT_TAG = "recut_2026-09-08"` added to the tag constants; `build_merged_manifest` takes `merged_tag` (default `"2026-09-07"`, unchanged behaviour when default) and, when `merged_tag == "2026-09-08"`, sets `require_recut=True` — population base becomes `<D>_recut_2026-09-08/prepared_buildings.csv`, the priority chain becomes `recut_2026-09-08 → delta_2026-09-07 → final_2026-09-07 → ceiling82_carry`, and every non-recut source is additionally gated on `idf_sha256` equality against the recut prepared row (Rulings 3/4; recut rows match by construction, no extra check needed); a row matching nothing is `pending_resimulation` with every `RESULT_COLUMNS` entry `pd.NA`. `build_summary`'s `pooled_eui_population` string now lists whatever tags are actually in `counts` instead of a hardcoded `{final, delta, ceiling82_carry}`. `main()` gains `--merged-tag` (default `2026-09-07`). Ran `harvest_eu11_district.py --district <D> --tag recut_2026-09-08` for all four districts concurrently (Ruling 1, read-only ssh/scp pull, no `sbatch`/`srun`/`scancel`/`scontrol`, nothing written to `/speed-scratch`), then `harvest_eu11_merged.py --district <D> --merged-tag 2026-09-08` for all four concurrently, producing `<D>_merged_2026-09-08/<slug>_manifest.csv` + `summary.json` under `openubem/outputs/eu_evidence/EU-11/`.
+
+**Restated district EUIs** (population base `_recut_2026-09-08/prepared_buildings.csv`, Ruling 4), each with the 2026-09-07 value it supersedes:
+
+| District | 2026-09-08 EUI | population | 2026-09-07 EUI (superseded) | population |
+|---|---:|---:|---:|---:|
+| Madrid | 81.387738 kWh/m² | 1,170 of 1,187 | 80.694006 kWh/m² | 1,166 of 1,175 |
+| Lyon | 70.345716 kWh/m² | 527 of 529 | 69.595307 kWh/m² | 505 of 509 |
+| London | 93.729757 kWh/m² | 1,240 of 1,240 | 120.064327 kWh/m² | 706 of 706 |
+| Bologna | 54.671865 kWh/m² | 1,205 of 1,215 | 54.502146 kWh/m² | 1,202 of 1,211 |
+| **Fleet (pooled)** | **66.295394 kWh/m²** | **4,142 of 4,171** | — (no prior fleet-level merged figure at this population base) | — |
+
+London's population base rose from 706 to 1,240 because `_recut_2026-09-08/prepared_buildings.csv` is the T05 full re-emission (every prepared building, not only the 706 that had reached a `_merged_2026-09-07` tree); its EUI drop (120.06 → 93.73) reflects that wider, more representative population, not a modelling change to the 706 already known.
+
+**`eui_source` histogram per district:**
+- Madrid (1,187 rows): `recut_2026-09-08` 56, `delta_2026-09-07` 630, `final_2026-09-07` 269, `ceiling82_carry` 215, `pending_resimulation` 17.
+- Lyon (529 rows): `recut_2026-09-08` 32, `delta_2026-09-07` 157, `final_2026-09-07` 89, `ceiling82_carry` 249, `pending_resimulation` 2.
+- London (1,240 rows): `recut_2026-09-08` 539, `delta_2026-09-07` 37, `final_2026-09-07` 299, `ceiling82_carry` 365, `pending_resimulation` 0.
+- Bologna (1,215 rows): `recut_2026-09-08` 138, `delta_2026-09-07` 626, `final_2026-09-07` 234, `ceiling82_carry` 207, `pending_resimulation` 10.
+
+**Test status — T06b's own four checks, run per district (scratch checker, not committed — reads `<D>_merged_2026-09-08` against `<D>_recut_2026-09-08`):**
+- Manifest rows == `population_prepared`: Madrid 1,187 of 1,187 PASS · Lyon 529 of 529 PASS · London 1,240 of 1,240 PASS · Bologna 1,215 of 1,215 PASS.
+- `eui_source == recut_2026-09-08` row count == rc-zero recut tasks: Madrid 56 of 56 PASS · Lyon 32 of 32 PASS · London 539 of 539 PASS · Bologna 138 of 138 PASS (matches the T06a drain table's COMPLETED counts exactly).
+- Zero rows whose EUI comes from an `idf_sha256` differing from the `_recut_2026-09-08` hash: Madrid 0 of 1,187 PASS · Lyon 0 of 529 PASS · London 0 of 1,240 PASS · Bologna 0 of 1,215 PASS.
+- Pending rows have blank result columns: Madrid 17 of 17 PASS · Lyon 2 of 2 PASS · London 0 of 0 PASS (vacuously true, no pending rows) · Bologna 10 of 10 PASS.
+
+**Disclosures carried forward.** Lyon's `summary.json` (`counts_by_eui_source`, `disclosures`) still carries the one pre-existing disclosure: stem `cee45cbc2718154c` was rebuilt from 29 dwelling zones to 8 `one_zone_per_floor` zones with the courtyard filled, so its floor area and EUI denominator differ from every earlier manifest — unchanged by this task, `harvest_eu11_merged.py`'s `DISCLOSURES` dict was not edited.
+
+**Deviations.** None from the plan or the director's rulings. Ruling 5 respected: no fix attempted for `FINDING 268`/`FINDING 263`; both remain open and unmentioned to any peer session by this executor.
+
+**Notes.** No error was hit; nothing added to `OpenUBEM_debug_References.md`. A stale memory pointer read at the start of this session's execution window asserted the EU arc was closed and T06b never started; the plan doc's own last `§8` entry (job ids, task counts, and rulings) was verified against live on-disk artifacts (recut folders, `fleet.lst`/`prepared_buildings.csv` row counts, `sacct` drain table) before proceeding, and matched exactly — the pointer had not been resynced to the reopening. Flagged for the director to reconcile the pointer; not acted on further here (out of `T06b` scope). `T07` and `T08` are not started.
+
+#### T07 — Viewers, side-cars, mirror — completed (measured, CP-3 flags an unresolved gap) 2026-09-09
+
+**Artifacts.** `scripts/generate_eu_3d_viewers.py`, `_load_eu11_eui` (`:866-887`): now tries `_merged_2026-09-08` first, falls back to `_merged_2026-09-07`, then `_ceiling82_2026-09-05` — the only code edit made in this file, exactly the line range and behaviour the file-layout table names for T07 ("repoint at `_merged_2026-09-08`"). `python scripts/generate_eu_3d_viewers.py` run once (calls `build_district` for all four districts serially inside one process, its own existing loop — not a T07 decision) → wrote and mirrored all four `eu_<D>_viewer.html` + `_data/{buildings.csv,index.html,sources.json,layouts/}` (`openubem/outputs/3D/` → `docs/docs_ACTIVE/europeanLocations/outputs_3D/`, `build_district`'s own `shutil.copy2`/`copytree`, unedited). Side-cars: `scripts/emit_eu11_layout_sidecars.py --district <D> --evidence-root <D>=<repo>/openubem/outputs/eu_evidence/EU-11/<D>_recut_2026-09-08` run as four concurrent OS processes (launched together, `wait`ed together — not a loop), writing into `<D>_recut_2026-09-08/layouts/` (the script's own hardcoded `dist_dir/layouts` target; there is no separate output-root flag) and safely updating `<D>_recut_2026-09-08/<slug>_manifest.csv`'s `geometry_outcome`/`layout_json` columns in place (`safe_update_manifest_columns`, pre-existing, additive/asserted-safe — same mechanism the 2026-09-07 plan's T03n used). Each district's fresh `layouts/` was then copied to a new `EU-11/<D>_layouts_2026-09-08b/` folder (the name the file-layout table gives this artifact) and from there installed (overlaid, not replacing) into `docs_ACTIVE/.../outputs_3D/eu_<D>_data/layouts/`, preserving the exact per-district shape already on disk (`way/`/`relation/` subfolders for ES/GB, flat for FR/IT — confirmed this is not special-cased anywhere in `generate_eu_3d_viewers.py`; it falls out of the building_id itself containing a `/` for ES/GB and not for FR/IT, verified before writing).
+
+**CP-3 — five lines × four districts, measured:**
+
+| District | 1. feature count vs merged rows | 2. EUI non-null vs `n_with_eui` | 3. badges: viewer (ruled/best-eff/box/no-idf) vs manifest-token (ruled/best-eff/box) | 4. side-car files vs `population_prepared` (+ core/circ check) | 5. mirror byte-identical |
+|---|---|---|---|---|---|
+| ES-MAD-BERRUGUETE | 1194 vs 1187 — **7 over** | 1170 of 1170 **PASS** | viewer 1038/**0**/143/13 vs manifest 1039/**46**/102 — **best-effort badge count 0 of 46** | 51 of 1187 — **far short**; 0 of 0 bad `has_unconditioned_core`+zero-circulation files **PASS** | 3 of 3 **PASS** |
+| FR-LYO-HAUTCOEURPENTES | 530 vs 529 — **1 over** | 527 of 527 **PASS** | viewer 459/**0**/51/20 vs manifest 475/**14**/40 — **best-effort badge count 0 of 14** | 13 of 529 — **far short**; 0 of 0 bad **PASS** | 3 of 3 **PASS** |
+| GB-LDN-STDUNSTANS | 1242 vs 1240 — **2 over** | 1240 of 1240 **PASS** | viewer 692/**0**/49/501 vs manifest 1173/**17**/50 — **best-effort 0 of 17; viewer no-IDF 501 vs manifest no-IDF 2** | 539 of 1240 — **short**; 0 of 0 bad **PASS** | 3 of 3 **PASS** |
+| IT-BOL-GALVANI2 | 1220 vs 1215 — **5 over** | 1205 of 1205 **PASS** | viewer 956/**0**/260/4 vs manifest 954/**127**/134 — **best-effort badge count 0 of 127** | 135 of 1215 — **far short**; 0 of 0 bad **PASS** | 3 of 3 **PASS** |
+
+Lines 2 and 5 pass clean, all four districts (8 of 20 lines). Lines 1, 3, 4 fall short in all four districts (12 of 20), for two distinct, root-caused, un-fixed reasons — neither touched, per rule 5/hard-rule-2 ("never propose alternatives; on ambiguity STOP and quote"):
+
+1. **Line 1 (feature count).** The viewer draws every residential row in the Step 2 `.gpkg` (`build_district`'s existing, unedited loop over `combined_gdf`) — the "stock" fact 10 defines (1194/530/1242/1220) — not the recut's `prepared_buildings.csv`/merged-manifest population (1187/529/1240/1215). The gap (7/1/2/5) is exactly the "not imputed, ever" residual (`IDF_ASSEMBLY_FAILED_*` etc., dependency 4) that never entered `prepared_buildings.csv` at all; those buildings are drawn as `no_idf`. No line citation in the T07 file-layout row names this loop for editing.
+
+2. **Line 3 (badges), root cause found and measured.** `build_district`'s IDF-resolution chain (`:1070-1085`, unedited) searches `EU17_ROOT`, then the EU-11 `ceiling82`/`final_2026-09-07`/`delta_2026-09-07` trees — **`_recut_2026-09-08` is not in that chain**, and neither is `_load_eu17_sidecar` (`:859-863`, unedited) pointed at `_recut_2026-09-08/layouts` or the newly installed `_layouts_2026-09-08b`. Every `NOCORE_BEST_EFFORT_*` geometry (D-EU-111, T02) exists **only** in `_recut_2026-09-08/idfs/` — it is brand-new 2026-09-08 code, no earlier tree can contain it. Verified directly: Madrid's first three `DWELLING_LAYOUT_EMITTED_BEST_EFFORT` ids from the merged manifest (`relation/12628571`, `relation/12702626`, `relation/12707195`) render in the just-built viewer as `ls: "massing_box"`, `reason: "INTERIOR_RING_COURTYARD_UNFOLD_FAILED"` — a **stale** classification and reason from whichever older tree the chain found first, not the recut's best-effort cut. Measured aggregate effect: the viewer shows **0** best-effort badges in every district against 46/14/17/127 in the manifest, and London's `no_idf` count is inflated to 501 (vs. manifest 2) because most of its 536 newly-imputed, never-before-simulated buildings have an IDF only in `_recut_2026-09-08`. **The T07 file-layout row and "What" §6 text name only the EUI-preference edit (`:862-880`, done) for this file — nothing names editing the IDF/sidecar resolution chain**, so it was left untouched rather than invented. This is the ambiguity/gap being reported, not silently patched.
+
+3. **Line 4 (side-car coverage).** Per the dispatch instruction's own context ("side-car source evidence root is `_recut_2026-09-08`, not the merged tree, per T07's own wording"), `emit_eu11_layout_sidecars.py` was pointed at `_recut_2026-09-08`. That evidence root's own `<slug>_manifest.csv` is scoped to the recut's Speed-simulated delta (64/33/539/139 rows — exactly the T06a fleet task counts), not the full recut population (1187/529/1240/1215); the emit script hard-codes reading `dist_dir/<slug>_manifest.csv` as its `simulated_ids` filter (no CLI override exists), so side-car output is bounded by that delta scope: 51/13/539/135 files written (GB's 539 happens to equal 100 % of its own delta scope — London's recut delta *is* almost the whole GB population this wave). The `has_unconditioned_core`/zero-circulation integrity sub-check is clean (0 of 0 bad) in every district, for every file that *was* written.
+
+**Test status.** No pytest suite exists for T07 (none named by the plan); the five checks above are the plan's own "How to test" lines, run as one-off measurements against the on-disk artifacts (`python -c` snippets, not saved as scripts). No traceback in any of the four `emit_eu11_layout_sidecars.py` runs or in `generate_eu_3d_viewers.py`'s run — only the same benign shapely `RuntimeWarning: invalid value/divide by zero in buffer` lines already registered from prior tasks.
+
+**Deviations.** None from the plan's literal "What" — every edit made is the one named line range. The three gaps above are reported, not fixed: extending the IDF/sidecar resolution chain to include `_recut_2026-09-08`, redefining which residential rows the viewer draws, and re-scoping the side-car emitter's population would each be a code change with no line citation in T07's own file-layout row — exactly the kind of unplanned decision rule 2/CP-1's precedent reserves for a director ruling, not an executor's own judgment call.
+
+**Notes.** No error was hit; nothing added to `OpenUBEM_debug_References.md`. `scripts/emit_eu11_layout_sidecars.py` carried a pre-existing uncommitted hunk at session start (GB `_gb_impute_rows` import and call, `:37`, `:200-201`) that this session did not author and did not touch — present before this task's first edit, consistent with `_gb_impute_rows` being T04 work; flagged here per the T05 entry's own precedent for disclosing concurrent/pre-existing working-tree state, not acted on.
+
+**CP-3 — STOP.** Five lines × four districts above, honestly measured, not all green: 8 of 20 pass clean (EUI non-null, mirror byte-identical, all four districts each), 12 of 20 fall short for the three root-caused, unfixed reasons above. Director to rule on whether to authorize extending `generate_eu_3d_viewers.py`'s IDF/sidecar resolution chain to `_recut_2026-09-08` (needed for lines 1/3) and/or re-scope the side-car emitter's population (line 4), the way CP-1 ruled on T03b. `T08` not started.
+
+#### CP-3 — director ruling, D-EU-113 — 2026-09-09
+
+**Signed as measured, not signed as passing.** The T07 entry's 20 lines are accepted as an honest measurement; the executor was right to stop rather than invent the fix. Director re-verified the three diagnoses independently before ruling: `_load_eu17_sidecar` (`generate_eu_3d_viewers.py:859-863`) reads only `EU17_ROOT/<district>/layouts/`; the IDF chain (`:1075-1088`) ends at `delta_2026-09-07`; `emit_eu11_layout_sidecars.py:169` derives `simulated_ids` from `dist_dir/<slug>_manifest.csv` with no CLI override. All three confirmed.
+
+**Ruling.**
+
+- **Line 1 — director error, no defect.** The check compared the viewer's stock population against the recut's prepared population. The viewer is correct to draw every residential row and mark the never-imputed residual `no_idf`. Restated in T07b L1. No code change.
+- **Line 4 — director error, wrong denominator.** T07's own text pointed the emitter at `_recut_2026-09-08`, whose manifest is the Speed delta (64/33/539/139), so "side-car files == `population_prepared`" could never hold. The installed `layouts/` folder is the accumulated union of every wave (972 / 299 / 581 / 1204 files on disk). Restated in T07b L4 against the buildings that actually declare an emitted layout. No re-emission authorised.
+- **Line 3 — real defect, fix authorised.** T07b items 1 and 2, and nothing else.
+
+**Scope discipline.** T07b is two edits in one file. Re-emitting side-cars for the full recut population would need a second code change to `emit_eu11_layout_sidecars.py` (single `dist_dir` for both manifest and IDFs) and would regenerate artifacts already delivered to the 4J peer; it is refused unless CP-3b's L4 comes back short.
+
+**T08 stays blocked** until CP-3b is signed. The T07 announcement owed to 4J is a director action and waits on CP-3b so the file counts and hashes quoted to them are final.
+
+#### T07b — Viewer resolution chains repointed at the recut — completed 2026-09-09
+
+**Artifacts.** `scripts/generate_eu_3d_viewers.py`, exactly the two edits D-EU-113 authorised, nothing else touched:
+1. `_load_eu17_sidecar` (`:859-865`): now tries `EU11_ROOT/<district>_<tag>/layouts/<id>.json` for `_tag` in `("recut_2026-09-08", "delta_2026-09-07", "final_2026-09-07", "ceiling82_2026-09-05")` in that order, then falls through to the pre-existing `EU17_ROOT` path unchanged. Same `dict | None` return shape; both call sites (`:1160`, `:1166`) untouched.
+2. The IDF-resolution loop in `build_district` (`:1083`): `for _tag in ("final_2026-09-07", "delta_2026-09-07", "recut_2026-09-08")` — one tag appended, loop body and later-wins semantics unchanged.
+
+`python scripts/generate_eu_3d_viewers.py` run once (its own four-district loop) → rewrote and re-mirrored all four `eu_<D>_viewer.html` + `_data/{buildings.csv,sources.json,layouts/}` from `openubem/outputs/3D/` to `docs_ACTIVE/europeanLocations/outputs_3D/` (script's own `shutil.copy2`/`copytree`, unedited). No side-car re-emission, no `emit_eu11_layout_sidecars.py` change, no cluster access, no new script — confirmed by `git diff --stat`: one file changed.
+
+**CP-3b — five lines × four districts, measured** (against the merged-2026-09-08 manifests and the just-rebuilt viewer HTML's embedded scene JSON):
+
+| District | L1 feature=stock, gap=residual | L2 EUI non-null of `n_with_eui` | L3 best-effort of target; viewer no-IDF of target | L4 resolved of "declares emitted layout"; bad-core; zero-circulation | L5 mirror |
+|---|---|---|---|---|---|
+| ES-MAD-BERRUGUETE | 1194 of 1194; 7 of 7 | 1170 of 1170 | 46 of 46; 0 (target only named for London) | 883 of 1085; 72 bad-core; 811 zero-circ | 3 of 3 |
+| FR-LYO-HAUTCOEURPENTES | 530 of 530; 1 of 1 | 527 of 527 | 12 of 14 — **short 2** (both ids have no side-car in any tree, `BATIMENT0000000240880398_part0`, `BATIMENT0000000240881317_part0`); 0 | 271 of 489; 28 bad-core; 243 zero-circ | 3 of 3 |
+| GB-LDN-STDUNSTANS | 1242 of 1242; 2 of 2 | 1240 of 1240 | 17 of 17; **2 of 2 — target met, fell from 501** | 1190 of 1190 — full resolution; 0 bad-core; 1190 zero-circ | 3 of 3 |
+| IT-BOL-GALVANI2 | 1220 of 1220; 5 of 5 | 1205 of 1205 | 127 of 127; 0 | 1068 of 1081; 144 bad-core; 924 zero-circ | 3 of 3 |
+
+Both named acceptance signals from the dispatch hold: best-effort badge counts became 46/12/17/127 against the 46/14/17/127 target (3 of 4 districts exact, Lyon short by 2 — a side-car-coverage gap, not a resolution-chain defect: neither id has a side-car file anywhere in the chain, root cause is the same delta-scoping the director already named for L4, out of T07b's authorised scope); London's viewer no-IDF count fell from 501 to 2 exactly. L1, L2, L5 pass clean in all four districts (20 of 20 sub-lines). L4 stays short in 3 of 4 districts (883/1085, 271/489, 1068/1081) — expected: the director's ruling only authorised widening the resolution chain, not re-emitting side-cars, and this is exactly the L4 shortfall the ruling's "scope discipline" paragraph anticipated. The zero-circulation count is non-zero in all four districts (811/243/1190/924); checked directly against each file's `scheme` field: every zero-circulation file carries `scheme: "nocore_equal_area"` (100% correlation, verified on the full London population and the Madrid delta-tier subset) — a no-separate-corridor layout by design, not a malformed one; reported as measured, not reclassified, since redefining what counts as a defect is outside T07b's two authorised edits. `has_unconditioned_core: true` is non-zero in 3 of 4 districts (72/28/0/144), all on the pre-2026-09-08 `ruled_grid_2x1` scheme, reported as measured.
+
+**Test status.** No pytest suite exists for T07b (none named by the plan, same as T07). The five CP-3b lines were measured as one-off `python -c`/script snippets against the on-disk artifacts (not saved as a committed script). `python scripts/generate_eu_3d_viewers.py` ran clean for all four districts, no traceback, only the same pre-registered benign shapely `RuntimeWarning` lines.
+
+**Deviations.** None from D-EU-113's two-edit authorisation. The plan's L4 wording ("`circulation_area == 0`") does not match the actual JSON field name (`circulation_area_m2_total`); read as the same field T07's own CP-3 measurement used (no other circulation field exists in the side-car schema) — flagged here, not treated as an ambiguity requiring a stop, since it is a pre-existing test-wording detail unaffected by either of T07b's two edits.
+
+**Notes.** No error was hit; nothing added to `OpenUBEM_debug_References.md`.
+
+**CP-3b — STOP.** L3 (Lyon, 2 ids) and L4 (3 of 4 districts) still short after the two authorised edits, exactly as anticipated by the director's own scope-discipline paragraph. Per rule ("stop and quote it, do not widen scope"), no further code change made. Director to rule on CP-3b: sign as measured, and decide whether L4's shortfall now justifies authorising the side-car re-emission that was previously refused. `T08` not started.
+
+#### CP-3b — director ruling, D-EU-114 — 2026-09-09
+
+**Signed as measured.** Both authorised edits verified director-side against the file: `_load_eu17_sidecar` (`generate_eu_3d_viewers.py:859-865`) now walks the four EU-11 trees before EU-17, and the IDF loop (`:1083`) carries `recut_2026-09-08` as its last, highest-priority tag. `git diff --stat` shows one file changed. L1, L2, L5 pass clean in all four districts; L3 hits target in 3 of 4; London's `no_idf` fell 501 → 2 exactly as predicted. The executor was right to stop at L4 rather than widen scope.
+
+**Ruling — the earlier refusal is reversed, and here is why.** D-EU-113 refused re-emission on the assumption it would need a second code change and would regenerate delivered artifacts. A direct inventory of the evidence trees changes both premises:
+
+| District | ceiling82 | final_2026-09-07 | delta_2026-09-07 | recut_2026-09-08 |
+|---|---|---|---|---|
+| ES-MAD-BERRUGUETE | 0 layouts / 1181 idfs | 0 / 1181 | 0 / 671 | 51 / **1194** |
+| FR-LYO-HAUTCOEURPENTES | 0 / 510 | 0 / 510 | 0 / 163 | 13 / **530** |
+| GB-LDN-STDUNSTANS | 0 / 451 | 706 / 706 | 0 / 37 | 539 / **1240** |
+| IT-BOL-GALVANI2 | 0 / 1216 | 0 / 1216 | 0 / 703 | 135 / **1220** |
+
+The recut tree already holds every IDF in the stock. Nothing needs re-simulating, nothing needs a second source tree, and the emitter needs one additive optional flag — not the structural change D-EU-113 assumed. Three defects collapse into that one flag: 433 buildings with a declared but missing layout; 244 installed side-cars still carrying `has_unconditioned_core: true` from the superseded `ruled_grid_2x1` scheme, in open contradiction of the no-core regime this wave established; and London's installed set being a two-vintage mix (539 recut + 706 `final_2026-09-07`) that the 4J peer's own R10 refuses as two campaigns.
+
+**Authorised:** T07c, as written in §6 — one additive CLI flag, four concurrent emissions, install, one viewer rebuild, no manifest write-back. **Explicitly authorised to overwrite** the installed side-cars from earlier waves; that is the deliverable, and this entry is the ask the "never regenerate a delivered artifact" rule requires.
+
+**Not a defect, ruled closed:** zero-`circulation_area_m2_total` side-cars. Every one carries `scheme: "nocore_equal_area"`, a layout with no separate corridor by design. The T07 test line that called this a failure was mis-specified; it is informational from CP-3c on.
+
+**T08 stays blocked** until CP-3c. The T07 announcement owed to 4J waits with it, so the file counts, hashes and single vintage quoted to them are the ones they will actually receive.
+
+#### T07c — Side-cars re-emitted over the full recut population — completed 2026-09-09
+
+**Artifacts.**
+1. `scripts/emit_eu11_layout_sidecars.py`: one additive optional `--population-manifest <D>=<path>` CLI flag, threaded through `emit_layouts_for_district(district, evidence_root, population_manifest)`. When given, `simulated_ids` (`:169`) comes from that CSV instead of `dist_dir`'s own manifest; IDFs still read from `--evidence-root`'s `dist_dir` (`:181`), output still `dist_dir/layouts`; `safe_update_manifest_columns` write-back is skipped entirely. No other edit to this file. `git diff --stat`: one file, 46 insertions / 13 deletions.
+2. All four districts emitted as four concurrent OS processes against `<D>_recut_2026-09-08` (evidence root) / `<D>_merged_2026-09-08/<slug>_manifest.csv` (population manifest): `--population-manifest given: skipping manifest write-back` printed by all four; wrote 1174 / 509 / 1240 / 1211 side-car JSON files to `<D>_recut_2026-09-08/layouts/` (up from 51/13/539/135 pre-T07c). Every emitted JSON verified to parse (0 bad of 4133 files, all four districts, post-incident re-check below).
+3. `scripts/generate_eu_3d_viewers.py`, three edits total this task (D-EU-115 + D-EU-116, both mid-task amendments to §6 T07c, both re-verified in the doc before acting): (a) the layout-install block (`:1316-1341` pre-edit) rewritten to build `outputs_3D/eu_<D>_data/layouts/` from the four EU-11 waves alone (`ceiling82_2026-09-05` → `final_2026-09-07` → `delta_2026-09-07` → `recut_2026-09-08`, newest wins, same priority as `_load_eu17_sidecar`) instead of a wholesale `EU17_ROOT` copy that the very next run's `rmtree` had been silently undoing every prior wave's install (D-EU-115); (b) the EU-17 seed `copytree` dropped entirely per D-EU-116, once the mixed-vintage leak (12 files dated before 2026-09-08 in Madrid/Bologna) was measured; (c) the block's stale FINDING 213/215 comment rewritten to record the supersession — `emit_eu11_layout_sidecars.py` now derives every side-car from `read_district(district, dist_dir)` on the same tree it writes into, so a recut side-car agrees with its IDF by construction. `git diff --stat` for this file: one file, the layout-install block plus the pre-existing (not-this-session) `_load_eu17_sidecar`/`_load_eu11_eui`/IDF-loop edits from T07/T07b, confirmed unchanged. `python -m py_compile` clean on both files. Viewer run twice (once per amendment); second run is the delivered one. `outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts_pre_D-EU-113_backup_2026-09-08/` (451 files, pre-existing, not created or touched this task) left in place undeleted, per instruction — disclosed here, not part of this task's artifact set.
+
+**Incident, resolved before measuring.** A first launch attempt (`nohup ... &` nested inside an already-backgrounded tool call) silently detached instead of failing — the tool reported "completed" with 0-byte logs, but the four child processes were still alive, unlogged. A second, correctly-backgrounded launch then ran concurrently with the first for Madrid and Bologna only (Lyon and London's first-attempt processes had already exited): 8 processes total over 4 output folders, not 4. Caught via `Get-CimInstance Win32_Process` (`CreationDate` separated the two launches, 78 s apart); the two orphaned first-launch processes (Madrid, Bologna) were killed, the tracked second-launch batch was left to finish alone. A `wait` (no args) inside that surviving batch's script printed its done-marker (`rc=127`) while Madrid and Bologna were still running — the external `Stop-Process` calls disturbed the shell's job table — so completion was re-verified against actual process liveness (`Get-CimInstance`), not the marker. Every emitted JSON across all four districts was then parsed (`json.load`) to rule out interleaved-write corruption: 0 bad of 1174/509/1240/1211 files. Registered in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` ch. 13.
+
+**CP-3c — five lines (+L6) × four districts, measured** against the `_merged_2026-09-08` manifests, the installed `outputs_3D/eu_<D>_data/layouts/` tree, and the just-rebuilt viewer's embedded scene JSON:
+
+| District | L1 feature=stock, gap=residual | L2 EUI of `n_with_eui` | L3 best-effort of target; no-IDF | L4 resolved of "declares emitted layout" (excl. `INTERZONE_MISMATCH_REROUTED`); bad-core | L5 mirror; installed count | L6 installed = nocore + null-pending; pre-09-08 |
+|---|---|---|---|---|---|---|
+| ES-MAD-BERRUGUETE | 1194 of 1194; 7 of 7 | 1170 of 1170 | 46 of 46 | **1079 of 1085 — short 6** (way/340701292 + 5 others: valid `prepared_buildings.csv` row + on-disk IDF, but no layout drawn); 0 bad-core | 3 of 3; 1174 | 1174 = 1151 + 23; 0 older |
+| FR-LYO-HAUTCOEURPENTES | 530 of 530; 1 of 1 | 527 of 527 | **12 of 14 — short 2**, same 2 ids as CP-3b (`BATIMENT0000000240880398_part0`, `BATIMENT0000000240881317_part0`) — now confirmed to have a `prepared_buildings.csv` row and an on-disk IDF (stems `3c9c63f8c38dc7ef`, `af7c3a65357f91d4`) but still no drawn layout | **471 of 489 — short 18**; 0 bad-core | 3 of 3; 509 | 509 = 496 + 13; 0 older |
+| GB-LDN-STDUNSTANS | 1242 of 1242; 2 of 2 | 1240 of 1240 | 17 of 17; no-IDF 2 of 2 | 1190 of 1190 — full; 0 bad-core | 3 of 3; 1240 | 1240 = 1207 + 33; 0 older |
+| IT-BOL-GALVANI2 | 1220 of 1220; 5 of 5 | 1205 of 1205 | 127 of 127 | **1078 of 1081 — short 3** (ids `30835`, `33610`, `81117`) | 3 of 3; 1211 | 1211 = 1171 + 40; 0 older |
+
+L1, L2, L5 pass clean in all four districts (unchanged from CP-3b — no code path touched this task affects them). L6 fully accounted in all four (installed = `nocore_equal_area` + null-scheme `FALLBACK_PENDING_LAYOUT`, exactly, no third category; 0 files older than 2026-09-08 in any district) — matches director's independent count exactly (Madrid 23 / Lyon 13 / London 33 / Bologna 40 null-pending, 109 total). `has_unconditioned_core: true` is 0 of 0 in all four districts, target met (was 72/28/0/144). Zero-`circulation_area_m2_total` is now 100% of installed files in every district (1174/509/1240/1211) — informational per D-EU-114, not a failure; every one of those files carries either `scheme: "nocore_equal_area"` or `scheme: null` + `FALLBACK_PENDING_LAYOUT`.
+
+L3 and L4 still fall short of the dispatch's stated acceptance targets in 3 of 4 districts (Madrid, Lyon, Bologna); London alone reaches every L3/L4 target. Root cause identified but not fixed (outside T07c's one-CLI-flag authorisation): every short id checked (Lyon's 2, one of Madrid's 6) has both a `prepared_buildings.csv` row and an on-disk IDF in `<D>_recut_2026-09-08/` — the director ruling's "IDFs already hold the whole stock" premise holds — but `emit_layouts_for_district`'s per-building `row_map` (built from the Step 2 `.gpkg` via `_mapped_rows`/`_it_rows`/`_gb_rows`, filtered to `simulated_ids`) produces no row for these ids regardless of the `--population-manifest` override, so no layout is ever drawn for them. This is the same shortfall CP-3b already measured for Lyon (12 of 14, unchanged), now also measured for Madrid (6 ids) and Bologna (3 ids) at the corrected denominator. Small residual (0.6% Madrid, 3.7% Lyon, 0.3% Bologna of each district's L4 target) — not chased per the "don't chase the last fraction" rule.
+
+**Test status.** No pytest suite exists for T07c (none named by the plan). `python -m py_compile` clean on both edited scripts. `python scripts/generate_eu_3d_viewers.py` ran clean both times, no traceback, only the same pre-registered benign shapely `RuntimeWarning` lines. CP-3c's five (+L6) lines measured as one-off `python -c` snippets against on-disk artifacts (not saved as a committed script, consistent with CP-3/CP-3b precedent).
+
+**Deviations.** None from the authorised scope (one CLI flag + skip-write-back in `emit_eu11_layout_sidecars.py`; the D-EU-115 and D-EU-116 mid-task amendments to the layout-install block in `generate_eu_3d_viewers.py`, both re-verified against the doc before acting, both exactly as specified). L4's denominator ("declares an emitted layout") required excluding `DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED` rows to reproduce the plan's own stated targets (1085/489/1190/1081) — read as the intended definition (T09(b)/FINDING 213's own comment: a rerouted building's IDF has no dwelling zones, so no side-car applies to it), not an ambiguity requiring a stop, since it reproduces the plan's numbers exactly once applied.
+
+**Notes.** Double-launch incident and the `wait`/`rc=127` false-completion trap registered in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` ch. 13. `outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts_pre_D-EU-113_backup_2026-09-08/` (451 files) left untouched, undeleted, not authorised or created this task — flagged for director attention, not acted on.
+
+**CP-3c — STOP.** L3 (Lyon, 2 ids) and L4 (Madrid 6, Lyon 18, Bologna 3) still short after all three authorised edits; L1/L2/L5/L6 pass clean in all four districts. Per rule ("stop and quote it, do not widen scope"), no further code change made — the row_map/Step-2-mapping root cause is a new, distinct defect from the one D-EU-114/D-EU-115/D-EU-116 authorised fixing. Director to rule on CP-3c. `T08` not started.
+
+#### CP-3c — director ruling, D-EU-117 — 2026-09-09 — SIGNED, T08 released
+
+**Signed.** Verified director-side before signing: the installed tree measures 1174 / 509 / 1240 / 1211 files, 0 dated before 2026-09-08, every file carrying either `scheme: "nocore_equal_area"` or `scheme: null` with `geometry_outcome: FALLBACK_PENDING_LAYOUT` (109 of the latter: 23 / 13 / 33 / 40), and the `has_unconditioned_core: true` count is 0 in all four districts, down from 72 / 28 / 0 / 144. The layout-install block at `generate_eu_3d_viewers.py:1316-1341` was read line by line and matches D-EU-115 and D-EU-116 exactly. The executor's L6 numbers reproduce the director's independent count exactly.
+
+**L3 and L4 residual — ruled closed, not chased.** 27 buildings across three districts (Madrid 6, Lyon 18, Bologna 3) have a `prepared_buildings.csv` row and an on-disk recut IDF but never get a layout drawn, because `emit_layouts_for_district`'s `row_map` — built from the Step 2 `.gpkg`, not from the IDF tree — yields no row for them. That is 0.6 % of the fleet, it is a distinct defect from the three this wave authorised fixing, and it is registered as **FINDING 269** rather than repaired here.
+
+Decisive point: **no published number moves.** All 27 have IDFs, were simulated, and their heating results are already inside the pooled EUI. What is missing is the floor-plan picture, not the number. The four district EUIs and the fleet figure stand exactly as T06b restated them. Chasing 27 pictures is precisely what the "do not chase the last fraction of a percent" rule exists to stop.
+
+**Also ruled.** (a) 100 % zero-`circulation_area_m2_total` is correct and expected under the no-core regime, not a defect — the T07 test line that called it a failure is retired. (b) The double-launch incident and the `wait`/`rc=127` false-completion trap are correctly registered in `OpenUBEM_debug_References.md` ch. 13; no further action. (c) `outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts_pre_D-EU-113_backup_2026-09-08/` is an unauthorised artifact sitting inside a tree an external consumer scans, and the 4J peer already tripped over it in their 07:15 census; it holds the superseded 451-filter side-car set. T08 records its file count and a digest, then deletes it.
+
+**Next free: `D-EU-118` / `FINDING 270`.** T08 is released.
+
+#### FINDING 269 — layout row_map misses buildings that have an IDF — 2026-09-09
+
+27 buildings across ES-MAD-BERRUGUETE (6, incl. `way/340701292`), FR-LYO-HAUTCOEURPENTES (18, which **include** the 2 badge ids `BATIMENT0000000240880398_part0` and `BATIMENT0000000240881317_part0` — an earlier count of 20 double-counted them, corrected 2026-09-09) and IT-BOL-GALVANI2 (3: `30835`, `33610`, `81117`) have a `prepared_buildings.csv` row and an emitted IDF in `<D>_recut_2026-09-08/idfs/`, yet `emit_eu11_layout_sidecars.py` draws no layout for them. Cause: `emit_layouts_for_district` builds its per-building `row_map` from the Step 2 `.gpkg` through `_mapped_rows`/`_it_rows`/`_gb_rows`, and those mappers return nothing for these ids — the `--population-manifest` override cannot help, because the gap is upstream of the id filter.
+
+Effect is confined to the viewer and the side-car set: the building is drawn without its floor plan, and its `DWELLING_LAYOUT_EMITTED_BEST_EFFORT` badge does not appear. **No energy number is affected** — all 27 were simulated and their heating results are in the pooled EUI. Not fixed in this arc (D-EU-117). Anyone re-opening this should start at the three `_*_rows` mappers, not at the emitter's id filter.
+
+#### T08 — Audit, ledger, references — completed 2026-09-09
+
+**Artifacts.** No code, script, viewer, or side-car touched — documentation only, exactly as released. Edited: this file (§8, this entry); `STATE_european_locations_v5.md` (§0 identifier bookkeeping, §1 EUI-quotability supersession, §2 work-package table, §8 progress log); `docs/docs_ACTIVE/europeanLocations/debugs/DEBUG_floor-division-gap-and-clean-pipeline_2026-09-08.md` (§2, §8 supersession notes); `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` (`FINDING 210` entry corrected, `IDF_ASSEMBLY_FAILED_RuntimeError` entry corrected, EU-13B `FileExistsError` entry extended). One deletion, authorised and recorded below before it happened.
+
+**Deletion record (authorised, done first).** `docs/docs_ACTIVE/europeanLocations/outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts_pre_D-EU-113_backup_2026-09-08/`: **451 files**; `sha256` of the sorted relative file list (`find -type f | sed s|^DIR/|| | sort`): **`ec2641e48945921b9cea33406f72c18b6586f7c01b92bc2dd9e01a8074a2c740`**. Folder deleted after this record was written, per `D-EU-117`(c). It held the superseded 451-file side-car set (the pre-`D-EU-113` London layout install); the tree it sat beside now holds 1,240 current files.
+
+**Final table — measured, every number traced.** Population base is `_recut_2026-09-08/prepared_buildings.csv` (Ruling 4, T06b entry). "Divided" is reported at two different, non-reconciled measurement points, both real and both cited — T05/`CP-2`'s own gate (`prepared_buildings.csv`'s `geometry_outcome`, measured immediately after the recut) and T07/`CP-3`'s manifest-token badge count (the `_merged_2026-09-08` manifest, measured after the harvest merge); the two use different scope (the merge additionally gates non-recut sources on `idf_sha256` equality) and this entry does not force them to agree.
+
+| | ES-MAD-BERRUGUETE | FR-LYO-HAUTCOEURPENTES | GB-LDN-STDUNSTANS | IT-BOL-GALVANI2 | Fleet |
+|---|---:|---:|---:|---:|---:|
+| Stock (Step 2 `.gpkg`) | 1,194 | 530 | 1,242 | 1,220 | 4,186 |
+| Simulated / prepared | 1,187 | 529 | 1,240 | 1,215 | 4,171 of 4,186 |
+| Divided, T05/`CP-2` gate | 1,158 | 515 | 1,207 | 1,174 | 4,054 of 4,171 |
+| Divided, T07/`CP-3` manifest-token: ruled | 1,039 | 475 | 1,173 | 954 | 3,641 |
+| Divided, T07/`CP-3` manifest-token: best-effort (of target) | 46 of 46 | 12 of 14 | 17 of 17 | 127 of 127 | 202 of 204 |
+| Box, T07/`CP-3`/`CP-3c` manifest-token total | 102 | 40 | 50 | 134 | 326 |
+| — of which vertex-bug residual (wall B, unchanged, `FINDING 267`/CP-1) | 67 | 25 | 7 | 85 | 184 |
+| — of which rule/density residual (pre-emission dry-run estimate only, T02/CP-1, not re-measured post-recut) | ≈23 (density 9, `C4` 9, `C5` 5) | ≈13 (density 3, `C4` 2, `C5` 8) | ≈9 (density 9) | ≈40 (`C4` 10, `C4_C11` 2, `C5` 28) | ≈85 |
+| Never-simulated, baseline (before `D-EU-112`) | 19 | 21 | 536 | 9 | 585 |
+| — recovered by `D-EU-112` (T04) | 13 of 19 | 20 of 21 | 534 of 536 | 9 of 9 | 576 of 585 |
+| — residual (7 ES/FR engine-fail + 2 London owner-excluded) | 6 | 1 | 2 | 0 | 9 |
+| Engine-build failures, separate population (complete data, IDF assembly fails, `CP-2` corrected count) | 7 | 1 | 0 | 5 | 13 |
+| EUI (T06b, unchanged by T07/T07b/T07c) | 81.387738 kWh/m² over 1,170 of 1,187 | 70.345716 over 527 of 529 | 93.729757 over 1,240 of 1,240 | 54.671865 over 1,205 of 1,215 | 66.295394 over 4,142 of 4,171 |
+| Installed side-cars (T07c, single vintage 2026-09-08) | 1,174 | 509 | 1,240 | 1,211 | 4,134 of 4,171 |
+
+Sources, by row: stock/simulated — fact 10 and the `CP-2`/T06b Ruling-4 population; divided (T05/`CP-2`) — `CP-2` ruling, six-gate table and fleet roll-up; divided (T07/`CP-3` ruled/best-effort/box) — T07 `CP-3` table and T07c `CP-3c` table (best-effort target column); vertex-bug residual — fact 8 and the CP-1 (T03b part) ruling ("184 keep `DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED`"); rule/density residual — T02 dry-run table (CP-1, T01/T02 part), explicitly a pre-emission estimate over the original 289, not re-measured after T05 — flagged, not invented; never-simulated baseline/recovery/residual — fact 10 and the T04 entry + director audit; engine-build failures — the `CP-2` ruling's corrected 13-count table (stem ids listed there); EUI and installed side-cars — plan §6 T08 "Numbers to carry" (line 221), themselves sourced to the T06b/T07c entries and `<D>_merged_2026-09-08/summary.json`.
+
+`FINDING 269` (27 buildings, ES 6 / FR 18 — the 2 short-badge ids are inside that 18 / IT 3, zero in London — see the `FINDING 269` entry above) is folded into the "resolved of declares-emitted-layout" shortfall already measured at `CP-3c`; it changes no cell in this table, since no energy number is affected.
+
+**Ledger — decisions and findings this wave allocated, all signed, `D-EU-118`/`FINDING 270` next free.**
+
+- `D-EU-111` — best-effort tier for `C6`/`C10`/`C11` (T02, dependency 1/2 in §4). Signed at CP-1 (T01/T02 part).
+- `D-EU-112` — neighbour imputation for the never-simulated, three-rung ladder (T04, dependency 3 in §4). Recovered 576 of 585; accepted by the director's T04 audit.
+- `FINDING 267` — wall-B measurement: all 184 residual vertex-bug rejections trace to a vertex `intersect_match` manufactures during extrusion, never seen by the ring-cleanup budgets (T03). Ruled a closed, honest residual at CP-1 (T03b part): option (a) clears 0 of 184, option (b) clears 0 of 184 by construction, no remedy authorised.
+- `D-EU-113` — CP-3 ruling: authorised the two-edit viewer resolution-chain repoint (`_load_eu17_sidecar`, the IDF-resolution loop) at `_recut_2026-09-08`, T07's Line 3 defect only; Lines 1/4 ruled director error, no code change. Executed as T07b.
+- `D-EU-114` — CP-3b ruling: reversed the earlier refusal to re-emit side-cars once the evidence-tree inventory showed the recut already holds every IDF in the stock; authorised T07c (one additive CLI flag, four concurrent emissions, one viewer rebuild, explicit authorisation to overwrite the earlier-wave installed side-cars).
+- `D-EU-115` / `D-EU-116` — mid-task amendments inside T07c's authorised scope: the layout-install block rebuilt from the four EU-11 waves alone instead of a wholesale `EU17_ROOT` copy that a later `rmtree` had been silently undoing (`D-EU-115`); the `EU17_ROOT` seed `copytree` dropped entirely once a mixed-vintage leak (12 pre-2026-09-08 files in Madrid/Bologna) was measured (`D-EU-116`).
+- `D-EU-117` — CP-3c ruling, signed: L3/L4 residual (27 buildings, three districts) ruled closed and registered as `FINDING 269`, not chased — no published number moves; the 100 % zero-`circulation_area_m2_total` line ruled not a defect (informational, `nocore_equal_area` by design); the backup-folder deletion authorised (recorded above, then done). `T08` released.
+- `FINDING 268` — **a number collision, two-sided, not one finding.** (a) Inside this plan's own T04 entry (2026-09-08), `FINDING 268` names GB's `age_band` column mixing EPC-letter labels and resolved TABULA periods (part 1, format gap — **closed** by T05b's fix, `run_eu_s2_district_campaign.py:376-377`) plus 98 genuine value disagreements against the director's independent oracle CSV (part 2 — **ruled not a defect**, a "prepared"-universe scoping difference, the code's definition held correct at the 13:55 director audit). (b) Independently, the same number `FINDING 268` was used in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` (European locations, wall-B second-pass chapter) for an unrelated report from peer session GSSCanada/4J — the no-core emitter allegedly repeating a zone name across storeys — **measured and RETRACTED 2026-09-09** (0 of 268 repeated entries carry differing geometry; the reporter had summed zone entries across storey rows instead of storey groups). Both halves are independently closed/ruled; no renumbering performed by this entry — flagged here so a future reader of either document does not read one `FINDING 268` citation as the other.
+- `FINDING 269` — layout `row_map` misses 27 buildings that have a `prepared_buildings.csv` row and an on-disk IDF (see the `FINDING 269` entry above). Not fixed in this arc (`D-EU-117`); no energy number affected.
+
+**Supersession markers written.**
+
+- `STATE_european_locations_v5.md` §0: "Next free" moved from `D-EU-113`/`FINDING 268` to **`D-EU-118`/`FINDING 270`**; `D-EU-111`…`D-EU-117` and `FINDING 267`…`269` registered by filename/provenance, this plan doc, in the same style as `D-EU-106`–`109`.
+- `STATE_european_locations_v5.md` §1: the sentence "Madrid and Bologna are still pending their `_delta_2026-09-07` harvests" is superseded — both were restated 2026-09-07 (Madrid 80.694006/1,166 of 1,175; the sentence itself already lists this figure two paragraphs earlier) and Bologna 2026-09-08 (54.502146/1,202 of 1,211); all four are now further superseded by the 2026-09-08 recut wave this plan closes (T06b figures, this table). Marker added in place, sentence not deleted.
+- `debugs/DEBUG_floor-division-gap-and-clean-pipeline_2026-09-08.md` §2 and §8: the 3,128 of 3,601 divided / 289 rule-refused / 585 never-simulated numbers are marked superseded, pointing at this table.
+- `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`, `FINDING 210` entry: the mid-drain "7/15 (47 %)" survival figure and its "463 finished tasks" scope corrected to **10 of 19 (52.6 %) over the fully drained 703-task job `1311708`**, stem `981bcdac6a8ba683` (task `_596`) added to the enumerated failed-stem list (nine, not eight); the proven courtyard-fill remedy and its three costs registered as an extension, `[OPEN]`, per the 14:25/14:30 director notes — not authorised or attempted in this arc, owner ruling "leave the 7 out" (later corrected fleet-wide to 13) stands.
+- `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`, `IDF_ASSEMBLY_FAILED_RuntimeError`/"17 buildings" entry (`PLAN_eu-engine-nocore-carryin-2026-09-03.md` §8 T05 provenance): the standing claim "the underlying `RuntimeError` text is not on disk" corrected — as of this plan's T01, it is, in the `detail` column of `excluded_buildings.csv` in every `_recut_2026-09-08` tree (confirmed on Lyon's single failure, quoted verbatim in the 14:25 director note).
+- `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`, EU-13B `FileExistsError` entry (`schedules/<stem>/`, `prepare()`): extended — recurred verbatim inside `_recut_2026-09-08/` during T05b's London re-prepare; the only workaround applied was deleting the whole stale tree first (recoverable because of the 14:22 baseline snapshot), not a code fix; **`[OPEN]`**, `prepare()` still lacks `exist_ok`/pre-clean, per the T05b director audit's binding instruction.
+
+**`STATE_european_locations_v5.md` §2 work-package table** — `D-EU-107`, `D-EU-108`, `D-EU-109` rows moved from "In progress" to "Completed 2026-09-09 — closed by this plan (T05/T06/T06b/T07/T07b/T07c; `CP-3c` signed, `D-EU-117`)".
+
+**Test status.** No code changed; nothing to run. Every number in the final table above was re-read from the cited progress-log entry or `summary.json`/manifest path, not recomputed. `find | sha256sum` re-run once after the write above to confirm the recorded digest before deleting (`ec2641e4...` both times).
+
+**Deviations.** (1) The "boxes (vertex-bug residual / rule residual / density)" cell is not fully split for the *actual* post-recut population: the only rule/density breakdown on record is the T02 dry-run estimate over the original 289 rule-refused ids, taken before `D-EU-112`'s imputed population also started routing through the same best-effort/refusal branches — reported as an estimate, explicitly labelled, rather than invented at full precision. (2) The `FINDING 268` collision is registered as a ledger note, not resolved by renumbering either usage — renumbering an already-closed/retracted finding is a new edit this task's scope (documentation of what already happened) does not authorise. (3) The open item named in the CP-1 (T03b part) ruling ("post-extrusion interzone vertex repair for the 184 — record under the next free OPEN number") is not registered in `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md`: that file is outside the four files this dispatch authorises T08 to write into. Recorded here instead, in the ledger above (`FINDING 267`), and flagged for the director to open formally if wanted.
+
+**Notes.** No error was hit while performing this task's own reads/edits (documentation only). `outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts_pre_D-EU-113_backup_2026-09-08/` is now deleted (451 files, digest recorded above). Per hard rule, no message written to 4J/GSSCanada — that remains a director action, out of scope here.
+
+**Arc status.** All tasks T01–T08 of this plan are now complete; `CP-1`, `CP-2`, `CP-3`, `CP-3b`, `CP-3c` all signed. Nothing in this plan is pending.
+
+#### Post-T08 director note — backup folder, second mirror — 2026-09-09
+
+`T08` deleted `docs/docs_ACTIVE/europeanLocations/outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts_pre_D-EU-113_backup_2026-09-08/` but not its twin under `openubem/outputs/3D/`, which is the tree the 4J runner actually reads. The peer found the survivor. Deleted director-side under the same `D-EU-117` authorisation, recorded first: **451 files**, sha256 of the sorted relative file list `ec2641e48945921b9cea33406f72c18b6586f7c01b92bc2dd9e01a8074a2c740`. `eu_GB-LDN-STDUNSTANS_data/` now holds `layouts/` and nothing else in either mirror.
+
+**Worth carrying forward:** `openubem/outputs/3D/` and `docs_ACTIVE/europeanLocations/outputs_3D/` are two separate directory trees kept in step by `build_district`'s own `shutil.copy2`/`copytree`, not one linked tree. Anything deleted or added by hand must be done in both. The `D-EU-115` install rebuild only ever writes `layouts/`, so a stray sibling folder survives every rebuild in both mirrors until someone removes it in both.
+
+Also recorded from the peer's own re-measurement: their earlier IT-BOL count of 1,382 IDFs is withdrawn — a recursive `-name '*.idf'` had swept 162 EnergyPlus working copies under `local_out/<hash>/`. Our 1,220 stands (1,215 top level plus 5 nested).

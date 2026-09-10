@@ -1,0 +1,47 @@
+{
+  "date": "2026-09-10",
+  "source_job": "SLURM array 1315099",
+  "population": {
+    "cp2_authorised": 8152,
+    "completed_simulations": 8139,
+    "failed_simulations": 13,
+    "parsed_ok": 8139,
+    "note_vs_old_baseline": "The old adopted figure (153.8231 kWh/m^2) was pooled over a population of 8153. This restated figure is pooled over 8139. The two populations differ (8153 vs 8139) and are NOT the same census -- no delta between the two pooled EUI values is computed or implied here, per the plan's rule against differencing figures on different populations."
+  },
+  "pooled_fleet_eui_kwh_m2": 153.9501,
+  "pooled_fleet_eui_n": 8139,
+  "sum_total_kwh": 3675017658.33104,
+  "sum_floor_area_m2": 23871481.58,
+  "carbon_total_kgco2": 881743088.07,
+  "carbon_total_tonnes_co2e": 881743.09,
+  "carbon_total_n": 8139,
+  "failures": {
+    "count": 13,
+    "array_indices": [
+      1552,
+      1762,
+      1792,
+      1797,
+      1818,
+      1852,
+      3894,
+      4134,
+      4273,
+      4335,
+      4491,
+      4499,
+      4551
+    ],
+    "by_reason_class": {
+      "input_error_fatal_terminates_due_to_preceding_condition": 12,
+      "checkforrunawayplanttemps_divergence": 1
+    },
+    "note": "12 EnergyPlus FATAL input-error terminations (IDF-specific) + 1 CheckForRunawayPlantTemps divergence (unstable plant loop). Both are known EnergyPlus failure classes tied to the specific building's input, not to the T07 process, sbatch script, or cluster environment (see T07 progress-log entry)."
+  },
+  "methodology": {
+    "eui_parser": "scripts/cluster/t08_harvest_results.py:163-214 (_parse_sql), reused verbatim",
+    "floor_area_source": "openubem.results.parser.parse_eio_zone_area() on each building's eplusout.eio (multiplier-aware simulated floor area per ruling 6 / OPEN-01), NOT the T06 rebuild manifest -- the manifest at %TEMP%/ubem_validation/t06_rebuild_2026-09-09/<cell>/step3/03_idf_manifest.parquet does not carry a floor_area_m2 column (columns: osm_id, idf_path, archetype_id, zoning_strategy, num_zones, num_context_buildings, simplification_status, data_quality_flag, generation_status, resolution_mode). This is a deviation from the dispatch instructions' stated source; flagged explicitly rather than silently substituted -- see T08 progress-log Deviations.",
+    "carbon": "openubem.results.carbon.compute_gwp() applied unmodified, using openubem.config GWP_NATURAL_GAS_KGCO2_KWH and eGRID state factors (get_elec_factor: NY/CA/TX by city). dhw_gas_eui_kwh_m2 / dhw_elec_eui_kwh_m2 fed from the same raw WaterSystems:NaturalGas / WaterSystems:Electricity meters _parse_sql already sums into the combined dhw_eui_kwh_m2 column reported in the CSV -- an unmerging of the same quantities, not a new value. cooking_eui_kwh_m2 is fed as _parse_sql produces it (gas + electric cooking combined) into carbon.py's gas-only cooking term -- a known conservative gap in carbon.py, carried forward unmodified per instructions not to work around gaps in that module. No district-heating columns present (US fleet); all default to 0.0.",
+    "pooling_formula": "sum(building total_kWh) / sum(building floor_area_m2), matching scripts/analysis/open61_fleet_restatement_2026-08-22.py:27-29"
+  }
+}

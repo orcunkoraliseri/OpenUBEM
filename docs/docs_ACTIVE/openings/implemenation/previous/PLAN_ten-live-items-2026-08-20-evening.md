@@ -72,7 +72,7 @@ remedy, the task **names the design question and stops**.
 
 | # | Decision | Reason |
 |---|---|---|
-| D1 | **Run 4 is the corpus** — `C:\Users\o_iseri\AppData\Local\Temp\ubem_validation\open48_refleet4`, layout `<cell>/sim_out/<stem>/eplusout.{err,eio}` and `<cell>/fleet_staging/idfs/<stem>.idf` | It is the adopted baseline's run (153.8 kWh/m² pooled over 8,153). Run 2 is superseded and must not be quoted as fleet. |
+| D1 | **Run 4 is the corpus** — `C:\Users\o_iseri\AppData\Local\Temp\ubem_validation\open48_refleet4`, layout `<cell>/sim_out/<stem>/eplusout.{err,eio}` and `<cell>/fleet_staging/idfs/<stem>.idf` | It is the adopted baseline's run (153.8 kWh/m² pooled over 8,153). Run 2 is superseded and must not be quoted as fleet. (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) |
 | D2 | **The OPEN-61 census `.sql` corpus is read-only for this plan** | It is the only fleet-wide `.sql` corpus in existence; ruling R6 preserves it. Read, never delete, never re-run into it. |
 | D3 | **Production parsers are called, never re-implemented** — `openubem.results.parser.parse_building`, `check_building_integrity`, `resolve_simulated_floor_area` | Three defects in this register (OPEN-58, OPEN-60, OPEN-61) came from an analysis script computing a quantity its own way. |
 | D4 | **stdlib + pandas/geopandas only**; no new dependency | Repo convention. |
@@ -141,7 +141,9 @@ is not 1. Report the count of files with any non-1 multiplier, the count of offe
 the archetypes involved.
 
 **Why.** OPEN-60's blast-radius bound — *"153.8231 kWh/m² pooled over 8,153 is untouched"* — rests on
-the director reading **three** IDFs. The bound is load-bearing for the project's headline number and
+the director reading **three** IDFs.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+The bound is load-bearing for the project's headline number and
 deserves a census, not a sample. F3 says only `layout_assigner.py:649` writes a multiplier and the
 `auto` path never calls it; this is the direct test of that claim at the artifact.
 

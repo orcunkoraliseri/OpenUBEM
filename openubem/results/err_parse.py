@@ -5,7 +5,7 @@ e.g. ``**  Severe  **`` and ``**  Fatal  **`` (not ``** Severe **`` / ``** Fatal
 one space). A one-space literal match against real output never matches, so any
 downstream code that greps for ``"** Severe **"`` silently produces an always-empty
 result. This is documented as OPEN-45 in
-`docs/docs_ACTIVE/openings/implemenation/PLAN_three-new-items-2026-08-12.md` (T01):
+`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_three-new-items-2026-08-12.md` (T01):
 this is the third instance of the same one-space bug across this codebase, hence a
 single shared, tested helper instead of another point-patch.
 
