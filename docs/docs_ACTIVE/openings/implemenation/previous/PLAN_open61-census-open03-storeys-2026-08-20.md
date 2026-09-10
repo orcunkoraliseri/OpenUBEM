@@ -19,7 +19,9 @@
 **Arc A (OPEN-61)** replaces an estimate with a measurement. The predecessor plan established that
 every building in the fleet spends service-hot-water energy through a channel the parser never reads,
 and sized the loss at **an estimated 8.7–20.2 kWh/m², 6–13 % of the adopted 153.8231** — a range built
-by transferring a 60-building ratio onto 8,153 buildings. That range is a size, not a correction, and
+by transferring a 60-building ratio onto 8,153 buildings.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+That range is a size, not a correction, and
 **this plan exists to make it a real number.**
 
 **Arc B (OPEN-03)** measures the defect that survived the retraction. The item's stated mechanism
@@ -47,6 +49,7 @@ different number of storeys from a bit-identical footprint. Arc B is a census of
 5. **This plan measures. It does not remediate.** Do not change how `parse_building()` computes an
    EUI, do not add a meter to the production IDF builder, and do not restate the adopted
    **153.8231 kWh/m²**. Instrumentation added for measurement is scratch-only and named as such.
+   - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 6. **Never edit** root `main.py`, any OVERVIEW or DESIGN doc, or anything under `docs/docs_main/`.
 7. **No `.py` files under `docs/`, ever.** All figures/`.png` go to `openubem/outputs/` flat.
 8. **Append to §8 of this doc, one entry per completed task, at end of file.** Re-read the file
@@ -104,7 +107,7 @@ executor — **git is handled externally; never run `git commit`.**
 | **F5** | The estimate to be replaced: fleet-mean unreported term **8.7 / 17.2 / 20.2 kWh/m²** at the ratio IQR floor / median / ceiling (dh ÷ dhw_eui median **0.714**, IQR **0.362–0.840**). `MidriseApartment` is **2,818 of 8,160** (34.5 %). | `PLAN_five-items-2026-08-20-late.md` §6c fact D11/D12 |
 | **F6** | OPEN-03: control C7 excluded **40 of 48 pairs** because the arms do not build the same floor plate; **28 of those are storey-count driven**. Where storeys agree, roof and ground ratios are **exactly 1.0000**. | `openubem/outputs/comparisons/open03_envelope_decomposition.csv` (has a `storey_count` column per arm) |
 | **F7** | 2 of 48 `layout_assign` IDFs use `Zone.Multiplier` > 1; **0 of 48** `auto` IDFs do — the OPEN-60 link. | same CSV, T03 of the predecessor plan |
-| **F8** | The adopted figure is **153.8231 kWh/m² pooled over 8,153**. It is **not volume-correct** and OPEN-56's ≈+1.0 is not in it. **This plan does not restate it.** | register book II §1 |
+| **F8** | The adopted figure is **153.8231 kWh/m² pooled over 8,153**. It is **not volume-correct** and OPEN-56's ≈+1.0 is not in it. **This plan does not restate it.** (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | register book II §1 |
 
 ---
 
@@ -188,6 +191,7 @@ them** — a building that fails to simulate is a row with a null and a reason, 
 **What.** From `open61_census_fleet.csv`, compute the unreported district-heating term as
 **a pooled figure — total unreported energy ÷ total floor area** — over the 8,153-building population
 the adopted figure uses, plus per-cell and per-archetype breakdowns.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Why.** To replace F5's estimate with a measurement, and to record by how much the estimate was off.
 
@@ -372,6 +376,7 @@ statement**, and it is the one to carry forward.
 ---
 
 ### D18 — the `auto` arm reproduces the source storey count 8,153 times in 8,160
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **99.9 %.** The 7 exceptions all have a stated `levels` of **1** while `auto` builds 3, 6 or 19:
 five `Warehouse` in `la_rural`, one `Warehouse` in `la_urban`, one `LargeHotel` in `nyc_centre`
@@ -383,6 +388,7 @@ is also the denominator of the adopted **153.8231 kWh/m² pooled over 8,153**. *
 certainly not the same seven buildings** — the baseline's exclusions are simulation-status
 exclusions, not storey-parse exclusions. Nobody has checked. **Do not cite the two 8,153s as
 related until someone has intersected the two lists.**~~
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 🔴 **CORRECTED the same day — the director intersected the two lists rather than leaving the
 caution standing, and the guess above was WRONG. They are the SAME SEVEN BUILDINGS, exactly.**
@@ -395,7 +401,9 @@ buildings: 7 of 7.**
 ✅ **So 8,153 is not an arbitrary denominator, and the two facts are one fact.** The buildings the
 adopted fleet figure drops are precisely the buildings whose storey count the builder could not
 reproduce from source — each states `levels = 1` and each was built at 3, 6 or 19 storeys. The storey
-mismatch and the simulation failure are the same event, not two coincidental sevens. **This is a lead,
+mismatch and the simulation failure are the same event, not two coincidental sevens.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+**This is a lead,
 not a defect** — nobody has traced why `not_simulated` and the storey over-read travel together, and
 this plan does not. ⚠️ **Method note worth keeping:** the caution was right to demand the check and
 wrong in its guess. **One command settled it. Run the check instead of publishing the hedge.**
@@ -440,7 +448,9 @@ path; that risk is unchanged, and it is not new information.
 
 ### D19 — the cost of T03, measured two ways, and a director estimate withdrawn
 
-The naive projection (pilot mean × 8,153) gives **108 CPU-hours**. It is the wrong arithmetic: the
+The naive projection (pilot mean × 8,153) gives **108 CPU-hours**.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+It is the wrong arithmetic: the
 pilot is stratified, so rare heavy archetypes are over-represented relative to the fleet. Weighting
 each archetype's measured mean by its **fleet** count gives the honest figure:
 
@@ -490,6 +500,7 @@ here rather than taken silently.
    `LargeHotel`, all `not_simulated`, none of which has a `.sql` to read. T03's deliverable therefore
    carries **8,153 measured rows plus 7 rows carrying `not_simulated` as the reason** — a reason, not
    a silent gap, as the task requires.
+   - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 3. **Work directories are deleted per building on success.** The pilot's work tree is **5.1 GB for
    200 buildings**; unchanged, the fleet run would need **≈208 GB** against **517 GB free**. The
    driver removes each `status=ok` work directory after its row is written and **keeps** the

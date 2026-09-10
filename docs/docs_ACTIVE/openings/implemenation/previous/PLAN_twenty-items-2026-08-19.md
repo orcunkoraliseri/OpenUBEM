@@ -3,6 +3,7 @@
 > **Slug:** `twenty-items-2026-08-19` · **Date:** 2026-08-19 (late) · **Author:** manager/director session
 > **Register:** `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — 19 live / 40 struck / 59 total, next free `OPEN-60`
 > **Predecessor:** `previous/PLAN_close-all-2026-08-19.md` (CP-2 signed 2026-08-19; fleet baseline restated to `153.8231 kWh/m²`)
+> ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 > **Board:** `../reporting/board_published-numbers.html` → artifact `0615b50a-75d6-49c6-a354-d4f2f74d3639`
 
 ---
@@ -36,6 +37,7 @@ restatement, and that is (c) answerable **without the cluster and without a user
   checkpoint, and retiring an ID is the user's. Tasks *recommend*; they never act.
 - **No fleet EUI figure is restated.** `153.8231 kWh/m²` pooled over 8,153 buildings is the adopted
   baseline as of CP-2 and stands until a checkpoint says otherwise.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## 2. Director actions taken BEFORE dispatch
 
@@ -46,6 +48,7 @@ restatement, and that is (c) answerable **without the cluster and without a user
    built from those, not invented.
 3. Run-4 artifact tree confirmed present on disk, all twelve cells with a non-empty
    `results/05_results.csv` (8,153 successes, 7 failures).
+   - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 4. `implemenation/` archived to `implemenation/previous/` with the citation sweep the archiving rule
    obliges (CLAUDE.md; OPEN-33): **243 citations repaired across 73 files, 0 unresolved**, verified
    by resolving every cited path against disk.
@@ -97,12 +100,12 @@ Re-derive these if a task depends on them; do not assume them.
 
 | # | fact | source |
 |---|---|---|
-| F1 | Adopted fleet baseline **153.8231 kWh/m² pooled**, 8,153 successes, 24,320,582 m². Pooled = Σ(EUI × floor area) ÷ Σ(floor area) over `simulation_status == success`. | `extra/MEASUREMENT_fleet-restatement-2026-08-19.md` §1; OPEN-43's definition |
+| F1 | Adopted fleet baseline **153.8231 kWh/m² pooled**, 8,153 successes, 24,320,582 m². Pooled = Σ(EUI × floor area) ÷ Σ(floor area) over `simulation_status == success`. (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | `extra/MEASUREMENT_fleet-restatement-2026-08-19.md` §1; OPEN-43's definition |
 | F2 | Run-4 results: `%LOCALAPPDATA%/Temp/ubem_validation/open48_refleet4/<cell>/results/05_results.csv` — **note the `results/` subdirectory**. | run 4 |
 | F3 | Baseline results: `docs/docs_VALIDATION/validations/overAll/results/phaseE_elevrb/<cell>/05_results.csv` — **no `results/` subdirectory**. A script that assumes one silently reads nothing. | baseline tree |
 | F4 | Twelve cells: `austin_{centre,rural,suburban,urban}`, `la_{centre,rural,suburban,urban}`, `nyc_{centre,rural,suburban,urban}`. 8,160 buildings. | run 4 |
 | F5 | Run 4's Unknown population is **650 buildings, 3.7 % of fleet floor area**, pooled **107.22** against non-Unknown **155.55**. | restatement §3 |
-| F6 | OPEN-56's cost is a **fixed per-building offset ≈ +1.0 kWh/m²**, not per-zone (corr 0.113). It is **not** inside 153.8231. | register OPEN-56; X01/X02 |
+| F6 | OPEN-56's cost is a **fixed per-building offset ≈ +1.0 kWh/m²**, not per-zone (corr 0.113). It is **not** inside 153.8231. (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | register OPEN-56; X01/X02 |
 | F7 | `centroid_lat` in `05_results.csv` is **near zero for every building in every cell in both runs**. It is not a WGS84 latitude. Do not read a defect into it. | restatement §9(4) |
 | F8 | `footprint_area_m2 == 200.0` is the **dropped-building placeholder** written at `scripts/validation/v12_cell_pipeline.py:659` and overwritten only on success at `:664`. It marks a failure; it is not a cause. | OPEN-42 closure note |
 | F9 | Test-suite baseline is `.venv/Scripts/python.exe -m pytest -q tests/` → **1,919 passed / 55 skipped**. A bare root-level run reports ~36 false failures and is not the baseline. | project baseline |
@@ -462,7 +465,7 @@ closure to the user. **No executor closes anything.**
 
 | checkpoint | after | why it is here |
 |---|---|---|
-| **CP-1** | T05 | T01 and T05 can change how the newly adopted `153.8231` must be read; T04 feeds a ruling already owed to the user. |
+| **CP-1** | T05 | T01 and T05 can change how the newly adopted `153.8231` must be read; T04 feeds a ruling already owed to the user. (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) |
 | **CP-2** | T12 | T09(b) can change how the test-suite baseline F9 is read; T12 can reframe OPEN-17 entirely. |
 | **CP-3** | T20 | End of pass. Closure recommendations to the director, rulings to the user. |
 
@@ -683,7 +686,8 @@ percent."
 
 **Notes.** Fleet-wide (8,153 successes, all `floor_area_provenance == 'eio_simulated'`): median
 ratio 1.000000, 99.74 % within ±1 %, 99.91 % within ±10 %, **100.00 % within 2× — zero buildings
-outside 2×.** The 21 buildings outside ±1 % are, without exception, `zoning_strategy ==
+outside 2×.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. The 21 buildings outside ±1 % are, without exception, `zoning_strategy ==
 'perimeter_core'` — a structural core/perimeter-split geometry effect, not a new defect; max
 1.31×, none beyond 2×. **The lead this task's own framing carried forward — `relation_3566904`'s
 reported area moving 157,115 → 37,551 m² (÷4.18) — is closed as a false lead.** This census's own
@@ -694,7 +698,9 @@ and matches OPEN-58's own already-recorded finding that the OPEN-56 side-experim
 for `relation_3566904` was contaminated by `relation_11171793`'s output via the `run_ep()`
 shared-cwd defect — an independent, second confirmation of OPEN-58's verdict from untouched
 production data. **Conclusion: the `auto`-mode EUI denominator is sound fleet-wide on run 4; F1
-(`153.8231 kWh/m²`) is not reopened, changed, or restated by this task.** Item not opened, closed,
+(`153.8231 kWh/m²`) is not reopened, changed, or restated by this task.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Item not opened, closed,
 struck or retired by this task.
 
 ### ⏸️ CP-1 reached — T01–T05 complete, reported for director audit. Not continuing past this
@@ -763,6 +769,7 @@ tags for OPEN-56 and OPEN-58 are stale against their own §-sections and should 
    100.00 % within 2×, zero buildings beyond. The 21 outside ±1 % are without exception
    `zoning_strategy == 'perimeter_core'`, a structural effect, max 1.31×. **F1 (`153.8231`) is not
    reopened, changed or restated.**
+   - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 5. **A third retraction, this one of a standing lead.** `relation_3566904`'s reported ÷4.18 area
    anomaly is **closed as a false lead**: production run-4 data gives that building
    `footprint_area_m2 = 2,682.23`, `levels = 14`, `floor_area_m2 = 37,551.22`, ratio 1.000001 — no
@@ -772,6 +779,7 @@ tags for OPEN-56 and OPEN-58 are stale against their own §-sections and should 
 
 **Nothing in CP-1 changes the adopted baseline.** `153.8231 kWh/m²` pooled over 8,153 stands, with
 the OPEN-56 volume caveat unchanged.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 #### T10 — OPEN-15: Phase E has no code path — completed 2026-08-19
 
@@ -1089,6 +1097,7 @@ director's call and, being a new ID, the user's to ratify — deliberately not t
    three the model does not yet differentiate its physical response by climate zone.**
 
 **Nothing in CP-3 changes the adopted baseline.** `153.8231 kWh/m²` pooled over 8,153 stands.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 #### T09 — OPEN-13: E-UTCI-12 containment and the 43 traded-away tests — completed 2026-08-19
 
@@ -1200,6 +1209,7 @@ only. **The adopted fleet EUI denominator is untouched**: 153.8231 kWh/m² poole
 energy ÷ total simulated floor area) over 8,153 successful buildings / 24,320,582 m² stands
 unchanged, with its usual caveat that it is **not volume-correct** (OPEN-56's 10 m³ zone-volume
 stub, ≈ +1.0 kWh/m²/building, is outside it; a volume-correct ≈154.8 is **not** adopted).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Findings carried forward from this block.**
 1. **OPEN-14 needs three things in order, not one** — the slice, a production routing change that

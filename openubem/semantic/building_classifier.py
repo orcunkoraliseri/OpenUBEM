@@ -186,7 +186,7 @@ _OFFICE_MEDIUM_MAX_M2 = 9290.0
 # openubem/outputs/comparisons/open47_floorcount_reclass.csv (one row per changed building:
 # osm_id, cell, area_m2, levels, levels_source, archetype_off, archetype_on) and the T02
 # progress-log entry in
-# docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-08-12.md.
+# docs/docs_ACTIVE/openings/implemenation/previous/PLAN_three-rulings-2026-08-12.md.
 _OFFICE_SMALL_MAX_LEVELS = 3
 _OFFICE_LARGE_MIN_LEVELS = 6
 

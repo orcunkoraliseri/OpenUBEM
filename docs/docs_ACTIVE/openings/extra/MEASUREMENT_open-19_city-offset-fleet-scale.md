@@ -21,12 +21,16 @@ Fleet-wide pooled EUI (Σ energy ÷ Σ area, `simulation_status == 'success'`), 
 `05_results.csv` read directly from `evidence/open48_refleet4/<cell>/results/`:
 
 **153.8304 kWh/m² over n = 8,153, floor area 24,333,586 m².**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 Adopted figure: **153.8231 kWh/m² over 8,153, 24,320,582 m²**
 (`MEASUREMENT_fleet-restatement-2026-08-19.md:14`).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **n matches exactly (8,153). The pooled figure matches to within 0.0047 % relative (0.0073 kWh/m²
-absolute) — not bit-for-bit.** Per hard rule 3, this is reported rather than smoothed: cross-checking
+absolute) — not bit-for-bit.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Per hard rule 3, this is reported rather than smoothed: cross-checking
 against the fleet-restatement doc's own per-cell table (`:28-36`) shows most cells match to the last
 reported digit (`la_suburban` 108.42/108.42, `nyc_rural` 233.63/233.63, `nyc_suburban`
 188.66/188.66), but a few do not — `austin_suburban` 159.02 here vs **159.20** there (the largest gap,
@@ -135,5 +139,6 @@ None proposed — this task restates and inventories, it does not remediate.
 - **C20** — n reproduces exactly (8,153). Pooled figure reproduces to within 0.0047 % relative, not
   exactly; per-cell gaps up to 0.18 kWh/m² are reported, not adjusted (§1). Judged not to be "a bigger
   finding than OPEN-19" given the fleet-level closeness, but flagged as an open discrepancy.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - **C21** — archetype-matched comparison names its 15 archetypes and each city's n (§3; full
   per-archetype n in the CSV).

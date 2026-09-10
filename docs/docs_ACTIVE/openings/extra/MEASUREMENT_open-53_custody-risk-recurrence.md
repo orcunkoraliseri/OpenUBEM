@@ -74,7 +74,7 @@ Measured on disk at the time of writing:
 |---|---|
 | `.sql` files retained so far | **5,138** |
 | Size so far | **24 GB** |
-| Projected at 8,153 buildings | **≈38 GB** |
+| Projected at 8,153 buildings (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | **≈38 GB** |
 | Location | `%LOCALAPPDATA%\Temp\claude\…\<session-id>\scratchpad\open61_census_fleet_work` |
 
 That path is:

@@ -37,6 +37,7 @@ sample so OPEN-03 and OPEN-18 can be quantified for the first time at HEAD.
    **153.8231 kWh/m² pooled** (total simulated energy ÷ total simulated floor area) over **8,153**
    buildings / **24,320,582 m²** — is untouched by this plan and must not appear as anything other
    than context.
+   ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 8. **Report failures; never substitute a weaker number.** A building that fails to build, simulate
    or parse is a result: record it with its error text. Do not silently drop it.
 9. **Cap your own output.** Use `head`, `--stat`, `grep -c`. Do not paste whole files, whole logs or
@@ -193,3 +194,4 @@ Audit: only planned files touched (one new script under `scripts/analysis/`, two
 `openubem/`, `tests/` or `scripts/validation/` modified; no git write; no register edit; nothing
 opened, closed, struck or retired. Three deviations recorded above and in §8 of the report.
 **No adopted number changed — 153.8231 kWh/m² pooled over 8,153 buildings stands untouched.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.

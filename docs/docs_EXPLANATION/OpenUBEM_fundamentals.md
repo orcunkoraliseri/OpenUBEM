@@ -145,7 +145,7 @@ benchmark (§7.2).
 `layout_assign` has since been run at full fleet scale, separately from the four modes below and
 their 8,160-building cluster matrix: the storey-matching arc's T20 harvest (12 cells / 8,160
 buildings, closed 2026-08-04) reports **8,153/8,160 = 99.914% success, median `total_eui`
-122.23 kWh/m²/yr** (the prior harvest, T19, was 7,990/8,160 = 97.92%, median 103.75). **Most of
+122.23 kWh/m²/yr** (the prior harvest, T19, was 7,990/8,160 = 97.92%, median 103.75). ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. **Most of
 that gain is not the storey-matching arc's own work:** of the +163 additional passing buildings,
 +150 come from a pre-existing convergence fix (E-LA-20, landed 2026-07-25, before this arc began)
 surfacing at fleet scale for the first time; the arc's own fixes and other, uninvestigated

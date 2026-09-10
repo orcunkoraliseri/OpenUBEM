@@ -264,6 +264,7 @@ reproducing the fleet record to 0.02 %. Six of seven cells move strongly upward.
 **May not be said.**
 - Not a fleet correction. 21 buildings out of 8,153 do not restate **153.8231 kWh/m2**, and this
   measurement does not attempt to.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - Not a population estimate. The 21 are the **eligible** buildings, i.e. selected precisely because
   the two fallbacks disagree. The 459 eligible in the seven cells are the sampling frame; buildings
   where the fallbacks agree are unaffected by construction.

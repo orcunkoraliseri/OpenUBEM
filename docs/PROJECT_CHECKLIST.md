@@ -81,6 +81,7 @@ fatal runs in only **145 of 40,800** harvest directories (0.36 %), so OPEN-38's 
 `evidence/open48_refleet4` return **153.8304**, not the adopted **153.8231** (0.005 %) — immaterial to
 every conclusion, **the adopted baseline is unchanged**, but the adopted figure is not exactly
 reproducible from the adopted evidence.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ⚠️ **Two plans are now in force and NEITHER has been archived** — `PLAN_ten-live-items-2026-08-21.md` (day) and `PLAN_ten-live-items-2026-08-21-night.md` (night, all of CP-E–CP-H signed). Their citation sweeps are not owed until they move to `implemenation/previous/`. **The night pass is the more recent authority** — it supersedes the day pass on the volume/failure test and resolves the day pass's `relation/7480583` floor-area conflict; see the section dated **2026-08-21, night** at the end of this file.
 
@@ -90,11 +91,12 @@ byte-identical duplicate of the OPEN-61 census plan was found in the live folder
 `PLAN_rulings-and-fixes-2026-08-21.md` — the arc's first **remediation** plan — was
 archived 2026-08-22 with its own sweep (**15 refs, 6 path-qualified repaired, 0 left broken**).
 
-🟢 **State of 2026-08-22, evening — one plan in force, and it is the first of this arc
-that FIXES a published number rather than measuring one.**
-`docs_ACTIVE/openings/implemenation/PLAN_open61-dh-remedy-2026-08-22.md`, opened on the user's ruling
-*"open-61 vas-y"*. **T01, T01b and T02 are complete; 🛑 CP-1 is SIGNED (§9 of that doc);
-T03 is authorised and running.**
+🟢 **State of 2026-08-22, evening — the arc's first plan that FIXES a published number
+rather than measuring one. ✅ Complete, and ARCHIVED 2026-09-09.**
+`docs_ACTIVE/openings/implemenation/previous/PLAN_open61-dh-remedy-2026-08-22.md`, opened on the user's ruling
+*"open-61 vas-y"*. **T01, T01b, T02, T03 and T04 all complete; 🛑 CP-1 and ✅ CP-2 both SIGNED
+(§9 of that doc).** The sentence below originally read *"T03 is authorised and running"*; that is
+superseded — T03 finished the same evening and CP-2 was ruled.
 
 - **Suite: 1,937 passed / 55 skipped / 0 failed** (1378.31 s), against the 1,927 / 55 / 0 baseline.
   **This restates the suite baseline** — 1,927/55 is now stale. **No skip moved, proven
@@ -132,10 +134,28 @@ T03 is authorised and running.**
   are exactly that shape and **their expected values encode the understatement**. **Fleet exposure
   measured at zero buildings**, so no published number moves.
 - ✅ **CP-2 RULED 2026-08-22 — the user delegated the call (*"tu progress comme tu recommend"*) and the ruling is: KEEP 153.8231, carry a stated caveat. The restatement is NOT adopted.** Four reasons, the first decisive: **(1)** 171.7718 is computed on the census population (n = 8,144) and 153.8231 on run 4 (n = 8,153) — **the arithmetic to restate the adopted figure has never been run**, so adopting would replace it with a figure from a different population rather than correct it. **(2)** Carbon would not follow (OPEN-63, no DH emission factor), so two published figures would contradict each other. **(3)** OPEN-56's ≈+1.0 and the 15.8 % storey-vs-simulated-area disagreement both still move the same number — one of them the **denominator** — so adopting now means restating twice. **(4)** The fix is already in the code, so nothing is hidden by waiting. ❓ **Proposed, not taken:** closing OPEN-61, whose defect is fixed and whose size is now published as a caveat. Full reasoning: §9 of the plan.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - 🔴 **Nothing published has moved. 153.8231 kWh/m² pooled over 8,153 remains the adopted
   figure.** T03 produces a **candidate** restatement only (the census rebuild's **152.3011 →
   171.7718**, n = 8,144). ⚠️ **152.3011 and 153.8231 are different populations and must
   never be differenced.** Adoption is the user's ruling at **CP-2**, framed as adopt-or-caveat.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+
+✅ **Third archiving pass, 2026-09-09 (director) — the last openings plan is archived and its sweep is run.**
+`PLAN_open61-dh-remedy-2026-08-22.md` moved from `implemenation/` into `implemenation/previous/`;
+**`openings/implemenation/` again holds no plan in force.** The sweep: **15 references to the archived
+filename across 7 files — 9 path-qualified repaired, 4 bare-filename left alone** per the
+resolve-by-filename rule; **3 relative paths inside the moved plan itself** were stale by one level
+after the move and are now written out in full.
+
+⚠️ **The pass also found 12 dead citations that predate this archive, and the reason is worth
+recording.** Every earlier archiving pass swept `.md` files only, so 12 docstring and comment
+citations in `openubem/`, `scripts/` and `tests/` still pointed at plans that had moved into
+`previous/` weeks earlier. **All 12 repaired here — one comment line per file, no code changed.**
+**Rule for the next archive: sweep `.py` as well as `.md`.**
+
+✅ **Validated after the pass: all 122 `openings/implemenation/…` citations across 83 files resolve
+to a file that exists. 0 dead.**
 
 
 | Old path (dead) | Current location |
@@ -378,6 +398,7 @@ implementation plan is now CLOSED). **The 12-cell / 8,160-building T20 fleet re-
 never been harvested:** `squeue` empty, 12/12 arrays, **8,153 COMPLETED + 7 FAILED = 8,160** exactly
 (nyc_rural 3, la_urban 3, la_centre 1 — SLURM-level, *not* simulation-level, and each must be mapped
 to a defect ID). No `t20_*` artifact exists on disk and no R06 progress-log entry exists.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 **Remaining path: R06b (harvest + 7 reported items) → director audit → R09 (five cross-mode figures)
 → R08 (documentation closure) → CP-E, the final checkpoint.** Both executor prompts are written and
 current. **Resume by pasting
@@ -1120,7 +1141,7 @@ It is **not** the adopted baseline and never has been — see §0.
 | 4 | **Structural-fixes** (T01–T11) | 2026-07-24 | CP-E **with caveat** | 4 fixes verified fleet-scale — **but 98.81% → 97.92%**, because `thermal_mass=True` unmasked **E-LA-20** (150 `nyc_rural` SmallOffice newly Fatal) |
 | 5 | **E-LA-20 investigation** (I01–I05) | 2026-07-25 | CP-INV — **ended OPEN by design** | Root cause proven, not hypothesized. E-LA-21, E-LA-22 |
 | 6 | **E-LA-20 multilayer fix** (F01–F11-N-b) | 2026-07-25 | **CP-C SIGNED** | Fixed + verified 150/150. E-LA-23, E-LA-24 |
-| 7 | **Storey matching** (R01–R10) | 2026-08-04 | **CP-E SIGNED** | T20 fleet: **99.914%** (8,153/8,160), median 122.23 kWh/m²/yr. E-LA-36 fixed inside arc; E-LA-38/39/40/41 found; Q3 confirmed NOT closed |
+| 7 | **Storey matching** (R01–R10) | 2026-08-04 | **CP-E SIGNED** | T20 fleet: **99.914%** (8,153/8,160), median 122.23 kWh/m²/yr. E-LA-36 fixed inside arc; E-LA-38/39/40/41 found; Q3 confirmed NOT closed (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) |
 
 ### The E-LA-20 defect, in four lines
 
@@ -1227,7 +1248,9 @@ document the limit; extending to the shorter case "buys reach, not correctness" 
 
 **T20 fleet result:** 8,153/8,160 = **99.914%** success, median `total_eui` **122.23** kWh/m²/yr — but
 **150 of the +163-building success gain over T19 is the pre-existing E-LA-20 fix landing at fleet
-scale, not this arc's own work** (full decomposition: results doc §8.1). **E-LA-36** (`Zone.Multiplier`
+scale, not this arc's own work** (full decomposition: results doc §8.1).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+**E-LA-36** (`Zone.Multiplier`
 × `ZoneList` silent 50% storey over-count) was found and fixed *inside* this arc, 0/522 verified.
 **E-LA-38** (41/8,160 buildings mislabelled Hotel→Office by the harvest's stale archetype source)
 explains 100% of the fleet's 7 real failures — not a generic envelope defect. **E-LA-41** (EUI
@@ -1731,7 +1754,7 @@ miscount; the table itself was complete at 21.)*
 | Item | Outcome |
 |---|---|
 | **OPEN-24** — live EnergyPlus gate | 🟢 **CLOSED. The gate was never parked — it had simply never been run on this machine.** EnergyPlus **23.1.0-87ed9199d4** is installed locally; **7 passed** in four sequential director runs (66.38 / 65.99 / 66.57 / 66.68 s); no test needs the network. An eight-week-old *blocked* status came from an assumption nobody had tested. |
-| **OPEN-32** — net of the two opposing `layout_assign` errors | 🟢 **CLOSED. They do not cancel.** Net ≈ **1.12 at the median**, and **only 12.6% of buildings fall within ±10% of cancellation**; per-building net spans **0.0032 – 19.88** on n=8,153. |
+| **OPEN-32** — net of the two opposing `layout_assign` errors | 🟢 **CLOSED. They do not cancel.** Net ≈ **1.12 at the median**, and **only 12.6% of buildings fall within ±10% of cancellation**; per-building net spans **0.0032 – 19.88** on n=8,153. (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) |
 | **OPEN-13** | Still open (E-UTCI-12 residual), but its carried-forward weakness is **discharged**: the fusion guard now derives its column set from the fetcher, pinned by a test proved non-vacuous by mutation. |
 | **OPEN-27** | Still open — **only the user can edit DESIGN.** Now pinned meanwhile by 3 tests binding the coarse-class archetype names to the archetype JSON, so drift fails a test instead of going unnoticed. |
 | **OPEN-29** | Still open. All eight forwarded defect IDs re-checked at HEAD: **all eight STILL-OPEN, no verdict changed.** The remaining measurement is **cluster-only** — now established rather than assumed. |
@@ -2215,6 +2238,7 @@ not the 800+ GB feared. Affordable. **Whether to do it is your call, and I have 
 
 - **Nothing published changed.** **153.8 kWh/m² over 8,153 buildings stands untouched** — this is a
   48-building sample and is labelled as one everywhere it appears.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - **Nothing was opened, closed or struck.** Still 19 live items, next free ID OPEN-60.
 - **The executor stalled mid-job** — it launched the run, then sat waiting for a notification that
   never comes. The run itself finished fine; I picked up the analysis and write-up myself. Third
@@ -2239,7 +2263,9 @@ low for any building modelled that way, which was **42 of the 48**.
 
 ✅ **Your published fleet figure is not affected, and I checked rather than assumed.** That
 multiplying only happens in the room-by-room mode. I looked inside the actual model files from the
-published run: **every multiplier is 1.** **153.8 over 8,153 buildings is untouched.** What it does
+published run: **every multiplier is 1.** **153.8 over 8,153 buildings is untouched.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+What it does
 mean is that every room-by-room energy figure this project has recorded is too low — a fault in a
 mode nothing published depends on.
 
@@ -2279,7 +2305,9 @@ per-zone, which EnergyPlus does not scale by the multiplier, while the floor are
 scaled. **6 of 48 buildings reconcile within 2 %; the worst is out by 192 %.** I gave it an ID *because*
 nothing published depends on it — that is exactly the kind of fault that gets forgotten and then
 rediscovered expensively. 🟢 **No adopted number moves: 153.8 kWh/m² over 8,153 buildings is untouched**,
-verified by reading three real fleet model files, not by argument. 🔴 **The more general finding:** the
+verified by reading three real fleet model files, not by argument.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+🔴 **The more general finding:** the
 check that catches this **already exists in the code** (`check_building_integrity()`) and the fleet
 pipeline never calls it.
 
@@ -2347,6 +2375,7 @@ Board row **C04** is closed. All 26 simulation-derived columns of the results fi
 between the frozen June fixture (`docs/docs_VALIDATION/validations/overAll/results/phaseE/`) and the
 August local re-run (`open48_refleet4`), across all twelve cells and 8,153 buildings that succeed in
 both runs.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **The answer is not a per-column pass/fail — the fleet splits in two.** 48.2 % of buildings come back
 unchanged within 0.1 %; 48.6 % within 1 %; **9.0 % move by more than 5 %**, and the 5th percentile of
@@ -2476,7 +2505,9 @@ adding the name to the query would change nothing. The value survives only in th
 Any remedy either requests the meter in the IDF (changing every future run, fixing no existing one) or
 teaches the parser a second, differently-shaped source of truth. **Neither is chosen here.**
 
-**The adopted `153.8231 kWh/m²` is NOT restated.** Four buildings do not size a fleet. The honest
+**The adopted `153.8231 kWh/m²` is NOT restated.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+Four buildings do not size a fleet. The honest
 statement is that it is low by an unknown amount that measures ~1 % where it has been measured.
 
 **Standing lesson, now a pattern rather than a coincidence: three passes in a row, the defect came from
@@ -2615,7 +2646,9 @@ no-pooling rule has been standing on a statistical argument for weeks; it now st
 sign flip.
 
 ⚠️ **What it does not say.** It does not restate the fleet baseline — **21 buildings out of 8,153 do
-not move `153.8 kWh/m²`** and I did not try. It is not an estimate of what the defect costs across the
+not move `153.8 kWh/m²`** and I did not try.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+It is not an estimate of what the defect costs across the
 fleet: these 21 were chosen *because* the two fallbacks disagree. And it still does **not** answer
 **which fallback is right** — that is the design decision OPEN-35 has always been waiting for. Tonight
 measured how much the question is worth, not its answer.
@@ -2687,7 +2720,9 @@ nowhere**, not a double count. All 16,336 fleet IDFs match the affected pattern 
 re-simulated production buildings carry it. It is concentrated by archetype: offices lose ~1.4
 kWh/m², apartments ~32, and apartments are a third of the fleet. Fleet exposure is **estimated** at
 8.7–20.2 kWh/m² — 6–13 % of the adopted 153.8231 — but that estimate transfers a 60-building ratio
-onto 8,153 buildings and **must not be published as a correction**. A census-scale measurement is the
+onto 8,153 buildings and **must not be published as a correction**.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+A census-scale measurement is the
 obvious next arc and was deliberately not authorised.
 
 **Three smaller results.** OPEN-03's "44 % less wall" is retracted — it reproduces on exactly one
@@ -2721,7 +2756,9 @@ is visible from the table and not only from the closed item.
 
 **One stale caveat was corrected in the same pass.** §1's fleet-figure line still read that the
 adopted 153.8231 kWh/m² was "~1 % low by OPEN-61 on the four buildings where that has been
-measured". That is superseded: OPEN-61 is fleet-wide and the exposure is **estimated at 6–13 %**.
+measured".
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+That is superseded: OPEN-61 is fleet-wide and the exposure is **estimated at 6–13 %**.
 The line now says so, and says explicitly that the range is a size and not a correction.
 
 **Still deliberately unfiled:** the storey-count disagreement behind OPEN-03, and the census-scale
@@ -2743,6 +2780,7 @@ reused. ⚠️ **The caveat it carried survives it** and now belongs to the TODO
 the model does not vary construction or HVAC by climate zone, so even the three sampled climates are
 weaker evidence than the geography suggests — and that binds the adopted **153.8231 kWh/m²**,
 a pooled statistic over exactly this population.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **OPEN-18 was examined as a closure candidate and rejected as one.** Its ✅ marks the elimination of
 the `Zone.Multiplier` *approach*, not of the defect. Book I §8 says so in as many words — *"Q3 stays
@@ -2818,7 +2856,9 @@ decimal places past what anyone would check. The missing hot-water term was pres
 and on every one of them it was the service-hot-water row and nothing else — the mechanism, visible in
 the output rather than argued.
 
-🔴 **The full census is running now — all 8,153 buildings, about eight hours, on this machine.** It
+🔴 **The full census is running now — all 8,153 buildings, about eight hours, on this machine.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+It
 had to be a re-simulation: the original results files were deleted, so there is nothing left to
 re-read. Cost, now measured rather than guessed: **97 CPU-hours**, and a tenth of the fleet buys half
 of it.
@@ -2905,6 +2945,7 @@ failure is silent.
 
 **Still running:** the 8,153-building census (OPEN-61) and the fleet-scale re-run of the storey
 count with the corrected parser (OPEN-62 T02).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## 2026-08-20 (evening, later) — the replacement check failed, and that is the result worth having
 
@@ -2936,7 +2977,8 @@ fallback is correct; a proposed reconciliation control; and OPEN-53's custody ri
 
 🔴 **One thing needs you before the census finishes.** The 8,153-building re-simulation is writing
 ≈38 GB of results into a temporary folder that no policy covers and that disappears with the
-session. That re-simulation only exists because the previous copy was deleted, at a cost now measured
+session.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. That re-simulation only exists because the previous copy was deleted, at a cost now measured
 at **97.2 CPU-hours**. If this copy is swept too, the next question costs the same again. **Preserve
 or discard — it is a disk-budget call and it is yours.** I have not moved it.
 
@@ -3116,7 +3158,9 @@ Both were found by re-deriving the numbers myself rather than by reading the rep
 
 The headline fleet figure **cannot be reproduced from the evidence the record points at**. Every
 recomputation — including from the exact folder the record names as its own source, which is still on
-disk — returns **153.8304** where the adopted figure is **153.8231**. The difference is five
+disk — returns **153.8304** where the adopted figure is **153.8231**.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+The difference is five
 thousandths of one percent and changes nothing. **The adopted figure stands.** But it is now a
 settled negative rather than an open question, and it is written down so nobody quietly rounds it
 away later.
@@ -3148,6 +3192,7 @@ compared against it. When we did:
 
 - The definition we already use gets the storey count **right on 8,153 of 8,160 buildings — 99.91 %**,
   and the floor area it produces is **identical to what reality produces**, to the digit.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - The rival definition gets it right on **39.78 %**, and undercounts on 4,670 buildings.
 
 **So there was never a choice between two defensible conventions.** One is right and the other is
@@ -3234,6 +3279,7 @@ of an open-ended one.
 **The pass is closed.** `PLAN_rulings-and-fixes-2026-08-21.md` §9 signed: both authorised fixes in,
 suite **1,927 passed / 55 skipped / 0 failed**, **no adopted number restated** (153.8231 over 8,153
 stands).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **One thing changed that nobody planned.** The suite's skip count fell by one, and neither task caused
 it — a test that used to skip now passes. **Which test is unrecoverable: every restatement of this
@@ -3282,7 +3328,9 @@ against real output instead of against test fixtures. That preservation ruling i
 itself a second time.
 
 **Size, for context only: pooled site energy rises 12.78 %** on the census rebuild. 🔴 **No
-published figure moves in this pass. 153.8231 kWh/m² over 8,153 stands.** The restated figure
+published figure moves in this pass. 153.8231 kWh/m² over 8,153 stands.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+The restated figure
 will be produced and brought to you as a question — adopt it, or keep the current figure and
 carry the correction as a stated caveat. **That decision is yours and the plan forbids the executor
 from pre-empting it.**

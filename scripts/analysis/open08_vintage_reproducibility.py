@@ -1,6 +1,6 @@
 """T03 -- OPEN-08 vintage half: cross-generation vintage disagreement for data-poor buildings.
 
-Plan: docs/docs_ACTIVE/openings/implemenation/PLAN_open-52-and-four-items-2026-08-18.md, T03.
+Plan: docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-52-and-four-items-2026-08-18.md, T03.
 
 Step 1 (hard gate): re-derive OPEN-30's own numbers directly from the 60 E02
 03_manifest.parquet files (40,800 rows, 0 nulls, 5 distinct vintage_standard

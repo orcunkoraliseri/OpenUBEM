@@ -52,7 +52,8 @@ materially different from Buffalo's 6A — most directly the three LA cells (`la
 `la_suburban`, `la_rural`; ASHRAE 3B, cooling-dominated), the population OPEN-19 is scoped to. The
 fleet-pooled figure (`153.8231 kWh/m²`, F1) would move by whatever LA's ~4 cells' share of pooled
 floor area times the correction implies — not estimated here, since estimating it requires the very
-table this scoping identifies as missing. Austin's cells (ASHRAE 2A, hot-humid) sit under the same
+table this scoping identifies as missing.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. Austin's cells (ASHRAE 2A, hot-humid) sit under the same
 climate-insensitive Buffalo baseline and would plausibly need the same kind of correction, though
 OPEN-19 as written scopes LA only — noted as an adjacent, not-yet-opened question, not folded in here.
 

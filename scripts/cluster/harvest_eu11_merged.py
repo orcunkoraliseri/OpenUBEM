@@ -21,6 +21,7 @@ MERGE_DATE = "2026-09-07"
 FINAL_TAG = f"final_{MERGE_DATE}"
 DELTA_TAG = f"delta_{MERGE_DATE}"
 CEILING_TAG = "ceiling82_2026-09-05"
+RECUT_TAG = "recut_2026-09-08"
 
 IDENTITY_COLUMNS = [
     "building_id", "archetype_id", "building_type", "age_band", "geometry_outcome",
@@ -68,9 +69,10 @@ def _rc_zero_index(manifest: pd.DataFrame | None) -> dict[str, dict]:
     return {str(k): v for k, v in ok.to_dict(orient="index").items()}
 
 
-def build_merged_manifest(district: str, dry_run: bool) -> tuple[pd.DataFrame, dict]:
-    final_dir = _dist_dir(district, FINAL_TAG)
-    prepared_path = final_dir / "prepared_buildings.csv"
+def build_merged_manifest(district: str, dry_run: bool, merged_tag: str = MERGE_DATE) -> tuple[pd.DataFrame, dict]:
+    require_recut = merged_tag == "2026-09-08"
+    base_dir = _dist_dir(district, RECUT_TAG) if require_recut else _dist_dir(district, FINAL_TAG)
+    prepared_path = base_dir / "prepared_buildings.csv"
     if not prepared_path.exists():
         raise FileNotFoundError(f"missing {prepared_path}")
     prepared = pd.read_csv(prepared_path, dtype=str)
@@ -78,9 +80,12 @@ def build_merged_manifest(district: str, dry_run: bool) -> tuple[pd.DataFrame, d
     if not dry_run:
         work_base = Path(tempfile.gettempdir()) / "ubem_eu11_harvest"
         work_base.mkdir(parents=True, exist_ok=True)
+        if require_recut:
+            harvest_district(district, work_base, tag=RECUT_TAG)
         harvest_district(district, work_base, tag=FINAL_TAG)
         harvest_district(district, work_base, tag=DELTA_TAG)
 
+    recut_ok = _rc_zero_index(_load_manifest(district, RECUT_TAG)) if require_recut else {}
     final_ok = _rc_zero_index(_load_manifest(district, FINAL_TAG))
     delta_ok = _rc_zero_index(_load_manifest(district, DELTA_TAG))
     ceiling_manifest = _load_manifest(district, CEILING_TAG)
@@ -95,15 +100,25 @@ def build_merged_manifest(district: str, dry_run: bool) -> tuple[pd.DataFrame, d
         )
 
     rows = []
-    counts = {DELTA_TAG: 0, FINAL_TAG: 0, "ceiling82_carry": 0, "pending_resimulation": 0}
+    if require_recut:
+        counts = {RECUT_TAG: 0, DELTA_TAG: 0, FINAL_TAG: 0, "ceiling82_carry": 0, "pending_resimulation": 0}
+    else:
+        counts = {DELTA_TAG: 0, FINAL_TAG: 0, "ceiling82_carry": 0, "pending_resimulation": 0}
+
     for _, prow in prepared.iterrows():
         building_id = str(prow["building_id"])
         idf_sha256 = str(prow["idf_sha256"])
         matches_ceiling = ceiling_sha.get(building_id) == idf_sha256
 
-        if building_id in delta_ok:
+        if require_recut and building_id in recut_ok:
+            eui_source, source_row = RECUT_TAG, recut_ok[building_id]
+        elif building_id in delta_ok and (
+            not require_recut or str(delta_ok[building_id].get("idf_sha256")) == idf_sha256
+        ):
             eui_source, source_row = DELTA_TAG, delta_ok[building_id]
-        elif building_id in final_ok:
+        elif building_id in final_ok and (
+            not require_recut or str(final_ok[building_id].get("idf_sha256")) == idf_sha256
+        ):
             eui_source, source_row = FINAL_TAG, final_ok[building_id]
         elif matches_ceiling and building_id in ceiling_ok:
             eui_source, source_row = "ceiling82_carry", ceiling_ok[building_id]
@@ -150,6 +165,8 @@ def build_summary(district: str, manifest: pd.DataFrame, counts: dict) -> dict:
         else None
     )
 
+    eui_source_tags = [t for t in counts if t != "pending_resimulation"]
+
     return {
         "district": district,
         "counts_by_eui_source": counts,
@@ -159,7 +176,7 @@ def build_summary(district: str, manifest: pd.DataFrame, counts: dict) -> dict:
         "pooled_eui_kwh_m2": round(pooled_eui, 6) if pooled_eui is not None else None,
         "pooled_eui_population": (
             f"{n_with_eui} of {n_rows} buildings with eui_source in "
-            f"{{{FINAL_TAG}, {DELTA_TAG}, ceiling82_carry}}"
+            f"{{{', '.join(eui_source_tags)}}}"
         ),
         "ceiling82_pooled_eui_kwh_m2": ceiling_pooled_eui,
         "ceiling82_pooled_eui_kwh_m2_delta": round(delta_eui, 6) if delta_eui is not None else None,
@@ -171,18 +188,19 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--district", required=True, choices=DISTRICTS)
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--merged-tag", default=MERGE_DATE, help="output tag, e.g. 2026-09-08")
     args = parser.parse_args()
 
-    manifest, counts = build_merged_manifest(args.district, args.dry_run)
+    manifest, counts = build_merged_manifest(args.district, args.dry_run, merged_tag=args.merged_tag)
     summary = build_summary(args.district, manifest, counts)
 
     if args.dry_run:
         print(f"EU-11 merged harvest (dry-run) - {args.district}")
-        for tag in [DELTA_TAG, FINAL_TAG, "ceiling82_carry", "pending_resimulation"]:
+        for tag in counts:
             print(f"  {tag}: {counts[tag]}")
         return
 
-    out_dir = _dist_dir(args.district, "merged_2026-09-07")
+    out_dir = _dist_dir(args.district, f"merged_{args.merged_tag}")
     out_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = out_dir / f"{_slug(args.district)}_manifest.csv"
     manifest.to_csv(manifest_path, index=False)

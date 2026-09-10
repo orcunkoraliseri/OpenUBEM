@@ -401,6 +401,30 @@ The restatement is **per district, all four**, each carrying: simulated populati
 and after, share of buildings with real dwelling zones, and mean EUI before and after. A district may be
 described as finished only on T03 gate 4's own criterion.
 
+### T03n — London layout side-car export from the T03m final tree (director-approved 2026-09-08, ahead of T06/T07)
+
+**What:** run `scripts/emit_eu11_layout_sidecars.py --district GB-LDN-STDUNSTANS --evidence-root
+GB-LDN-STDUNSTANS=<repo>/openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS_final_2026-09-07` and mirror the
+result into `docs_ACTIVE` per convention.
+**Why:** the London final tree from `T03m (FR+GB slice)` already has 706 prepared buildings and a written
+manifest; the side-car JSONs are pure geometry from the Step 2 `.gpkg`, not derived from EnergyPlus results
+(confirmed: `scripts/run_eu_s2_district_campaign.py:1170-1179` — the campaign script "builds IDFs and a
+manifest and does not simulate"). Director ruling: do not wait for the 299-row Speed simulate list
+(`simulate_list_GB_2026-09-07.csv`, not yet submitted) to finish before exporting layouts.
+**How:**
+1. Read `GB-LDN-STDUNSTANS_final_2026-09-07/`'s manifest (whichever file `emit_eu11_layout_sidecars.py`'s
+   `_gb_rows`/`simulated_ids` path reads for this district) and report its row count against 706.
+2. If the row count is already 706, run the emitter unmodified. If it is short of 706 (e.g. only the 299
+   simulate-list rows), widen `simulated_ids` for this district to the union of the manifest's rows and the
+   full `prepared_buildings.csv` `building_id` column for this tree — do not wait for Speed. State exactly
+   which change was made, file:line.
+3. Run the emitter, capture stdout, and report per CLAUDE.md finishing-work discipline: side-car JSON file
+   count actually written to `layouts/relation/` + `layouts/way/` (recursive count, not one subfolder), the
+   commit sha (`git rev-parse HEAD`), and the line-ending convention in effect when computing any `sha256`
+   over these files (`git config core.autocrlf`, and `file <one .json>` or `unix2dos --check` on one sample).
+**How to test:** JSON file count reported must match the manifest row count used in step 1/2. `node --check`
+the district's 3D viewer if it re-reads this tree. No EnergyPlus run in this task.
+
 ---
 
 ## 7. Stop-and-report points
@@ -914,3 +938,202 @@ other and against the simulate list; gate battery cross-checked against `affecte
 (695/905 exact match, gap explained by undivided-fallback buildings, see §1).
 **Notes:** no new symptom/error registered — the original live-network read was a mis-scoped re-derivation
 (checks need footprint+k only, not archetype mapping), not a bug, so no debug-reference entry added.
+
+#### T03n — London layout side-car export — completed 2026-09-08
+
+**Scope:** `GB-LDN-STDUNSTANS_final_2026-09-07/` only, per T03n. `--evidence-root` pointed
+`emit_eu11_layout_sidecars.py` at that tree's own `gb_ldn_stdunstans_manifest.csv` (707 lines incl. header
+= 706 unique `building_id`, confirmed by direct read before touching code) — the manifest already carried
+all 706, so step 2's "widen `simulated_ids`" branch did not apply as written.
+
+**1. Real blocker was not the manifest — it was `_gb_rows` itself.** A first unmodified run emitted only
+451 JSON side-cars (`outcomes`: 433 `..._IMPUTED_COUNT` + 11 `..._REROUTED` + 7 `FALLBACK_PENDING_LAYOUT`),
+255 short of 706. Traced: `emit_layouts_for_district`'s `GB-LDN-STDUNSTANS` branch
+(`scripts/emit_eu11_layout_sidecars.py:198-199`, pre-fix) called only `_gb_rows(gdf, records)`, the base
+mapping pass — it never called the terrace-recovery / neighbour-imputation pass that
+`scripts/run_eu_s2_district_campaign.py::prepare` (`:1080-1083`, `rows = rows + recovered_rows`) runs before
+any IDF is built. The missing 255 `building_id`s (all `way/…`, confirmed present in
+`openubem/outputs/eu02/GB-LDN-STDUNSTANS/02_residential_manifest.gpkg` by `osm_id`, so not a source-data
+gap) are exactly the D-EU-108 London recovery admissions, which only exist as rows after
+`_gb_impute_rows(gdf, records, base_rows)` (`run_eu_s2_district_campaign.py:755-770`, itself calling
+`_gb_terrace_recovery_rows` at `:411-501`) runs on top of `_gb_rows`'s output.
+
+**2. Fix, mechanical, mirroring `prepare`'s own call exactly** — not a new invention: added
+`_gb_impute_rows` to the existing import from `run_eu_s2_district_campaign`
+(`scripts/emit_eu11_layout_sidecars.py:37`) and, in the `GB-LDN-STDUNSTANS` branch, added
+`recovered_rows, _ = _gb_impute_rows(gdf, records, rows); rows = rows + recovered_rows`
+(`scripts/emit_eu11_layout_sidecars.py:199-201`), same function, same argument order, same
+`rows = rows + recovered_rows` pattern as `prepare` (`:1081-1083`). No detector/tolerance constant touched;
+`FR-LYO`/`ES-MAD`/`IT-BOL` branches untouched. Verified offline before re-running the full emitter: `rows`
+after the fix carries 1,240 unique ids, all 706 manifest ids present (0 missing). `tests/geometry/test_eu13b_circulation_sidecar.py`
++ `tests/geometry/test_eu14b_sidecar_manifest_safety.py` (7 tests covering this script) still pass after
+the edit. `python -m py_compile` clean.
+
+**3. Re-run after the fix, stale 451-file output deleted first:** `population_simulated` 706,
+`outcomes` = 685 `DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT` + 12 `..._INTERZONE_MISMATCH_REROUTED` +
+9 `FALLBACK_PENDING_LAYOUT` = 706. **JSON file count written, recursive: 706** — all under
+`layouts/way/` (`layouts/relation/` does not exist for this district; London OSM ids are all `way/…`,
+matching the precedent in every other London layout tree in this repo, none of which carry a `relation/`
+subfolder either). File count equals the manifest row count used in step 1/2, satisfying T03n's own
+"How to test" gate.
+
+**4. Commit sha / line-ending report (per T03n step 3):** `git rev-parse HEAD` = `48690c71299f3ebf91958051586dfe2ab8eeba4e`
+(code and outputs are uncommitted working-tree changes on top of this — per project convention, this
+executor does not run `git commit`; that is handled externally). `git config core.autocrlf` = `true`. A
+sample emitted file (`layouts/way/1054662329.json`) is CRLF-terminated end to end (169 `\r\n`, 0 bare `\n`;
+`git check-attr eol` reports `unspecified`, i.e. controlled by `core.autocrlf` alone, no `.gitattributes`
+override) — Python's default Windows text-mode write translates `\n`→`\r\n` on this checkout. **Any `sha256`
+taken over these files right now is a CRLF-content hash**; the same files re-checked-out on a non-Windows
+client, or read from the git-normalized (LF) blob, will hash differently. This must be stated wherever such
+a hash is later quoted as a fixity/integrity check.
+
+**5. `node --check` gate did not apply.** `scripts/generate_eu_3d_viewers.py`'s output,
+`docs/docs_ACTIVE/europeanLocations/outputs_3D/eu_GB-LDN-STDUNSTANS_viewer.html`, reads its own bundled
+`eu_GB-LDN-STDUNSTANS_data/layouts/way/` mirror, not `openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS_final_2026-09-07/layouts/`
+directly (grepped the viewer for `eu_evidence`/`layouts/` literals — no hits; it loads via its own `_data/`
+folder, populated separately by that generator script, T05 territory). T03n's own instruction — "`node
+--check` the district's 3D viewer **if it re-reads this tree**" — therefore does not trigger; no viewer
+file touched, condition confirmed false rather than assumed.
+
+**6. Not done — "mirror the result into docs_ACTIVE per convention" (T03n's `What` line).** No concrete
+target path for this mirror is stated anywhere in T03n's `How`/`How to test` steps, and no existing
+docs_ACTIVE location holds a mirror of this exact tree (`docs_ACTIVE/europeanLocations/outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts/`
+is a *different*, already-populated mirror belonging to the viewer generator, built from a different
+source tree — copying 706 new side-cars into it without a director instruction risks silently overwriting
+that mirror's own provenance). Left undone rather than guessed; flagging for director to name the target
+path, per hard rule 9 (stop and quote ambiguity rather than invent).
+
+**7. Side effect observed, not caused by this task's fix, not remediated (out of scope):** re-writing
+`gb_ldn_stdunstans_manifest.csv` (pre-existing behaviour of `emit_layouts_for_district`, documented in its
+own module docstring as updating EU-11 manifests) added the expected new `layout_json` column for all 706
+rows, and correctly updated `geometry_outcome` for 14 rows whose real outcome only becomes known once a
+layout is computed. It also reformatted 299 already-EnergyPlus-simulated rows' `eplus_return_code`,
+`severe_errors`, `fatal_errors`, `run_seconds` from integer-looking strings to `N.0` float strings (e.g.
+`0` → `0.0`, `494` → `494.0`) — a pandas dtype-upcast artifact of merging the new column, not a value
+change, and not scoped to this task; noted for the director rather than fixed silently.
+
+**Artifacts:** 706 JSON files under `openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS_final_2026-09-07/layouts/way/`
+(new, untracked); `gb_ldn_stdunstans_manifest.csv` in the same tree (modified in place); `scripts/emit_eu11_layout_sidecars.py`
+(2-line functional change, `:37`, `:199-201`); no other file touched.
+**Deviations:** step 2's anticipated failure mode ("manifest short of 706") did not match the real one
+(manifest already had 706; `_gb_rows` alone produced only 451 geometry rows) — adapted mechanically by
+wiring in `_gb_impute_rows`, the same recovery pass the canonical campaign already uses, rather than
+widening `simulated_ids` as literally written. Item 6 (docs_ACTIVE mirror) left undone, ambiguous, per hard
+rule 9.
+**Test status:** `tests/geometry/test_eu13b_circulation_sidecar.py` + `tests/geometry/test_eu14b_sidecar_manifest_safety.py`
+7/7 pass after the code edit; `py_compile` clean; JSON file count (706) cross-checked against manifest row
+count (706) and against the summary JSON's own outcome counts (685+12+9=706); `node --check` gate confirmed
+not applicable (§5).
+**Notes:** no new symptom/error registered — `_gb_rows` returning fewer rows than the manifest for a
+district with a post-hoc admissions pass is a scope gap in this one script (predates T03n, never previously
+exercised against a `_final_` London tree), not a previously-seen failure mode, so no existing debug-reference
+entry to extend; leaving it unregistered pending director's call on whether it belongs in
+`OpenUBEM_debug_References.md` as a new entry.
+
+---
+
+### FINDING 268 — London re-export regressed 6 previously-eligible buildings
+
+Cross-session peer (`gsscanada-de`) measured the new 706-file tree against the old 451-file tree
+(`openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS_final_2026-09-07/layouts/way/` vs
+`openubem/outputs/3D/eu_GB-LDN-STDUNSTANS_data/layouts/way/`) and found 12 buildings with
+`geometry_outcome = DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED` (the peer's ruled basis treats
+this token as FAIL). Of those 12: 6 were `IMPUTED_COUNT` (eligible/usable) in the old 451 — a genuine
+regression, not new coverage — 5 were already `FALLBACK_PENDING_LAYOUT` (already ineligible), 1 is a
+brand-new building. Verified independently, not just trusting the peer: `way/298850491.json` confirmed
+`IMPUTED_COUNT` in the old tree, `INTERZONE_MISMATCH_REROUTED` in the new tree, same for `way/393505346`.
+Root cause not investigated (out of scope, see D-EU-113).
+
+### D-EU-113 — Install London 706-building export at canonical path; accept the 6-building regression as-is
+
+**Director ruling, 2026-09-08 (chat, not verbatim-quoted per §pending — decision recorded here per plan
+doc convention):** the 706-file tree is authoritative for `GB-LDN-STDUNSTANS`, replacing the old 451 at
+the canonical path and its docs mirror. The FINDING 268 regression (6 buildings) is accepted without
+further investigation — population impact (6 of 706) does not justify root-causing it now. No file-level
+cherry-pick: install all 706 as emitted; the 6 regressed buildings simply carry FAIL status like any other
+`INTERZONE_MISMATCH_REROUTED` case (same treatment as Lyon's existing population of the same token).
+
+### T03o — Install London 706 export at canonical path + docs mirror (director-approved 2026-09-08, D-EU-113)
+
+**What:** copy the 706 JSON files (and the updated `gb_ldn_stdunstans_manifest.csv`) from
+`openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS_final_2026-09-07/layouts/way/` into the canonical
+path `openubem/outputs/3D/eu_GB-LDN-STDUNSTANS_data/layouts/way/` (replacing the old 451, back up the old
+tree first, do not delete) and mirror the result into
+`docs/docs_ACTIVE/europeanLocations/outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts/way/` (same replacement).
+**Why:** D-EU-113 — this is now the authoritative London population; every other district's campaign
+already reads from the canonical path, London must match or campaigns silently use stale data.
+**How:**
+1. `git status` first; do not disturb any uncommitted change outside this district's `_data/` trees.
+2. Back up the current canonical `layouts/way/` (451 files) to a timestamped sibling folder before
+   overwriting — do not delete, this is a git-handled-externally repo and the old tree has no other copy.
+3. Copy all 706 files from the eu_evidence tree into both the canonical path and the docs_ACTIVE mirror,
+   replacing every old file; report file counts before/after at each of the three locations
+   (eu_evidence source, canonical, docs mirror) — all three must read 706 after this task.
+4. Do not touch the 6 regressed buildings differently from the other 700 — install as emitted (D-EU-113).
+5. Append a progress-log entry under §8 with before/after counts at all three paths and the file list
+   diff summary (added/changed/removed), per CLAUDE.md finishing-work discipline.
+**How to test:** `find <path>/layouts/way -name '*.json' | wc -l` = 706 at both the canonical path and the
+docs mirror. Spot-check `way/298850491.json` at the canonical path now reads
+`INTERZONE_MISMATCH_REROUTED` (confirms the install actually replaced, not merged).
+
+#### T03o — Install London 706 export at canonical path + docs mirror — completed 2026-09-08
+
+**Artifacts:** old canonical `way/` (451 files) copied to new sibling
+`openubem/outputs/3D/eu_GB-LDN-STDUNSTANS_data/layouts/way_pre_D-EU-113_backup_2026-09-08/` before any
+overwrite. All 706 files from
+`openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS_final_2026-09-07/layouts/way/` copied into
+`openubem/outputs/3D/eu_GB-LDN-STDUNSTANS_data/layouts/way/` and
+`docs/docs_ACTIVE/europeanLocations/outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts/way/`, replacing every
+old file at both destinations (old files removed after the backup copy was verified at 451). No other
+file under either `_data/` tree touched (`buildings.csv`, `index.html`, `sources.json`, and the `layouts/`
+sibling `relation/` folder — which does not exist for this district, per T03n — left as-is).
+
+**File counts — before / after, all three locations:**
+- source `openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS_final_2026-09-07/layouts/way/`: 706 / 706 (unchanged, read-only source)
+- canonical `openubem/outputs/3D/eu_GB-LDN-STDUNSTANS_data/layouts/way/`: 451 / 706
+- docs mirror `docs/docs_ACTIVE/europeanLocations/outputs_3D/eu_GB-LDN-STDUNSTANS_data/layouts/way/`: 451 / 706
+
+**File list diff (old 451 vs new 706, by building id):** 0 removed, 255 added (new ids not present in the
+old 451), 451 common ids retained — and all 451 of those common-id files differ in content from the
+backed-up old version (byte-for-byte `cmp` over all 451 pairs: 451 changed, 0 identical), consistent with
+T03n's export being a full regeneration rather than an incremental append. Confirms FINDING 268's 6
+regressed buildings are included in this 451-changed set, installed as emitted per D-EU-113 (no
+cherry-pick).
+
+**Deviations:** manifest step not executed — T03o's own `How`/`How to test` steps (1–5) specify only the
+`layouts/way/` JSON install and give no destination path for `gb_ldn_stdunstans_manifest.csv`; the
+canonical `_data/` tree and its docs mirror hold no manifest-named file at all (only `buildings.csv`,
+`index.html`, `sources.json`, `layouts/`), confirmed by full directory listing, so there is no existing
+canonical manifest location to replace. Per hard rule 9 (stop on ambiguity, don't invent), the manifest
+was left uncopied pending a director-named destination; everything else in T03o executed as written.
+Resolved 2026-09-08 (director): checked Madrid's canonical tree (`ES-MAD-BERRUGUETE`) — its manifest
+(`es_mad_berruguete_manifest.csv`) also lives only under `eu_evidence`, never copied to the canonical
+`_data/` tree or its docs mirror. London's manifest already matches that existing pattern; no copy needed,
+ambiguity closed.
+
+**Test status:** JSON count = 706 at canonical and docs mirror (recursive `find`, backup sibling folder
+excluded since it lives outside `way/`); backup folder independently re-counted at 451 after the
+overwrite. Spot check `way/298850491.json`: canonical and docs mirror both read
+`"geometry_outcome": "DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED"`; the same id in the backup
+folder still reads `"geometry_outcome": "DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT"` — confirms a real
+replacement, not a merge.
+
+**Notes:** `git status` at task start showed only pre-existing, unrelated uncommitted changes (this plan
+doc, `PLAN_eu-recut-95pct-2026-09-08.md`, `IMP_PROMPT.md`, `OpenUBEM_debug_References.md`, the source
+manifest, `emit_eu11_layout_sidecars.py`, plus untracked dirs for `IT-BOL-GALVANI2_recut` and a cluster
+script) — none in either `_data/` tree; nothing outside scope was touched or disturbed. No git commit run
+(handled externally, per project convention).
+
+**Correction 2026-09-08 (director, peer-caught):** the backup was placed at
+`layouts/way_pre_D-EU-113_backup_2026-09-08/`, a child of `layouts/` — a recursive reader of the canonical
+`layouts/` tree therefore returned 1,157 files (706 live + 451 backup), not 706. Caught by gsscanada-de's
+preflight, independently reproduced (`find layouts -name '*.json' | wc -l` = 1157 before the fix). Moved
+the backup out to a sibling of `layouts/`:
+`openubem/outputs/3D/eu_GB-LDN-STDUNSTANS_data/layouts_pre_D-EU-113_backup_2026-09-08/way/` (451 files,
+recount verified). Re-verified `layouts/` now recurses to exactly 706. The docs mirror never had this
+problem — T03o only wrote a backup under the canonical `_data/` tree, not under the docs mirror.
+
+**Convention (peer-suggested, adopted):** anything under a district's `layouts/` tree is live payload;
+any superseded/backup emission is kept as a sibling of `layouts/`, never a child of it. A recursive reader
+must walk `layouts/` fully (districts nest payloads differently — `relation/`+`way/` for Madrid/London,
+flat for Bologna/Lyon) and this convention is what keeps that walk safe.

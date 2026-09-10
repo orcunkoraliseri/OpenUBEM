@@ -4,6 +4,7 @@
 **Task:** T02, `PLAN_ten-live-items-2026-08-21.md`
 **Script:** `scripts/analysis/open53_meter_only_eui_2026-08-21.py`
 **Output:** `openubem/outputs/comparisons/open53_meter_only_eui_2026-08-21.csv` (8,153 rows)
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## Method
 
@@ -16,13 +17,17 @@ eligible** (matches the adopted run's known population). For each, summed every 
 **adopted run's** `floor_area_m2` (denominator held fixed, per the plan — OPEN-01 is settled and this
 task isolates the numerator only).
 
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+
 ## Results
 
 - **n compared: 8,153** (100 % of the eligible population; join lost 0 buildings — see C4).
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - **Meters found, fleet-wide: only two** — `Electricity:Facility` and `NaturalGas:Facility`, each
   present in 8,148/8,153 buildings (5 buildings have only one of the two, presumably all-electric or
   gas-free). **No district-heating or district-cooling `*:Facility` meter was found anywhere in the
   auto arm.**
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - **Median `pct_diff`: ~0.00 %. IQR: −2.29 % to 0.00 %.** The bulk of the fleet is very close — more
   than half the buildings show effectively no gap between meter-only and published EUI.
 - **Pooled figure (Σ energy ÷ Σ area, both ways):**
@@ -30,6 +35,7 @@ task isolates the numerator only).
   - published (recomputed here from the same 8,153-row join): **153.83 kWh/m²** — matches the
     register's adopted **153.8231** to within 0.005 % (153.8304 vs 153.8231; the residual is
     floating-point summation order, not a population mismatch).
+    - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
   - **Gap: −2.55 kWh/m², about −1.66 %,** meter-only reads low against published, pooled.
 - **|pct_diff| > 10 %: 548 buildings (6.7 % of the population).** These are not evenly spread — the
   worst outliers (−98 % to +476 %) are concentrated in the `OpenUBEMUnknown` archetype and in a long
@@ -65,6 +71,7 @@ task only supplies the size of the trade, not a recommendation.**
   kWh/m²** (actual gap 1.66 %). Stated plainly per the plan: **this is not, and would not have been, a
   validation of the census even if it had landed inside 1 % — both figures read the same simulations,
   the meter-only one just discards the zone-level detail.**
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## Remedy shape (NOT applied)
 
@@ -83,6 +90,7 @@ CP-A audit shows it is not smooth — it is **deterministic and archetype-struct
 gap is **mostly the elevator adder**, which by construction is not an EnergyPlus meter.
 
 Re-derived independently (audit script, scratchpad, same 8,153 rows):
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 - pooled meter-only **151.2765**, pooled published **153.8304** — reproduces the executor's numbers.
 - per-building sign split: **3,810 exactly equal**, 3,618 meter < published, 725 meter > published.
@@ -102,6 +110,7 @@ Testing `published_eui − meter_only_eui` against `elevators_eui_kwh_m2` from t
 `05_results.csv`:
 
 - the gap equals the elevator EUI to 1e-6 for **3,823 of 8,153** buildings (3,867 at 1e-3);
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - pooled elevator EUI **2.2421** vs pooled gap **2.5539** — the elevator adder accounts for
   **≈88 %** of the 1.66 % pooled gap;
 - residual after removing elevators: pooled **0.31 kWh/m² (≈0.2 %)**, median 0.0000, but with a
@@ -116,3 +125,4 @@ not explain. Sizing that tail is the next measurement, not this one.
 No remedy proposed and no number restated: the adopted fleet figure remains **153.8231 kWh/m² pooled
 over 8,153** (`project_current_baseline`). The 153.8304 above is this audit's own recomputation over
 the same rows and is not a restatement.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.

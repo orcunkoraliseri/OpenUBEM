@@ -528,6 +528,8 @@ limits that are disclosed below plainly, not in a caveats appendix — per this 
 median 103.75; adopted fleet baseline E-R3-3 + Phase-E + elevators: 158.0). **E-LA-22 still stands —
 this delta is reported as a fact, not credited to or blamed on this arc's own fixes (R01/R02/R03/R10).**
 
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+
 **The full success-gain decomposition, all four terms, because the two largest alone would overstate
 this arc's own contribution:**
 
@@ -543,6 +545,8 @@ taking 7,990/8,160 (97.92%) to 8,153/8,160 (99.914%). **The headline success-rat
 overwhelmingly not this arc's own work** — 150 of the 163 additional passing buildings are a
 pre-existing CTF-convergence fix (E-LA-20, 2026-07-25) landing at fleet scale for the first time in
 this harvest, unrelated to R01/R02/R03/R10.
+
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ### 8.2 `match_storeys()`'s expressible population is narrow, and R10 shrank it further
 

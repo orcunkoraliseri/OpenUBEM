@@ -1,6 +1,6 @@
 """Offline tests for OPEN-57's remedy in `scripts/validation/v12_cell_pipeline.py`.
 
-Covers T05 of `docs/docs_ACTIVE/openings/implemenation/PLAN_open-57-and-58_2026-08-19.md`:
+Covers T05 of `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-57-and-58_2026-08-19.md`:
 `_ssh` gains an optional `stdin_data` channel and `_remote_results_complete` sends its
 id list over stdin instead of embedding it in the command string, so the probe's length
 no longer depends on fleet size (the cause of OPEN-57's `Unmatched '.` fault).

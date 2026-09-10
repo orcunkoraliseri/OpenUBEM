@@ -3,19 +3,23 @@
 **Script:** `scripts/analysis/open53_residual-after-elevators_2026-08-21b.py`
 **CSVs:** `openubem/outputs/comparisons/open53_residual-after-elevators_2026-08-21b.csv` (8,153 rows),
 `openubem/outputs/comparisons/open53_residual-outliers_2026-08-21b.csv` (639 rows, `|resid| > 10`).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## C6 — F8 reproduced
 
 Join of `open53_meter_only_eui_2026-08-21.csv` (8,153 rows) to `05_results.csv` (8,160 rows, all 12
 cells) on `(cell, osm_id)`: **8,153 matched, 0 unmatched.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 - Pooled elevators: **2.2421** (matches F8's 2.2421).
 - Pooled gap (`published − meter_only`): **2.5539** (matches F8's 2.5539).
 - Exact match count (`gap == elevators` to 1e-6): **3,823 of 8,153** (matches F8's 3,823).
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## C7 — the residual
 
 `resid = gap − elevators`, pooled as `Σ(resid × floor_area) / Σ(floor_area)` over **n = 8,153**.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 - **Pooled residual: +0.3118 kWh/m², positive.**
 - Median residual: 0 (to 4 dp).
@@ -28,8 +32,10 @@ cells) on `(cell, osm_id)`: **8,153 matched, 0 unmatched.**
 of the absolute residual mass; **26 (0.32 %) carry 80 %**; **41 (0.50 %) carry 90 %**. The residual is
 extremely concentrated — it is not a diffuse fleet-wide effect, it is a small number of buildings with
 large per-building errors.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Outliers (`|resid| > 10 kWh/m²`): 639 of 8,153 (7.84 %).**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 Cross-tabs (outlier count / total count in that category):
 - **`archetype_id`: dominated by `OpenUBEMUnknown` — 613 of 650 Unknown buildings are outliers
@@ -44,6 +50,7 @@ Cross-tabs (outlier count / total count in that category):
   `no_floors,no_year|VINTAGE_NAN_PERMISSIVE_DEFAULT` 205/286 (71.7 %).
 - **`floor_area_provenance`: uninformative — all 8,153 rows carry `eio_simulated`,** so this column
   cannot discriminate outliers from non-outliers in this corpus.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - **T02's per-building zone-count output was not available** (T02 was not run in this pass); the
   cross-tab proceeds without it, per the plan's fallback instruction.
 

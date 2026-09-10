@@ -13,7 +13,7 @@ scripts/cluster/t08_harvest_results.py, which wraps every remote command in
     documented E02 submission waves, using sacct facts, not a reconstructed
     story from timestamps.
 
-Plan: docs/docs_ACTIVE/openings/implemenation/PLAN_e02-audit-and-closure.md, T05.
+Plan: docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md, T05.
 """
 
 from __future__ import annotations

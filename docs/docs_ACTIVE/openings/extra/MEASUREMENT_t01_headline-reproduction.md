@@ -1,4 +1,5 @@
 # MEASUREMENT — T01: the 153.8231 headline that will not reproduce
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Script:** `scripts/analysis/t01_headline-reproduction_2026-08-21b.py`
 **CSV:** `openubem/outputs/comparisons/t01_headline-reproduction_percell_2026-08-21b.csv`
@@ -9,11 +10,13 @@ and `:26-38` (per-cell), located via `grep -rn "153.82" docs/`.
 
 **C1 — reproduced.** Row set (b), the 8,153 successes over `evidence/open48_refleet4`, pools to
 **153.8304**, matching F7's two independent recomputations to 4 dp.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Row sets (a)/(b)/(c)/(d) are identical: 153.8304, n=8,153 (successes), area 24,333,586.4 m².**
 The 7 failures carry `floor_area_m2 == 0` (F6), so filtering all-8,160 → successes-only →
 area-positive → eui-non-null removes nothing further. There is no subset of this corpus that lands
 anywhere near 153.8231.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Per-cell:** all twelve cells are within 0.02–0.18 kWh/m² of the restatement table's per-cell
 figures (`t01_headline-reproduction_percell_2026-08-21b.csv`). `austin_suburban` is the largest
@@ -22,6 +25,7 @@ the twelve small per-cell drifts partially cancel.
 
 **Rounding hypothesis — rejected.** 153.8304 rounded to 0–5 decimal places never produces 153.8231
 at any precision (153.8, 153.83, 153.8304, 153.83044 — none match).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Different-source hypothesis — tested two ways, both fail:**
 1. **The register's own cited provenance path**, `%LOCALAPPDATA%\Temp\ubem_validation\open48_refleet4\`
@@ -47,6 +51,8 @@ complete 12-cell, `floor_area_m2`-bearing 05_results.csv converges on **153.8304
 the exact directory the restatement doc names as its own source, which today returns a different
 number than the doc recorded. The record and the recomputation both stand; the 153.8231 origin
 itself is not recoverable from what is on disk.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Per rule 1 of §2: this is a measurement, not a remedy.** No fix is proposed. The adopted
 153.8231 figure is not restated or changed by this task.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.

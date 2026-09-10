@@ -3,6 +3,7 @@
 > **Plan:** `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_five-more-items-2026-08-13.md`, T04.
 > **Script:** `scripts/analysis/open32_layout_assign_net.py`
 > **Output:** `openubem/outputs/comparisons/open32_layout_assign_net.csv` (8,153 rows, one per building)
+> ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 > **Inputs (all read-only):** `e02_simulated_floor_area.csv`, `open01_denominator_audit.csv`,
 > `t20_layout_assign_eui.csv`, `open03_load_vintage_ratios.csv` — all in `openubem/outputs/comparisons/`.
 > **Interpreter:** `./.venv/Scripts/python.exe`
@@ -23,6 +24,8 @@ changed. `159.2157` and `157.1 kWh/m²` are not touched — `layout_assign` is n
 | `open01_denominator_audit.csv`, same two filters | 8,160 |
 | `t20_layout_assign_eui.csv`, `status == 'success'` | 8,153 (7 excluded, `status == 'failed'`, listed below) |
 | joined denominator leg × loads leg (inner, on `cell`+`osm_id`) | **8,153** |
+
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. (applies to the "8,153" row counts in the table above)
 
 **The 7 excluded rows** (no EnergyPlus success ⇒ no end-use split to read; excluded from the loads leg
 and therefore from the net):
@@ -96,12 +99,14 @@ now carries as current for `layout_assign`.
 `equipment_eui` and `total_eui` for all 8,160 `layout_assign` buildings (8,153 with `status ==
 'success'`). No other file under `openubem/outputs/comparisons/` was found carrying a per-building,
 per-end-use split for `layout_assign` specifically.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 Because `lighting_eui`, `equipment_eui` and `total_eui` are all divided by the **same** (flawed)
 denominator, their **ratio** — the share of site EUI that is lighting or equipment — is
 denominator-invariant and can be **measured** directly, without first correcting OPEN-01:
 
 **Measured (DERIVED) share of published site EUI, n=8,153:**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 | quantity | median | IQR | min | max |
 |---|---|---|---|---|
@@ -123,6 +128,7 @@ share, because the share did not have to be assumed.
 
 **Loads-leg bound, `f_loads = 1 + lighting_share×(ratio_light − 1) + equipment_share×(ratio_equip − 1)`
 (DERIVED, a bound, not a measurement), n=8,153:**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 | bound | median | IQR | min | max |
 |---|---|---|---|---|
@@ -136,6 +142,7 @@ the 92.9% of the fleet older than 2013 (assumption 3 above).
 ## Net
 
 `net = f_loads / error_factor`, combined multiplicatively per building (DERIVED), n=8,153:
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 | bound | median | IQR | min | max | share > 1 |
 |---|---|---|---|---|---|

@@ -1,5 +1,24 @@
 # European locations — the brief (v5)
 
+🔴 **CLOSED 2026-09-09.** Closed, reopened the same day to harvest the 2026-09-08 recut, then closed
+again once `T06b`, `T07` and `T08` of `implementation/PLAN_eu-recut-95pct-2026-09-08.md` landed. Read-only:
+not executed, not appended to, not deleted. §2 below reads "Done, 2026-09-07" and is true only up to that
+date. The final numbers — the four district EUIs, the fleet figure, and the delivered layout side-cars —
+are in the block at the head of [`STATE_european_locations_v5.md`](STATE_european_locations_v5.md). Read
+it before quoting anything from here.
+
+---
+
+<!-- superseded closure note, kept: -->
+🔴 **CLOSED 2026-09-09 — owner ruling ("we have completed this project"). Read-only: not executed,
+not appended to, not deleted.** §2 below still reads "Done, 2026-09-07" and is true only up to that
+date; two further campaigns ran after it. The arc's final record — the last published EUI per district,
+the 2026-09-08 recut that ran but was never harvested, and the three findings left open by ruling — is
+the closure block at the head of [`STATE_european_locations_v5.md`](STATE_european_locations_v5.md).
+Read that before quoting anything from here.
+
+---
+
 **2026-09-03.** One page: the goal, where it stands, the order of work.
 All findings, rulings and numbers live in `STATE_european_locations_v5.md` — never here.
 

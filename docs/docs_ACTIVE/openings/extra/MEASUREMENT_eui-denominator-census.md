@@ -3,6 +3,7 @@
 > T05 of `implemenation/previous/PLAN_twenty-items-2026-08-19.md`. Script:
 > `scripts/analysis/open01_eui_denominator_census_2026-08-19.py`. Output:
 > `openubem/outputs/comparisons/eio_area_vs_derived_fleet.csv` (8,153 rows).
+> ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## Method
 
@@ -13,6 +14,8 @@ already the multiplier-aware simulated area resolved from `eplusout.eio`
 levels` is the naive, non-multiplier-aware denominator this project moved away from at OPEN-01's
 closure. All 8,153 successes (100 %) carry `floor_area_provenance == 'eio_simulated'` — none fell
 back to the footprint denominator on run 4.
+
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## Control
 
@@ -36,6 +39,8 @@ within tolerance. Control passes.
 | within ±10 % | 8,146 / 8,153 = **99.91 %** |
 | within 2× (0.5×–2.0×) | 8,153 / 8,153 = **100.00 %** |
 | outside 2× | **0** |
+
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. (applies to the "n" / population figures in the table above)
 
 **No building on run 4 has a denominator wrong by 2× or more.** The `auto`-mode denominator is
 sound at fleet scale, consistent with (and marginally better than) OPEN-01's own closure figure.
@@ -91,9 +96,11 @@ new defect. The one lead that suggested a possible fleet-wide risk to the denomi
 (`relation_3566904`'s ÷4.18 area shift) is now closed as a measurement artifact of a different,
 already-identified defect (OPEN-58), not a property of the adopted `auto`-mode production data.
 This does not reopen, change, or restate F1 (`153.8231 kWh/m²`).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## Output
 
 This document; `openubem/outputs/comparisons/eio_area_vs_derived_fleet.csv` (8,153 rows: cell,
 osm_id, archetype_id, zoning_strategy, footprint_area_m2, levels, floor_area_m2,
 derived_area_m2, ratio).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.

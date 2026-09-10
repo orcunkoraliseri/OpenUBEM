@@ -45,6 +45,7 @@ The four rulings, verbatim in effect:
 - Python: `.venv\Scripts\python.exe`. pandas as installed. No new dependencies.
 - `geomeppy==0.12.2` — pinned, **not to be upgraded** as part of T02 (see §5, fact 4).
 - Adopted baseline: **153.8231 kWh/m² pooled over 8,153**. **Untouched by this plan.**
+  ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 ## 4. File layout
 
@@ -86,7 +87,7 @@ The four rulings, verbatim in effect:
 6. **OPEN-60 blast radius.** Zone multipliers are written in exactly one module
    (`openubem/geometry/layout_assigner.py`, `match_storeys()`, `:649`), which the `auto`
    production path never calls; three run-4 `auto` fleet IDFs were read directly and **every
-   `Multiplier` field is 1**. **153.8231 over 8,153 is untouched.** Size on n=48 untrimmed
+   `Multiplier` field is 1**. **153.8231 over 8,153 is untouched.** ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. Size on n=48 untrimmed
    `layout_assign` buildings: only 6/48 reconcile within 2 %; median error 4.71 %, mean 17.56 %,
    p90 24.19 %, max 192.28 %; 14 exceed 10 %.
 7. **OPEN-61 mechanism.** `METER_QUERY` (`parser.py:48-54`) enumerates meters by name and carries
@@ -116,7 +117,7 @@ beside `auto_storey_count` and `layout_assign_storey_count`. Joined to
 | Definition | Agrees with the real storey count | Mean storeys (real 3.127, max 105) | Denominator | Pooled EUI |
 |---|---|---|---|---|
 | `source_storey_count` (**reality**) | — | 3.127, max 105 | 23,849,281.2 m² | **156.4692** |
-| `auto_storey_count` (**adopted**) | **99.91 %** (8,153/8,160) | 3.131, max 105 | 23,849,281.2 m² | **156.4692** |
+| `auto_storey_count` (**adopted**) | **99.91 %** (8,153/8,160) (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | 3.131, max 105 | 23,849,281.2 m² | **156.4692** |
 | `layout_assign_storey_count` | **39.78 %** (3,246/8,160) | 1.283, max 18 | 8,210,828.9 m² | **454.4825** |
 
 **The adopted definition is the real one.** `auto_storey_count` differs from the true storey count on
@@ -140,7 +141,7 @@ storey:
 **Ruling this measurement supports (director, for user counter-sign):** the **~2.9× swing reported
 at CP-F of the night plan is not a definitional ambiguity and must stop being described as one.** It
 is the size of `layout_assign`'s storey error. The denominator under the adopted definition is
-correct to within 7 buildings, and **153.8231 needs no defence beyond this table**. OPEN-62's
+correct to within 7 buildings, and **153.8231 needs no defence beyond this table**. ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. OPEN-62's
 denominator question is **answered**; what remains of OPEN-62 is the `layout_assign` storey defect
 itself, which is OPEN-03's territory.
 
@@ -152,7 +153,7 @@ the same five buildings** and is recorded, not resolved.
 
 ⚠️ **One number in this table is not the adopted headline and must not be quoted as it.** The pooled
 figure over the 8,152 rows with usable recorded area is **153.4929**, against the adopted 153.8231
-over 8,153. Different row set, different provenance. **Do not restate the adopted figure.** See the
+over 8,153. ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. Different row set, different provenance. **Do not restate the adopted figure.** See the
 2026-08-21 non-reproducibility entry in `OpenUBEM_debug_References.md` ch. 8.
 
 **Artifacts:** this section. No new CSV — both inputs already existed.
@@ -354,6 +355,7 @@ already on record in the register ("no `layout_assign` IDF survives on local dis
 instead by a synthetic multiplier-5 zone unit test (§4 of the FIX doc) rather than re-running the
 6-of-48 reconciliation. No adopted number moves: zone multipliers are written only by
 `layout_assigner.match_storeys()`, which `auto` never calls (153.8231/8,153 untouched).
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 **Director annotations to the entry above — 2026-08-21.**
 
@@ -451,7 +453,7 @@ OPEN-61's remedy scope — moved from open questions to answered ones.
 ### What this plan deliberately did NOT do
 
 No EnergyPlus run. No fleet re-run. **No adopted number restated — 153.8231 over 8,153 stands
-untouched.** No remedy proposed for OPEN-61. Remedy shape (a) for OPEN-56 (extending `orient()` to
+untouched.** ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. No remedy proposed for OPEN-61. Remedy shape (a) for OPEN-56 (extending `orient()` to
 `auto`) not taken. **"6 of 48 within 2 %" was NOT re-measured** and must not be quoted as if the fix
 had been checked against it.
 

@@ -9,6 +9,7 @@ executor's tables after the executor stalled without writing up (see §8).
 > figure and no fleet figure may be derived from it. The adopted fleet result — **153.8231 kWh/m²
 > pooled** (total simulated energy ÷ total simulated floor area) over **8,153** buildings /
 > **24,320,582 m²** — is untouched by this measurement and appears here only as context.
+> ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 
 🔴 **CORRECTED 2026-08-19 (same night) — read §10 before quoting any number from §3, §4 or §6.**
 The gap reported in those sections is overstated: the parser figure they rest on undercounts
@@ -140,6 +141,7 @@ finding.**
 
 - **Changes nothing about any published number.** OPEN-32 already bounds the effect on adopted
   results at zero; this measurement is consistent with that and does not touch 153.8231.
+  ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 - **Settles the capability question** behind OPEN-03: untrimmed `layout_assign` parses, 48/48.
 - **Opens a real question**: a systematic ≈25 % cross-mode energy difference that survives the
   floor-area confounder. Nothing in this arc explains it yet.
@@ -180,6 +182,7 @@ entry points do; the fleet path does not.
 `openubem/` writes one. The director inspected three `auto`-mode fleet IDFs from run 4 directly
 (`…/open48_refleet4/nyc_rural/fleet_staging/idfs/`): **every `Multiplier` field is 1**.
 **The artifact cannot reach `auto`. `153.8231 kWh/m²` pooled over 8,153 buildings is untouched.**
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
 What it does mean is that **every `layout_assign` EUI this project has ever recorded is undercounted**
 by this mechanism — a `layout_assign`-only defect, in a mode not on the production path.
 

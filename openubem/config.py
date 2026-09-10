@@ -81,6 +81,7 @@ N_JOBS: int = int(os.environ.get("SLURM_CPUS_PER_TASK", 0)) or -1
 
 # ── Step 5 results / metrics constants (DESIGN line 29) ───────────────────────
 GWP_NATURAL_GAS_KGCO2_KWH: float = 0.181  # Iseri et al. (2025)
+GWP_DISTRICT_HEATING_KGCO2_KWH: float = 0.226  # US EPA, GHG Emission Factors Hub, Jan 2025 ed., table "Steam and Heat"
 GWP_CONVENTION: str = "load_referenced_v1"
 IOD_SUMMER_MONTHS: tuple[int, int] = (6, 9)  # Jun–Sep inclusive (PLAN P9)
 EUI_PLAUSIBILITY_BOUNDS: tuple[float, float] = (25.0, 1000.0)  # kWh/m²/yr
@@ -98,6 +99,21 @@ RECONSTRUCT_SERVICE_LOADS: bool = bool(int(os.environ.get("OPENUBEM_RECONSTRUCT_
 # safety is carried by the config, not by tier-list exclusion.
 IMPUTE_STRICT_MODE: bool = False
 IMPUTE_ENABLED_TIERS: tuple = ("fusion", "spatial", "statistical")
+
+# ── Input-Imputation arc Part II T01/T07 — `draw` tier opt-in surface ────────
+# `draw` stays OUT of IMPUTE_ENABLED_TIERS above -- opt-in / OFF by
+# construction (Part II §II.1 rule 4); reached only via
+# ImputeConfig.per_input_tiers. Default {} -- a target draws only when a
+# caller both opts a target into "draw" AND names a method here.
+IMPUTE_DRAW_METHOD_BY_TARGET: dict = {}
+
+# ── Input-Imputation arc Phase C T11.8 — `_ml_tier` newer-skew debias hook ──
+# Opt-in / all-False by default (T11.8 "How"): a target debiases only when
+# both this flag is True for it AND the target's `ml` method is `knn`. `ml`
+# itself stays OUT of IMPUTE_ENABLED_TIERS's default tuple (see :103-104
+# below) -- this flag governs `_ml_tier`'s own internal correction only, once
+# a caller has separately opted a target into `ml`.
+IMPUTE_DEBIAS_NEWERSKEW: dict = {}
 
 # ── Input-Imputation arc T11.3 — ML tier opt-in surface (Phase C) ─────────────
 # `ml` stays OUT of IMPUTE_ENABLED_TIERS above until CP-3 passes + user
