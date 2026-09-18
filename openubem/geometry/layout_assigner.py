@@ -9,8 +9,10 @@ import math
 import os
 import logging
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 import shapely
+from eppy.modeleditor import IDDAlreadySetError
+from geomeppy import IDF as GeomIDF
 
 from openubem import config
 
@@ -97,6 +99,81 @@ DEFAULT_BASELINE_AREAS: Dict[str, float] = {
     "SmallDataCenterHighITE": 55.7,
     "SmallDataCenterLowITE": 55.7,
 }
+
+# T9 -- prototype-vs-plot fit check (plan §5 E1-E5, PLAN_techtransfer-block2-2026-09-17.md).
+# Measurement/reporting only: this flag never changes geometry, never rejects a
+# building, never swaps a prototype.
+PROTOTYPE_EXTENT_EXCEEDS_FOOTPRINT = "PROTOTYPE_EXTENT_EXCEEDS_FOOTPRINT"
+FIT_CHECK_TOLERANCE_M = 1.0
+
+# E5 -- raw (unscaled) prototype X/Y extent cache, keyed by baseline IDF path
+# (str), computed on first use. ~25 prototype IDFs total, thousands of buildings.
+_PROTOTYPE_XY_EXTENT_CACHE: Dict[str, Optional[Tuple[float, float]]] = {}
+
+
+def _raw_prototype_xy_extent(baseline_idf_path: Path) -> Optional[Tuple[float, float]]:
+    """Returns (x_extent_m, y_extent_m) of a RAW (unscaled) baseline IDF's
+    BuildingSurface:Detailed vertices, in world coordinates, or None if the idf
+    has no such surfaces. Cached per path (E5)."""
+    key = str(baseline_idf_path)
+    if key in _PROTOTYPE_XY_EXTENT_CACHE:
+        return _PROTOTYPE_XY_EXTENT_CACHE[key]
+
+    try:
+        GeomIDF.setiddname(str(config.ENERGYPLUS_IDD_PATH))
+    except IDDAlreadySetError:
+        pass
+    idf = GeomIDF(str(baseline_idf_path))
+
+    zones_by_name = {z.Name: z for z in idf.idfobjects.get("ZONE", [])}
+    rules = idf.idfobjects.get("GLOBALGEOMETRYRULES", [])
+    coord_sys = rules[0].Coordinate_System.upper() if rules else "WORLD"
+
+    xs: List[float] = []
+    ys: List[float] = []
+    for s in idf.idfobjects.get("BUILDINGSURFACE:DETAILED", []):
+        z = zones_by_name.get(s.Zone_Name)
+        ox = oy = 0.0
+        if coord_sys == "RELATIVE" and z is not None:
+            ox = float(z.X_Origin) if z.X_Origin not in (None, "") else 0.0
+            oy = float(z.Y_Origin) if z.Y_Origin not in (None, "") else 0.0
+        for x, y, _z in s.coords:
+            xs.append(x + ox)
+            ys.append(y + oy)
+
+    result = (max(xs) - min(xs), max(ys) - min(ys)) if xs and ys else None
+    _PROTOTYPE_XY_EXTENT_CACHE[key] = result
+    return result
+
+
+def _fit_check(
+    footprint_poly: shapely.Polygon,
+    baseline_idf_path: Path,
+    planar_scale_factor: float,
+) -> Tuple[Optional[str], Optional[float]]:
+    """E2/E3 -- compares the scaled prototype's plan extents against the real
+    footprint's minimum rotated rectangle. Returns (fit_check_reason,
+    fit_overflow_m); never raises, never mutates geometry."""
+    rect = shapely.minimum_rotated_rectangle(footprint_poly)
+    if rect.geom_type != "Polygon":
+        return None, None
+    coords = list(rect.exterior.coords)
+    side_a = math.dist(coords[0], coords[1])
+    side_b = math.dist(coords[1], coords[2])
+    footprint_dims = sorted([side_a, side_b], reverse=True)
+
+    extent = _raw_prototype_xy_extent(baseline_idf_path)
+    if extent is None:
+        return None, None
+    scaled_proto_dims = sorted(
+        [extent[0] * planar_scale_factor, extent[1] * planar_scale_factor], reverse=True
+    )
+
+    overflow_0 = scaled_proto_dims[0] - footprint_dims[0]
+    overflow_1 = scaled_proto_dims[1] - footprint_dims[1]
+    fit_overflow_m = max(overflow_0, overflow_1)
+    reason = PROTOTYPE_EXTENT_EXCEEDS_FOOTPRINT if fit_overflow_m > FIT_CHECK_TOLERANCE_M else None
+    return reason, fit_overflow_m
 
 
 class BaselineIDFRegistry:
@@ -342,9 +419,12 @@ def assign_baseline_layout(
             "area_scale_ratio": None,
             "planar_scale_factor": None,
             "height_m": num_floors * floor_to_floor_m,
+            "fit_check_reason": None,
+            "fit_overflow_m": None,
         }
 
     scaling = calculate_scaling_factor(real_area, baseline_area)
+    fit_check_reason, fit_overflow_m = None, None
 
     assigned_metadata = {
         "name": f"{osm_id}_assigned_{archetype_id}",
@@ -360,6 +440,8 @@ def assign_baseline_layout(
         "area_scale_ratio": scaling["area_scale_ratio"],
         "planar_scale_factor": scaling["planar_scale_factor"],
         "height_m": num_floors * floor_to_floor_m,
+        "fit_check_reason": fit_check_reason,
+        "fit_overflow_m": fit_overflow_m,
     }
 
     logger.info(

@@ -58,7 +58,78 @@ def _is_missing(value: Any) -> bool:
         return False
 
 
-def patch_envelope(idf: Any, row: Any, thermal_mass: bool = False) -> Any:
+def _native_window_u_shgc(idf: Any, fen: Any) -> tuple[float, float] | None:
+    """Resolves a FenestrationSurface:Detailed's own (pre-patch) construction to a
+    (UFactor, SHGC) pair, returning None if it cannot be resolved (e.g. detailed
+    glazing layers instead of WindowMaterial:SimpleGlazingSystem, per B01)."""
+    cons_name = str(getattr(fen, "Construction_Name", "")).strip().lower()
+    if not cons_name:
+        return None
+    cons = next(
+        (c for c in idf.idfobjects.get("CONSTRUCTION", []) if str(c.Name).strip().lower() == cons_name),
+        None,
+    )
+    if cons is None:
+        return None
+    layer_name = str(getattr(cons, "Outside_Layer", "")).strip().lower()
+    mat = next(
+        (
+            m
+            for m in idf.idfobjects.get("WINDOWMATERIAL:SIMPLEGLAZINGSYSTEM", [])
+            if str(m.Name).strip().lower() == layer_name
+        ),
+        None,
+    )
+    if mat is None:
+        return None
+    try:
+        return float(mat.UFactor), float(mat.Solar_Heat_Gain_Coefficient)
+    except (TypeError, ValueError):
+        return None
+
+
+def _check_shading_controls(idf: Any) -> None:
+    """B02 found zero WindowShadingControl objects in the current prototype
+    library, so this is a guard against a future addition, not a repair for an
+    existing case. Raises if a shading control references a construction that
+    does not exist, or controls a fenestration surface that patch_envelope has
+    repointed to LA_Window_Construction (the control's Construction_with_Shading_Name
+    was built against the surface's original construction and no longer applies)."""
+    construction_names = {
+        str(getattr(c, "Name", "")).strip().lower() for c in idf.idfobjects.get("CONSTRUCTION", [])
+    }
+    fen_by_name = {
+        str(getattr(f, "Name", "")).strip().lower(): f
+        for f in idf.idfobjects.get("FENESTRATIONSURFACE:DETAILED", [])
+    }
+    for shc in idf.idfobjects.get("WINDOWSHADINGCONTROL", []):
+        shc_name = getattr(shc, "Name", "?")
+        shading_construction = str(getattr(shc, "Construction_with_Shading_Name", "")).strip()
+        if shading_construction and shading_construction.lower() not in construction_names:
+            raise ValueError(
+                f"patch_envelope: WindowShadingControl {shc_name!r} references "
+                f"Construction_with_Shading_Name={shading_construction!r}, which does not exist "
+                "in this IDF -- orphaned shading control."
+            )
+        for field_name in getattr(shc, "fieldnames", []):
+            if not field_name.lower().startswith("fenestration_surface_"):
+                continue
+            fen_name = str(getattr(shc, field_name, "")).strip()
+            if not fen_name:
+                continue
+            fen = fen_by_name.get(fen_name.lower())
+            if fen is None:
+                continue
+            if str(getattr(fen, "Construction_Name", "")).strip() == "LA_Window_Construction":
+                raise ValueError(
+                    f"patch_envelope: WindowShadingControl {shc_name!r} controls fenestration "
+                    f"surface {fen_name!r}, which patch_envelope repointed to "
+                    "'LA_Window_Construction' -- its Construction_with_Shading_Name="
+                    f"{shading_construction!r} no longer matches this window after patching."
+                )
+
+
+def patch_envelope(idf: Any, row: Any, thermal_mass: bool = False, skip_when_better: bool = False) -> Any:
     """Patches a `layout_assign` baseline IDF's envelope material properties in
     place to `row`'s already-resolved (archetype_id, climate_zone) envelope
     values. Never touches surface/fenestration geometry, vertex counts, or WWR
@@ -72,6 +143,11 @@ def patch_envelope(idf: Any, row: Any, thermal_mass: bool = False) -> Any:
             output, present regardless of resolution_mode).
         thermal_mass: Mirrors BuildingIDF.thermal_mass -- MATERIAL (mass) vs.
             MATERIAL:NOMASS (default) for the opaque assemblies.
+        skip_when_better: Default False (byte-identical to today's unconditional
+            overwrite). When True, a fenestration surface whose own native window
+            is already better than the archetype window on BOTH UFactor and SHGC
+            (strictly lower on both) is left on its native construction instead
+            of being repointed to LA_Window_Construction (B01/D8).
 
     Returns:
         The same idf object, for chaining.
@@ -97,11 +173,13 @@ def patch_envelope(idf: Any, row: Any, thermal_mass: bool = False) -> Any:
     ]:
         build_opaque_assembly(idf, name, float(row[u_col]), thermal_mass)
 
+    new_window_ufactor = float(row["u_window_w_m2k"])
+    new_window_shgc = float(row["shgc_window"])
     idf.newidfobject(
         "WINDOWMATERIAL:SIMPLEGLAZINGSYSTEM",
         Name="LA_Window_Material",
-        UFactor=float(row["u_window_w_m2k"]),
-        Solar_Heat_Gain_Coefficient=float(row["shgc_window"]),
+        UFactor=new_window_ufactor,
+        Solar_Heat_Gain_Coefficient=new_window_shgc,
         Visible_Transmittance=0.6,
     )
     idf.newidfobject(
@@ -156,6 +234,12 @@ def patch_envelope(idf: Any, row: Any, thermal_mass: bool = False) -> Any:
     for fen in idf.idfobjects.get("FENESTRATIONSURFACE:DETAILED", []):
         if str(fen.Surface_Type).strip().lower() not in ("window", "glassdoor"):
             continue
+        if skip_when_better:
+            native = _native_window_u_shgc(idf, fen)
+            if native is not None and native[0] < new_window_ufactor and native[1] < new_window_shgc:
+                continue
         fen.Construction_Name = "LA_Window_Construction"
+
+    _check_shading_controls(idf)
 
     return idf

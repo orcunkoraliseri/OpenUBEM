@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 from pathlib import Path
 
@@ -67,7 +68,48 @@ import sys as _sys
 
 ENERGYPLUS_PATH: Path = Path(os.environ.get("ENERGYPLUS_PATH", r"C:\EnergyPlusV23-1-0"))
 ENERGYPLUS_VERSION: str = "23.1"
+
+_IDF_VERSION_OBJECT_RE = re.compile(r"VERSION\s*,\s*([0-9]+(?:\.[0-9]+){1,2})\s*;", re.IGNORECASE)
+
+
+class PrototypeIDFVersionError(RuntimeError):
+    pass
+
+
+def read_idf_version(idf_path: "str | Path") -> "str | None":
+    text = Path(idf_path).read_text(encoding="utf-8", errors="replace")
+    match = _IDF_VERSION_OBJECT_RE.search(text)
+    return match.group(1) if match else None
+
+
+def assert_prototype_idf_version(idf_path: "str | Path", expected_version: "str | None" = None) -> None:
+    expected_version = expected_version or ENERGYPLUS_VERSION
+    found_version = read_idf_version(idf_path)
+    if found_version is None:
+        raise PrototypeIDFVersionError(
+            f"{idf_path}: no VERSION object found; cannot confirm this IDF was built "
+            f"for the pinned EnergyPlus version {expected_version} (config.ENERGYPLUS_VERSION)."
+        )
+    if found_version.split(".")[:2] != expected_version.split(".")[:2]:
+        raise PrototypeIDFVersionError(
+            f"{idf_path}: VERSION {found_version} does not match the pinned EnergyPlus "
+            f"version {expected_version} (config.ENERGYPLUS_VERSION); this IDF was built "
+            "for a different engine release and must not enter the pipeline."
+        )
+
+
+def validate_prototype_library_versions(
+    directory: "Path | None" = None, expected_version: "str | None" = None
+) -> None:
+    directory = Path(directory) if directory is not None else BASELINE_IDF_DIR
+    if not directory.exists():
+        return
+    for idf_path in sorted(directory.glob("*.idf")):
+        assert_prototype_idf_version(idf_path, expected_version)
+
+
 SIM_TIMEOUT_S: int = 3600  # recalibrated per DESIGN line 127: 340-zone building exceeds 900s under 8-worker load
+ENVELOPE_PATCH_SKIP_WHEN_BETTER: bool = False
 SIM_RETAIN_FILES: frozenset = frozenset({
     "eplusout.sql",
     "eplusout.csv",
@@ -78,6 +120,7 @@ SIM_RETAIN_FILES: frozenset = frozenset({
     "openubem_run.log",
 })
 N_JOBS: int = int(os.environ.get("SLURM_CPUS_PER_TASK", 0)) or -1
+PREP_ABORT_ON_FAILURE: bool = False
 
 # ── Step 5 results / metrics constants (DESIGN line 29) ───────────────────────
 GWP_NATURAL_GAS_KGCO2_KWH: float = 0.181  # Iseri et al. (2025)
@@ -177,3 +220,5 @@ FUSION_ASSESSOR_FIELDS: dict = {}
 HEIGHT_CACHE_DIR: Path = Path(
     os.environ.get("OPENUBEM_HEIGHT_CACHE", str(Path.home() / ".openubem" / "heights"))
 )
+PV_INJECTION_ENABLED: bool = False
+SCENARIO_LAYER_ENABLED: bool = False

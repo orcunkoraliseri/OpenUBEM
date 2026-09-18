@@ -1,0 +1,65 @@
+{
+  "lighting_power_density": {
+    "name": "Lighting power density reduction",
+    "description": "Lowers the installed lighting power density (Watts_per_Zone_Floor_Area) of Watts/Area LIGHTS objects to a public target. Only ever lowers a value; a Lights object already at or below the target is left unchanged and reported already_compliant. Watts_per_Zone_Floor_Area == 0.0 (elevator-core-type objects) is skipped, not treated as an opportunity. The cited target is an Office-occupancy figure, so the measure is scoped to genuinely-office archetypes only (see in_scope_archetypes); any other archetype, or an unspecified one, is skipped via gate_archetype_out_of_scope rather than applied.",
+    "parameters": {
+      "target_lpd_w_m2": 6.0,
+      "target_lpd_w_ft2": 0.56
+    },
+    "in_scope_archetypes": [
+      "SmallOffice",
+      "MediumOffice",
+      "LargeOffice",
+      "SmallOfficeDetailed",
+      "MediumOfficeDetailed",
+      "LargeOfficeDetailed"
+    ],
+    "source": "ASHRAE 90.1-2022 Section 9.3.2, Simplified Building Method, Interior Office LPD = 0.56 W/ft2 (6.0 W/m2), reproduced in the DOE Building Energy Codes Program webinar 'What You Need to Know About the New Energy Standard for Commercial Buildings: ASHRAE Standard 90.1-2022' (Nov 16, 2023), slide 34, presented by Michael Myer (PNNL, consultant to the ASHRAE SSPC 90.1 Lighting Subcommittee). See PROVENANCE.md for why this substitutes for Section 9.5.1 (Building Area Method), whose exact 90.1-2022 Office digit could not be verified from any accessible primary source, and for the in_scope_archetypes derivation.",
+    "gates": ["gate_archetype_out_of_scope", "gate_lighting_method", "gate_zero_lpd"],
+    "status": "active"
+  },
+  "envelope_u_upgrade": {
+    "name": "Envelope U-value and window SHGC upgrade",
+    "description": "Improves wall, roof, floor and window U-value and window SHGC by delegating to the existing patch_envelope() applier. Never writes construction or material objects itself. U may only fall: for wall/roof/floor the measure compares the building's own current (worst-case) opaque U-value to the target and passes through whichever is lower; for windows it delegates the never-raise comparison to patch_envelope(skip_when_better=True), which patch_envelope already implements per-surface.",
+    "parameters": {
+      "u_wall_w_m2k": 0.278,
+      "u_roof_w_m2k": 0.182,
+      "u_floor_w_m2k": 0.29,
+      "u_window_w_m2k": 1.931,
+      "shgc_window": 0.38
+    },
+    "source": "ASHRAE 90.1-2019 climate zone 6A envelope assembly U-factors for archetype MediumOffice (NREL/openstudio-standards commit 83b1e64, ashrae_90_1_2019.construction_properties.json / construction_sets.json), already vetted and ingested at openubem/data/construction/ashrae_90_1_2019.json (see that file's own PROVENANCE.md). Used here as the verified proxy for ASHRAE 90.1-2022 Appendix A because the exact 90.1-2022 Appendix A CZ6 digits could not be verified from any accessible primary source, and DOE's own 90.1-2019-to-90.1-2022 envelope change summary (Nov 16, 2023 webinar, slide 20) does not list opaque/window U-factor table revisions among the Section 5 changes for that edition. See PROVENANCE.md.",
+    "gates": ["gate_no_fenestration"],
+    "status": "withdrawn",
+    "withdrawn_reason": "The shipped wall/roof/floor/window/SHGC targets are byte-identical to the MediumOffice/6A row of openubem/data/construction/ashrae_90_1_2019.json, which is the code baseline OpenUBEM already applies via openubem/semantic/construction_sets.py:172-194. The measure was therefore a guaranteed no-op on its own archetype and, where it did change a building, a leak of one archetype's code baseline onto another rather than a retrofit."
+  },
+  "thermostat_setback": {
+    "name": "Thermostat automatic setback / setup",
+    "description": "For each ThermostatSetpoint:DualSetpoint object, examines its heating and cooling Schedule:Compact setpoint schedules. The occupied setpoint is derived, not assumed from a time window: it is the extreme of the schedule's workday values (the maximum for heating, the minimum for cooling), and the setback level is the opposite extreme. Only entries already equal to the setback level are deepened, by cloning the schedule and lowering (heating) / raising (cooling) those entries to the cited required magnitude; the occupied setpoint and any intermediate warm-up ramp values are never modified. WinterDesignDay and SummerDesignDay blocks are excluded entirely from this analysis and are never touched. A schedule already at or past the required magnitude is reported already_compliant and left untouched; a schedule whose workday values are all equal has no setback block to deepen and is reported gate_no_setback_block rather than having occupied hours invented. Only ever deepens or leaves equal, never narrows an existing deadband. Only the specific thermostat object being fixed is repointed to the clone; every other object still naming the original schedule (including other ThermostatSetpoint:DualSetpoint objects that happen to share it) is untouched.",
+    "parameters": {
+      "heating_setback_delta_c": 5.5556,
+      "cooling_setup_delta_c": 2.7778
+    },
+    "source": "ASHRAE 90.1-2022 Section 6.4.3.3.2 'Setback Controls' (a numbered subsection of 6.4.3.3 'Off-Hour Controls'): 'Heating systems shall be equipped with controls capable of and configured to automatically restart and temporarily operate the system as required to maintain zone temperatures above an adjustable heating set point at least 10F below the occupied heating set point. Cooling systems shall be equipped with controls capable of and configured to automatically restart and temporarily operate the mechanical cooling system at the lowest practical fan speed as required to maintain zone temperatures below an adjustable cooling set point at least 5F above the occupied cooling set point...'. This is a required delta-T (setback magnitude), not an absolute setpoint: 10F x 5/9 = 5.5556 C; 5F x 5/9 = 2.7778 C (Fahrenheit-to-Celsius delta conversion, no +/-32 offset, because a temperature difference has no zero-point shift). See PROVENANCE.md for the exact text and where it was read.",
+    "gates": ["gate_no_thermostat", "gate_schedule_missing", "gate_no_setback_block"],
+    "status": "active"
+  },
+  "infiltration_tightening": {
+    "name": "Envelope air leakage (infiltration) tightening",
+    "description": "Tightens whole-building air leakage toward a public target by lowering ZoneInfiltration:DesignFlowRate objects, never raising one. Computes three building-level areas once: S, the total building envelope area, from every BuildingSurface:Detailed (Wall, Roof, Ceiling, Floor) whose Outside_Boundary_Condition is Outdoors, Ground, GroundFCfactorMethod, GroundSlabPreprocessorAverage or OtherSideCoefficients; AFLR, the summed gross floor area of every zone that owns a ZoneInfiltration:DesignFlowRate object; AAGW, the summed above-grade exterior (Outdoors-only) wall area of those same zones. Applies the standard's own uniform intensities exactly as written, with no invented distribution: IFLR = conversion_factor x i75pa_target_m3_s_m2 x S / AFLR to every Flow/Area object, IAGW = conversion_factor x i75pa_target_m3_s_m2 x S / AAGW to every Flow/ExteriorWallArea object, both recomputed by the code rather than stored as pre-multiplied digits. Flow/Zone and Flow/ExteriorArea have no formula in Section 11.5.3 and are gated unconditionally as gate_unsupported_calculation_method rather than approximated. Each covered object's existing declared value, already in m3/s-m2, is compared directly against the uniform intensity for its method and the lower of the two is kept and written back through that same field; an object already at or below the uniform intensity is reported already_compliant and left byte-identical. Design_Flow_Rate_Calculation_Method is never changed and leakage is never moved from one zone to another. ZoneInfiltration:EffectiveLeakageArea and ZoneInfiltration:FlowCoefficient objects, any ZoneInfiltration:DesignFlowRate using a calculation method other than the four named above (for example AirChanges/Hour), Flow/Zone and Flow/ExteriorArea objects (no formula in the cited clause), and any object whose four infiltration coefficients differ from the DOE-2 wind-driven set (0, 0, 0.224, 0) by more than 1e-6 are left completely unchanged and reported under a named gate rather than approximated.",
+    "parameters": {
+      "conversion_factor": 0.112,
+      "i75pa_target_m3_s_m2": 0.0017
+    },
+    "source": "ANSI/ASHRAE/IES Addendum t to ANSI/ASHRAE/IES Standard 90.1-2019, Section 11.5.3 'Modeling Building Envelope Air Leakage' (published 2022-08-12): IFLR = 0.112 x I75Pa x S / AFLR and IAGW = 0.112 x I75Pa x S / AAGW, both referenced to a 10 mph (4.47 m/s) wind speed, the DOE-2 wind-velocity-coefficient reference. Independently confirmed by Gowri K., D.W. Winiarski, R.E. Jarnagin, Infiltration Modeling Guidelines for Commercial Building Energy Analysis, PNNL-18898 (2009), Section 4: 0.2016 / 1.8 = 0.112 exactly, at the DOE-2 coefficient set (constant 0, temperature 0, velocity 0.224, velocity-squared 0). Tightening target from the same Addendum t, Section 5.4.3.1.1 Whole-Building Air Leakage: I75Pa = 0.35 cfm/ft2 = 1.7 L/s.m2 = 0.0017 m3/s-m2 of building envelope area (Addendum t lowers the 90.1-2019 published 0.40 cfm/ft2; the 2019 base document is not used because it states the superseded value). See PROVENANCE.md for the full derivation.",
+    "gates": [
+      "gate_no_infiltration_objects",
+      "gate_unknown_calculation_method",
+      "gate_unsupported_calculation_method",
+      "gate_zero_normalizing_area",
+      "gate_no_geometry",
+      "gate_unsupported_coefficients"
+    ],
+    "status": "active"
+  }
+}
