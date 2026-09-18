@@ -13,7 +13,11 @@ from joblib import Parallel, delayed
 from shapely.geometry.polygon import orient
 
 from openubem import config
-from openubem.config import SHADING_SPHERE_RADIUS
+from openubem.config import (
+    ENVELOPE_PATCH_SKIP_WHEN_BETTER,
+    SHADING_SPHERE_RADIUS,
+    assert_prototype_idf_version,
+)
 from openubem.geometry.footprint import (
     _archetype_consumed_group_median,
     derive_num_floors,
@@ -25,6 +29,7 @@ from openubem.geometry.zoning import build_zones, decide_zoning_strategy
 from openubem.geometry.context import discover_context
 from openubem.geometry import layout_assigner
 from openubem.geometry import envelope_patcher
+from openubem.idf.ground import add_ground_temperature
 from openubem.idf.surfaces import (
     extrude_geometry,
     find_mismatched_interzone_pairs,
@@ -268,6 +273,7 @@ class BuildingIDF:
         self.trim_outputs = trim_outputs
         baseline_idf_path = _layout_assign_baseline_path(resolution_mode, row["archetype_id"])
         if baseline_idf_path is not None:
+            assert_prototype_idf_version(baseline_idf_path)
             self.idf = GeomIDF(str(baseline_idf_path))
         else:
             template_name = TEMPLATE_ROUTING.get(row["archetype_id"], "commercial_base.idf")
@@ -284,6 +290,7 @@ class BuildingIDF:
                 "does not exist -- refusing to build at the template's placeholder "
                 "Site:Location (Latitude=0.0, Longitude=0.0)"
             )
+        add_ground_temperature(self.idf)
 
     def assign_constructions(self) -> None:
         """Create opaque assemblies and glazing per DESIGN §3F (fact #20)."""
@@ -541,6 +548,9 @@ class BuildingIDF:
                     storeys_matched=(match_result["status"] == "applied"),
                     multiplier=match_result.get("multiplier"),
                 )
+                fit_check_reason, fit_overflow_m = layout_assigner._fit_check(
+                    poly_local, Path(zones[0]["baseline_idf_path"]), scale["planar_scale_factor"]
+                )
                 layout_assigner.scale_baseline_idf(self.idf, scale, archetype_id=arch)
                 layout_assigner.purge_baseline_outputs(self.idf)
                 if match_result["status"] in ("fallback_shorter", "fallback_not_expressible"):
@@ -552,7 +562,10 @@ class BuildingIDF:
                 # T16: patch the baseline's native Buffalo CZ 6A envelope to the real
                 # building's own already-resolved envelope (after scaling, needs the
                 # already-scaled surface list; before write_outputs()).
-                envelope_patcher.patch_envelope(self.idf, row, thermal_mass=self.thermal_mass)
+                envelope_patcher.patch_envelope(
+                    self.idf, row, thermal_mass=self.thermal_mass,
+                    skip_when_better=ENVELOPE_PATCH_SKIP_WHEN_BETTER,
+                )
                 extruded_zones = layout_assigner.parse_baseline_zones(self.idf, arch)
                 write_outputs(self.idf, trim_hourly=self.trim_outputs)
 
@@ -575,6 +588,8 @@ class BuildingIDF:
                     "data_quality_flag": dq_flag,
                     "generation_status": "success",
                     "resolution_mode": self.resolution_mode,
+                    "fit_check_reason": fit_check_reason,
+                    "fit_overflow_m": fit_overflow_m,
                 }
 
         # 3D: schedule library must be copied before geometry objects reference schedules

@@ -736,6 +736,27 @@
   and `Calculation of cooling coil design UA failed` / `Autosizing of cooling tower UA failed ... Bad
   starting values for UA` (E-LA-16, which also hits already-passing buildings).
   *(same doc; docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-51_e-la-16-identity.md)*
+- **`thermostat_setback` measure drove the occupied heating setpoint from 21.0 C to 10.0444 C and
+  the occupied cooling setpoint from 24.0 C to 29.4778 C for every hour of every day, on the real
+  `ASHRAE901_OfficeMedium_STD2022_Buffalo.idf` prototype** — `_is_time_outside_occupied`
+  (`openubem/scenarios/measures.py`) tested the END time of a `Schedule:Compact` `Until:` entry
+  against a hard-coded 07:00–18:00 window, so the DOE occupied block `Until: 22:00, 21.0` (covering
+  07:00–22:00) was labelled unoccupied and no workday entry fell inside the window at all; with no
+  candidate found, `_select_reference_and_outside` fell back to the earliest entry (the 05:00
+  night-setback value, 15.6) and treated it as the occupied setpoint, pushing every other entry
+  toward the setback delta. A second, compounding fault: `_parse_compact_value_entries` tested
+  `low.startswith("for:")`, so `For SummerDesignDay` (no colon) was not recognised as a header and
+  its entries inherited the previous block's label, letting design-day (equipment-sizing) blocks be
+  modified. Fix: replaced the fixed-clock heuristic with one derived from each schedule's own
+  workday values (`occupied = max`/`setback = min` for heating, reversed for cooling; deepen only
+  entries at the setback level) — `openubem/scenarios/measures.py:383`
+  (`_derive_occupied_and_setback`) and `openubem/scenarios/measures.py:335`
+  (`_parse_compact_value_entries`, header test now `for:` or `for `, `WinterDesignDay`/
+  `SummerDesignDay` blocks excluded entirely). A schedule with no setback structure at all now
+  reports `gate_no_setback_block` instead of inventing occupied hours. The measure shipped
+  `"status": "withdrawn"` in `openubem/data/scenarios/measures.json` until re-verified against the
+  real prototype.
+  *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block5-2026-09-17.md)*
 
 ## 4. Zoning & resolution modes
 
@@ -850,6 +871,7 @@
   *(openubem/outputs/eu_evidence/EU-04/s3/s3_scope_measurement.csv; openubem/outputs/eu_evidence/EU-04/D-EU-22/layout_contract_ceiling.CORRECTION.json)*
   *(docs/docs_ACTIVE/europeanLocations/prompts/previous/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md:115)*
 - **Ruled dwelling partition silently emits empty cells, and the run reports `HABITABILITY_GATE_FAILED_AFTER_ROTATION` on ~84 % of the fleet (coverage ~16 % instead of ~97 %)** — the equal-area bisection cuts a footprint with axis-aligned blade rectangles built as `box(mid, -1e6, 1e6, 1e6)`. A footprint left in **absolute UTM coordinates** has a northing near 4.9×10⁶ m, outside the blade, so every intersection is empty, the cell count never matches the requested dwelling count, and the loop falls through to the habitability reason token — which is a **misattribution**, not the real cause. Fix: translate each footprint to its own centroid before partitioning (`affinity.translate(fp, -fp.centroid.x, -fp.centroid.y)`), exactly as the sample execution does; measured fleet coverage went 15.76 % → 97.05 % over the same 2,544 buildings with no other change. 🔴 A reason token emitted by fall-through is not evidence of that failure mode — check the cell count before believing the token. *(docs/docs_ACTIVE/europeanLocations/EXAMPLE_dwelling_layout_validation_2026-08-28.md §8)*
+- **`AttributeError: 'Point' object has no attribute 'exterior'` when computing `shapely.minimum_rotated_rectangle(footprint_poly)`** — a handful of fleet footprints are degenerate (near-zero area, e.g. a single-vertex or collinear ring), so `minimum_rotated_rectangle` returns a `Point`/`LineString` instead of a `Polygon`, and any code assuming `.exterior.coords` crashes. Fix: T9's fit check (`openubem/geometry/layout_assigner.py:_fit_check`) guards with `if rect.geom_type != "Polygon": return None, None` before reading `.exterior` — treated as "not scoreable", not a crash. Also relevant when reading `05_results.gpkg` geometry columns for census scripts: that file's own `geometry` is a re-centred placement **point**, not the building footprint — use the matching cell's `01_buildings.gpkg` for the real polygon. *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block2-2026-09-17.md, task E02)*
 
 ## 6. Classification & archetype assignment
 
@@ -1723,6 +1745,8 @@ Name: footprint_area_m2, dtype: float64`) instead of a number** — the writer l
 
 - **A `Bash` tool call with `nohup ... & echo $!` inside `run_in_background: true` reports `completed` in seconds with 0-byte logs, yet the launched processes are still alive minutes later, unlogged and untracked** — nesting an explicit `&`-background (and `nohup`) inside a call the harness is already tracking as a background task double-backgrounds it: the outer call returns as soon as the inner `echo` runs, "completed" describes only that trivial wrapper, and the real child processes detach from both the harness's job table and the intended log redirection (their `>file 2>&1` was opened before a later `rm -rf` on the log directory, so writes go to an unlinked inode). A second, correctly single-backgrounded relaunch after that then races 8 duplicate OS processes over the same 4 output directories (`emit_eu11_layout_sidecars.py`, T07c/D-EU-115). Separately, a plain `wait` (no args) at the end of a background script can print its "done" marker (`rc=127`) while two of its four backgrounded children are still running — killing unrelated processes mid-script via `Stop-Process` disturbs the shell's job table enough that `wait` stops waiting early; the status file is not proof of completion. Fix: never nest `&`/`nohup` inside a `run_in_background: true` call — let the harness's own backgrounding do the job, with a synchronous `wait` as the *only* backgrounding inside the command. Verify real completion with `Get-CimInstance Win32_Process | Select ProcessId,ParentProcessId,CreationDate,CommandLine` (kill true duplicates by `CreationDate`, keep the tracked batch) rather than trusting a "completed" notification or a status-file marker; re-poll process liveness after any external `Stop-Process` before believing a `wait` exit. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-recut-95pct-2026-09-08.md, T07c/D-EU-115)*
 
+- **`WebFetch` on any external URL fails with `getaddrinfo ENOTFOUND <host>` even for well-known hosts (`docs.nrel.gov`, `pvwatts.nrel.gov`, `www.nrel.gov`)** — the agent sandbox has no general outbound DNS/HTTP for arbitrary domains; only the `WebSearch` tool's own backend can reach the network. Symptom is identical for every host tried, so it is a sandbox limitation, not a dead link. Fix: use `WebSearch` (which returns quoted snippets, not the raw document) to corroborate a public number instead of fetching the source PDF directly, and cross-check against any locally-shipped copy of the same fact (e.g. the EnergyPlus `Energy+.idd`'s own field `\default` values for `Generator:PVWatts` / `ElectricLoadCenter:Inverter:PVWatts`, which implement NREL PVWatts V5 verbatim per the object's own `\memo`) rather than trusting a single secondary source. *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block4-2026-09-17.md, H02)*
+
 ## 14. Test suite: collection aborts, fixtures, benign noise
 
 - **`AttributeError: module 'openubem.semantic.imputation' has no attribute '_draw_tier'` at
@@ -1828,6 +1852,14 @@ Grep target for "which module can throw this, and what does it mean?"
   failed; re-raised for `_build_one`. *(surfaces.py:801)*
 - Gotcha: `surfaces.py` lines 339, 565, 663, 771, 773 are **silent** `logger.warning` fallbacks (bbox / skip
   the zone or block) that never raise — grep them when geometry looks degraded but nothing threw.
+- **eppy `ZoneInfiltration:DesignFlowRate` field names silently return `None`/wrong values when guessed
+  from the calculation-method string** — the object's real eppy field names are `Flow_Rate_per_Floor_Area`
+  and `Flow_Rate_per_Exterior_Surface_Area` (not `Flow_per_Zone_Floor_Area` / `Flow_per_Exterior_Surface_Area`),
+  and `Flow/ExteriorWallArea` (not just `Flow/ExteriorArea`) is a valid `Design_Flow_Rate_Calculation_Method`
+  value that also reads from `Flow_Rate_per_Exterior_Surface_Area` — a wrong guess wrapped in `try/except`
+  produces no traceback, just a silently empty min/max. Fix: read `obj.fieldnames` on a live eppy object to
+  get exact field names before mapping calculation-method values to fields. *(J01 census,
+  docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block5-2026-09-17.md)*
 
 ### `openubem/semantic`
 - **`ValueError: use_floor_count=True requires levels, got None`** *(building_classifier.py:214)*
@@ -2111,6 +2143,14 @@ Grep target for "which module can throw this, and what does it mean?"
   cosmetic for accuracy (OPEN-09).
 - **A missing E+ install mapping / version mismatch fails loudly by design** — `runner.py` refuses to run a
   binary whose `--version` doesn't match `config.ENERGYPLUS_VERSION`.
+- **[FORWARD-LOOKING, not yet hit in OpenUBEM] AirflowNetwork in `MultizoneWithDistribution` mode will not
+  scale to a district-size model** — the pressure-network solver builds one matrix across every zone in
+  the network; once many buildings' zones are joined into it the matrix becomes singular or fails to
+  converge, and the run dies or stalls. This is reported from experience on another project, not
+  reproduced here — OpenUBEM does not use AirflowNetwork today. Fix (if ever proposed): use
+  `MultizoneWithoutDistribution`, which survives at that scale. Recorded ahead of time so the next person
+  who proposes district-scale AirflowNetwork finds this before spending days reproducing it.
+  *(docs/docs_ACTIVE/TechTransfer/2026-09-17_TechTransfer_idf_reader_to_OpenUBEM.md §5, item 4 / T10)*
 
 ## 18. Currently open items (register snapshot 2026-08-20)
 

@@ -20,6 +20,10 @@ from openubem.simulation.runner import (
 )
 
 
+class PrepPhaseFailedError(RuntimeError):
+    pass
+
+
 # ── 3A: SimTask (F2) ──────────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -262,6 +266,16 @@ def run_neighbourhood(
     sim_root.mkdir(parents=True, exist_ok=True)
 
     ep_version = _version_handshake()  # fail-fast before any dispatch (F5)
+
+    if config.PREP_ABORT_ON_FAILURE:
+        failed_mask = idf_manifest["generation_status"] != "success"
+        n_failed = int(failed_mask.sum())
+        if n_failed:
+            failed_ids = idf_manifest.loc[failed_mask, "osm_id"].astype(str).tolist()
+            raise PrepPhaseFailedError(
+                f"{n_failed} building(s) failed IDF generation before simulation: "
+                f"{failed_ids[:5]}"
+            )
 
     tasks, skipped = build_task_list(idf_manifest, enriched_gdf, sim_root)
     fresh, cached = _split_resume(tasks, force_rerun, sim_root)
