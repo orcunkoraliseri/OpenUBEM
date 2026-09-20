@@ -1498,10 +1498,41 @@ Name: footprint_area_m2, dtype: float64`) instead of a number** — the writer l
 
 ## 12. Cluster / SLURM / SSH (Speed)
 
+- **[OPEN] `sbatch: error: Slurm temporarily unable to accept job, sleeping and retrying` /
+  `sbatch: error: Batch job submission failed: Resource temporarily unavailable`, exit code 1, repeated
+  identically across 3 separate submission attempts** — hit submitting job 3/7 of a chained
+  `--dependency=afterany` array-job sequence while job 1/7 (9,302-task array) had ~30 tasks `R` and
+  thousands still `PD`. Exact command that failed each time: `ssh -o ConnectTimeout=10
+  o_iseri@speed.encs.concordia.ca "bash -lc 'sbatch --array=1-9302%32 --time=7-00:00:00
+  --dependency=afterany:1330087 --export=FLEET_DIR=...,FLEET_LST=fleet.lst.3
+  /speed-scratch/o_iseri/openubem/scripts/cluster/submit_fleet06b.sbatch'"`. Confirmed NOT a broader
+  outage: `sinfo` showed partition `ps` `up`, and the already-running job 1/7 kept advancing (task
+  index progressed from ~140 to ~718 between checks) — this is `slurmctld`'s own RPC/controller
+  congestion, most likely from bookkeeping a very large (9,302-element) pending array, rejecting new
+  submissions rather than queuing them silently. Not fixed: needs either a longer backoff before
+  resubmitting job 3, or waiting for job 1's pending-element count to drop before submitting the next
+  link in the chain, rather than submitting all 7 back-to-back immediately.
+  *(FLEET-06b split-submit, `scripts/cluster/fleet06b_split_submit_2026-09-18.py`, 2026-09-18)*
 - **`tcsh` silently drops `cat > file <<EOF` sent over bare `ssh`** — no error, just an empty/missing remote
   file. Use `scp` for transfer and wrap every remote command in `bash -lc` (the `_ssh()` helper,
   `scripts/cluster/t08_harvest_results.py:104`).
   *(docs/docs_DONE/GENERAL/Resume_Prompts/monitorRun_resumeManager.md; CLAUDE.md)*
+- **`bash: No match.` from a remote command sent through the `_ssh()` `bash -lc '<cmd>'` wrapper, and the
+  whole remote command silently does nothing** — the wrapper's outer quoting is a single pair of `'...'`; if
+  `<cmd>` itself contains a single-quoted sub-string (e.g. `find idfs -name '*.idf'`), that inner `'` closes
+  the outer tcsh quote early, so `*.idf` lands unquoted mid-line and tcsh glob-expands it against the
+  connecting directory before `bash` ever runs — an empty match aborts the whole line with `No match.` and
+  every command after the break (extraction, copies, echoes) never executes, with no other error surfaced.
+  Fix: never put a `'...'` literal inside an `_ssh()`/`bash -lc '...'` payload; use `"..."` for any inner
+  quoted glob/pattern instead (`find idfs -name "*.idf"`), which passes through tcsh's outer single-quote
+  untouched. *(scripts/cluster/fleet06b_submit_2026-09-18.py, FLEET-06b 2026-09-18)*
+- **`sbatch: error: Batch job submission failed: Invalid job array specification` for `--array=1-65112%32`**
+  — Speed's SLURM `MaxArraySize` is `10001` (`scontrol show config | grep MaxArraySize`, informational, not
+  compute, allowed on the login node), so a single array job's highest task index must stay ≤ 10000; the
+  plan's precedent-derived `--array=1-N%32` pattern silently stops working once `N` exceeds that ceiling
+  (it worked for T07's `N=8152`). No fix applied yet — needs a decision on how to split a >10,000-case
+  campaign into multiple array jobs while keeping the total concurrent-task account-wide cap at 32, not
+  32-per-split-job. *(FLEET-06b 2026-09-18, PLAN_techtransfer-block6-2026-09-18.md)*
 - **[OPEN] `_ssh` (`scripts/validation/v12_cell_pipeline.py:111-116`) never inspects `result.returncode`** —
   a failed `mkdir -p` at `:265` went unnoticed, then `scp` died with `dest open ... No such file or
   directory`, discarding 43 minutes of correct upstream work and **blaming the wrong operation**. 3 of 8 call
@@ -1776,6 +1807,13 @@ Name: footprint_area_m2, dtype: float64`) instead of a number** — the writer l
   the checked-in path (GDAL's GPKG driver writes through a filename). Fix: write to `tmp_path_factory`.
   (OPEN-50)
   *(docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md)*
+- **`AttributeError: 'list' object has no attribute 'list2'` from `eppy/idf_msequence.py:89` when a test
+  asserts `idf.idfobjects["SOME:CLASS"] == []`** — `idfobjects[...]` returns an `Idf_MSequence`, whose
+  `__eq__` always tries to read `other.list2`; comparing it against a plain `list` (including the empty-list
+  idiom) raises instead of returning `False`. Fix: assert on `len(...) == 0` (or convert with `list(...)`)
+  instead of a direct `== []`/`== [...]` comparison against an `idfobjects[...]` result.
+  *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md, Task PV-WIRE;
+  tests/test_pv_build_wiring.py)*
 - **The suite baseline is `pytest -q tests/`** — a bare root-level `pytest -q` reports ~36 false failures.
   *(project convention; see MEMORY index)*
 - **Benign noise, never a failure: `Windows fatal exception: access violation` / `<cannot get C stack on this
