@@ -46,6 +46,7 @@ from openubem.idf.refrigeration import assign_refrigeration
 from openubem.idf.elevators import assign_elevators
 from openubem.idf.opaque_assembly import build_opaque_assembly
 from openubem.idf.outputs import write_outputs
+from openubem.idf.pv import inject_pv, strip_existing_pv
 from openubem.semantic.schedules import write_schedules_to_idf
 from openubem.semantic.loads import get_space_type_loads
 
@@ -567,6 +568,8 @@ class BuildingIDF:
                     skip_when_better=ENVELOPE_PATCH_SKIP_WHEN_BETTER,
                 )
                 extruded_zones = layout_assigner.parse_baseline_zones(self.idf, arch)
+                strip_existing_pv(self.idf)
+                inject_pv(self.idf, enabled=config.PV_INJECTION_ENABLED)
                 write_outputs(self.idf, trim_hourly=self.trim_outputs)
 
                 safe_id = osm_id.replace("/", "_").replace(":", "_").replace(" ", "_")
@@ -694,6 +697,8 @@ class BuildingIDF:
         assign_elevators(self.idf, row, extruded_zones)
 
         # 3I: outputs
+        strip_existing_pv(self.idf)
+        inject_pv(self.idf, enabled=config.PV_INJECTION_ENABLED)
         write_outputs(self.idf, trim_hourly=self.trim_outputs)
 
         # Save IDF (sanitise osm_id for filesystem)

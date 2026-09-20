@@ -176,6 +176,123 @@ built at all. Neither blocks the other items.
 **Dispatched 2026-09-18:** C04, fresh sonnet executor, task spec in block6 §2a. Awaiting report;
 manager audits before item 2 starts.
 
+## 7b. FLEET-06b local run in flight — user is closing this session 2026-09-18
+
+**Read this before touching FLEET-06 anything.** The user is closing this Claude Code session while
+FLEET-06b (65,112-case EnergyPlus batch, the third item in the block 6 execution order) is still
+running. It is expected to keep running unattended and be found still going (or finished) when a
+fresh session next opens this file.
+
+**What changed from §7a/§4's "no EnergyPlus run" default:** the user explicitly authorized and is
+running FLEET-06b — this is not a violation of §4's "any EnergyPlus run" gate, it is that gate being
+exercised. Full decision trail is in `PLAN_techtransfer-block6-2026-09-18.md` §2a–§2e (packaging,
+write-slot, task spec, the original Speed array-split, and **§2e: local-only override**).
+
+**§2e in one line:** the user was running unrelated jobs on the Speed cluster at the same time, ruled
+this fleet run not urgent, had the two Speed jobs for it (`1330058`, `1330087`) withdrawn, and directed
+the remaining ~65k cases to run locally instead — a deliberate, explicit override of the standing
+🔴 "parallel, Speed first" rule in `CLAUDE.md`, not an oversight. Do not resubmit to Speed without a
+fresh ask.
+
+**Ground truth lives on disk, not in any agent's memory:**
+- `%TEMP%\ubem_validation\fleet06b_local_2026-09-18\progress.json` — `{done, failed, remaining, total,
+  timestamp}`, rewritten every ~2 minutes while the run is alive.
+- `...\results.csv` — one row per finished case (`building_id,cell_name,...,status,wall_clock_s,...`).
+- `...\run_log.txt` — append-only log, including the benchmark summary and every worker-count change.
+- `...\benchmark_result.json` — the one genuine local timing measurement (30 real EnergyPlus runs,
+  mean 16.68 s, min 5.01 s, max 53.99 s, 14 workers) — the only legitimate basis for any ETA math.
+  **Never** extrapolate from the Speed cluster's own timing or vice versa (debug reference line 1595).
+
+**Check these three things first, in order, before doing anything else with FLEET-06b:**
+1. Is a run still alive? `Get-CimInstance Win32_Process -Filter "Name='python.exe'"` for
+   `fleet06b_local_run_2026-09-18.py full`, or just check whether `progress.json`'s timestamp is
+   recent (within a few minutes) versus stale.
+2. If it died with the session close (i.e. the Task Scheduler detachment below was never confirmed,
+   or wasn't reached before close): relaunch it exactly as documented in the block6 plan doc's
+   FLEET-06b progress-log entry (once written) — it is resume-safe, skips any `building_id`+
+   `cell_name` pair already present in `results.csv`, **never restart from zero**.
+3. If it finished (`remaining == 0` in `progress.json`): do not re-run anything. Proceed straight to
+   FLEET-06c (harvest into `05_results`) per the unmodified task spec already in the block6 plan doc —
+   fresh Sonnet executor, brand-new session, gate = 100 % COMPLETED/FAILED, no schema change, baseline
+   cell's fleet EUI sanity-checked against 153.95 with the delta stated plainly.
+
+**Detachment from this session:** the run was originally a direct child of this session's process tree
+(confirmed by process inspection — closing the session would very likely have killed it), so it was
+being relaunched via `schtasks /create /tn "OpenUBEM_FLEET06b" ...` (Windows Task Scheduler) to survive
+independently, with a `CREATE_BREAKAWAY_FROM_JOB` Popen fallback if Task Scheduler was unavailable.
+**Whether that relaunch was confirmed before the session closed is not guaranteed** — check step 1
+above rather than assuming it worked. `schtasks /query /tn "OpenUBEM_FLEET06b" /v /fo list` shows
+whether the scheduled task exists and its last run result.
+
+**Local resource cap:** 10 workers, not 20 and not the 14 used for the benchmark — the user explicitly
+asked to leave half this 20-core machine free for other work. Do not raise it without a fresh ask.
+
+**Live monitor artifact:** `https://claude.ai/artifact/6H6xkLiazkjN2akF6wsXKa` (a `db`-capability page,
+collection `fleet06b`, doc `progress`), pushed to at every 1 % mark by the executor agent that was in
+flight when this note was written. **That agent almost certainly does not survive this session
+closing** — treat the artifact as possibly stale and re-seed it from `progress.json` (same field shape:
+`total, done, failed, remaining, workers, mean_s, min_s, max_s, updated_at`, plus an `events` array) the
+next time anyone checks on this, rather than trusting its last-shown numbers.
+
+**Do not double-dispatch.** Before spawning anything new for FLEET-06b/06c, check for a still-running
+process (step 1 above) and check `ListAgents` for an agent still actively working this task — only
+treat it as dead and start fresh once both come back empty/stale.
+
+**Still unreconciled, low priority:** the block6 plan doc's own FLEET-06b progress-log entry (§4) is
+stale — it still reads "STOPPED 2026-09-18 (spec conflict, no job submitted)" from an earlier abandoned
+attempt, even though jobs were later actually submitted to Speed, then withdrawn, then this local run
+started. Worth a correction pass once FLEET-06b actually completes and gets its real completion entry
+written — not urgent, not user-requested yet.
+
+## 7c. FLEET-06b tracker froze 2026-09-19, rebuilt 2026-09-20 — read this before touching FLEET-06b again
+
+**The simulation itself never stopped.** Only the live process's own checkpoint thread inside
+`cmd_full()` in `fleet06b_local_run_2026-09-18.py` froze — last `run_log.txt` / `progress.json` write
+was 2026-09-19 13:55:47 (done=17,622). The EnergyPlus worker pool (still 10 processes, unchanged) kept
+launching and finishing new cases the whole time, just unrecorded. Windows Task Scheduler still showed
+the job `OpenUBEM_FLEET06b` as "Running" throughout, never crashed or exited. Likely cause: an unofficial
+background cleanup script (`sweep_fleet06b.ps1`, not part of the pipeline, origin unknown — not written
+by any documented dispatch) was running concurrently, gzip-compressing finished cases' `eplusout.sql` to
+`eplusout.sql.gz` and deleting the original; its own log also stalled mid-pass at 2026-09-19 15:33
+("packed=5000") and the process is now dead (confirmed via process list 2026-09-20). Likely disk-I/O
+contention between the two caused the run's aggregator thread to hang while workers kept going
+independently.
+
+**Correction to an earlier claim in this session's chat:** resume safety does NOT depend on
+`results.csv`. `cmd_full()` decides what to (re)run via `openubem.simulation.parallel.is_completed()`,
+which checks each `work_dir` on disk directly (`eplusout.end` + `eplusout.sql` present, success marker in
+`.end`). So the tracker freeze never put compute at risk of being wasted on restart — `results.csv` only
+matters for the eventual FLEET-06c harvest / analysis step, not for resume.
+
+**One real risk from the freeze:** cases whose `eplusout.sql` was swept to `.sql.gz` by the (now-dead)
+cleanup script look *incomplete* to `is_completed()` (it only checks for `eplusout.sql`), so they would be
+needlessly rerun on any restart, and the FLEET-06c harvest will need to accept `.sql.gz` too or decompress
+first. As of the last rebuild (2026-09-20 10:34), 345 finished cases are in this state; the sweep script
+is dead so the count will not grow further, but it will not shrink either without either decompressing
+those files back or teaching downstream code to read `.sql.gz`.
+
+**Tracker rebuild tool:** `scripts/analysis/fleet06b_tracker_rebuild_2026-09-20.py` — read-only against
+the live run, scans `out/<cell>/<building_id>/` for `eplusout.end` not yet in `results.csv`, classifies
+each exactly like `openubem.simulation.runner.classify_outcome` would, appends the missing rows, backs up
+the old file to `results.csv.bak_rebuild`, and rewrites `progress.json` to match. Run it again any time
+`results.csv`'s row count looks stale versus `find <out> -name eplusout.end | wc -l`. It was run three
+times on 2026-09-20 (10:08, 10:20, 10:34), recovering 18,954 + 78 + 49 completions respectively.
+
+**Last known snapshot at session close (2026-09-20 10:34:12):** 36,538 success + 22 failed = 36,560 of
+65,112 done, 28,552 remaining. At the observed (not benchmark) pace this is roughly 2 more days, not the
+original ~22 h benchmark estimate — the benchmark's 16.68 s/case mean does not hold under real load;
+measure fresh from `results.csv`/disk deltas rather than trusting `benchmark_result.json` for any ETA.
+
+**Live monitor artifact:** `https://claude.ai/artifact/6H6xkLiazkjN2akF6wsXKa` (db-capability page,
+collection `fleet06b`, doc `progress`) was reconnected and pushed with real numbers on 2026-09-20. An
+hourly session-only cron job (`076e4f4d`, fires :07 past the hour) was refreshing it plus printing a
+`[timestamp] progress: done=X/65112 failed=Y remaining=Z` line in chat — **that job dies when the session
+that created it closes** (session-only, per `CronCreate`'s own documented behavior), so it is gone as of
+this session ending. The artifact page itself persists and still shows the last pushed snapshot, but it
+will go stale exactly like `run_log.txt` did unless a future session either re-runs the rebuild script and
+pushes a fresh `ArtifactData` update, or re-arms a cron/loop. Not restarted automatically — needs a fresh
+ask.
+
 ## 8. Executor kickoff prompt (send verbatim, adjust the range)
 
 ```

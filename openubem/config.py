@@ -109,7 +109,7 @@ def validate_prototype_library_versions(
 
 
 SIM_TIMEOUT_S: int = 3600  # recalibrated per DESIGN line 127: 340-zone building exceeds 900s under 8-worker load
-ENVELOPE_PATCH_SKIP_WHEN_BETTER: bool = False
+ENVELOPE_PATCH_SKIP_WHEN_BETTER: bool = True
 SIM_RETAIN_FILES: frozenset = frozenset({
     "eplusout.sql",
     "eplusout.csv",
@@ -120,7 +120,7 @@ SIM_RETAIN_FILES: frozenset = frozenset({
     "openubem_run.log",
 })
 N_JOBS: int = int(os.environ.get("SLURM_CPUS_PER_TASK", 0)) or -1
-PREP_ABORT_ON_FAILURE: bool = False
+PREP_ABORT_ON_FAILURE: bool = True
 
 # ── Step 5 results / metrics constants (DESIGN line 29) ───────────────────────
 GWP_NATURAL_GAS_KGCO2_KWH: float = 0.181  # Iseri et al. (2025)
@@ -220,5 +220,5 @@ FUSION_ASSESSOR_FIELDS: dict = {}
 HEIGHT_CACHE_DIR: Path = Path(
     os.environ.get("OPENUBEM_HEIGHT_CACHE", str(Path.home() / ".openubem" / "heights"))
 )
-PV_INJECTION_ENABLED: bool = False
+PV_INJECTION_ENABLED: bool = True
 SCENARIO_LAYER_ENABLED: bool = False
