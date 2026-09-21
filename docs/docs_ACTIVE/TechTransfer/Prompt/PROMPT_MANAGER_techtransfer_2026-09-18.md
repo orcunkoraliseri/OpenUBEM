@@ -224,8 +224,8 @@ independently, with a `CREATE_BREAKAWAY_FROM_JOB` Popen fallback if Task Schedul
 above rather than assuming it worked. `schtasks /query /tn "OpenUBEM_FLEET06b" /v /fo list` shows
 whether the scheduled task exists and its last run result.
 
-**Local resource cap:** 10 workers, not 20 and not the 14 used for the benchmark — the user explicitly
-asked to leave half this 20-core machine free for other work. Do not raise it without a fresh ask.
+**Local resource cap:** 5 workers as of 2026-09-21 (halved from 10 — see §7e; the earlier "10, not 20"
+reasoning below is superseded). Do not raise or lower it again without a fresh ask.
 
 **Live monitor artifact:** `https://claude.ai/artifact/6H6xkLiazkjN2akF6wsXKa` (a `db`-capability page,
 collection `fleet06b`, doc `progress`), pushed to at every 1 % mark by the executor agent that was in
@@ -292,6 +292,39 @@ this session ending. The artifact page itself persists and still shows the last 
 will go stale exactly like `run_log.txt` did unless a future session either re-runs the rebuild script and
 pushes a fresh `ArtifactData` update, or re-arms a cron/loop. Not restarted automatically — needs a fresh
 ask.
+
+## 7d. FLEET-06b real halt 2026-09-20→2026-09-21 — no auto-restart, resumed manually
+
+**Confirmed by disk/process audit 2026-09-21 12:33:** the run had actually stopped (zero new
+completions for ~26 h, `run_log.txt` last real write at session close, no `python.exe`/`energyplus.exe`
+processes alive), not just a tracker freeze like §7c. The scheduled task `OpenUBEM_FLEET06b` is
+`Schedule Type: One Time Only` with `Next Run Time: N/A` and `Logon Mode: Interactive only` — it has
+no self-restart if the process it launched ever exits, for any reason (crash, or the originating
+session closing before independent detachment was confirmed, per the risk flagged in §7b). Windows
+kept no Task Scheduler operational log (disabled) and no shutdown/logoff events in that window, so the
+exact trigger could not be proven from logs — only that nothing would have restarted it automatically.
+
+**Second risk found and fixed before resuming:** 10,337 completed cases' `eplusout.sql` had been
+gzip-compressed to `.sql.gz` (up from the 345 in §7c) by the same dead cleanup script's leftover state;
+`is_completed()` only recognizes an uncompressed `.sql`, so these would have been wastefully re-run.
+Decompressed all 10,337 files (`gunzip`, reversible, ~2 min) before resuming.
+
+**Resumed 2026-09-21 12:45:59** via `schtasks /run /tn "OpenUBEM_FLEET06b"`: 10 workers active,
+36,538 already-done cases correctly recognized, 28,574 picked up as pending. No auto-restart exists —
+if this stops again, it needs a person to notice and manually rerun it; not fixed since not asked.
+
+## 7e. Worker count halved 10→5, 2026-09-21 (fresh user ask, CPU load complaint)
+
+User reported the run was pinning local CPU and asked to cut concurrency in half. `MAX_WORKERS` in
+`scripts/analysis/fleet06b_local_run_2026-09-18.py:90` changed from `10` to `5` (old value/comment kept
+below it, marked superseded, for provenance). Since the constant is only read at process start, the
+live run was stopped (killed the dispatcher `python.exe`, its orphaned `multiprocessing-fork` workers,
+and all `energyplus.exe` children — safe: `is_completed()` resume logic means nothing already finished
+was lost) and relaunched via `schtasks /run /tn "OpenUBEM_FLEET06b"`.
+
+**Confirmed 2026-09-21 13:33:27:** `run_log.txt` shows `already_completed=36766 pending=28346
+max_workers=5`; exactly 5 `energyplus.exe` processes running (was 10). Do not raise this back to 10
+(or change it at all) without another fresh ask — see updated §7b's "Local resource cap" note.
 
 ## 8. Executor kickoff prompt (send verbatim, adjust the range)
 
