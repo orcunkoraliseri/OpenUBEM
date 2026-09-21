@@ -87,7 +87,11 @@ RESULTS_CSV = OUT_ROOT / "results.csv"
 BENCH_JSON = OUT_ROOT / "benchmark_result.json"
 RUN_LOG = OUT_ROOT / "run_log.txt"
 
-MAX_WORKERS = 10  # user directive 2026-09-18 (mid-run, after the benchmark and after the
+MAX_WORKERS = 5  # user directive 2026-09-21: halved from 10 because the run was pinning
+                   # local CPU; supersedes the 2026-09-18 directive below. Do not restore
+                   # 10 without a fresh ask.
+                   # --- superseded 2026-09-18 directive, kept for provenance only ---
+                   # user directive 2026-09-18 (mid-run, after the benchmark and after the
                    # first ~30 s of the "full" run at 14 workers, before any full-run case
                    # had completed): cap at half of this machine's 20 logical CPUs, not the
                    # 14 used by the run_eu_certified_rerun.py precedent. The 14-worker value
