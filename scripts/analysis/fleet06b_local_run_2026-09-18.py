@@ -283,7 +283,11 @@ def cmd_full() -> None:
     skipped_done = 0
     for row in manifest:
         work_dir = OUT_DIR / row["cell_name"] / row["building_id"]
-        if is_completed(work_dir):
+        if is_completed(work_dir) or (
+            (work_dir / "eplusout.sql.gz").exists()
+            and (work_dir / "eplusout.end").exists()
+            and "EnergyPlus Completed Successfully" in (work_dir / "eplusout.end").read_text(errors="replace")
+        ):
             skipped_done += 1
             continue
         pending.append(row)

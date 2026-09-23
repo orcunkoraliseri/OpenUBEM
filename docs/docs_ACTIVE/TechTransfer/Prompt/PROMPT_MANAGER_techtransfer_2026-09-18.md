@@ -326,6 +326,28 @@ was lost) and relaunched via `schtasks /run /tn "OpenUBEM_FLEET06b"`.
 max_workers=5`; exactly 5 `energyplus.exe` processes running (was 10). Do not raise this back to 10
 (or change it at all) without another fresh ask — see updated §7b's "Local resource cap" note.
 
+## 7f. Disk full halt + 2,761 results lost, 2026-09-22 — restarted 20:55
+
+**Halt:** the run stopped 2026-09-22 19:26 (last `run_log.txt` progress: done=56,119) because `C:` was
+100 % full (277 MB free). The output tree was ~789 GB, ~14 MB/case (`eplusout.sql` 8.4 MB +
+`eplustbl.htm` 5.6 MB; all other retained files are tiny). Input folders `fleet06a_campaign` (65,112
+IDFs), `fleet06a_rebuild` (weather) and `fleet06a` (baseline IDFs) are still read by the run — do not delete.
+
+**Loss (manager error):** a cleanup ran an exclusion-based `find -delete` in `out/` while a second
+Claude session was concurrently running `xargs -P 12 gzip -f` on `eplusout.sql`. The fresh `.sql.gz`
+files were deleted: 2,761 finished cases lost their results (list:
+`%TEMP%/ubem_validation/fleet06b_local_2026-09-18/lost_sql_2026-09-22.txt`). They re-simulate
+automatically. The HTML reports were all kept (56,124).
+
+**Restart:** pending check in `scripts/analysis/fleet06b_local_run_2026-09-18.py:286` now also counts
+`eplusout.sql.gz` + success `.end` as finished (user said "start runs"). Relaunched via `schtasks`
+2026-09-22 20:55:33: already_completed=53,396, pending=11,716, 5 workers. Measured pace 648 cases/h
+(19,332 in 29.9 h, 5 workers) → ~18 h. Monitor artifact updated (db doc `fleet06b/progress` v9).
+
+**User ruling 2026-09-22:** after the run completes and the FLEET-06c harvest numbers are checked,
+delete all `eplusout.sql` / `.sql.gz` (~450 GB). Not before. FLEET-06c must decompress or read
+`.sql.gz` before `parse_building`.
+
 ## 8. Executor kickoff prompt (send verbatim, adjust the range)
 
 ```
