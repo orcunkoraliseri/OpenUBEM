@@ -493,6 +493,52 @@ def parse_eio_zone_multipliers(path: Path) -> dict[str, float]:
     return result
 
 
+def parse_sql_zone_area(sql_path: Path) -> float:
+    """FLEET-06c-FIX: SUM(FloorArea*Multiplier*ListMultiplier) over Zones rows with
+    IsPartOfTotalArea=1, read from eplusout.sql. The SQL carries the identical
+    multiplier-aware area as the eio Zone Information block (F11, within 2e-6 relative
+    on lighting+setback+infiltration/way_425993519). 0.0 on any error (missing file,
+    missing table/columns, corrupt SQL) — same "0.0 means unavailable" contract as the
+    eio route.
+    """
+    try:
+        with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
+            row = conn.execute(
+                "SELECT SUM(FloorArea * Multiplier * ListMultiplier) FROM Zones "
+                "WHERE IsPartOfTotalArea = 1"
+            ).fetchone()
+    except Exception:
+        return 0.0
+    if row is None or row[0] is None:
+        return 0.0
+    try:
+        return float(row[0])
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def parse_sql_zone_multipliers(sql_path: Path) -> dict[str, float]:
+    """FLEET-06c-FIX: {UPPER(ZoneName): Multiplier*ListMultiplier} read from the Zones
+    table in eplusout.sql. {} on any error — same contract as parse_eio_zone_multipliers.
+    """
+    result: dict[str, float] = {}
+    try:
+        with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
+            rows = conn.execute(
+                "SELECT ZoneName, Multiplier, ListMultiplier FROM Zones"
+            ).fetchall()
+    except Exception:
+        return {}
+    for zone_name, mult, list_mult in rows:
+        if zone_name is None:
+            continue
+        try:
+            result[str(zone_name).strip().upper()] = float(mult) * float(list_mult)
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
 def resolve_simulated_floor_area(
     sql_path: "Path | None",
     footprint_area: float,
@@ -502,26 +548,31 @@ def resolve_simulated_floor_area(
 
     provenance is "eio_simulated" when eplusout.eio (sibling of sql_path) parses
     with a non-empty, well-formed Zone Information block and a positive
-    multiplier-aware area; otherwise falls back to footprint_area x num_floors
-    with provenance "footprint_fallback". Never raises.
+    multiplier-aware area; "sql_simulated" (FLEET-06c-FIX) when the eio route is
+    unavailable (missing file or parse failure) but the SQL Zones table yields a
+    positive multiplier-aware area; otherwise falls back to footprint_area x num_floors
+    with provenance "footprint_fallback". eio is tried first, footprint last. Never raises.
     """
     fallback_area = footprint_area * num_floors
     if sql_path is None:
         return fallback_area, "footprint_fallback"
 
     eio_path = sql_path.parent / "eplusout.eio"
-    if not eio_path.exists():
-        return fallback_area, "footprint_fallback"
+    if eio_path.exists():
+        try:
+            parsed = parse_eio_zone_area(eio_path)
+        except Exception:
+            parsed = None
+        if parsed is not None:
+            status = parsed.get("parse_status", "")
+            area_mult = parsed.get("area_multiplier_aware_m2", 0.0)
+            if status.startswith(_EIO_OK_STATUSES_PREFIX) and area_mult and area_mult > 0:
+                return float(area_mult), "eio_simulated"
 
-    try:
-        parsed = parse_eio_zone_area(eio_path)
-    except Exception:
-        return fallback_area, "footprint_fallback"
+    sql_area = parse_sql_zone_area(sql_path)
+    if sql_area and sql_area > 0:
+        return float(sql_area), "sql_simulated"
 
-    status = parsed.get("parse_status", "")
-    area_mult = parsed.get("area_multiplier_aware_m2", 0.0)
-    if status.startswith(_EIO_OK_STATUSES_PREFIX) and area_mult and area_mult > 0:
-        return float(area_mult), "eio_simulated"
     return fallback_area, "footprint_fallback"
 
 
@@ -992,6 +1043,8 @@ def parse_building(
                 zone_multipliers = parse_eio_zone_multipliers(eio_path)
             except Exception:
                 zone_multipliers = {}
+        if not zone_multipliers and sql_path.exists():
+            zone_multipliers = parse_sql_zone_multipliers(sql_path)
 
     eui, dq_flag, missing_var = _compute_eui(
         df, manifest_row, dq_flag, meters=meters, floor_area=floor_area,

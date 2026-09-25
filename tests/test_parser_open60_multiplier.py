@@ -7,12 +7,13 @@ Scope: openubem/results/parser.py — parse_eio_zone_multipliers() (new) and _co
 zone_multipliers parameter (new, optional, default-off). Does not touch resolve_simulated_floor_area()
 or parse_eio_zone_area() (verbatim-pinned to the audit script).
 """
+import sqlite3
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from openubem.results.parser import _compute_eui, parse_eio_zone_multipliers
+from openubem.results.parser import _compute_eui, parse_eio_zone_multipliers, parse_sql_zone_multipliers
 
 _EIO_HEADER = (
     "! <Zone Information>,Zone Name,North Axis {deg},Origin X-Coordinate {m},"
@@ -86,6 +87,40 @@ class TestParseEioZoneMultipliers:
         eio_path = tmp_path / "eplusout.eio"
         eio_path.write_text("nothing here\n", encoding="utf-8")
         assert parse_eio_zone_multipliers(eio_path) == {}
+
+
+def _write_sql_zones(sql_path: Path, rows: list[tuple[str, float, float]]) -> None:
+    """FLEET-06c-FIX: minimal sqlite Zones table, (ZoneName, Multiplier, ListMultiplier)."""
+    conn = sqlite3.connect(sql_path)
+    try:
+        conn.execute("CREATE TABLE Zones (ZoneName TEXT, Multiplier REAL, ListMultiplier REAL)")
+        conn.executemany("INSERT INTO Zones (ZoneName, Multiplier, ListMultiplier) VALUES (?, ?, ?)", rows)
+        conn.commit()
+    finally:
+        conn.close()
+
+
+class TestParseSqlZoneMultipliers:
+    def test_reads_multiplier_times_list_multiplier_uppercased(self, tmp_path):
+        sql_path = tmp_path / "eplusout.sql"
+        _write_sql_zones(sql_path, [
+            ("way/1_f0_whole", 1.0, 1.0),
+            ("WAY/1_F1_WHOLE", 5.0, 2.0),
+        ])
+        result = parse_sql_zone_multipliers(sql_path)
+        assert result["WAY/1_F0_WHOLE"] == 1.0
+        assert result["WAY/1_F1_WHOLE"] == 10.0
+
+    def test_missing_file_returns_empty_dict(self, tmp_path):
+        assert parse_sql_zone_multipliers(tmp_path / "nope.sql") == {}
+
+    def test_missing_zones_table_returns_empty_dict(self, tmp_path):
+        sql_path = tmp_path / "eplusout.sql"
+        conn = sqlite3.connect(sql_path)
+        conn.execute("CREATE TABLE NotZones (x INTEGER)")
+        conn.commit()
+        conn.close()
+        assert parse_sql_zone_multipliers(sql_path) == {}
 
 
 class TestComputeEuiZoneMultiplierAware:

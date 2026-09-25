@@ -293,7 +293,7 @@ turned out to be hard, which is why it is parked. `layout_assign` (this section)
 beautifully made suit off the rack and alters it: the suit's interior is excellent — proper lining,
 real construction, far better than the tailor could improvise — but it isn't the building's shape.
 The wrong-floor-area problem (§10 below) is being charged for the whole size-4 suit's cloth while
-measured against a size-1 body; the shape-distortion problem (Q3, OPEN-18) is an alteration that
+measured against a size-1 body; the shape-distortion problem (Q3, OPEN-18 — closed 2026-08-21 without a fix, so the limitation stands) is an alteration that
 takes in the width but not the length.
 
 `layout_assign` is **not a fifth zoning strategy** — the other four modes (§1) all zone the
@@ -404,7 +404,7 @@ the nominal denominator is known to be wrong.
 **The condition that restores the column:** a fleet re-run that retains `eplusout.eio`, giving a
 verified, multiplier-aware denominator for every building rather than the 6-building local sample
 above. This is tracked as register item **OPEN-01** in
-[`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`](../../docs_ACTIVE/openings/INVESTIGATION_open-items-register.md).
+[`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`](../../docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md).
 Until that condition is met, `layout_assign` stays out of §4 by design.
 
 ### 10.6 The transformer cliff

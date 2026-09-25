@@ -13,12 +13,18 @@ from __future__ import annotations
 
 import math
 import shutil
+import sqlite3
 from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from openubem.results.parser import parse_building, resolve_simulated_floor_area
+from openubem.results.parser import (
+    parse_building,
+    parse_sql_zone_area,
+    parse_sql_zone_multipliers,
+    resolve_simulated_floor_area,
+)
 
 GOLDEN_DIR = Path(__file__).parent / "fixtures" / "golden_sql"
 
@@ -57,6 +63,26 @@ def _malformed_eio_text() -> str:
     """Header present, immediately EOF — parse_eio_zone_area() returns
     parse_status='header_found_zero_rows', area_multiplier_aware_m2=0.0."""
     return _EIO_HEADER
+
+
+def _write_sql_zones(sql_path: Path, rows: list[tuple[str, float, float, float, int]]) -> None:
+    """FLEET-06c-FIX: build a minimal sqlite file with a Zones table shaped like
+    eplusout.sql's — columns (ZoneName, FloorArea, Multiplier, ListMultiplier,
+    IsPartOfTotalArea), one row per tuple in `rows`."""
+    conn = sqlite3.connect(sql_path)
+    try:
+        conn.execute(
+            "CREATE TABLE Zones (ZoneName TEXT, FloorArea REAL, Multiplier REAL, "
+            "ListMultiplier REAL, IsPartOfTotalArea INTEGER)"
+        )
+        conn.executemany(
+            "INSERT INTO Zones (ZoneName, FloorArea, Multiplier, ListMultiplier, "
+            "IsPartOfTotalArea) VALUES (?, ?, ?, ?, ?)",
+            rows,
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 class TestResolveSimulatedFloorAreaThreeCases:
@@ -102,6 +128,65 @@ class TestResolveSimulatedFloorAreaThreeCases:
         assert math.isclose(floor_area, 10.0, rel_tol=1e-9)
 
 
+class TestResolveSimulatedFloorAreaSqlFallback:
+    """FLEET-06c-FIX: SQL Zones-table fallback, for cases with no eio (e.g. locally-run
+    or .sql.gz cases). Same three-way ordering as the eio-only suite above, but with the
+    SQL route exercised: sql_simulated when eio unavailable and SQL has valid Zones data;
+    eio still wins when present; footprint when neither route works."""
+
+    def test_sql_simulated_when_no_eio(self, tmp_path):
+        sql_path = tmp_path / "eplusout.sql"
+        _write_sql_zones(sql_path, [
+            ("INCLUDED ZONE", 100.0, 2.0, 3.0, 1),  # counted: 100*2*3 = 600
+            ("EXCLUDED ZONE", 50.0, 1.0, 1.0, 0),   # not part of total area: excluded
+        ])
+
+        floor_area, provenance = resolve_simulated_floor_area(sql_path, footprint_area=999.0, num_floors=5)
+
+        assert provenance == "sql_simulated"
+        assert math.isclose(floor_area, 600.0, rel_tol=1e-9)
+
+    def test_eio_still_wins_when_present(self, tmp_path):
+        sql_path = tmp_path / "eplusout.sql"
+        _write_sql_zones(sql_path, [("INCLUDED ZONE", 100.0, 2.0, 3.0, 1)])  # would give 600
+        (tmp_path / "eplusout.eio").write_text(_well_formed_eio_text(), encoding="utf-8")  # gives 600 too, but via eio
+
+        floor_area, provenance = resolve_simulated_floor_area(sql_path, footprint_area=1.0, num_floors=1)
+
+        assert provenance == "eio_simulated"
+        assert math.isclose(floor_area, 600.0, rel_tol=1e-9)
+
+    def test_footprint_fallback_when_sql_has_no_zones_table(self, tmp_path):
+        sql_path = tmp_path / "eplusout.sql"
+        conn = sqlite3.connect(sql_path)
+        conn.execute("CREATE TABLE NotZones (x INTEGER)")
+        conn.commit()
+        conn.close()
+
+        floor_area, provenance = resolve_simulated_floor_area(sql_path, footprint_area=50.0, num_floors=4)
+
+        assert provenance == "footprint_fallback"
+        assert math.isclose(floor_area, 200.0, rel_tol=1e-9)
+
+    def test_parse_sql_zone_area_zero_on_missing_file(self, tmp_path):
+        assert parse_sql_zone_area(tmp_path / "nope.sql") == 0.0
+
+    def test_parse_sql_zone_multipliers_keys_upper_case(self, tmp_path):
+        sql_path = tmp_path / "eplusout.sql"
+        _write_sql_zones(sql_path, [
+            ("way/1_f0_whole", 100.0, 1.0, 1.0, 1),
+            ("WAY/1_F1_WHOLE", 100.0, 5.0, 2.0, 1),
+        ])
+
+        result = parse_sql_zone_multipliers(sql_path)
+
+        assert result["WAY/1_F0_WHOLE"] == 1.0
+        assert result["WAY/1_F1_WHOLE"] == 10.0
+
+    def test_parse_sql_zone_multipliers_empty_on_missing_file(self, tmp_path):
+        assert parse_sql_zone_multipliers(tmp_path / "nope.sql") == {}
+
+
 class TestParseBuildingFloorAreaProvenance:
     """End-to-end: parse_building() must surface floor_area_m2/floor_area_provenance
     and the EUI columns must actually be divided by the simulated area, not silently
@@ -132,13 +217,15 @@ class TestParseBuildingFloorAreaProvenance:
         assert result["floor_area_provenance"] == "eio_simulated"
         assert math.isclose(result["floor_area_m2"], 600.0, rel_tol=1e-9)
 
-        # Cross-check: re-run with the .eio absent (fallback) and confirm the EUI
-        # columns scale by exactly footprint_area_fallback / eio_area, proving the
-        # denominator actually changed the reported EUI, not just the metadata column.
+        # Cross-check: re-run with the .eio absent. The golden fixture's own SQL has a
+        # well-formed Zones table (FloorArea=196, Multiplier=ListMultiplier=1 -> 196.0),
+        # so FLEET-06c-FIX's SQL fallback resolves it as sql_simulated, not footprint —
+        # confirming the denominator actually changed the reported EUI, not just the
+        # metadata column.
         (tmp_path / "eplusout.eio").unlink()
         result_fallback = parse_building(sql_path, None, row)
-        assert result_fallback["floor_area_provenance"] == "footprint_fallback"
-        assert math.isclose(result_fallback["floor_area_m2"], 392.0, rel_tol=1e-9)
+        assert result_fallback["floor_area_provenance"] == "sql_simulated"
+        assert math.isclose(result_fallback["floor_area_m2"], 196.0, rel_tol=1e-9)
 
         # eui = kwh / area, so eui scales inversely with the area used as denominator.
         ratio = result["floor_area_m2"] / result_fallback["floor_area_m2"]
@@ -150,12 +237,14 @@ class TestParseBuildingFloorAreaProvenance:
 
     def test_eio_absent_provenance_on_real_golden_fixture(self):
         """Golden fixtures directory has no eplusout.eio siblings (by design — those
-        are standalone .sql copies, not full run directories), so every existing
-        golden-SQL test exercises the fallback path. Pin that explicitly here."""
+        are standalone .sql copies, not full run directories). FLEET-06c-FIX: the
+        golden .sql's own Zones table is well-formed (FloorArea=196, Multiplier=
+        ListMultiplier=1), so the SQL fallback now resolves it as sql_simulated
+        instead of footprint_fallback."""
         row = self._manifest_row(footprint_m2=196.0, num_floors=2)
         result = parse_building(GOLDEN_DIR / "r1_single_zone.sql", None, row)
-        assert result["floor_area_provenance"] == "footprint_fallback"
-        assert math.isclose(result["floor_area_m2"], 392.0, rel_tol=1e-9)
+        assert result["floor_area_provenance"] == "sql_simulated"
+        assert math.isclose(result["floor_area_m2"], 196.0, rel_tol=1e-9)
 
     def test_failed_parse_still_reports_provenance(self):
         """Even a failed_parse row carries floor_area_m2/floor_area_provenance —

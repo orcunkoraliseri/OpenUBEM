@@ -342,6 +342,199 @@ report that measured number before committing to the full 65,112-case run.
 
 **Not time-critical.** The user flagged this as low priority against other work on the same machine;
 do not treat this as an urgent dispatch, and yield machine resources if the user reports needing them.
+
+## 2f. FLEET-06b execution-mode decision reversed 2026-09-23 — move remaining cases to Speed
+
+**User decision 2026-09-23:** the local run is loading the user's machine too hard; move whatever is
+left over to Speed. This is the "fresh ask" §2e required before any resubmission — §2e's local-only
+override is superseded from this point on, not retroactively (the ~61.7k cases already finished
+locally stand as-is, not re-run).
+
+**State at the moment of this decision** (`%TEMP%\ubem_validation\fleet06b_local_2026-09-18\
+progress.json`, 2026-09-23 09:45:01): done=61,739, failed=29, remaining=3,373, total=65,112 (94.8%
+complete). Only the remaining ~3,373 cases move to Speed — not a full re-split of the whole fleet.
+Because 3,373 is far under both the 10,000-task SLURM array ceiling (§2d) and needs no multi-job
+chain, **§2d's 7-job chain plan no longer applies**: this is a single `sbatch --array=1-N%32
+--time=7-00:00:00` job.
+
+**Ruled — task spec for the executor:**
+1. Read current `results.csv` / `progress.json` under `fleet06b_local_2026-09-18\`; do not restart
+   from zero.
+2. Stop the local run cleanly: confirm no in-flight write (progress.json ticking), then end/delete the
+   `OpenUBEM_FLEET06b` scheduled task and confirm no `fleet06b_local_run_2026-09-18.py` python.exe
+   remains (`Get-CimInstance Win32_Process -Filter "Name='python.exe'"`).
+3. Derive the exact remaining `(cell_name, building_id)` set from `results.csv` using the same
+   completion check the local runner itself uses (`openubem.simulation.parallel.is_completed()` /
+   `classify_outcome`), not just the last `progress.json` count.
+4. On Speed (no login-node compute): verify the 2026-09-18 staged directory
+   `/speed-scratch/o_iseri/openubem/fleets/fleet06b_2026-09-18/` (idfs, weather, fleet.lst, out/) is
+   still intact via `ls`/`wc -l` through the `_ssh()` wrapper. If scratch was purged, re-stage only the
+   remaining IDFs from the local `fleet06a_campaign` tree (small tarball, not the original 65,112).
+5. Write `fleet_remaining.lst` (same 3-column format as `fleet.lst`) containing only the remaining
+   pairs; adapt `submit_fleet06b.sbatch` / `fleet06b_submit_2026-09-18.py` to read it.
+6. Submit one `sbatch --array=1-N%32 --time=7-00:00:00` job (N = remaining count at submit time,
+   re-measured, not assumed to still be 3,373).
+7. Monitor event-driven / ≥30 min polling (`sacct`, not login-node compute) — no bare `srun`/`ssh …
+   python`.
+8. Harvest finished Speed rows into the same `results.csv` schema as the local rows, reconcile against
+   `progress.json`, update the live monitor artifact (`https://claude.ai/artifact/6H6xkLiazkjN2akF6wsXKa`,
+   collection `fleet06b`, doc `progress`).
+9. Close out once all 65,112 original cases are COMPLETED/FAILED (local ~61.7k + Speed remainder) —
+   gate for FLEET-06c is 100% reached, not just the Speed job finishing. State the total case count and
+   parallel width before submitting, per the cluster rule. Append the real FLEET-06b progress-log entry
+   under §4, correcting the stale "STOPPED 2026-09-18" one.
+
+**How to test:** `results.csv` has exactly 65,112 unique `(cell_name, building_id)` rows, 0 remaining;
+baseline cell's fleet EUI sanity-checked against 153.95 kWh/m² with the delta stated plainly.
+
+## 2g. FLEET-06b tail resubmitted + FLEET-06c spec amendment — manager, 2026-09-24
+
+**User 2026-09-24:** "if there are any parallel work to do, lets go do it … continue till the end" (user
+asleep; this is the fresh "go" §7i of the prompt-manager doc required).
+
+**Tail resubmitted.** The 15 unfinished rows (`fleet_rerun28.lst` lines 14-28: way_425993519 ×1 cell,
+way_427278443 ×7, way_281344894 ×7) written to `$F/fleet_rerun15.lst`; the two partial `out/` dirs left by
+the cancelled tasks deleted by explicit list (0 remain); **job `1348381`**,
+`sbatch --array=1-15%32 --mem=32G --time=7-00:00:00 --export=ALL,FLEET_DIR=$F,FLEET_LST=fleet_rerun15.lst
+submit_fleet06b.sbatch` (sbatch file untouched). At submit: 4 RUNNING, 11 PENDING `AssocGrpCpuLimit`
+(account at its 64-CPU cap, other projects' jobs untouched).
+
+**Parallel prep (no gate crossed):** (a) the 3,358 Speed-finished case folders pulled back into the local
+`fleet06b_local_2026-09-18\out\` (old local failed attempts moved, not deleted, to `out_superseded_local\`);
+(b) baseline-cell EUI re-parsed with the T08 `_parse_sql` into the scratchpad only, compared with 153.95.
+
+**FLEET-06c spec amendment (manager ruling, attributable to the manager):** the §2 FLEET-06c text says
+"one output per cell". A scenario cell spans 12 geographic cells in 3 states and `aggregate_results()`
+(`openubem/results/__init__.py:72`) is built per neighbourhood (one state, one UTM CRS). So the harvest runs
+`aggregate_results()` once per **(scenario cell, geographic cell)** pair and writes
+`<root>\<scenario_cell>\<geo_cell>\05_results.*` — cell identity is still the directory, schema untouched.
+- **Root:** `%TEMP%\ubem_validation\fleet06c_harvest_2026-09-24\` (local, never under `docs/`, not committed).
+- **Inputs:** sims = `fleet06b_local_2026-09-18\out\<scenario_cell>\<stem>\`; building/IDF attributes =
+  `fleet06a_rebuild_2026-09-18\<geo_cell>\` (`01_buildings.gpkg`, `02a_climate_epw.parquet`,
+  `step3\03_idf_manifest.parquet`); population = the 8,139 stems of
+  `openubem/outputs/comparisons/t08_restated_fleet_eui_2026-09-10.csv` (its `cell` column = geo cell).
+- **`.sql.gz`:** `parse_building_sql()` does not read gzip; decompress each to a temp copy, parse, delete the
+  copy. Never modify anything under `out\`.
+- **Order:** harvest the `baseline` cell first, report, and stop for manager audit; the other 7 cells run only
+  after job `1348381` ends and its 15 folders are pulled.
+- **How to test:** per (scenario, geo) dir: row count == that geo cell's share of the 8,139, 70 columns,
+  schema sidecar present; baseline area-weighted fleet EUI vs 153.95 with the delta stated plainly;
+  non-baseline cells: count of buildings with PV output > 0 reported.
+
+**Amendment 2g-1 (manager, 2026-09-24, after the executor's quoted conflict):** the 70-column contract
+(`aggregate_results()` = the 57-column Step-2 enriched table + 13 metrics, `docs/docs_main/docs_step-5/`
+DESIGN :166) cannot be met from the inputs above: FLEET-06a computed Step 2 in memory and never saved it, and
+the `run_r3_step5.py` proxy table gives 38 columns. Ruling: rebuild the 57-column table per geo cell by
+calling `step2_classify_enrich()` (`scripts/validation/v12_cell_pipeline.py:225`, the same function the
+rebuild used via `t06_cell_rebuild_2026-09-09.py:69`) on `fleet06a_rebuild_2026-09-18\<geo_cell>\01_buildings.gpkg`,
+with `work_base` pointed at `<root>\_step2\<geo_cell>\` so the rebuild's own `02a_climate_epw.parquet` is never
+overwritten. Step 2 is seeded (`openubem/semantic/__init__.py:233`) and its code is unchanged since
+2026-09-10 (`9d6026af`), so it must reproduce what the IDFs were built from. **Guard, before any harvest:**
+per geo cell, `archetype_id` of the rebuilt table equals `03_idf_manifest.parquet`'s `archetype_id` for 100 %
+of shared `osm_id`s; any mismatch → STOP and report. Save the table once per geo cell as
+`<root>\_step2\<geo_cell>\02_enriched.gpkg` and reuse it for all 8 scenario cells.
+- **Measured before this ruling:** baseline cell re-parse = 153.9501287 kWh/m² over 8,139 (published
+  153.9501286; 0 buildings differ by > 0.01 kWh/m²) after 5 baseline cases with a stale success marker and a
+  truncated result file were re-run locally (old folders moved to `out_superseded_local\baseline\<stem>_stale_2026-09-24`).
+
+## 2h. FLEET-06c floor-area fix, full harvest, then cleanup — manager, 2026-09-25
+
+**User 2026-09-25 (verbatim):** "yes of course, count district hot water. secondly, as we close all the
+simualations colelct the results update the tables, then delete unnecessary files of the simulations to
+prevent low memory warning". Two rulings: (1) district hot water **is counted** in the FLEET-06 tables
+(`dhw_district_eui_kwh_m2` stays inside `total_eui_kwh_m2`, as `aggregate_results()` already does);
+(2) after every table is written and audited, the large per-case simulation files are deleted (§2h-4).
+
+**Audit of the first baseline harvest (manager, measured 2026-09-25):** 175.74 kWh/m² vs published 153.95.
+- +20.09 = district hot water, now counted by ruling (1). Not a defect.
+- Floor area: 8,134 of 8,139 rows `footprint_fallback`. Cause: locally-run case folders hold no
+  `eplusout.eio`, and for `.sql.gz` cases the harvest parses a temp copy whose folder has no eio either;
+  `resolve_simulated_floor_area()` (`openubem/results/parser.py:496-525`) then falls back to footprint.
+- The 0.8 % energy shortfall (129 buildings) has the same root: `parse_building()` reads the per-zone
+  multiplier map from the same eio (`parser.py:984-994`, OPEN-60); with no eio every multiplied zone's
+  lighting/equipment is counted once.
+- **The SQL holds the same data.** `Zones` table: `SUM(FloorArea*Multiplier*ListMultiplier) WHERE
+  IsPartOfTotalArea=1` gave 142,456.77 m² vs eio 142,457.04 m² on `lighting+setback+infiltration/way_425993519`
+  (eio rounds to 2 decimals; relative difference 2e-6).
+
+### Task FLEET-06c-FIX — SQL fallback for simulated floor area and zone multipliers
+
+- **What.** In `openubem/results/parser.py` add two readers on the SQL `Zones` table and use them only when
+  the eio route fails:
+  1. `parse_sql_zone_area(sql_path) -> float` = `SUM(FloorArea*Multiplier*ListMultiplier)` over rows with
+     `IsPartOfTotalArea=1`; 0.0 on any error.
+  2. `parse_sql_zone_multipliers(sql_path) -> dict[str, float]` = `{UPPER(ZoneName): Multiplier*ListMultiplier}`;
+     `{}` on any error.
+  3. `resolve_simulated_floor_area()`: every path that today returns `"footprint_fallback"` while `sql_path`
+     is not None first tries (1); if > 0 return `(area, "sql_simulated")`. eio stays first; footprint stays last.
+  4. `parse_building()` at `:984-994`: if the eio map is empty (missing file or parse failure) and `sql_path`
+     exists, use (2).
+- **Why.** The published denominator is the simulated multiplier-aware area (ruling 6 / OPEN-01, T08 used
+  eio). The SQL carries the identical quantity, so cases without an eio keep the same denominator and the
+  same OPEN-60 scaling. Where an eio exists, behaviour is bit-identical to today.
+- **How to test.** New tests in `tests/test_results_denominator.py` and `tests/test_parser_open60_multiplier.py`
+  using a small synthetic sqlite file with a `Zones` table (columns `ZoneName, FloorArea, Multiplier,
+  ListMultiplier, IsPartOfTotalArea`): area with multipliers and one excluded zone; provenance
+  `sql_simulated` when no eio; eio still wins when present; footprint when neither; multiplier map keys
+  upper-case. Then run both files plus `tests/test_parser_version_robustness.py`, all must pass.
+- **Doc.** Register in `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` (symptom: "8,134 of 8,139 rows
+  `floor_area_provenance = footprint_fallback`; fleet area 23.42 M m² vs 23.87 M m²").
+
+### Task FLEET-06c-BASE — re-run the baseline harvest, stop for audit
+
+- **How.** Delete only `<HARVEST_ROOT>\baseline\` (keep `_step2\` and `_diag_38col_2026-09-24\`), then
+  `python scripts/analysis/fleet06c_harvest_2026-09-24.py --cells baseline`.
+- **How to test (report each line with the measured value):** 8,139 rows over 12 geo dirs; 0 rows with
+  `floor_area_provenance = footprint_fallback`; fleet area vs T08 23,871,481.58 m² (must agree within 0.01 %);
+  buildings whose area differs from T08 by > 0.1 % (must be 0); fleet EUI **excluding**
+  `dhw_district_eui_kwh_m2` vs 153.9501 (must agree within 0.05 kWh/m²); fleet EUI **including** district
+  (the new FLEET-06 baseline figure); buildings whose non-district kWh differs from T08 `total_kwh` by > 0.1 %.
+- **STOP** and report after this task.
+
+**Manager audit of FLEET-06c-BASE (2026-09-25, re-measured from disk): ACCEPTED.** 8,139 rows / 12 geo /
+88 cols; 0 dups; 8,139 matched to T08; 0 `footprint_fallback`; area 23,871,478.15 vs 23,871,481.58 m²;
+0 buildings with area > 0.1 % off; 0 null `total_eui_kwh_m2`. EUI incl. district **172.4076**, excl. district
+**152.6985** vs T08 153.9501. The −1.2516 kWh/m² miss is a **T08 double count, not a harvest defect**:
+- On the 129 buildings (all kitchen/plug-refrigeration archetypes) the whole gap decomposes into cooking
+  −22.500 GWh + refrigeration −7.378 GWh = −29.879 GWh (equipment −2.602 is offset exactly by the new
+  `elevators` column +2.602); 29.879 GWh / 23.87 M m² = 1.2517 kWh/m².
+- `way/55932517` (FullServiceRestaurant) SQL meters: `InteriorEquipment:Electricity` 403,548 kWh (= T08 and new
+  equipment), `InteriorEquipment:NaturalGas` 200,416 (= new cooking), `Cooking:InteriorEquipment:Electricity`
+  178,140, `Refrigeration:InteriorEquipment:Electricity` 145,125. T08 cooking 378,556 = 200,416 + 178,140 and
+  T08 refrigeration 145,125 — both are **sub-meters of `InteriorEquipment:Electricity`**, already inside
+  equipment. `Electricity:Facility` 610,592 = equipment + lights + cooling + fans exactly; T08 total 1,230,639
+  exceeds the building's own metered energy (907,374 + district 51,878 = 959,252 = new total).
+- The current parser (`openubem/results/parser.py:681-682`: cooking = gas meter only, refrigeration =
+  `Refrigeration:Electricity` compressor racks only) is correct. Published 153.95 therefore carried +1.25 of
+  double count and −19.71 of missing district hot water (OPEN-65); the FLEET-06 baseline is 172.41.
+- FLEET-06c-ALL is released.
+
+### Task FLEET-06c-ALL — harvest the 7 scenario cells (after manager audit of FLEET-06c-BASE)
+
+- **Gate.** All 65,112 case folders have a success `eplusout.end` and an `eplusout.sql` or `.sql.gz`
+  (manager checks after the 15-folder pull; state the count).
+- **How.** 7 processes in parallel, one per cell (`--cells <cell>`), each writing only its own
+  `<HARVEST_ROOT>\<cell>\` and its own gz temp dir. Never sequential.
+- **How to test, per cell:** 8,139 rows over 12 geo dirs, column count equal to baseline's, schema sidecar
+  in each geo dir, 0 `footprint_fallback`, 0 null `total_eui_kwh_m2`, count of buildings with PV output > 0,
+  fleet EUI including district and the change vs baseline in kWh/m² and %.
+
+### Task FLEET-06c-TABLE — one summary table
+
+- `openubem/outputs/comparisons/fleet06c_scenario_summary_2026-09-25.csv`: one row per scenario cell —
+  n buildings, fleet area, fleet EUI including district, fleet EUI excluding district, change vs baseline
+  (kWh/m², %), n buildings with PV > 0. Pooling = `sum(kWh)/sum(area)`, same population in every row.
+
+### §2h-4 — Cleanup (runs only after FLEET-06c-ALL and FLEET-06c-TABLE are audited by the manager)
+
+- **Inclusion list only, never exclusion** (memory: 2,761 results lost 2026-09-22). Delete, per case folder
+  under `fleet06b_local_2026-09-18\out\` and `out_superseded_local\`, exactly these names:
+  `eplusout.sql`, `eplusout.sql.gz`, `eplustbl.htm`, `eplusout.shd`, `eplusout.csv`, `eplusout.mtr`,
+  `eplusout.eio`. Keep `eplusout.end`, `eplusout.err`, logs. Also delete the harvest gz temp dirs.
+- **Before deleting:** confirm no process writes under `out\` (no `energyplus.exe`, no gzip, no harvest
+  running); measure free space before and after and state both.
+- Not touched: `05_results` harvest outputs, the input IDF/weather folders, anything on Speed.
+
 ## 3. Standing rules carried forward
 
 Unchanged from block 5 §5–§6 of the prompt-manager doc: audit by measurement against a real DOE
@@ -665,7 +858,7 @@ changes made.
 encountered, so no new entry added to `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`. Per the
 plan's explicit instruction, FLEET-06b (the sbatch EnergyPlus array job) was not started.
 
-#### FLEET-06b — submit the array job to Speed — STOPPED 2026-09-18 (spec conflict, no job submitted)
+#### FLEET-06b — submit the array job to Speed — STOPPED 2026-09-18 (spec conflict, no job submitted) — SUPERSEDED, see IN-PROGRESS entry below (§2f, 2026-09-23)
 
 **Artifacts:** `scripts/cluster/fleet06b_submit_2026-09-18.py` (new — adapted from `t07_submit_resim.py`:
 reads the FLEET-06a manifest, cross-references each `building_id` against the existing
@@ -712,3 +905,187 @@ single array job's throttle, not this multi-array-job case. Nothing was submitte
 verified remote directory means submission can start immediately once the split/throttle-sharing scheme
 is decided. FLEET-06c was not started (its gate, "FLEET-06b's array job reaches 100%
 COMPLETED/FAILED," cannot be met — no job exists).
+
+#### FLEET-06b — move remaining cases to Speed — IN PROGRESS 2026-09-23 (local run stopped, Speed job submitted, not yet harvested)
+
+**Artifacts:** `%TEMP%\ubem_validation\fleet06b_local_2026-09-18\results.csv`/`progress.json`/`run_log.txt`
+left as final local record (last local write 2026-09-23 09:49:35, done=61,765 failed=29 remaining=3,347
+per `progress.json`; true on-disk completion count via `is_completed()`/`.sql.gz` fallback, the same
+check `cmd_full()` uses, is 61,739 completed / 3,373 pending — this on-disk count, not the last
+`progress.json` tick, is what was moved). `/speed-scratch/o_iseri/openubem/fleets/fleet06b_2026-09-18/
+fleet_remaining.lst` (new, remote — 3,373 lines, `cell_name<TAB>building_id<TAB>epw_basename`, filtered
+from the existing remote `fleet.lst` against the derived pending set; all 3,373 pending pairs matched,
+0 missing). Remote `submit_fleet06b.sbatch` re-uploaded unchanged (already supported `FLEET_LST` env var
+from the §2d chained-job era — no script edit needed, just a new `--export`). Speed job **1342940**,
+`--array=1-3373%32 --time=7-00:00:00`, submitted 2026-09-23 ~09:53.
+
+**Deviations:** None from §2f's 9-step task spec, steps 1-7 executed as written. Step 5 ("adapt
+`submit_fleet06b.sbatch` / `fleet06b_submit_2026-09-18.py` to read it") needed no code change to the
+sbatch script (it already reads `FLEET_LST` with a `fleet.lst` default, built for the §2d multi-job
+chain); `fleet06b_submit_2026-09-18.py` itself was not invoked — its packing/upload steps were
+unnecessary since the remote directory from 2026-09-18 (idfs, weather, full `fleet.lst`) was still
+intact (verified via `ls`/`wc -l` through `ssh ... bash -lc '...'`, ahead of any submission), so only
+the filtered `fleet_remaining.lst` needed generating and uploading.
+
+**Test status:** On-disk pending-set derivation matches `cmd_full()`'s own logic exactly (ran the same
+`is_completed()` + `.sql.gz`-fallback check via a throwaway script importing
+`openubem.simulation.parallel.is_completed`): 65,112 manifest rows -> 61,739 completed + 3,373 pending,
+sums correctly, all 3,373 pending pairs found in the remote `fleet.lst` (0 unmatched). Job 1342940
+confirmed alive and correctly configured ~90 s after submission: 36 array tasks already had
+`eplusout.end` on disk, and a sampled in-flight task's `.log` showed genuine EnergyPlus progress
+(warmup/sizing/shadowing lines advancing), not a config-time failure. `squeue -u o_iseri` showed 30 of
+this job's tasks RUNNING (its own `%32` throttle) alongside pre-existing unrelated jobs from the same
+account (`wp11_dra*`, `wp11_sco*`, `histnu*`, `p5_boots*` — not touched, per standing rule) with no
+undersubscription needing an `ArrayTaskThrottle` raise.
+
+**Notes:** Local run stop: `schtasks /end /tn "OpenUBEM_FLEET06b"` reported success but left the
+process tree alive (5 `energyplus.exe` still running under it); `taskkill /PID 46744 /T /F` was needed
+to actually terminate the full tree (12 processes), then confirmed zero `python.exe`/`energyplus.exe`
+remained before `schtasks /delete /tn "OpenUBEM_FLEET06b" /f`. Process audit before stopping ruled out
+a double-dispatch: only one dispatcher (`fleet06b_local_run_2026-09-18.py`, PID 24540, 5 forked
+workers) was alive, launched by the Task Scheduler's own wrapper PID (46744) — not two independent
+runs. The ~61.7k cases already completed locally were not touched or resubmitted, per the task's
+explicit constraint. **Not yet closed**: steps 8-9 (harvest Speed results into `results.csv`, update the
+live monitor artifact, confirm all 65,112 original cases COMPLETED/FAILED, sanity-check the baseline
+cell's fleet EUI against 153.95 kWh/m²) remain open pending job 1342940 finishing — monitor via `sacct
+-j 1342940` at >=30 min intervals, event-driven, no login-node compute, no busy-polling. This entry will
+be replaced by a final `COMPLETED` entry once FLEET-06c's 100% gate is reached. No new error was hit
+this task (schtasks/taskkill/ssh/sbatch all succeeded as run), so no new
+`docs/docs_EXPLANATION/OpenUBEM_debug_References.md` entry was needed.
+
+#### FLEET-06b — fix PV generator-list overflow, rerun the 28 job-1342940 failures — IN PROGRESS 2026-09-23 (Speed job submitted, not yet harvested)
+
+**What:** Job 1342940 finished 3,345/3,373 with 28 failures. 21 (3 buildings x 7 non-baseline cells:
+`way_381810555`, `way_425993519`, `way_427278443`) failed because `inject_pv()` wrote all of a
+building's `Generator:PVWatts`/`Generator:Photovoltaic` objects into one
+`ELECTRICLOADCENTER:GENERATORS` object; on reload (`GeomIDF(fresh_path)` in
+`fleet06a_campaign_2026-09-18.py`'s `_build_building()`) + `apply_cell()` + `idf.saveas()`, eppy
+re-parses that object's `objls` at the IDD's 30 explicitly-declared `Generator N Name` groups
+(`Energy+.idd`/`eppy.iddcurrent`, both declare exactly 30 before falling back to `\extensible:5`
+auto-growth) without re-extending it, so `EpBunch.__repr__`'s `zip(obj, objls)` silently truncates
+any list with >30 generators and drops the terminating `;`, corrupting the following
+`ELECTRICLOADCENTER:DISTRIBUTION` object's text (matches the observed `generator_outputs[30]
+[generator_object_type] - "OpenUBEM_PV_Distribution" - Failed to match against any enum values`
+Severe -> Fatal). Reproduced locally byte-for-byte against the real `way_381810555.idf` fresh build
+(34 generators; reload+apply_cell+saveas dropped generators 31-34 and the `;`). The other 7
+(`way_281344894` x 7 cells) are the known `--mem=6G` OOM (debug-reference entry near line 170;
+owned by the manager, not touched here).
+
+**Why:** `MAX_GENERATORS_PER_LIST = 30` keeps every `ELECTRICLOADCENTER:GENERATORS` object within
+the IDD's explicitly-declared field count, so the reload-time `objls` truncation can never trigger
+regardless of which IDD (real E+23.1 vs eppy's bundled fallback) is in play at reload time.
+
+**How:** `openubem/idf/pv.py` `inject_pv()` (module const `MAX_GENERATORS_PER_LIST = 30` at line 40;
+chunking loop at lines ~223-263) now splits a building's generator records into chunks of at most 30
+and writes one `ELECTRICLOADCENTER:GENERATORS` + `ELECTRICLOADCENTER:INVERTER:PVWATTS` +
+`ELECTRICLOADCENTER:DISTRIBUTION` triple per chunk, names suffixed `_1`, `_2`, ... only when more
+than one chunk exists (unsuffixed names preserved for the single-chunk case, unchanged behaviour).
+`_already_injected()` (line ~124) now also matches a `_N`-suffixed distribution name.
+`summary["n_generator_lists"]` added. Regenerated the 21 IDFs via the same in-repo functions
+`fleet06a_campaign_2026-09-18.py` uses (`strip_existing_pv`/`inject_pv`/`openubem.scenarios.campaign.
+apply_cell`), applied directly to the already-existing fresh rebuilt base IDFs at `%TEMP%\
+ubem_validation\fleet06a_rebuild_2026-09-18\<cell_geog>\step3\idfs\<stem>.idf` (no full Step1-3 cell
+rebuild needed — geometry/roofs unchanged, only PV injection was regenerated then the same
+`apply_cell()` reapplied for the 7 non-baseline cells), uploaded over `idfs/<cell>/<stem>.idf` on
+Speed (scp, byte-verified via md5sum). Deleted exactly the 28 `out/<cell>/<stem>/` dirs (listed
+before deleting, then confirmed 0 remaining) and wrote `fleet_rerun28.lst` (28 lines,
+`cell<TAB>stem<TAB>epw`, taken from `fleet_remaining.lst`). Submitted
+`sbatch --array=1-28%32 --time=7-00:00:00 --mem=32G --export=FLEET_DIR=...,FLEET_LST=fleet_rerun28.lst
+submit_fleet06b.sbatch` (sbatch file untouched) -> **job 1346459**.
+
+**Test status:** `pytest tests/test_pv_injection.py tests/test_pv_validation_run.py -q` — 21 passed
+(includes new `test_generator_count_exceeding_cap_splits_into_multiple_lists`, 35 roofs -> two
+`ELECTRICLOADCENTER:GENERATORS` blocks of 30+5, both `;`-terminated, verified by regex over
+`idf.idfstr()`; existing `test_no_generator_cap_32_roofs_yield_32_generators` updated to expect 2
+distribution objects for 32 roofs, since 32 > the new 30-cap). All 21 regenerated IDFs checked
+programmatically: `GENERATOR:PVWATTS`+`GENERATOR:PHOTOVOLTAIC` count == total `Generator N Name`
+fields across all `ELECTRICLOADCENTER:GENERATORS` blocks == count of blocks == count of
+`ELECTRICLOADCENTER:DISTRIBUTION`/`ELECTRICLOADCENTER:INVERTER:PVWATTS` objects, 0 mismatches.
+`way_381810555`'s regenerated `lighting` IDF run through EnergyPlus 23.1 locally (ExpandObjects +
+full annual run): **Completed Successfully**, 0 PV/generator-related Severe (one pre-existing
+unrelated non-convex-shading Severe, not fatal). Job 1346459 confirmed alive ~2 min after submission:
+task 1's `.log` past `ExpandObjects`/`EnergyPlus Starting`/warmup/into `Performing Zone Sizing
+Simulation`, no Severe. `squeue -u o_iseri` showed only 1 of 28 tasks RUNNING (rest PD,
+`AssocGrpCpuLimit`) because other unrelated jobs (`wp11_dra*`, `histnu*`, `p5_boots*`) already occupy
+the account-wide CPU cap — not touched, per standing rule; `%32` is the job's own already-correct
+throttle.
+
+**Deviations:** None from the assigned fix/rerun scope. Debug-reference doc update explicitly
+deferred to the manager (out of scope for this dispatch).
+
+**Notes:** Not yet closed — job 1346459's 28 tasks still running/pending; harvest and re-fold into
+job 1342940's 3,345 successes is a follow-up once it completes.
+
+#### FLEET-06c-FIX — SQL fallback for simulated floor area and zone multipliers — completed 2026-09-25
+
+**Artifacts:** `openubem/results/parser.py` — `parse_sql_zone_area()` and `parse_sql_zone_multipliers()`
+added (new functions, just above `resolve_simulated_floor_area()`); `resolve_simulated_floor_area()`
+tries the SQL `Zones` table (provenance `sql_simulated`) only when the `.eio` route is unavailable,
+eio still tried first, footprint still last resort; `parse_building()`'s per-zone multiplier map now
+falls back to `parse_sql_zone_multipliers()` when the eio map is empty and `sql_path` exists.
+`tests/test_results_denominator.py` — new `TestResolveSimulatedFloorAreaSqlFallback` class (5 tests:
+sql_simulated when no eio, eio still wins when both present, footprint fallback when SQL has no
+`Zones` table, `parse_sql_zone_area` empty-file guard, `parse_sql_zone_multipliers` upper-cases keys).
+`tests/test_parser_open60_multiplier.py` — new `TestParseSqlZoneMultipliers` class (3 tests).
+`docs/docs_EXPLANATION/OpenUBEM_debug_References.md` §8 — one bullet registered (symptom "8,134 of
+8,139 rows `floor_area_provenance = footprint_fallback`...").
+
+**Deviations:** Two pre-existing tests in `tests/test_results_denominator.py` had their expected
+values updated, not left untouched: `test_well_formed_eio_changes_eui_denominator`'s post-eio-removal
+assertion and `test_eio_absent_provenance_on_real_golden_fixture`. Both had hard-coded the *old, buggy*
+behaviour (`footprint_fallback`, 392.0 m²) for the golden fixture `tests/fixtures/golden_sql/
+r1_single_zone.sql`, whose own `Zones` table is in fact well-formed (`FloorArea=196.0,
+Multiplier=ListMultiplier=1.0, IsPartOfTotalArea=1`) — exactly the case this fix targets. Updated both
+to the corrected expectation (`sql_simulated`, 196.0 m²); no other assertion, fixture, or golden
+expected value touched. This was necessary for "all must pass" (per the task's own How-to-test) to be
+satisfiable at all, since the fix's whole purpose is to change this exact fallback path.
+
+**Test status:** `python -m pytest tests/test_results_denominator.py tests/test_parser_open60_multiplier.py
+tests/test_parser_version_robustness.py -q` — 32 passed, 0 failed.
+
+**Notes:** None.
+
+#### FLEET-06c-BASE — re-run the baseline harvest, stop for audit — completed 2026-09-25
+
+**Artifacts:** `<HARVEST_ROOT>\baseline\` rebuilt from scratch (deleted, then
+`python scripts/analysis/fleet06c_harvest_2026-09-24.py --cells baseline`, wall 2355.5s, 12-way pool).
+
+**Test status (measured, per the plan's How to test):**
+- 8,139 rows over 12 geo dirs — **measured 8,139 rows, 12 geo dirs.** PASS.
+- 0 rows `floor_area_provenance = footprint_fallback` — **measured 0** (8,134 `sql_simulated` + 5
+  `eio_simulated`). PASS — confirms FLEET-06c-FIX closed the gap this task exists to fix.
+- fleet area vs T08 23,871,481.58 m² (within 0.01%) — **measured 23,871,478.15 m²**, diff 0.000014%.
+  PASS.
+- buildings whose area differs from T08 by > 0.1% — **measured 0**. PASS.
+- fleet EUI excluding `dhw_district_eui_kwh_m2` vs 153.9501 (within 0.05 kWh/m²) — **measured
+  152.6985 kWh/m², diff 1.2516 kWh/m²**. **FAIL** — outside tolerance (see Deviations).
+- fleet EUI including district (new FLEET-06 baseline figure) — **measured 172.4076 kWh/m²**
+  (+19.7091 kWh/m² vs excluding-district, consistent with the manager's 2026-09-25 audit note of
+  +20.09).
+- buildings whose non-district kWh differs from T08 `total_kwh` by > 0.1% — **measured 129
+  buildings**, same population size as the pre-fix audit's "0.8% shortfall (129 buildings)" note, but
+  root cause differs from what that note attributed it to (see Deviations).
+
+One geo cell (`baseline/la_rural`) logged `FAILED ... PermissionError(13, ... 'being used by another
+process')`, apparently during post-write temp-file cleanup (`decompressed_paths` unlink /
+`gz_tmp_dir.rmdir()`) — verified its `05_results.*` outputs were nonetheless written completely and
+correctly (144/144 rows matching the T08 population count for `la_rural`, 88 columns, 0 nulls in
+`total_eui_kwh_m2`, 0 `footprint_fallback`); not rerun, since output was already complete and correct.
+
+**Deviations:** The 129-building mismatch does **not** trace to the zone-multiplier root cause
+(OPEN-60) that FLEET-06c-FIX targets — that part is confirmed closed: `lighting_eui_kwh_m2` matches
+T08 within 1% for all 129 (in fact within ~0.001% for all), and `equipment_eui_kwh_m2` matches within
+1% for 89 of 129 (the other 40 differ by a median ~1.2%, far too small to explain the gap). The
+dominant residual (median 20.9%, max 27.8% kWh mismatch on these 129) is concentrated in
+`cooking_eui_kwh_m2` and `refrigeration_eui_kwh_m2`, on archetypes with kitchen/refrigeration loads
+(QuickServiceRestaurant 50, FullServiceRestaurant 32, LargeHotel 27, SecondarySchool 9, SuperMarket 5,
+Hospital 4, PrimarySchool 2 — 129 total). Both columns are read from whole-building RunPeriod meters
+(`InteriorEquipment:NaturalGas`, `Refrigeration:Electricity`), already multiplier-correct by
+construction (E+ applies zone multiplier before writing a meter), so this is not an OPEN-60-shaped
+defect and not something `resolve_simulated_floor_area()`/`parse_sql_zone_multipliers()` can affect.
+Not investigated further or fixed — out of scope for the Touch-only list on this dispatch (parser.py
+change was limited to the floor-area/zone-multiplier fallback). Flagged here per plan instruction to
+stop and report after this task; root cause of the cooking/refrigeration gap (parser bug vs a genuine
+difference between the FLEET-06 rebuilt IDFs and the original T08 simulation) is unassigned and open.
+
+**Notes:** FLEET-06c-ALL is gated on manager audit of this entry, per §2h.

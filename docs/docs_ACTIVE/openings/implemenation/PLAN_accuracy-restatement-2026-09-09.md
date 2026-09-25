@@ -1060,3 +1060,16 @@ swept in a fourth dispatch. Two per-file marker counts self-reported by the swee
 **Notes.** Zero remaining occurrences of the old figure without an adjacent supersession marker, across
 `docs/` and the two live openings board artifacts — the T09 "how to test" condition is met.
 
+
+### ⚠ Post-closure note — director, 2026-09-24
+
+**T08's adopted figure does not contain district heating, so this plan did not discharge OPEN-61 or
+OPEN-63 as §4 (D-D) and T06 intended.** T08 parsed with `_parse_sql` from
+`scripts/cluster/t08_harvest_results.py:163-214`, a meter-only reader with no district-heating meter
+and no ABUPS read — not with `parse_building()`, where T03 and T06 landed their fixes. Measured on
+2,741 of the 8,139 buildings (same simulations, re-run by the TechTransfer arc; 40 / 40 reproduce the
+T08 per-building EUI to ≤ 0.0003 kWh/m²): 2,736 carry district-heated hot water, +19.97 kWh/m² pooled
+on that subset (159.27 → 179.24). **153.95 over 8,139 stays the adopted figure until the user adopts
+a replacement; it is known low.** Tracked as OPEN-65 in `../INVESTIGATION_open-items-register-II.md`
+§6. Everything else in this plan stands: T01–T07 and T09 are unaffected, and OPEN-17, OPEN-56,
+OPEN-60 and OPEN-64 were closed on its evidence.

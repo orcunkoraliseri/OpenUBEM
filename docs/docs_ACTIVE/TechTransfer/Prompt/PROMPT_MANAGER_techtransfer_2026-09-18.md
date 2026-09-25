@@ -5,6 +5,7 @@
 > **How to use:** paste everything below the horizontal rule into a **fresh** session that will act
 > as manager for this arc. Update this file in place at the close of each block — do not supersede it
 > with a new dated copy.
+> **Paused 2026-09-25 12:30 (user):** scenario harvest 22 of 84 pieces saved; resume from §7k, last bullet.
 > **Measured at the time of writing:** the eight TechTransfer test files pass, `108 passed`
 > (`python -m pytest tests/test_scenario_measures.py tests/test_pv_injection.py tests/test_compliance_audit.py tests/test_prep_gate.py tests/test_layout_assigner_fit_check.py tests/test_parser_version_robustness.py tests/test_envelope_patcher_windows.py tests/idf/test_ground_temperature.py -q`).
 
@@ -348,6 +349,186 @@ automatically. The HTML reports were all kept (56,124).
 delete all `eplusout.sql` / `.sql.gz` (~450 GB). Not before. FLEET-06c must decompress or read
 `.sql.gz` before `parse_building`.
 
+## 7g. Local run stopped, remainder moved to Speed — 2026-09-23 (fresh user ask, CPU load complaint)
+
+**§7b/§2e's "local only" is superseded from this point.** User asked 2026-09-23 to move whatever was
+left off the local machine onto Speed (CPU load complaint again — this is the "fresh ask" §2e/§7b
+required before any resubmission). Full decision + task spec: block6 plan doc §2f. Do not read §7b's
+"local resource cap" note as still current — there is no local run anymore.
+
+**State at the switch:** done=61,739, failed=29, remaining=3,373 of 65,112 (94.8%). The local process
+tree was force-killed (`schtasks /end` alone left `energyplus.exe` children running — needed
+`taskkill /T /F` on the dispatcher PID), the `OpenUBEM_FLEET06b` scheduled task deleted. The finished
+61,739 cases were not touched or re-run.
+
+**Speed job `1342940`**, `--array=1-3373%32 --time=7-00:00:00`, submitted ~09:53 2026-09-23, reusing
+the already-staged `/speed-scratch/o_iseri/openubem/fleets/fleet06b_2026-09-18/` (idfs/weather from
+2026-09-18, still intact — no re-staging needed) plus a new `fleet_remaining.lst` filtered to just the
+3,373 still-pending `(cell_name, building_id)` pairs. Confirmed genuinely running (real EnergyPlus
+progress in sampled task logs), not a config-error stub.
+
+**Not yet harvested.** FLEET-06c stays gated on 100% COMPLETED/FAILED across the whole 65,112 (local
+61,739 + this Speed job), not just this job finishing. No automated monitor set up — check
+`sacct -j 1342940` next session; full progress-log entry is in the plan doc §4 (new entry, marked
+`IN PROGRESS 2026-09-23`, superseding the stale `STOPPED 2026-09-18` one).
+
+## 7h. Speed job ended, 28 failures fixed and rerunning — 2026-09-23 (user: "let the all process continue")
+
+**Job `1342940` final:** 3,345 COMPLETED, 21 FAILED, 7 OUT_OF_MEMORY. Fleet total 65,084 ok / 28 failed
+of 65,112 (the 29 local failures were in the remaining list; 8 of them succeeded on Speed).
+
+- **21 FAILED = PV generator-list overflow** (3 buildings × 7 non-baseline cells: way_381810555,
+  way_425993519, way_427278443). Fixed in `openubem/idf/pv.py:47` (`MAX_GENERATORS_PER_LIST = 30`) and
+  `:225-262` (chunked Generators/Inverter/Distribution triples); `tests/test_pv_injection.py` +
+  `tests/test_pv_validation_run.py` 21 passed (re-run by the manager 2026-09-23). The 21 IDFs were
+  regenerated and re-uploaded (md5-checked). Debug entry closed (`OpenUBEM_debug_References.md`, ch. 13).
+- **7 OUT_OF_MEMORY = way_281344894** in the non-baseline cells at `--mem=6G`. Rerun at `--mem=32G` on the
+  CLI; the shared `submit_fleet06b.sbatch` was not edited.
+- **Rerun job `1346459`**, `--array=1-28%32 --mem=32G --time=7-00:00:00`, list `fleet_rerun28.lst`; the
+  exact 28 `out/<cell>/<stem>/` dirs were deleted first. At 14:16: 6 COMPLETED (mean ~10 min each),
+  1 RUNNING, 21 PENDING with reason `AssocGrpCpuLimit` — the account's 64-CPU cap is full of other
+  projects' jobs (histnu 32, wp11_draw_task 6×5, p5_bootstrap 1). **User ruled: leave everything
+  running; never touch the other projects' jobs.**
+- Monitor artifact `https://claude.ai/artifact/6H6xkLiazkjN2akF6wsXKa` (db `fleet06b/progress`, v11)
+  shows the rerun state.
+
+**Next session:** superseded by §7i (the rerun was cancelled with 15 of 28 tasks unfinished).
+
+## 7i. Rerun `1346459` cancelled by the user, 2026-09-23 18:37 — Speed is full, resume later
+
+User asked to cancel everything on Speed and return when resources are free. Only job `1346459`
+(`openubem_fleet06b`) was ours; the other queued jobs (`histnu`, `wp11_draw_task`, `wp11_scorer`) belong
+to other projects and were not touched.
+
+- **Final state of `1346459`:** tasks 1–13 COMPLETED; tasks 14 and 15 were RUNNING and are CANCELLED; tasks
+  16–28 were still PENDING (`AssocGrpCpuLimit`) and are CANCELLED. `squeue` shows zero OpenUBEM jobs
+  (re-checked a second time on 2026-09-23 at the user's request). User is closing this session and will
+  return later; nothing is running or scheduled.
+- **Fleet total is therefore 65,097 ok / 15 not done of 65,112.** FLEET-06c stays gated on all 65,112.
+- **Do not trust `out/<cell>/<stem>/` for indices 14–15:** the cancelled tasks may have left partial output.
+  Delete those dirs before resubmitting. Indices 16–28 never started, but delete them too (§7h did the same).
+- **To resume (needs a fresh user "go", and free CPUs):** build a list of only the 15 unfinished rows from
+  `fleet_rerun28.lst` (lines 14–28), then `sbatch --array=1-15%32 --mem=32G --time=7-00:00:00` on the CLI;
+  never edit the shared `submit_fleet06b.sbatch`. Before submitting, check `squeue` for the account's
+  64-CPU cap: if it is full again the tasks will sit in `AssocGrpCpuLimit` exactly as before.
+- **After all 28 have ended:** check each `out/<cell>/<stem>/` has results, then FLEET-06c harvest (plan doc
+  task spec; must read `.sql.gz`); after the numbers are checked, delete `eplusout.sql` / `.sql.gz` per §7f.
+- Monitor artifact `https://claude.ai/artifact/6H6xkLiazkjN2akF6wsXKa` is now stale (still shows the rerun
+  as active).
+
+## 7j. Last 15 cases done on Speed, pull nearly complete, baseline harvest does NOT match yet — 2026-09-25
+
+User: "while waiting for Speed, do all parallel work" → "continue till the end" → 2026-09-25 "update the
+manager prompt, I continue in a new session". Nothing is running on Speed for OpenUBEM.
+
+- **Speed job `1348381`** (the 15 unfinished rows of `fleet_rerun28.lst`, list `fleet_rerun15.lst`, remote
+  dirs deleted first by `scratchpad/prep15.sh`): **all 15 COMPLETED** (sacct 2026-09-25 08:39, 15–70 min
+  each, no OOM). Their folders are still only on Speed:
+  `/speed-scratch/o_iseri/openubem/fleets/fleet06b_2026-09-18/out/<cell>/<stem>/`. **Pull them next.**
+- **Pull to local `%LOCALAPPDATA%\Temp\ubem_validation\fleet06b_local_2026-09-18\out\`:** 65,105 folders
+  on 2026-09-25 (baseline 8,139, every other cell 8,138). The 7 missing are expected to be among the 15
+  re-runs — confirm by listing, not by assuming. One `tar`/`ssh` process was still alive; check it has
+  ended before starting a new pull. No background watcher is running (two were killed for low memory —
+  do not restart them). 30 older local dirs were moved to `out_superseded_local\` (not deleted).
+- **5 stale baseline cases fixed:** `way_1008727470`, `relation_13781131`, `way_1008727469`,
+  `way_1020754974`, `relation_7480583` had a success `eplusout.end` from 09-18 but a truncated sql from the
+  09-22 disk-full event. Old dirs moved aside as `*_stale_2026-09-24`, re-run locally, all 5 now match T08.
+  Registered: `OpenUBEM_debug_References.md:1800`. With them, the local runner's own parse gives the fleet
+  baseline **153.9501287 over 8,139 = the published 153.95012856722067** (0 buildings off by >0.01).
+  `is_completed()` (`openubem/simulation/parallel.py:73`) trusts a stale `.end` — never use it alone.
+- **Plan amendments** (block-6 plan, section `## 2g` + "Amendment 2g-1"): harvest is per (scenario cell ×
+  geo cell) through `aggregate_results()`; the 57-col Step-2 table is rebuilt per geo cell with
+  `step2_classify_enrich()` (seeded, code unchanged since `9d6026af`), guarded on `archetype_id` matching
+  `03_idf_manifest.parquet` 100 %, saved once in `_step2\<geo>\02_enriched.gpkg` and reused for all 8 cells.
+- **Baseline harvest ran** (`scripts/analysis/fleet06c_harvest_2026-09-24.py`, output
+  `%TEMP%\ubem_validation\fleet06c_harvest_2026-09-24\baseline\<geo>\05_results.*`): 12 geo cells, 8,139
+  rows (matches T08 per cell), 0 null totals, schema sidecar in each, **86 columns (not the 70 the DESIGN
+  expects — code grew; accept after a check)**. Old 38-col diagnostic kept in `_diag_38col_2026-09-24\`.
+  The executor's own final report was never received — audit from disk.
+- 🔴 **Baseline harvest gives 175.74 kWh/m², not 153.95. Two causes, measured:**
+  1. District hot water is now counted: `dhw_district_eui_kwh_m2` adds 20.09 (this is the known
+     under-count of the published number, OPEN-65, +19.97 on a subset).
+  2. Floor area: 8,134 of 8,139 rows have `floor_area_provenance = footprint_fallback`, because the case
+     folders hold no `eplusout.eio` (only csv/end/err/mtr/sql/htm/log); `parser.py:503–525` then falls
+     back to footprint area. Harvest area 23.42 M m² vs T08 23.87 M m² (694 buildings off >1 %).
+  3. Minor: energy without district is 0.8 % below T08 kWh; 129 buildings off >0.1 %. Not yet explained.
+  Without district and on T08 areas the harvest gives 152.70.
+- **Decisions owed by the user (asked 2026-09-25, not answered yet):** count district hot water in the
+  FLEET-06 tables (recommended yes = OPEN-65 ruling). Manager-side fix, no user decision needed: floor area
+  must come from the simulation (sql zone table, as T08 did), not footprint — amend plan §2g, re-run the
+  baseline harvest, then re-audit: 8,139 rows, all area provenance from simulation, fleet figure equals
+  153.95 excluding district (or state the new figure including district), explain or bound the 129.
+- **Then, in order:** pull the 15 re-run folders; verify all 65,112 have a success `.end` + sql/sql.gz;
+  fresh Sonnet harvests the other 7 scenario cells reusing `_step2` (tests: rows, columns, sidecar, count
+  of buildings with PV > 0); append FLEET-06b COMPLETED and FLEET-06c entries to the plan progress log;
+  optionally refresh monitor artifact `6H6xkLiazkjN2akF6wsXKa`. **Never delete the ~450 GB of sql files
+  without an explicit user yes.**
+
+## 7k. District hot water counted, all 65,112 cases on disk, baseline re-harvest running — 2026-09-25
+
+User 2026-09-25 (verbatim): "yes of course, count district hot water. secondly, as we close all the
+simualations colelct the results update the tables, then delete unnecessary files of the simulations to
+prevent low memory warning". This is the explicit yes to delete that §7j asked for, **scoped to after the
+tables are written and audited**. Full task list: block-6 plan `## 2h` (FLEET-06c-FIX, -BASE, -ALL, -TABLE,
+§2h-4 cleanup).
+
+- **District hot water is counted** in every FLEET-06 table (`dhw_district_eui_kwh_m2` stays inside
+  `total_eui_kwh_m2`). The +20.09 in the first harvest is this ruling, not a defect.
+- **Floor-area cause found (supersedes §7j cause 2 and 3):** T08 took area from `eplusout.eio`, not the sql.
+  Local folders and the gz temp copies have no eio, so area fell back to footprint and the OPEN-60 zone
+  multiplier map (`openubem/results/parser.py:984-994`) was empty — that is the 0.8 % / 129-building gap.
+  The sql `Zones` table gives the same area (142,456.77 vs eio 142,457.04 m² on one case). §7j cites
+  `openubem/simulation/parser.py`; the real file is `openubem/results/parser.py`.
+- **Pull done (PULL_OK):** all 8 cells × 8,139 = **65,112 folders, 65,112 with a success `.end` + sql/sql.gz**
+  (manager count 2026-09-25). The FLEET-06c-ALL gate is met.
+- **FLEET-06c-FIX + BASE dispatched** (Sonnet `a95b7d5bfd6be9c4f`): `parse_sql_zone_area` /
+  `parse_sql_zone_multipliers` now in `parser.py:496,520`; the baseline re-harvest was running on
+  2026-09-25 (12 geo dirs present). Its report was not yet audited — audit from disk with the §2h
+  FLEET-06c-BASE test lines (0 footprint_fallback; area within 0.01 % of 23,871,481.58; EUI without
+  district within 0.05 of 153.9501; state EUI with district).
+- **Then, in order:** FLEET-06c-ALL (fresh Sonnet, 7 cell processes in parallel) → FLEET-06c-TABLE
+  (`openubem/outputs/comparisons/fleet06c_scenario_summary_2026-09-25.csv`) → manager audit → §2h-4 cleanup
+  (inclusion list only, free space before/after) → FLEET-06b COMPLETED + FLEET-06c entries in the plan
+  progress log.
+- Monitor artifact `https://claude.ai/artifact/6H6xkLiazkjN2akF6wsXKa` refreshed 2026-09-25 (db
+  `fleet06b/progress`: 65,112 done, 0 failed, 0 remaining).
+- **FLEET-06c-BASE audited and ACCEPTED (manager, 2026-09-25):** baseline **172.4076 kWh/m² incl. district**,
+  152.6985 excl.; 0 footprint_fallback; area within 0.00001 %. The −1.25 vs 153.95 is a **T08 double count**
+  (electric cooking + plug refrigeration sub-meters counted on top of equipment on 129 kitchen buildings),
+  proven on the SQL meters of `way/55932517`; full audit in plan §2h, debug reference registered. Tests 32/32.
+- **FLEET-06c-ALL + TABLE dispatched** (Sonnet `a95fb18daccfc3498`, 7 cell processes in parallel, stops
+  before cleanup). Next: audit its per-cell lines and the 8-row table from disk, then §2h-4 cleanup.
+- **FLEET-06c-ALL crashed (manager, 2026-09-25 11:20).** 7 cells × 12-way pools = 84 workers at once: all 84
+  geo tasks logged `MemoryError` or `PermissionError(13 … being used by another process)` (the latter raised by
+  the temp `.sql` unlink at `fleet06c_harvest_2026-09-24.py:199-203`, which catches only FileNotFoundError);
+  executor went idle, no table written. Manager deleted the 7 partial cell dirs + their gz temp (161 GB; free
+  disk 353 → 514 GB) and relaunched all 84 tasks in ONE 12-worker pool (scratchpad `rerun_all.py`, log
+  `scratchpad/logs/rerun_all.log`). Next: on completion, audit per cell, dispatch TABLE to a new Sonnet, then §2h-4.
+- **12-worker rerun killed at 12:27 by Claude Code's low-memory reaper, NOT by the harvest (manager, 2026-09-25).**
+  The session was idle; Claude Code stops background shells when system RAM is critically low (12 workers ×
+  ~3.7 GB peak on 63.5 GB). 0 MemoryError in the log. No python worker survives. **User ruling 12:30: stop here,
+  update this prompt, resume later in this session.** State on disk:
+  - **22 of 84 pieces saved** (each has `05_results.csv`): all 7 cells × `nyc_urban`, `nyc_centre`, `austin_centre`,
+    plus `lighting/la_centre`. **62 missing**: the other 6 × `la_centre`, and all 7 × `la_urban`, `la_suburban`,
+    `austin_urban`, `nyc_suburban`, `austin_suburban`, `la_rural`, `austin_rural`, `nyc_rural`.
+  - Measured cost per piece (baseline harvest, 12 geos in parallel, ~×1.15 under 12-way load): nyc_centre 42 min,
+    nyc_urban 21, la_urban 15, austin_centre 14, la_centre 14, la_suburban 13, austin_urban 9.5, nyc_suburban 9.5,
+    austin_suburban 7, la_rural 4.5, austin_rural 4, nyc_rural 4. Remaining ≈ 590 worker-min → **≈ 85 min at 8
+    workers**, ≈ 57 min at 12.
+  - Leftover temp: `ab6f94ef-…\scratchpad\gz_tmp\` = 71 GB (decompressed `.sql` left by the unlink
+    PermissionError + killed pieces). Free disk 448 GB at 12:27. Free RAM 47.8 GB after the kill.
+  - Damaged `.sql.gz` (debug ref `OpenUBEM_debug_References.md:1297`, [OPEN]): nyc_urban 4–8 of 1,779 per
+    scenario cell; austin_centre 0. **Manager decision (CLAUDE.md "don't chase the last fraction"):** exclude the
+    union of `footprint_fallback`/null-EUI buildings over all 8 cells from every table row, baseline included, and
+    state the population; do not re-simulate.
+  - **Resume recipe (needs the user's "go"; the reaper note forbids an unasked restart):** (1) delete the
+    harvest-root dirs of the 62 missing pieces that exist without `05_results.csv` and their `gz_tmp\<cell>\<geo>`
+    dirs (inclusion list only); (2) rerun `rerun_all.py` restricted to tasks whose `05_results.csv` is missing,
+    `max_workers=8`, largest first; launch it detached (PowerShell `Start-Process`) or with
+    `CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1` in Claude Code's own environment, so the reaper cannot kill it
+    again; (3) then audit all 7 cells per plan §2h, count the damaged union, dispatch FLEET-06c-TABLE to a new
+    Sonnet, audit the 8-row table, run §2h-4 cleanup (add the 71 GB `gz_tmp`), progress-log entries, final report.
+
 ## 8. Executor kickoff prompt (send verbatim, adjust the range)
 
 ```
@@ -375,4 +556,6 @@ Start narrow (1–2 tasks) with a new executor; widen once it runs cleanly.
   `tests/test_compliance_audit.py`, `tests/test_prep_gate.py`,
   `tests/test_layout_assigner_fit_check.py`, `tests/test_parser_version_robustness.py`,
   `tests/test_envelope_patcher_windows.py`, `tests/idf/test_ground_temperature.py`
+- FLEET-06 scripts: `scripts/analysis/fleet06b_local_run_2026-09-18.py` (local runner),
+  `scripts/analysis/fleet06c_harvest_2026-09-24.py` (harvest, `--cells` / `--geo`, untracked in git)
 - Error register: `docs/docs_EXPLANATION/OpenUBEM_debug_References.md`

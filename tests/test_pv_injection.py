@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,7 @@ from geomeppy import IDF
 
 from openubem import config
 from openubem.idf.pv import (
+    MAX_GENERATORS_PER_LIST,
     _DISTRIBUTION_NAME,
     classify_roof_surfaces,
     inject_pv,
@@ -202,8 +204,52 @@ class TestInjectPv:
             _add_roof(idf, f"roof{i}", coords)
         summary = inject_pv(idf, enabled=True)
         assert len(idf.idfobjects["GENERATOR:PVWATTS"]) == 32
-        assert len(idf.idfobjects["ELECTRICLOADCENTER:DISTRIBUTION"]) == 1
+        assert len(idf.idfobjects["ELECTRICLOADCENTER:DISTRIBUTION"]) == 2
         assert summary["n_generators"] == 32
+        assert summary["n_generator_lists"] == 2
+
+    def test_generator_count_exceeding_cap_splits_into_multiple_lists(self):
+        idf = _fresh_idf()
+        n_roofs = MAX_GENERATORS_PER_LIST + 5
+        for i in range(n_roofs):
+            offset = i * 20
+            coords = [
+                (offset, 0, 3),
+                (offset, 10, 3),
+                (offset + 10, 10, 3),
+                (offset + 10, 0, 3),
+            ]
+            _add_roof(idf, f"roof{i}", coords)
+        summary = inject_pv(idf, enabled=True)
+
+        generator_lists = idf.idfobjects["ELECTRICLOADCENTER:GENERATORS"]
+        distributions = idf.idfobjects["ELECTRICLOADCENTER:DISTRIBUTION"]
+        inverters = idf.idfobjects["ELECTRICLOADCENTER:INVERTER:PVWATTS"]
+        assert len(generator_lists) == 2
+        assert len(distributions) == 2
+        assert len(inverters) == 2
+        assert {obj.Name for obj in generator_lists} == {
+            "OpenUBEM_PV_Generators_1",
+            "OpenUBEM_PV_Generators_2",
+        }
+        assert {obj.Name for obj in distributions} == {
+            "OpenUBEM_PV_Distribution_1",
+            "OpenUBEM_PV_Distribution_2",
+        }
+        assert {obj.Generator_List_Name for obj in distributions} == {
+            "OpenUBEM_PV_Generators_1",
+            "OpenUBEM_PV_Generators_2",
+        }
+        assert summary["n_generators"] == n_roofs
+        assert summary["n_generator_lists"] == 2
+        assert len(idf.idfobjects["GENERATOR:PVWATTS"]) == n_roofs
+
+        text = idf.idfstr()
+        blocks = re.findall(r"ELECTRICLOADCENTER:GENERATORS,(.*?);", text, re.DOTALL)
+        assert len(blocks) == 2
+        block_sizes = sorted(len(re.findall(r"!- Generator \d+ Name", b)) for b in blocks)
+        assert block_sizes == [5, MAX_GENERATORS_PER_LIST]
+        assert sum(block_sizes) == n_roofs
 
     def test_inject_strips_placeholder_chain_and_leaves_single_openubem_distribution(self):
         idf = IDF(str(_PROTOTYPE_WITH_PLACEHOLDER))
