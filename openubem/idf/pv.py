@@ -44,6 +44,7 @@ DC_TO_AC_SIZE_RATIO = 1.10
 MIN_QUALIFYING_ROOF_AREA_M2 = 7.5
 PITCH_THRESHOLD_DEG = 5.0
 Z_LEVEL_TOLERANCE_M = 0.05
+MAX_GENERATORS_PER_LIST = 30
 
 _STRIP_CLASSES = (
     "GENERATOR:PVWATTS",
@@ -123,6 +124,7 @@ def _estimated_capacity_w(surface) -> float:
 def _already_injected(idf) -> bool:
     return any(
         obj.Name == _DISTRIBUTION_NAME
+        or str(obj.Name).startswith(f"{_DISTRIBUTION_NAME}_")
         for obj in idf.idfobjects["ELECTRICLOADCENTER:DISTRIBUTION"]
     )
 
@@ -181,8 +183,8 @@ def inject_pv(idf, enabled: bool = False) -> dict:
     if not used:
         return summary
 
-    generator_fields = {}
-    for index, (surface, kind) in enumerate(used, start=1):
+    generator_records = []
+    for surface, kind in used:
         capacity_w = _estimated_capacity_w(surface)
         if kind == "Generator:PVWatts":
             generator_name = f"{_NAME_PREFIX}PVWatts_{surface.Name}"
@@ -218,28 +220,45 @@ def inject_pv(idf, enabled: bool = False) -> dict:
                 Number_of_Series_Strings_in_Parallel=1,
                 Number_of_Modules_in_Series=1,
             )
-        generator_fields[f"Generator_{index}_Name"] = generator_name
-        generator_fields[f"Generator_{index}_Object_Type"] = kind
-        generator_fields[f"Generator_{index}_Rated_Electric_Power_Output"] = capacity_w
+        generator_records.append((generator_name, kind, capacity_w))
 
-    idf.newidfobject(
-        "ELECTRICLOADCENTER:GENERATORS",
-        Name=_GENERATOR_LIST_NAME,
-        **generator_fields,
-    )
-    idf.newidfobject(
-        "ELECTRICLOADCENTER:INVERTER:PVWATTS",
-        Name=_INVERTER_NAME,
-        DC_to_AC_Size_Ratio=DC_TO_AC_SIZE_RATIO,
-        Inverter_Efficiency=INVERTER_EFFICIENCY,
-    )
-    idf.newidfobject(
-        "ELECTRICLOADCENTER:DISTRIBUTION",
-        Name=_DISTRIBUTION_NAME,
-        Generator_List_Name=_GENERATOR_LIST_NAME,
-        Generator_Operation_Scheme_Type="Baseload",
-        Electrical_Buss_Type="DirectCurrentWithInverter",
-        Inverter_Name=_INVERTER_NAME,
-    )
+    chunks = [
+        generator_records[i:i + MAX_GENERATORS_PER_LIST]
+        for i in range(0, len(generator_records), MAX_GENERATORS_PER_LIST)
+    ]
+    n_chunks = len(chunks)
+    summary["n_generator_lists"] = n_chunks
+
+    for chunk_number, chunk in enumerate(chunks, start=1):
+        suffix = "" if n_chunks == 1 else f"_{chunk_number}"
+        generator_list_name = f"{_GENERATOR_LIST_NAME}{suffix}"
+        inverter_name = f"{_INVERTER_NAME}{suffix}"
+        distribution_name = f"{_DISTRIBUTION_NAME}{suffix}"
+
+        generator_fields = {}
+        for index, (generator_name, kind, capacity_w) in enumerate(chunk, start=1):
+            generator_fields[f"Generator_{index}_Name"] = generator_name
+            generator_fields[f"Generator_{index}_Object_Type"] = kind
+            generator_fields[f"Generator_{index}_Rated_Electric_Power_Output"] = capacity_w
+
+        idf.newidfobject(
+            "ELECTRICLOADCENTER:GENERATORS",
+            Name=generator_list_name,
+            **generator_fields,
+        )
+        idf.newidfobject(
+            "ELECTRICLOADCENTER:INVERTER:PVWATTS",
+            Name=inverter_name,
+            DC_to_AC_Size_Ratio=DC_TO_AC_SIZE_RATIO,
+            Inverter_Efficiency=INVERTER_EFFICIENCY,
+        )
+        idf.newidfobject(
+            "ELECTRICLOADCENTER:DISTRIBUTION",
+            Name=distribution_name,
+            Generator_List_Name=generator_list_name,
+            Generator_Operation_Scheme_Type="Baseload",
+            Electrical_Buss_Type="DirectCurrentWithInverter",
+            Inverter_Name=inverter_name,
+        )
 
     return summary

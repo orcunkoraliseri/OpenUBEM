@@ -1,5 +1,87 @@
 # DIRECTOR PROMPT — the `openings` arc
 
+> ## 🟢 START HERE — 2026-09-24. This box supersedes every RESUME box and every HANDOVER below it.
+>
+> **How to read this file.** Read this box, then §1 (who you are), §6–§9 (rules), and nothing else
+> unless a task sends you there. Everything between this box and §1, and everything after §11, is
+> dated history: correct when written, often superseded since, and kept only so citations resolve.
+> The live state is in the register, not here:
+> `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md` — read its §1 first row, §4
+> and the last §7 entry.
+>
+> **Register: 12 live / 54 retired / 66 total — next free `OPEN-67`.** Live:
+>
+> - 🔴 **OPEN-65** — the adopted fleet figure was parsed by a meter-only harvest function
+>   (`scripts/cluster/t08_harvest_results.py:163-214`) that never reads district heating. **The one
+>   item that blocks a published number.**
+> - 🔴 **OPEN-61** — district-heated hot water is missing from the adopted figure. The parser fix is
+>   in production since 2026-08-22; the number was never re-parsed with it (OPEN-65).
+> - 🔴 **OPEN-63** — the district-heat carbon factor is in code (0.226 kg/kWh, US EPA); the adopted
+>   carbon total never saw any district heat (OPEN-65).
+> - **OPEN-66** — 8 IDFs flagged `success` contain no `Zone` object (excluded from the adopted run).
+> - **OPEN-62** — what a storey IS for prototypes with attics / plenums / high bays. A definition.
+> - **OPEN-35** — which of two storey fallbacks is right. Oldest undecided item.
+> - **OPEN-03, OPEN-19, OPEN-38, OPEN-53, OPEN-58, OPEN-59** — measured, nothing owed, no number
+>   depends on them. One line each in register §4 B.
+>
+> **Closed 2026-09-24 by the director** (notes in register §6): OPEN-17, OPEN-56, OPEN-60, OPEN-64 —
+> all discharged by `implemenation/PLAN_accuracy-restatement-2026-09-09.md`.
+>
+> **Adopted figure (user, CP-4, 2026-09-10): 153.95 kWh/m² pooled over 8,139 buildings; carbon
+> 881,743 t CO₂e on the same 8,139.** It supersedes 153.8231 over 8,153 — different populations,
+> never differenced. 🔴 **Known low.** On 2,741 of the 8,139 (49.6 % of floor area, same simulations —
+> 40 / 40 reproduce the adopted per-building EUI to ≤ 0.0003 kWh/m²), adding district heat moves the
+> pooled subset EUI **159.27 → 179.24 kWh/m² (+19.97, +12.5 %)**, 79 % of it in `TallBuilding` +
+> `SuperTallBuilding`. **Subset only: never quote it as the fleet figure, never add it to 153.95.**
+>
+> **Owed by the user: ONE ruling — authorise a CPU-only re-parse (OPEN-65). Director recommends yes.**
+> Once authorised, write one plan (new file in `implemenation/`; archive the 2026-09-09 plan into
+> `previous/` first, with its citation sweep covering `.md`, `.html` **and** `.py`). Shape:
+> (1) re-parse all 8,139 `.sql` of Speed job `1315099`
+> (`/speed-scratch/o_iseri/openubem/fleets/t07_resim_2026-09-09/out/<stem>/`) with production
+> `openubem/results/parser.py::parse_building()` — as an `sbatch --array` on Speed or after fetching,
+> **never on the login node**; floor area from each building's own `eplusout.eio`, as T08 did;
+> (2) recompute pooled EUI and carbon on the same 8,139, and reconcile every building against its
+> own ABUPS `Total Site Energy`, explaining any gap by end use; (3) decide whether harvest scripts may keep their own
+> parser, and whether the `abups_ok` gate (carried from OPEN-60) is wired; (4) adoption checkpoint —
+> the user's alone; (5) sweep every artifact quoting 153.95 / 881,743 (docs, both boards, memory, the
+> TechTransfer arc's baseline files). No re-simulation is needed.
+>
+> **Plans in force: none.** `implemenation/PLAN_accuracy-restatement-2026-09-09.md` is complete
+> (T01–T09, CP-1–CP-4) and carries a post-closure note on OPEN-65; it is not yet archived.
+> **Running on the cluster for this arc: nothing.**
+>
+> **Where the evidence is.** T07 results: Speed path above (8,139 ok + 13 failed, indices in the plan's
+> T07 entry). T08 table: `openubem/outputs/comparisons/t08_restated_fleet_eui_2026-09-10.csv` +
+> `t08_restated_fleet_summary.json`. The OPEN-65 subset: TechTransfer's baseline re-run,
+> `%TEMP%\ubem_validation\fleet06b_local_2026-09-18\out\baseline\` (partial — 2,761 results in that
+> tree were lost 2026-09-22; never delete by exclusion there). August census corpus:
+> `C:/Users/o_iseri/OpenUBEM_corpora/open61_census_2026-08-20`, read-only (ruling R6).
+>
+> **Suite.** Last full run 2026-09-09: **2,654 passed / 40 skipped / 25 failed**; the 25 are
+> pre-existing EU-arc geometry / viewer tests (named in the plan's T03 entry). Not re-run on
+> 2026-09-24 — another arc had uncommitted edits in `openubem/idf/pv.py` and
+> `tests/test_pv_injection.py`. Run it in the foreground; cite the failure list, not the count.
+>
+> **Another arc depends on this one.** TechTransfer builds its scenario baselines on the T08 table
+> (`scripts/analysis/fleet06a_campaign_2026-09-18.py:37`, `fleet06b_local_run_2026-09-18.py:74`).
+> Before it quotes a scenario difference against 153.95, it must parse both sides with
+> `parse_building()`. Tell its manager; do not edit its files.
+>
+> **Boards — update in place every pass, counter tiles included:** open items
+> `reporting/board_open-items.html` → artifact `7960a833-541b-4eab-a006-403c53c4bddc`; published
+> numbers `0615b50a-75d6-49c6-a354-d4f2f74d3639`.
+>
+> **Three lessons from the gap between 2026-09-10 and 2026-09-24 — do not re-earn them.**
+> 1. A plan that discharges register items must update those rows in its own final sweep. The
+>    2026-09-09 plan swept the number and left six rows stale for two weeks.
+> 2. A published number is parsed by `parse_building()` and nothing else. A copied parser does not
+>    inherit fixes; the OPEN-61 and OPEN-64 fixes were correct and never reached the figure.
+> 3. "Discharged" is checked at the artifact — which function produced the number — not in the
+>    plan's intent. D-D said T08 would discharge OPEN-61; nobody checked what T08 actually ran.
+>
+> **Reply format and cluster rules:** `CLAUDE.md` — they override anything in this file.
+
 > **Written:** 2026-08-11, at the close of the session that harvested E02 in full and reconciled its
 > failure census.
 > **🔴 UPDATED IN PLACE 2026-08-12**, three times: at the close of the five-item sweep
@@ -5938,7 +6020,7 @@ the wrong number, so a green suite is not evidence of correctness here.** 🟢 *
 measured at ZERO buildings** across all 8,152 rows, so **no published figure moves.** **Remedy would
 move golden values that were signed off — the user's call, not an executor's.**
 
-### 🔴 What is owed by the user when they return
+### ~~🔴 What is owed by the user when they return~~ — SUPERSEDED: items 1–4 were ruled 2026-09-09 and executed; see the 2026-09-24 handover at the foot
 
 Ordered by how much they unblock, most first:
 
@@ -5969,3 +6051,36 @@ Ordered by how much they unblock, most first:
   `https://claude.ai/code/artifact/7960a833-541b-4eab-a006-403c53c4bddc`. **Update it every pass and
   keep the counter tiles in step with the register** — they went stale on 2026-08-22 (still read
   12 live after OPEN-63 and OPEN-64 were opened) and the user noticed before the director did.
+
+---
+
+## HANDOVER — 2026-09-24 (register refresh after a two-week gap) — supersedes every earlier handover in this file
+
+**The live state is the START HERE box at the head of this file.** This section records only what
+happened between the 2026-08-22 handover above and today, so the history stays continuous.
+
+**2026-09-09 → 2026-09-10 — `implemenation/PLAN_accuracy-restatement-2026-09-09.md`, T01–T09, CP-1–CP-4.**
+The user took four rulings on 2026-09-09 (D-A: switch the imputation router on, re-simulation
+accepted; D-B: one published district-heat carbon factor; D-C: fold all fourteen district-heat rows and
+raise the goldens; D-D: keep OPEN-61 open until the restatement) and a fifth at T04 (D-E: keep the
+deterministic storey ladder). The fleet was rebuilt (8,160 → 8,152 after excluding 8 zone-less IDFs),
+re-simulated on Speed (job `1315099`: 8,139 ok, 13 failed), harvested, and the user adopted
+**153.95 kWh/m² over 8,139, carbon 881,743 t CO₂e** at CP-4. T09 put supersession markers on 279
+occurrences of the old figure across 50 docs and both boards. No handover was written here at the time.
+
+**2026-09-24 — this refresh (director, user asleep, standing instruction: read the register against
+`docs/docs_EXPLANATION/`, update both, then this file).**
+
+- Register rows for the six items the plan touched were still at their 2026-09-09 wording. Updated:
+  OPEN-17, 56, 60, 64 **closed** with closing notes; OPEN-62 annotated.
+- 🔴 **OPEN-61 and OPEN-63 turned out NOT to be discharged.** T08 used a meter-only `_parse_sql`, not
+  `parse_building()`, so the adopted EUI and carbon contain no district heat. Measured on a 2,741-building
+  subset: +19.97 kWh/m² pooled. Opened as **OPEN-65**; the plan doc carries a post-closure note.
+- **OPEN-66** opened for the 8 zone-less IDFs that had been excluded without an item.
+- `docs/docs_EXPLANATION/`: new `[OPEN]` debug entry for OPEN-65 (§8); §18 open-items snapshot
+  replaced (it was the 2026-08-20 book-I list); stale OPEN-17 / OPEN-56 lines marked; one dead plan path
+  and one dead link repaired; `OpenUBEM_fundamentals.md` OPEN-03 claim corrected to the measured ≈ 8 %.
+- Board `board_open-items.html` updated in place to 12 live.
+- Nothing was simulated, nothing submitted to Speed, no code changed, no published number moved.
+
+**Owed:** one ruling — the CPU-only re-parse (START HERE box). Nothing else is waiting on the user.

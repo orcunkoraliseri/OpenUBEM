@@ -75,7 +75,9 @@
   zones-dict `floor_polygon` which CORE/PERIM zone dicts share as the whole-building placeholder footprint
   and would give the wrong area), height from the zone's own `height_m` (floor-to-floor height, correct for
   every zone role already). **Not applied to the published baseline** (153.8231 over 8,153 is unchanged —
-  no fleet re-run was part of this fix). (OPEN-56)
+  no fleet re-run was part of this fix). (OPEN-56) **Update 2026-09-24: now applied** — the fleet
+  re-simulated 2026-09-10 (153.95 over 8,139) was built with explicit volumes, 8,152 / 8,160 IDFs positive
+  on every zone; OPEN-56 is closed. The winding itself is still unchanged.
   *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_ten-tasks-2026-08-18-night.md;
   docs/docs_ACTIVE/openings/extra/FIX_open-56_zone-volume.md)*
   - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
@@ -175,6 +177,10 @@
   and a 15.6 GB working set at death. Diagnostic that separates OOM from a real fatal: open the `.sql`
   and test for `TabularDataWithStrings` — a controlled fatal still writes it, an OOM crash never does.
   Fix: none available in-process; the building is recorded as a null-with-reason census row, not retried.
+  On Speed the same crash shows as `sacct` state `OUT_OF_MEMORY`, exit `0:125`, `rc=137` and
+  `slurmstepd: error: Detected 1 oom_kill event` in the task log, when `submit_fleet06b.sbatch` runs at
+  its baked-in `--mem=6G` (FLEET-06b job 1342940: way_281344894, 7 scenario cells). Retry: resubmit only
+  those indices with `--mem=32G` on the CLI; never edit the shared `.sbatch`.
   *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-41-38_failure-causes.md;
   docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open61-census-open03-storeys-2026-08-20.md)*
 
@@ -1023,6 +1029,9 @@
   `AttributeError: module 'openubem.config' has no attribute 'IMPUTE_DRAW_METHOD_BY_TARGET'` on first
   use of `_draw_pairs`. Both modules are orphaned (OPEN-17: `ml`/`draw` are intentionally not in
   `IMPUTE_ENABLED_TIERS`); not fixed here — no tier is promoted or wired by this measurement.
+  **Update 2026-09-24:** the `AttributeError` half no longer applies — `IMPUTE_DRAW_METHOD_BY_TARGET`
+  exists since 2026-09-09 (`openubem/config.py`, empty by default; OPEN-17 closed). The
+  `recover_pairs` import at `impute_scatter.py:63` still fails; that half stays `[OPEN]`.
   *(docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-17_tier-census.md)*
 - **`HTTP Error 429: Too Many Requests` / `HTTP Error 504: Gateway Timeout` from
   `https://overpass-api.de/api/interpreter` during city-scale building extracts** — the public Overpass
@@ -1269,6 +1278,8 @@ Name: footprint_area_m2, dtype: float64`) instead of a number** — the writer l
 
 - **`assert False` in `TestEuiGolden::test_r1_total_eui` — `math.isclose(276.9193027210884, 171.873920234131, rel_tol=1e-06)`** (and the identical failures in `test_r2_total_eui`, 265.1497 vs 186.2619, and `test_r6_total_eui`, 262.9418 vs 161.2838), while `test_r1_heating_eui` / `test_r1_cooling_eui` / `test_r1_lighting_eui` on the **same fixture** all pass — the OPEN-61 district-heating fold read the ABUPS `RowName='Total End Uses'` cell instead of `RowName='Water Systems'`, so district heating that serves **space heating** was added into `dhw_eui_kwh_m2` and thence into the total. **Only the total failing while every component passes is the signature of energy being ADDED, not recomputed** — go straight to a newly-summed term, do not re-derive the components. Confirm in one query: `SELECT RowName,Value FROM TabularDataWithStrings WHERE ReportName='AnnualBuildingUtilityPerformanceSummary' AND TableName='End Uses' AND ColumnName='District Heating'` — the golden fixtures return `Heating` 148.24 GJ and `Water Systems` 0.00 GJ, and 148.24 × 277.7778 ÷ 392 m² = 105.0456 kWh/m² matches the observed delta exactly. Fix: `RowName` changed to `'Water Systems'` in `_read_abups_district_heating`, `openubem/results/parser.py` (OPEN-61 T01b). ⚠️ **Root method trap, not just a typo: a quantity measured over the production fleet ("100 % of district heating is Water Systems", 8,152 buildings) was used as a statement about the code. The golden fixtures are the mirror image of the fleet.** The 13 unread ABUPS district-heating rows are tracked as **OPEN-64**. *(docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open61-dh-remedy-2026-08-22.md §5 F11, T01b)*
 
+- **[OPEN] A fleet EUI parsed after the OPEN-61 / OPEN-64 fixes still contains no district heating — every `District Heating` cell of the ABUPS `End Uses` table is non-zero, yet the harvested `dhw_eui_kwh_m2` equals `WaterSystems:NaturalGas + WaterSystems:Electricity` only** — the harvest used its own meter-only `_parse_sql` (`scripts/cluster/t08_harvest_results.py:163-214`, meter list `:68-82`), not production `parse_building()`. EnergyPlus reports hot water from `WaterUse:Equipment` with no plant connection as district heating on the ABUPS table and on **no** meter this list requests, so a meter-only reader cannot see it, and a fix to `openubem/results/parser.py` never reaches it. Measured on 2,741 of the 8,139 adopted buildings: 2,736 carry it, +19.97 kWh/m² pooled on that subset. Detection: `SELECT Units, Value FROM TabularDataWithStrings WHERE ReportName='AnnualBuildingUtilityPerformanceSummary' AND TableName='End Uses' AND ColumnName='District Heating' AND RowName='Water Systems'` (units are GJ on the North American fleet — ×277.7778 for kWh; contrast the `JtoKWH` entry below). Fix owed: parse fleet results with `parse_building()` only. (OPEN-65, OPEN-61, OPEN-63) *(docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md §6 OPEN-65)*
+
 - **A manifest column named `eui_kwh_m2` that is in fact a heating-only intensity** (`openubem/outputs/eu_evidence/EU-04/s3/s3_campaign_manifest.csv`, promoted under `D-EU-24`) — the numerator is `heating_kwh`, the annual sum of the hourly `Zone Ideal Loads Zone Total Heating Energy` `Output:Variable` extracted at `scripts/run_eu_s2_campaign.py:285`; it carries no lighting, no appliance electricity, no DHW and no cooling, so quoting it as a whole-building EUI is wrong by a large factor **in the direction that looks plausible**. Fix: the promoted artefact is NOT renamed (that would rewrite a promoted file); the basis is carried additively in `openubem/outputs/eu_evidence/EU-04/s3/s3_campaign_manifest_BASIS.md` and MVP §9.7.3, and the pooled 66.86769 kWh/m² may not be printed without the words "heating-only".
   *(docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md §9.7.3, EU-05 entry)*
 - **`TabularData` empty in `eplusout.sql` even though `Output:SQLite` was written as `SimpleAndTabular`** — `SimpleAndTabular` says only *where* tabular output goes, never that any was requested. With no `Output:Table:SummaryReports` object EnergyPlus writes no `AnnualBuildingUtilityPerformanceSummary`, so `select count(*) from TabularData` returns 0 and every end-use read against that `.sql` silently finds nothing. Fix: add `Output:Table:SummaryReports,AllSummary;`, checking first for an existing `OutputControl:Table:Style` — a duplicate is a Severe.
@@ -1280,6 +1291,10 @@ Name: footprint_area_m2, dtype: float64`) instead of a number** — the writer l
 - **`OtherEquipment` read as "1 W/m²" from its `Power per Zone Floor Area` field** — with `Design Level Calculation Method = Watts/Area` the field is a **multiplier** on the `Schedule:File`, and when the schedule's type limits are `AnyNumber_Wm2` the CSV itself carries the W/m². Fix: read the schedule, not the object — all 381 `S3` gain CSVs are flat at 3.0 W/m² at `f = 0`, so the delivered gain is 3× the field value. *(openubem/outputs/eu_evidence/EU-04/s3/s3_campaign_manifest_BASIS.md)*
 - **EnergyPlus writes a trailing space + bare CR on the last CSV header field inconsistently between two runs of the same IDF**, so a raw column-name-set comparison falsely reports `column set mismatch`. Fix: match columns on the **stripped** header name while reading values by the original key; `scripts/run_eu_meter_sidecar.py`. *(same doc, T02)*
 - **`TabularDataWithStrings` values read as GJ and multiplied by 277.78** — under `OutputControl:Table:Style ... JtoKWH` the values are **already kWh** and `ColumnName` carries no unit suffix (`District Heating`, not `District Heating [GJ]`). Fix: no conversion; verified against a promoted `heating_kwh`. *(same doc, T01)*
+- **8,134 of 8,139 rows `floor_area_provenance = footprint_fallback`; fleet area 23.42 M m² vs 23.87 M m²** — locally-run case folders (and the temp copy the harvest decompresses `.sql.gz` cases into) hold no `eplusout.eio` sibling, so `resolve_simulated_floor_area()` fell straight to `footprint_area × num_floors`; `parse_building()` reads the same eio for its per-zone multiplier map (OPEN-60), so with no eio every multiplied zone's lighting/equipment was counted once instead of scaled, undercounting energy by ~0.8% on 129 buildings. The `eplusout.sql` `Zones` table carries the identical multiplier-aware quantity the eio Zone Information block does (measured 142,456.77 m² SQL vs 142,457.04 m² eio on `lighting+setback+infiltration/way_425993519`, relative difference 2e-6 — eio just rounds to 2 decimals). Fix: `parse_sql_zone_area()` (`SUM(FloorArea*Multiplier*ListMultiplier) FROM Zones WHERE IsPartOfTotalArea=1`) and `parse_sql_zone_multipliers()` (`{UPPER(ZoneName): Multiplier*ListMultiplier}`) added as a fallback tried only when the eio route is unavailable — `openubem/results/parser.py:496` (`resolve_simulated_floor_area`, provenance `sql_simulated`) and `openubem/results/parser.py:987` (`parse_building`'s zone-multiplier map). eio still wins when present; footprint stays last resort. *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md §2h Task FLEET-06c-FIX)*
+- **Re-harvest fleet EUI excl. district 152.6985 vs published T08 153.9501 kWh/m²; 129 kitchen buildings (restaurants, hotels, schools, supermarkets, hospitals) 11–28 % below T08, all in `cooking_eui_kwh_m2` / `refrigeration_eui_kwh_m2`** — T08 counted the sub-meters `Cooking:InteriorEquipment:Electricity` and `Refrigeration:InteriorEquipment:Electricity` as cooking/refrigeration while also counting the full `InteriorEquipment:Electricity` as equipment (double count, +29.879 GWh = +1.25 kWh/m²; T08 total exceeded `Electricity:Facility`+`NaturalGas:Facility`). Fix: none needed in code — current `openubem/results/parser.py:681-682` (cooking = `InteriorEquipment:NaturalGas`, refrigeration = `Refrigeration:Electricity`) is correct; FLEET-06 baseline 172.4076 incl. district supersedes 153.95. *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md §2h, manager audit of FLEET-06c-BASE)*
+- **FLEET-06c-ALL: every one of 84 harvest tasks fails with `MemoryError((744600, 1), dtype('float64'))` or `PermissionError(13, 'The process cannot access the file because it is being used by another process')`; no table written** — the 7 cells were launched as 7 processes each with `ProcessPoolExecutor(max_workers=12)`, i.e. 84 concurrent `aggregate_results()` workers on a 63.5 GB / 20-CPU machine (peak ~3.7 GB per worker measured); the PermissionError is raised by the temp `.sql` unlink, which catches only `FileNotFoundError` (`scripts/analysis/fleet06c_harvest_2026-09-24.py:199-203`), and fires *after* the outputs are written. Fix: delete partial outputs and run all 84 (cell, geo) tasks in one 12-worker pool (scratchpad `rerun_all.py`); a `csv=True` + PermissionError task is complete but must still be audited. *(docs/docs_ACTIVE/TechTransfer/Prompt/PROMPT_MANAGER_techtransfer_2026-09-18.md §7k)*
+- **[OPEN] FLEET-06c scenario harvest: 4–7 of 1,779 `nyc_urban` rows per scenario cell have `floor_area_provenance = footprint_fallback` and null `total_eui_kwh_m2`, although the case folder has a success `eplusout.end` and an `eplusout.sql.gz`** — the decompressed SQL is corrupt: `sqlite3.DatabaseError('database disk image is malformed')` (e.g. `lighting/way_241854850`, `way_280621309`). Baseline cases (plain `eplusout.sql`) are unaffected. Cause not yet confirmed; suspected the 2026-09-22 disk-full stop during compression. Fix pending: count affected cases after the harvest, re-simulate or exclude them from every row. *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md §2h)*
 
 ## 9. Validation gates & metric traps
 
@@ -1778,7 +1793,15 @@ Name: footprint_area_m2, dtype: float64`) instead of a number** — the writer l
 
 - **FLEET-06b local run stops with no error; `run_log.txt` last write 2026-09-22 19:26, disk `C:` at 100 % (277 MB free); on restart 2,761 finished cases have `eplusout.end` but no `eplusout.sql`/`.sql.gz`** — the 65,112-case output tree (~14 MB/case, `eplusout.sql` 8.4 MB + `eplustbl.htm` 5.6 MB) filled the disk; then a cleanup ran `find ... ! -name <keep-list> -delete` while a second session was concurrently `gzip -f`-ing `eplusout.sql` to `.sql.gz`, so the exclusion-based delete removed the fresh `.sql.gz` files (list: `%TEMP%/ubem_validation/fleet06b_local_2026-09-18/lost_sql_2026-09-22.txt`; those cases re-simulate). Also `is_completed()` only accepts an uncompressed `eplusout.sql`, so every compressed case would have been re-run. Fix: pending check in `scripts/analysis/fleet06b_local_run_2026-09-18.py:286` also accepts `eplusout.sql.gz` + success `.end`; never bulk-delete by exclusion on a folder another process writes to. FLEET-06c harvest must decompress `.sql.gz` (or read it) before `parse_building`. *(docs/docs_ACTIVE/TechTransfer/Prompt/PROMPT_MANAGER_techtransfer_2026-09-18.md §7f)*
 
+- **FLEET-06b local run: `run_log.txt` / `progress.json` stop updating (last write 2026-09-19 13:55:47, done=17,622) while Task Scheduler still shows `OpenUBEM_FLEET06b` as "Running" and the 10 EnergyPlus workers keep finishing cases** — only the checkpoint/aggregator thread inside `cmd_full()` froze; the simulations never stopped. Likely cause: disk-I/O contention with an undocumented cleanup script (`sweep_fleet06b.ps1`, origin unknown) that was gzip-compressing finished `eplusout.sql` files at the same time and itself stalled at "packed=5000". Fix: none in code; trust the files on disk, not `progress.json`: resume uses `openubem.simulation.parallel.is_completed()`, not `results.csv`, so a restart is safe. *(docs/docs_ACTIVE/TechTransfer/Prompt/PROMPT_MANAGER_techtransfer_2026-09-18.md §7)*
+
+- **`schtasks /end /tn OpenUBEM_FLEET06b` reports success but `energyplus.exe` processes keep running and the CPU stays loaded** — ending the scheduled task stops only the top-level dispatcher; its EnergyPlus child processes are not part of that stop and keep running. Fix: `taskkill /T /F /PID <dispatcher PID>` to kill the whole process tree, then `schtasks /delete` so the task cannot restart. *(docs/docs_ACTIVE/TechTransfer/Prompt/PROMPT_MANAGER_techtransfer_2026-09-18.md §7g)*
+
+- **`** Severe  ** <root>[ElectricLoadCenter:Generators][OpenUBEM_PV_Generators][generator_outputs][30][generator_object_type] - "OpenUBEM_PV_Distribution" - Failed to match against any enum values.`, followed by `Value type "string" for input "DirectCurrentWithInverter" not permitted by 'type' constraint` and `**FATAL:Errors occurred on processing input file`** — `inject_pv()` (`openubem/idf/pv.py:225`) writes one `ELECTRICLOADCENTER:GENERATORS` object for every rooftop PV generator, but eppy's IDD for that object holds only 30 generator groups. On a building with more generators (way_381810555 has 64 `Generator:PVWatts`), eppy writes the first 30, drops the rest, and leaves the object without its closing `;`, so the next `ELECTRICLOADCENTER:DISTRIBUTION` object is read as more generator fields. Seen on 21 FLEET-06b cases (3 buildings × 7 scenario cells: way_381810555, way_425993519, way_427278443; Speed job 1342940); the baseline IDFs have no PV object and run fine. Diagnostic: in the IDF, the `ELECTRICLOADCENTER:GENERATORS` block ends at `Generator 30 ...` with a `,`. Fix: `inject_pv()` now splits the generators into groups of at most 30 (`MAX_GENERATORS_PER_LIST`, `openubem/idf/pv.py:47`), each with its own suffixed Generators + Inverter + Distribution object (`openubem/idf/pv.py:225-262`); test in `tests/test_pv_injection.py`; the 21 IDFs were rebuilt and rerun on Speed (job 1346459). *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md §4)*
+
 - **`WebFetch` on any external URL fails with `getaddrinfo ENOTFOUND <host>` even for well-known hosts (`docs.nrel.gov`, `pvwatts.nrel.gov`, `www.nrel.gov`)** — the agent sandbox has no general outbound DNS/HTTP for arbitrary domains; only the `WebSearch` tool's own backend can reach the network. Symptom is identical for every host tried, so it is a sandbox limitation, not a dead link. Fix: use `WebSearch` (which returns quoted snippets, not the raw document) to corroborate a public number instead of fetching the source PDF directly, and cross-check against any locally-shipped copy of the same fact (e.g. the EnergyPlus `Energy+.idd`'s own field `\default` values for `Generator:PVWatts` / `ElectricLoadCenter:Inverter:PVWatts`, which implement NREL PVWatts V5 verbatim per the object's own `\memo`) rather than trusting a single secondary source. *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block4-2026-09-17.md, H02)*
+
+- **`eplusout.end` says "EnergyPlus Completed Successfully" but `eplusout.sql` holds only a few hours (no annual totals); sql mtime newer than end** — an interrupted re-run rewrote the sql but left the old `.end` from the first run, so `is_completed()` (`openubem/simulation/parallel.py:73`) trusted a stale marker. Fix: move the folder aside and re-run the case; check that `.end` is newer than the sql before trusting it. *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md §2g)*
 
 ## 14. Test suite: collection aborts, fixtures, benign noise
 
@@ -1789,6 +1812,8 @@ Name: footprint_area_m2, dtype: float64`) instead of a number** — the writer l
   executes. Fix: module-level `pytest.skip(..., allow_module_level=True)` naming the blocking item, or gate
   with `_HAS_DRAW_TIER = hasattr(imp, "_draw_tier") and hasattr(imp, "_draw_stratum_col_for")` +
   `@pytest.mark.skipif`. The underlying feature (OPEN-17's draw tier) was deliberately never implemented.
+  **Update 2026-09-24:** it was implemented opt-in on 2026-09-09 (T04 of
+  `PLAN_accuracy-restatement-2026-09-09.md`); the guards now find the symbols and the 15 tests run and pass.
   *(docs/docs_ACTIVE/openings/extra/FIX_open-13_height-cache-and-collection.md)*
 - **`AttributeError: module 'openubem.config' has no attribute 'IMPUTE_DRAW_METHOD_BY_TARGET'` /
   `IMPUTE_DEBIAS_NEWERSKEW` (9 tests)** — one root cause, not 9 defects: tests were committed ahead of a
@@ -2192,35 +2217,26 @@ Grep target for "which module can throw this, and what does it mean?"
   who proposes district-scale AirflowNetwork finds this before spending days reproducing it.
   *(docs/docs_ACTIVE/TechTransfer/2026-09-17_TechTransfer_idf_reader_to_OpenUBEM.md §5, item 4 / T10)*
 
-## 18. Currently open items (register snapshot 2026-08-20)
+## 18. Currently open items (register snapshot 2026-09-24)
 
-Authoritative list: `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` (20 tracked, next free
-ID OPEN-61). Snapshot only — always re-read the register before acting.
+Authoritative list: `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md` (12 live, next free
+ID OPEN-67). Snapshot only — always re-read the register before acting. The 2026-08-20 snapshot this
+replaces listed items since closed (09, 10, 12, 13, 14, 15/16/17, 20, 27, 28, 42, 48, 51, 54, 55, 56, 60).
 
 | ID | One-line |
 |---|---|
-| OPEN-09 | `thermal_mass=True` warmup non-convergence; ~3.66% fleet EUI-projection consequence untouched |
-| OPEN-10 | `ZoneGroup` list multiplier could restore exact expressibility; narrower than first claimed |
-| OPEN-12 | rural `height_m` residual (nyc_rural 36.4%, austin_rural 19.2%); needs source coverage, not another imputation pass |
-| OPEN-13 | draw-tier test-collection abort contained via skip, not fixed (E-UTCI-13 leg closed) |
-| OPEN-14 | UTCI height backfill not reproducible from a clean checkout |
-| OPEN-15/16/17 | imputation tiers built but switched off; the draw tier is not a simple opt-in |
+| OPEN-03 | `layout_assign` and `auto` read internal loads from different sources; both vintage-blind (§4) |
 | OPEN-19 | LA cells run ~+40% hot; no climate-zone/code-year switch exists yet |
-| OPEN-20 | wider validation matrix still needed |
-| OPEN-27 | DESIGN doc still names the wrong term (live code now pinned against it) |
-| OPEN-28 | `05_results` archetype_id not reproducible from frozen input (§6) |
 | OPEN-35 | two fallbacks fill the same missing storey count and disagree |
-| OPEN-38 | `layout_assign` SmallHotel laundry-room thermal runaway + unfitted doors (§2) |
-| OPEN-42 | thermal-mass recovery fix never merged into production (§2) |
-| OPEN-48 | the adopted baseline run cannot be reproduced from this repository |
-| OPEN-51 | defect ID `E-LA-16` used for two contradictory failure signatures (§16) |
+| OPEN-38 | `layout_assign` fatals, 38 of 44 one heat-balance divergence family (§2) |
 | OPEN-53 | 874/875 E02 harvest dirs missing `.sql`/`.end` (§12) |
-| OPEN-54 | `_ssh` never checks the remote exit code (§12) |
-| OPEN-55 | Unknown-archetype PDE bounds can draw data-centre loads (§7) |
-| OPEN-56 | 10 m³ zone-volume stub fleet-wide, ≈+1.0 kWh/m² understatement (§1) |
-| OPEN-58 | `run_ep()` shared-cwd cross-contamination + wrong EUI formula (§8) |
+| OPEN-58 | scratch `run_ep()` helper: shared cwd + wrong EUI formula; newer scripts use `run_ep_isolated()` (§8) |
 | OPEN-59 | Unknown buildings still run 1.7× classified after the equipment fix (§7) |
-| OPEN-60 | `total_eui_kwh_m2` undercounts lighting/equipment under zone multipliers (§8) |
+| OPEN-61 | district-heated hot water missing from the adopted figure (parser fixed; number not yet re-parsed) (§8) |
+| OPEN-62 | no reader yields a true storey count for prototypes with attics/plenums; a definition question (§16) |
+| OPEN-63 | carbon factor for district heat is in code (0.226, US EPA), but the adopted carbon total never saw district heat (§8) |
+| OPEN-65 | the adopted fleet figure was parsed by a meter-only harvest parser that never reads district heating (§8) |
+| OPEN-66 | 8 IDFs flagged `success` contain no `Zone` object (§4) |
 
 ---
 

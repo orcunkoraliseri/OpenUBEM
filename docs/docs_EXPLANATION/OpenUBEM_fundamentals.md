@@ -176,7 +176,9 @@ surfaced here.
    substitution, not a defect — but it had never been quantified before the storey-matching arc's
    close, and it is roughly half (not precisely measured as such — the arc's own wording is
    "roughly") of a fleet-wide **−29.1%** median difference between `layout_assign` and the other
-   resolution modes. Register item **OPEN-03**.
+   resolution modes. Register item **OPEN-03**. ⚠ Corrected 2026-08-20 (register II, OPEN-03): the
+   "roughly half" was measured at **about 8 %** of the pooled gap, and the gap is a difference in
+   where the loads come from, not in their vintage — both modes ignore vintage equally.
 4. **The floor area an EUI is divided by is nominal, not simulated — the most consequential open
    issue.** Every EUI this mode has reported, including the 122.23 kWh/m²/yr above, divides
    simulated energy by the building's *nominal* floor area (`footprint_area_m2 × levels`), not by
@@ -255,7 +257,7 @@ construction, but building that tailor turned out to be hard, which is why it is
 suit's interior is excellent — proper lining, real construction, far better than the tailor could
 improvise — but it isn't your shape. Both limitations below follow from that: the wrong-floor-area
 problem is being charged for the whole size-4 suit's cloth while measured against a size-1 body, and
-the shape-distortion problem (Q3, OPEN-18) is an alteration that takes in the width but not the
+the shape-distortion problem (Q3, OPEN-18 — closed 2026-08-21 without a fix, so the limitation stands) is an alteration that takes in the width but not the
 length.
 
 Where `zone` mode (§5.1.1) *builds* a room-level floor plan from a real footprint, `layout_assign`
