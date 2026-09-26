@@ -151,6 +151,50 @@ def _build_thermostat_fixture(heating_blocks, cooling_blocks, heat_name="HeatSch
     return idf, t
 
 
+_HTGSETP_REAL_PROTOTYPE_TOKENS = [
+    "For: Weekdays",
+    "Until: 06:00", 15.6, "Until: 07:00", 21.1, "Until: 08:00", 21.1, "Until: 12:00", 21.1,
+    "Until: 13:00", 21.1, "Until: 17:00", 21.1, "Until: 19:00", 21.1, "Until: 24:00", 15.6,
+    "For: Saturday",
+    "Until: 06:00", 15.6, "Until: 08:00", 21.1, "Until: 12:00", 21.1, "Until: 17:00", 21.1,
+    "Until: 19:00", 21.1, "Until: 24:00", 15.6,
+    "For: AllOtherDays",
+    "Until: 06:00", 15.6, "Until: 18:00", 21.1, "Until: 24:00", 15.6,
+]
+
+_CLGSETP_REAL_PROTOTYPE_TOKENS = [
+    "For: Weekdays",
+    "Until: 06:00", 29.4, "Until: 07:00", 23.9, "Until: 08:00", 23.9, "Until: 12:00", 23.9,
+    "Until: 13:00", 23.9, "Until: 17:00", 23.9, "Until: 18:00", 23.9, "Until: 22:00", 23.9,
+    "Until: 24:00", 23.9,
+    "For: Saturday",
+    "Until: 06:00", 29.4, "Until: 08:00", 23.9, "Until: 12:00", 23.9, "Until: 17:00", 23.9,
+    "Until: 19:00", 23.9, "Until: 24:00", 29.4,
+    "For: AllOtherDays",
+    "Until: 06:00", 29.4, "Until: 18:00", 23.9, "Until: 24:00", 29.4,
+]
+
+
+def _build_hvactemplate_thermostat_fixture(
+    heat_name="Heating_Setpoint_OpenUBEMUnknown", cool_name="Cooling_Setpoint_OpenUBEMUnknown",
+    with_heat_schedule=True, with_cool_schedule=True,
+    heating_constant="", cooling_constant="",
+):
+    idf = _new_blank_idf()
+    if with_heat_schedule:
+        _make_multiblock_schedule(idf, heat_name, "Temperature", _HTGSETP_REAL_PROTOTYPE_TOKENS)
+    if with_cool_schedule:
+        _make_multiblock_schedule(idf, cool_name, "Temperature", _CLGSETP_REAL_PROTOTYPE_TOKENS)
+    t = idf.newidfobject(
+        "HVACTEMPLATE:THERMOSTAT", Name="relation/11171765_F0_whole_Thermostat",
+        Heating_Setpoint_Schedule_Name=heat_name if with_heat_schedule else "",
+        Constant_Heating_Setpoint=heating_constant,
+        Cooling_Setpoint_Schedule_Name=cool_name if with_cool_schedule else "",
+        Constant_Cooling_Setpoint=cooling_constant,
+    )
+    return idf, t
+
+
 _DOE2_COEFFICIENTS = (0.0, 0.0, 0.224, 0.0)
 
 _REAL_PROTOTYPE_OFFICESMALL_WALL_INFIL_M3_S_M2 = 0.0001993503
@@ -554,6 +598,58 @@ def test_thermostat_missing_schedule_reports_gate_schedule_missing():
         assert o["gate"] == "gate_schedule_missing"
 
 
+def test_hvactemplate_thermostat_real_prototype_schedule_deepened_and_original_untouched():
+    idf, t = _build_hvactemplate_thermostat_fixture()
+    heat_before = next(
+        s for s in idf.idfobjects["SCHEDULE:COMPACT"] if s.Name == "Heating_Setpoint_OpenUBEMUnknown"
+    )
+    heat_before_values = list(heat_before.fieldvalues)
+    table = measures.load_measures()
+    summary = measures._apply_thermostat_setback(idf, table["thermostat_setback"], enabled=True)
+    assert summary["status"] == "applied"
+    heat_obj = next(o for o in summary["objects"] if o["role"] == "heating")
+    assert heat_obj["object_type"] == "HVACTEMPLATE:THERMOSTAT"
+    assert heat_obj["status"] == "lowered"
+    assert heat_obj["required_delta_c"] == pytest.approx(5.5556)
+
+    new_heat_name = t.Heating_Setpoint_Schedule_Name
+    assert new_heat_name != "Heating_Setpoint_OpenUBEMUnknown"
+    assert new_heat_name.startswith("Heating_Setpoint_OpenUBEMUnknown__setback_")
+    new_heat = next(s for s in idf.idfobjects["SCHEDULE:COMPACT"] if s.Name == new_heat_name)
+    assert float(new_heat.Field_4) == pytest.approx(21.1 - 5.5556, abs=1e-3)
+    assert float(new_heat.Field_18) == pytest.approx(21.1 - 5.5556, abs=1e-3)
+    assert float(new_heat.Field_6) == pytest.approx(21.1)
+    assert float(new_heat.Field_16) == pytest.approx(21.1)
+
+    heat_after = next(
+        s for s in idf.idfobjects["SCHEDULE:COMPACT"] if s.Name == "Heating_Setpoint_OpenUBEMUnknown"
+    )
+    assert list(heat_after.fieldvalues) == heat_before_values
+
+
+def test_hvactemplate_thermostat_constant_setpoint_side_gate_no_setback_block():
+    idf, t = _build_hvactemplate_thermostat_fixture(with_cool_schedule=False, cooling_constant=24.0)
+    before_cool_name = t.Cooling_Setpoint_Schedule_Name
+    table = measures.load_measures()
+    summary = measures._apply_thermostat_setback(idf, table["thermostat_setback"], enabled=True)
+    cool_obj = next(o for o in summary["objects"] if o["role"] == "cooling")
+    assert cool_obj["status"] == "gate_no_setback_block"
+    assert cool_obj["gate"] == "gate_no_setback_block"
+    assert cool_obj["object_type"] == "HVACTEMPLATE:THERMOSTAT"
+    assert summary["n_gate_no_setback_block"] == 1
+    assert t.Cooling_Setpoint_Schedule_Name == before_cool_name
+
+
+def test_thermostat_applicability_recognizes_hvactemplate_thermostat_and_neither_gates():
+    idf_hvactemplate, _ = _build_hvactemplate_thermostat_fixture()
+    assert measures._thermostat_applicability(idf_hvactemplate) == {"applicable": True, "gate": None}
+
+    idf_none = _new_blank_idf()
+    assert measures._thermostat_applicability(idf_none) == {
+        "applicable": False, "gate": "gate_no_thermostat",
+    }
+
+
 def test_envelope_withdrawn_apply_changes_nothing_and_reports_reason_generic_path():
     idf = _build_envelope_fixture()
     before = idf.idfstr()
@@ -717,7 +813,7 @@ def test_infiltration_unknown_method_is_gated_and_unchanged():
 
 
 def test_infiltration_unsupported_coefficients_gated_and_unchanged():
-    idf, _, _ = _build_infiltration_fixture("Flow/Area", 0.05, coefficients=(1.0, 0.0, 0.0, 0.0))
+    idf, _, _ = _build_infiltration_fixture("Flow/Area", 0.05, coefficients=(0.5, 0.0, 0.1, 0.0))
     before = idf.idfstr()
     table = measures.load_measures()
     summary = measures._apply_infiltration_tightening(idf, table["infiltration_tightening"], enabled=True)
@@ -726,8 +822,43 @@ def test_infiltration_unsupported_coefficients_gated_and_unchanged():
     entry = summary["objects"][0]
     assert entry["status"] == "gate_unsupported_coefficients"
     assert entry["gate"] == "gate_unsupported_coefficients"
-    assert entry["coefficients"] == [1.0, 0.0, 0.0, 0.0]
+    assert entry["coefficients"] == [0.5, 0.0, 0.1, 0.0]
     assert summary["n_gate_unsupported_coefficients"] == 1
+
+
+def test_infiltration_constant_coefficients_above_target_is_tightened():
+    idf, obj, zone_name = _build_infiltration_fixture(
+        "Flow/ExteriorWallArea", 0.01, coefficients=(1.0, 0.0, 0.0, 0.0),
+    )
+    existing_declared = float(obj.Flow_Rate_per_Exterior_Surface_Area)
+    wall_area = measures._zone_area_for_kind(idf, zone_name, "exterior_wall")
+    existing_abs = existing_declared * wall_area
+    table = measures.load_measures()
+    summary = measures._apply_infiltration_tightening(idf, table["infiltration_tightening"], enabled=True)
+    entry = summary["objects"][0]
+    assert entry["status"] == "tightened"
+    assert entry["coefficients"] == [1.0, 0.0, 0.0, 0.0]
+    new_declared = float(obj.Flow_Rate_per_Exterior_Surface_Area)
+    new_abs = new_declared * wall_area
+    assert new_abs == pytest.approx(entry["new_flow_m3_s"], abs=1e-9)
+    assert new_abs <= existing_abs + 1e-9
+    assert summary["n_tightened"] == 1
+
+
+def test_infiltration_constant_coefficients_below_target_is_already_compliant():
+    idf, obj, _ = _build_infiltration_fixture(
+        "Flow/Area", 0.0000001, coefficients=(1.0, 0.0, 0.0, 0.0),
+    )
+    before = idf.idfstr()
+    table = measures.load_measures()
+    summary = measures._apply_infiltration_tightening(idf, table["infiltration_tightening"], enabled=True)
+    after = idf.idfstr()
+    assert before == after
+    entry = summary["objects"][0]
+    assert entry["status"] == "already_compliant"
+    assert entry["coefficients"] == [1.0, 0.0, 0.0, 0.0]
+    assert summary["n_already_compliant"] == 1
+    assert summary["n_tightened"] == 0
 
 
 def test_infiltration_zero_exterior_area_object_gated_not_divided_by_zero():

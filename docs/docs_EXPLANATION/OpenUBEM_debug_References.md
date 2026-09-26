@@ -1995,6 +1995,8 @@ Grep target for "which module can throw this, and what does it mean?"
 
 ## 16. Method traps: how these bugs got misdiagnosed
 
+- **[OPEN] Scenario campaign finishes clean (65,112/65,112, 0 failed) but every scenario cell has the fleet EUI of the baseline to 4 decimals (172.3974 kWh/m² over 8,122 in all 8 cells); `eplustbl.htm` `Total Site Energy` = 39193.43 GJ and `Interior Lighting` = 4887.09 GJ in baseline, lighting, setback and infiltration for `relation_11171765`.** Root cause: `apply_cell()` wrote no measure into any model — all 7 non-baseline IDFs per building are byte-identical (300/300 sampled), differing from baseline only by the rebuild (PV, ground temperature). Each measure gated out: `thermostat_setback` → `gate_no_thermostat` (models carry `HVACTemplate:Thermostat`, the measure only reads `THERMOSTATSETPOINT:DUALSETPOINT`, `openubem/scenarios/measures.py:467`); `infiltration_tightening` → `gate_unsupported_coefficients` (`ZoneInfiltration:DesignFlowRate` with coefficients 1/0/0/0); `lighting_power_density` → `gate_archetype_out_of_scope` because `scripts/analysis/fleet06a_campaign_2026-09-18.py:76` calls `apply_cell(idf, cell, enabled=True)` with no `archetype=`. The gates return a status dict that the campaign builder never checked. Fix: not yet made. Trap: a clean run count and a PV difference hid that no measure applied — assert per-measure `status` / `n_applied > 0` at build time and diff one building's IDFs across cells before launching. *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md, FLEET-06c-TABLE entry 2026-09-26)*
+
 - **Diff against the actual committed baseline, not against sibling code paths in the same tree.** The `auto`
   regression passed every conservation test because those tests only compared modes *within one working
   tree*, all carrying the same new bug. *(§4)*
@@ -2208,6 +2210,18 @@ Grep target for "which module can throw this, and what does it mean?"
   cosmetic for accuracy (OPEN-09).
 - **A missing E+ install mapping / version mismatch fails loudly by design** — `runner.py` refuses to run a
   binary whose `--version` doesn't match `config.ENERGYPLUS_VERSION`.
+- **A campaign's md5-vs-earlier-campaign check finding 2 mismatched "unchanged" IDFs out of 16,227 is a
+  stale-shared-fixture artifact, not a measure bug.** FLEET-07b's md5 audit (rows not in
+  `manifest_changed.csv` must match the FLEET-06a IDF byte-for-byte) found 2 mismatches
+  (`way_381810555`/infiltration, `way_425993519`/lighting); both traced to a `Generator:PVWatts` "DC System
+  Capacity" field the measures never touch. Root cause: both FLEET-06a and FLEET-07b build from the same
+  shared source tree `%TEMP%\ubem_validation\fleet06a_rebuild_2026-09-18\<geo>\step3\idfs\<stem>.idf`, but 2
+  of those source files were overwritten in place on 2026-09-23 (mtime), 5 days after FLEET-06a's campaign
+  build read them on 2026-09-18. FLEET-07b (built 2026-09-26) reads the current, updated source and
+  reproduces it exactly; FLEET-06a's older output reflects the pre-2026-09-23 value. Not a fix — the shared
+  fixture drifted between two campaigns' build times; any future byte-identity check across campaigns built
+  from the same "fresh IDF" tree on different dates should expect this.
+  *(docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block7-fleet07-2026-09-26.md §8 FLEET-07b)*
 - **[FORWARD-LOOKING, not yet hit in OpenUBEM] AirflowNetwork in `MultizoneWithDistribution` mode will not
   scale to a district-size model** — the pressure-network solver builds one matrix across every zone in
   the network; once many buildings' zones are joined into it the matrix becomes singular or fails to

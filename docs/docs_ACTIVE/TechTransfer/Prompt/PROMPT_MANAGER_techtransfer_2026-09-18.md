@@ -6,6 +6,15 @@
 > as manager for this arc. Update this file in place at the close of each block — do not supersede it
 > with a new dated copy.
 > **Paused 2026-09-25 12:30 (user):** scenario harvest 22 of 84 pieces saved; resume from §7k, last bullet.
+> **Resumed 2026-09-26 (user "lets go"):** partial dirs of 12 unfinished pieces deleted (inclusion list); 62 pieces
+> relaunched detached (PID 18744, 8 workers, `max_tasks_per_child=1`, parent removes each piece's gz_tmp), script
+> `5c2864be-…\scratchpad\resume62.py`, log `…\scratchpad\logs\resume62.log`. Next: §7k resume recipe step (3).
+> **STOPPED 2026-09-26 (manager audit):** harvest 96/96 done, PV scan done, but every scenario cell = baseline
+> (172.3974 kWh/m², delta 0): no measure was ever applied to the FLEET-06a IDFs (all three gated out). Table
+> not written, cleanup NOT run, artifact shows the failure. See plan progress log "FLEET-06c-ALL / FLEET-06c-TABLE
+> — harvest done, table audit FAILED" and debug references ch. 16. Waiting on the owner: fix measures, then re-run.
+> **Paused 2026-09-26 14:05 (user closing session), FLEET-07c RUNNING ON SPEED:** measures fixed, 40,746 changed
+> scenario IDFs re-simulating. Resume from **§7l** — it is the only section you need to act on.
 > **Measured at the time of writing:** the eight TechTransfer test files pass, `108 passed`
 > (`python -m pytest tests/test_scenario_measures.py tests/test_pv_injection.py tests/test_compliance_audit.py tests/test_prep_gate.py tests/test_layout_assigner_fit_check.py tests/test_parser_version_robustness.py tests/test_envelope_patcher_windows.py tests/idf/test_ground_temperature.py -q`).
 
@@ -528,6 +537,41 @@ tables are written and audited**. Full task list: block-6 plan `## 2h` (FLEET-06
     `CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1` in Claude Code's own environment, so the reaper cannot kill it
     again; (3) then audit all 7 cells per plan §2h, count the damaged union, dispatch FLEET-06c-TABLE to a new
     Sonnet, audit the 8-row table, run §2h-4 cleanup (add the 71 GB `gz_tmp`), progress-log entries, final report.
+
+## 7l. FLEET-07 — measures fixed, changed cases re-running on Speed — paused 2026-09-26 14:05
+
+Plan: `docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block7-fleet07-2026-09-26.md` (07c spec
+§6 ~l.147, 07d ~l.165, stop points ~l.180, progress log from ~l.189). User authorization, verbatim: "lets go, no
+need to wait my confirmation, continue to the end" — covers 07c → 07d → artifact → open in Chrome. It does NOT
+cover the §2h-4 `.sql` cleanup (that needs the audited table first; inclusion list only).
+
+- **Done and audited:** measures fixed (`openubem/scenarios/measures.py`, `measures.json`, tests); FLEET-07b
+  rebuilt 56,973 scenario IDFs, 40,746 changed vs FLEET-06a (`manifest_changed.csv`). The other ~16,000 are
+  byte-unchanged and reuse their FLEET-06b results; baseline reuses FLEET-06b too. Infiltration changes only 2,247
+  buildings (rest already compliant, ruling R1) — expected, say so in the final report.
+- **FLEET-07c on Speed:** staging `/speed-scratch/o_iseri/openubem/fleets/fleet07_2026-09-26/`, 5 wave lists
+  `fleet07_wave1..5.lst` (10,000/10,000/10,000/10,000/746). wave1 = `1349546`, wave2 = `1350011` (checked: no
+  duplicate). Waves 3–5 NOT yet submitted at pause (20,746 tasks), held by the 20k account cap.
+- **Measured 14:03:** 8,779 COMPLETED in 2 h 10 min since 11:53 (mean 41.9 s/task over 8,779, ~49 running);
+  remaining 31,967 → ≈ 8 h at the observed rate, finish ≈ 22:00 2026-09-26. **20 tasks OUT_OF_MEMORY** (14 in
+  wave1, 6 in wave2): resubmit those indices once with a higher `--mem` on the CLI (search the debug references
+  for OUT_OF_MEMORY first).
+- **Feeder:** local Python `scratchpad/fleet07_feeder.py` of session `5c2864be-…` (PIDs 32368/47840, log
+  `scratchpad/fleet07_feeder.log`), every 10 min submits the next wave when queue + wave < 20,000, 600 s sbatch
+  timeout, checks squeue/sacct for an orphan before any retry. **It may die when this session closes.** First
+  action on resume: `squeue -u o_iseri` + tail the log; if waves 3–5 are not all placed and the feeder is dead,
+  submit the missing waves (same sbatch as wave1: `submit_fleet06b.sbatch`, `--array=1-N%32 --time=7-00:00:00
+  --export=FLEET_DIR=…,FLEET_LST=fleet07_wave<k>.lst`), keeping the account under 20k. Other-project jobs
+  1342400/1342401/1342412/1342413 are NOT ours — never touch.
+- **After all waves leave squeue** (new Sonnet, `model: "sonnet"`): sacct counts per wave, resubmit failures once,
+  pull results to `%LOCALAPPDATA%\Temp\ubem_validation\fleet07_out_2026-09-26\out\<cell>\<stem>\`, verify 40,746
+  `eplusout.end`, update db doc, progress-log "FLEET-07c (part 2)". Manager audits, then FLEET-07d (harvest into
+  `fleet07_harvest_2026-09-26`, table `openubem/outputs/comparisons/fleet07_scenario_summary_2026-09-26.csv`:
+  8 rows, equal n_buildings, baseline delta 0, lighting and setback deltas < 0).
+- **Then:** artifact `https://claude.ai/artifact/6H6xkLiazkjN2akF6wsXKa` — db `fleet06b/progress` (v16 at
+  pause, shows 8,779 / 40,746) and `fleet06c/summary`, RESULTS_SEED, drop the alert note, republish
+  `5c2864be-…\scratchpad\fleet06_monitor.html`; `Start-Process chrome "<url>"`; close the [OPEN] no-op-scenarios
+  entry in the debug references; final report in CLAUDE.md shape.
 
 ## 8. Executor kickoff prompt (send verbatim, adjust the range)
 

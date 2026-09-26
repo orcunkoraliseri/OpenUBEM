@@ -524,6 +524,41 @@ prevent low memory warning". Two rulings: (1) district hot water **is counted** 
 - `openubem/outputs/comparisons/fleet06c_scenario_summary_2026-09-25.csv`: one row per scenario cell —
   n buildings, fleet area, fleet EUI including district, fleet EUI excluding district, change vs baseline
   (kWh/m², %), n buildings with PV > 0. Pooling = `sum(kWh)/sum(area)`, same population in every row.
+- **Amended by the manager 2026-09-26 (measured on disk).**
+  - **PV source.** The harvest `05_results.csv` has no PV column (88 cols, none named pv/solar).
+    PV output exists only in each case's `eplustbl.htm`, table `Electric Loads Satisfied`
+    (`FullName:Annual Building Utility Performance Summary_Entire Facility_Electric Loads Satisfied`),
+    row `Photovoltaic Power`, first value, unit GJ. Measured: `out\lighting\relation_11171765\eplustbl.htm:1141-1142`
+    = 13771.344 GJ; `out\baseline\relation_11171765\eplustbl.htm:1124-1125` = 0.000. The row sits in the
+    first ~1,200 lines, so read each file line by line and stop at the first `Photovoltaic Power` row.
+  - **Script.** New `scripts/analysis/fleet06c_scenario_table_2026-09-26.py`. Scan all 8 cell dirs under
+    `fleet06b_local_2026-09-18\out\` with a process pool of 16 (never sequential). A case with no
+    `eplustbl.htm` or no `Photovoltaic Power` row counts as "PV unknown"; report that count per cell.
+    Case folder `way_270445753` ↔ `osm_id` `way/270445753` (first `_` → `/`); 8,139 folders per cell.
+    Count only cases in the table population.
+    Two modes: `--pv-scan` writes the per-case scan to
+    `%LOCALAPPDATA%\Temp\ubem_validation\fleet06c_harvest_2026-09-24\_pv_scan_2026-09-26.csv`
+    (`scenario_cell, osm_id, pv_gj, status`); `--table` reads that file plus the 8 × 12 `05_results.csv`
+    and writes the summary. `--table` refuses to run (non-zero exit, names the missing pieces) unless all
+    96 `05_results.csv` exist.
+  - **Population.** Exclude from every row the union, over all 8 cells, of `osm_id` with
+    `floor_area_provenance = footprint_fallback` or null `total_eui_kwh_m2`; print the union size and its ids.
+    Area = `floor_area_m2`; kWh = `total_eui_kwh_m2 × floor_area_m2`; excl. district subtracts
+    `dhw_district_eui_kwh_m2 × floor_area_m2` (null → 0).
+  - **Columns, in order:** `scenario_cell, n_buildings, fleet_area_m2, fleet_eui_incl_district_kwh_m2,
+    fleet_eui_excl_district_kwh_m2, delta_vs_baseline_kwh_m2, delta_vs_baseline_pct, n_pv_gt0, n_pv_unknown`.
+    Row order: baseline, lighting, setback, infiltration, lighting+setback, lighting+infiltration,
+    setback+infiltration, lighting+setback+infiltration.
+  - **How to test.** 8 rows; `n_buildings` identical in every row; baseline delta 0; baseline
+    `fleet_eui_incl_district_kwh_m2` within 0.05 of 172.4076 when the excluded buildings are few (state
+    the gap); `n_pv_gt0` = 0 for baseline; print the table to stdout. Do not delete any file.
+  - **SQL fallback (manager, 2026-09-26, measured).** The first scan left ~481 cases per scenario cell
+    `no_htm`: those folders hold an uncompressed `eplusout.sql` but no `eplustbl.htm`. For `no_htm` and
+    `no_pv_row` cases, read `eplusout.sql` (sqlite3, read-only URI `mode=ro`):
+    `select Value from TabularDataWithStrings where TableName='Electric Loads Satisfied' and
+    RowName='Photovoltaic Power' and ColumnName='Electricity' and Units='GJ'`. Measured:
+    `out\lighting\way_280621431\eplusout.sql` = 11.086 GJ. Status `ok_sql` when found; keep `no_htm` /
+    `no_pv_row` only when the sql is also absent or has no row. Skip `.sql.gz`. Re-run `--pv-scan`.
 
 ### §2h-4 — Cleanup (runs only after FLEET-06c-ALL and FLEET-06c-TABLE are audited by the manager)
 
@@ -1089,3 +1124,31 @@ stop and report after this task; root cause of the cooking/refrigeration gap (pa
 difference between the FLEET-06 rebuilt IDFs and the original T08 simulation) is unassigned and open.
 
 **Notes:** FLEET-06c-ALL is gated on manager audit of this entry, per §2h.
+
+#### FLEET-06c-ALL / FLEET-06c-TABLE — harvest done, table audit FAILED — 2026-09-26 (manager audit)
+
+**Artifacts:** 96/96 `05_results.csv` under `%LOCALAPPDATA%\Temp\ubem_validation\fleet06c_harvest_2026-09-24\<cell>\<geo>\`
+(8 cells × 8,139 rows, 88 cols, 12 schema sidecars each, 0 duplicate ids); PV scan
+`_pv_scan_2026-09-26.csv` (65,112 rows: 61,721 `ok`, 3,373 `ok_sql`, 18 `no_pv_row`);
+`scripts/analysis/fleet06c_scenario_table_2026-09-26.py` (`--pv-scan` run; `--table` NOT run).
+
+**Test status — FAIL.** Damaged union = 17 ids (footprint_fallback / null EUI in scenario cells only; baseline 0).
+Population 8,122. Fleet EUI incl. district = 172.3974 kWh/m² and excl. = 152.6692 in **all 8 cells**;
+delta vs baseline = 0.0000 in every cell. Baseline within 0.0102 of the accepted 172.4076 (the 17 excluded
+buildings). PV > 0 in 8,122/8,122 buildings of every scenario cell, 0 in baseline.
+
+**Root cause (measured):** no saving measure was written into any scenario model. The 7 non-baseline
+IDFs of `relation_11171765` are byte-identical (md5 `983c360a…`), 300/300 sampled buildings identical
+between `lighting` and `lighting+setback+infiltration`. Direct `apply_measure` on the fresh IDF returns
+`thermostat_setback: gate_no_thermostat` (model uses `HVACTemplate:Thermostat`),
+`infiltration_tightening: gate_unsupported_coefficients` (DesignFlowRate, coefficients 1/0/0/0),
+`lighting_power_density: gate_archetype_out_of_scope` (`fleet06a_campaign_2026-09-18.py:76` passes no
+`archetype`). Debug entry added (ch. 16, `[OPEN]`).
+
+**Deviations:** `--table` not run and no summary csv written — its every delta would be 0 and could be
+mistaken for a result. §2h-4 cleanup NOT run: the user's delete approval was conditional on audited tables.
+Monitor artifact updated to show the failure (db `fleet06c/summary` v1, `fleet06b/progress` v13).
+
+**Notes:** Re-running FLEET-06b's 7 scenario cells (56,973 cases) needs a measures fix first; owner decision.
+
+**Successor (manager, 2026-09-26):** the fix and re-run continue in `PLAN_techtransfer-block7-fleet07-2026-09-26.md`; this doc takes no new tasks.

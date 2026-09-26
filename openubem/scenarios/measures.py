@@ -29,8 +29,12 @@ Measures shipped in this task, and only these two:
 
 Measure shipped in this task (plan block-5 J03), active:
 
-- `thermostat_setback` — for each `THERMOSTATSETPOINT:DUALSETPOINT` object, examines its heating
-  and cooling setpoint `Schedule:Compact` schedules. A schedule whose temperature values are
+- `thermostat_setback` — for each `THERMOSTATSETPOINT:DUALSETPOINT` or `HVACTEMPLATE:THERMOSTAT`
+  object (manager ruling R1/R2, block-7, 2026-09-26: the two object types are treated identically,
+  through their own field names, `Heating_Setpoint_Temperature_Schedule_Name` /
+  `Cooling_Setpoint_Temperature_Schedule_Name` for the former,
+  `Heating_Setpoint_Schedule_Name` / `Cooling_Setpoint_Schedule_Name` for the latter), examines its
+  heating and cooling setpoint `Schedule:Compact` schedules. A schedule whose temperature values are
   constant across the whole schedule (no setback at all) is deepened, by cloning it and lowering
   (heating) / raising (cooling) the values outside a single occupied reference block, to the
   magnitude ASHRAE 90.1-2022 Section 6.4.3.3.2 requires a setback control to be capable of. A
@@ -40,8 +44,11 @@ Measure shipped in this task (plan block-5 J03), active:
   object being fixed is repointed to the clone; every other object still naming the original
   schedule is untouched (see `clone_schedule` below and the module's PROVENANCE.md for the
   245-shared-reference and 15-shared-thermostat cases this is built against).
-  Gates: `gate_no_thermostat` (idf has no `ThermostatSetpoint:DualSetpoint`), `gate_schedule_missing`
-  (a setpoint schedule named on the thermostat is not a `Schedule:Compact` present in the idf).
+  Gates: `gate_no_thermostat` (idf has neither a `ThermostatSetpoint:DualSetpoint` nor an
+  `HVACTemplate:Thermostat`), `gate_schedule_missing` (a setpoint schedule named on the thermostat is
+  not a `Schedule:Compact` present in the idf), `gate_no_setback_block` also fires per side, on an
+  `HVACTemplate:Thermostat`, when that side's schedule field is blank and its `Constant_*_Setpoint`
+  field is set (no schedule to deepen).
 
 Measure shipped in this task (plan block-5 J04, revised J04b), withdrawn pending manager
 verification:
@@ -71,8 +78,11 @@ verification:
   `ZoneInfiltration:DesignFlowRate` method Section 11.5.3 states no formula for),
   `gate_zero_normalizing_area` (the building-level `AFLR` or `AAGW` needed by that object's method
   is zero), `gate_no_geometry` (`S` computes to zero), `gate_unsupported_coefficients` (the object's
-  four infiltration coefficients are not the DOE-2 wind-driven set `(0, 0, 0.224, 0)` within
-  `1e-6`).
+  four infiltration coefficients match neither the DOE-2 wind-driven set `(0, 0, 0.224, 0)` nor the
+  constant-only set `(1, 0, 0, 0)` (manager ruling R1, block-7, 2026-09-26: PNNL-18898 picks the
+  DOE-2 wind coefficient 0.224 s/m so the factor equals 1.0 at its 4.47 m/s reference wind, so at
+  that reference a DOE-2 design value and a constant-set design value describe the same flow;
+  citation not re-read from the PDF for this ruling), each within `1e-6`).
 
 `clone_schedule(idf, schedule_name, new_name) -> str` — public helper. Creates a new
 `Schedule:Compact` object under `new_name` that is a full copy of the named one (every populated
@@ -108,8 +118,24 @@ _INFILTRATION_METHOD_FIELDS = {
     "flow/exteriorwallarea": ("Flow_Rate_per_Exterior_Surface_Area", "exterior_wall"),
 }
 _DOE2_INFILTRATION_COEFFICIENTS = (0.0, 0.0, 0.224, 0.0)
+_CONSTANT_INFILTRATION_COEFFICIENTS = (1.0, 0.0, 0.0, 0.0)
+_ACCEPTED_INFILTRATION_COEFFICIENTS = (
+    _DOE2_INFILTRATION_COEFFICIENTS,
+    _CONSTANT_INFILTRATION_COEFFICIENTS,
+)
 _COEFFICIENT_TOLERANCE = 1e-6
 _UNSUPPORTED_CALCULATION_METHODS = {"flow/zone", "flow/exteriorarea"}
+
+_THERMOSTAT_OBJECT_FIELD_MAPS = {
+    "THERMOSTATSETPOINT:DUALSETPOINT": {
+        "heating": ("Heating_Setpoint_Temperature_Schedule_Name", None),
+        "cooling": ("Cooling_Setpoint_Temperature_Schedule_Name", None),
+    },
+    "HVACTEMPLATE:THERMOSTAT": {
+        "heating": ("Heating_Setpoint_Schedule_Name", "Constant_Heating_Setpoint"),
+        "cooling": ("Cooling_Setpoint_Schedule_Name", "Constant_Cooling_Setpoint"),
+    },
+}
 
 
 def load_measures() -> dict:
@@ -145,7 +171,11 @@ def _envelope_applicability(idf: Any) -> dict:
 
 
 def _thermostat_applicability(idf: Any) -> dict:
-    thermostats = idf.idfobjects.get("THERMOSTATSETPOINT:DUALSETPOINT", [])
+    thermostats = [
+        t
+        for object_type in _THERMOSTAT_OBJECT_FIELD_MAPS
+        for t in idf.idfobjects.get(object_type, [])
+    ]
     if not thermostats:
         return {"applicable": False, "gate": "gate_no_thermostat"}
     return {"applicable": True, "gate": None}
@@ -464,8 +494,12 @@ def _apply_thermostat_setback(idf: Any, measure: dict, enabled: bool) -> dict:
     params = measure["parameters"]
     delta_heat = float(params["heating_setback_delta_c"])
     delta_cool = float(params["cooling_setup_delta_c"])
-    thermostats = idf.idfobjects.get("THERMOSTATSETPOINT:DUALSETPOINT", [])
-    if not thermostats:
+    thermostat_entries = [
+        (t, object_type, field_map)
+        for object_type, field_map in _THERMOSTAT_OBJECT_FIELD_MAPS.items()
+        for t in idf.idfobjects.get(object_type, [])
+    ]
+    if not thermostat_entries:
         return {
             "measure_id": "thermostat_setback",
             "enabled": enabled,
@@ -475,6 +509,7 @@ def _apply_thermostat_setback(idf: Any, measure: dict, enabled: bool) -> dict:
             "n_applied": 0,
             "n_already_compliant": 0,
             "n_gate_schedule_missing": 0,
+            "n_gate_no_setback_block": 0,
         }
     objects = []
     any_applied = False
@@ -482,18 +517,33 @@ def _apply_thermostat_setback(idf: Any, measure: dict, enabled: bool) -> dict:
     any_gate_missing = False
     any_gate_no_setback_block = False
     roles = (
-        ("heating", "Heating_Setpoint_Temperature_Schedule_Name", delta_heat, "lowered"),
-        ("cooling", "Cooling_Setpoint_Temperature_Schedule_Name", delta_cool, "raised"),
+        ("heating", delta_heat, "lowered"),
+        ("cooling", delta_cool, "raised"),
     )
-    for t in thermostats:
+    for t, object_type, field_map in thermostat_entries:
         name = getattr(t, "Name", "")
-        for role, field_attr, delta_c, applied_label in roles:
+        for role, delta_c, applied_label in roles:
+            field_attr, constant_attr = field_map[role]
             sched_name = str(getattr(t, field_attr, "")).strip()
+            if not sched_name and constant_attr is not None:
+                constant_value = str(getattr(t, constant_attr, "")).strip()
+                if constant_value:
+                    objects.append(
+                        {
+                            "thermostat": name, "role": role, "schedule": sched_name,
+                            "object_type": object_type,
+                            "status": "gate_no_setback_block", "gate": "gate_no_setback_block",
+                            "magnitude_c": 0.0,
+                        }
+                    )
+                    any_gate_no_setback_block = True
+                    continue
             sched = _find_compact_schedule(idf, sched_name)
             if sched is None:
                 objects.append(
                     {
                         "thermostat": name, "role": role, "schedule": sched_name,
+                        "object_type": object_type,
                         "status": "gate_schedule_missing", "gate": "gate_schedule_missing",
                     }
                 )
@@ -504,6 +554,7 @@ def _apply_thermostat_setback(idf: Any, measure: dict, enabled: bool) -> dict:
                 objects.append(
                     {
                         "thermostat": name, "role": role, "schedule": sched_name,
+                        "object_type": object_type,
                         "status": "gate_schedule_missing", "gate": "gate_schedule_missing",
                     }
                 )
@@ -513,6 +564,7 @@ def _apply_thermostat_setback(idf: Any, measure: dict, enabled: bool) -> dict:
                 objects.append(
                     {
                         "thermostat": name, "role": role, "schedule": sched_name,
+                        "object_type": object_type,
                         "status": "gate_no_setback_block", "gate": "gate_no_setback_block",
                         "magnitude_c": evaluation["magnitude_c"],
                     }
@@ -523,6 +575,7 @@ def _apply_thermostat_setback(idf: Any, measure: dict, enabled: bool) -> dict:
                 objects.append(
                     {
                         "thermostat": name, "role": role, "schedule": sched_name,
+                        "object_type": object_type,
                         "status": "already_compliant", "magnitude_c": evaluation["magnitude_c"],
                     }
                 )
@@ -532,6 +585,7 @@ def _apply_thermostat_setback(idf: Any, measure: dict, enabled: bool) -> dict:
             objects.append(
                 {
                     "thermostat": name, "role": role, "schedule": sched_name,
+                    "object_type": object_type,
                     "status": applied_label, "new_schedule": new_name,
                     "magnitude_c": evaluation["magnitude_c"], "required_delta_c": delta_c,
                 }
@@ -621,10 +675,10 @@ def _infiltration_coefficients(obj: Any) -> tuple:
     )
 
 
-def _coefficients_match_doe2(coefficients: tuple) -> bool:
-    return all(
-        abs(m - t) <= _COEFFICIENT_TOLERANCE
-        for m, t in zip(coefficients, _DOE2_INFILTRATION_COEFFICIENTS)
+def _coefficients_match_supported(coefficients: tuple) -> bool:
+    return any(
+        all(abs(m - t) <= _COEFFICIENT_TOLERANCE for m, t in zip(coefficients, accepted))
+        for accepted in _ACCEPTED_INFILTRATION_COEFFICIENTS
     )
 
 
@@ -743,7 +797,7 @@ def _apply_infiltration_tightening(idf: Any, measure: dict, enabled: bool) -> di
             )
             continue
 
-        if not _coefficients_match_doe2(coefficients):
+        if not _coefficients_match_supported(coefficients):
             objects.append(
                 {
                     "name": name, "zone": zone_name, "calculation_method": method_raw,
