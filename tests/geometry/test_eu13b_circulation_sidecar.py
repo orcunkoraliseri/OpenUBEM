@@ -5,10 +5,10 @@ Scope: ``scripts/emit_eu11_layout_sidecars.py`` serializes
 ``"circulation"`` key on each floor dict, ``None`` when the scheme
 deliberately combines away the corridor shape (``l_shape_decomposition``, per
 the pinned decision in
-``docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-circulation-viewer-2026-08-30.md``
+``docs/docs_DONE/SETUP/europeanLocations/implementation/PLAN_eu-circulation-viewer-2026-08-30.md``
 section 3).
 
-Reference: ``docs/docs_ACTIVE/europeanLocations/debugs/docs/
+Reference: ``docs/docs_DONE/SETUP/europeanLocations/debugs/docs/
 INVESTIGATION_viewer-circulation-not-drawn_2026-08-30.md`` section 1.
 """
 from __future__ import annotations

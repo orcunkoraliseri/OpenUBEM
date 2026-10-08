@@ -7,7 +7,7 @@ plates get a corridor-free scheme instead of MVP Sec 4.3's 1.80 m spine,
 which they cannot host -- fact 12), T08 (D-EU-49: a single-storey building
 carries no circulation zone at all).
 
-Reference: `docs/docs_ACTIVE/europeanLocations/implementation/
+Reference: `docs/docs_DONE/SETUP/europeanLocations/implementation/
 PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md` Sec 6 T05-T08.
 """
 from __future__ import annotations

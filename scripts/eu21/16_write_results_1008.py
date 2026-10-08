@@ -16,7 +16,7 @@ sys.path.insert(0, str(ROOT))
 EV = ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11"
 RB = EV / "rulebook_2026-09-30"
 PF = RB / "partner_fixed_homes_2026-10-08"
-OUT = ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "results"
+OUT = ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "results"
 TAG = "rules_2026-10-08"
 EUI_SOURCE = "local_2026-10-08"
 SUPERSEDES = "2026-10-06"

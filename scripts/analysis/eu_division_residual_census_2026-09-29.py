@@ -15,7 +15,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 EVID = ROOT + "openubem/outputs/eu_evidence/EU-11/"
-VIEW = ROOT + "docs/docs_ACTIVE/europeanLocations/outputs_3D/"
+VIEW = ROOT + "docs/docs_DONE/SETUP/europeanLocations/outputs_3D/"
 OUT = EVID + "division_residual_2026-09-29/"
 DISTRICTS = ["ES-MAD-BERRUGUETE", "FR-LYO-HAUTCOEURPENTES", "GB-LDN-STDUNSTANS", "IT-BOL-GALVANI2"]
 WING_TOL_M = 0.10

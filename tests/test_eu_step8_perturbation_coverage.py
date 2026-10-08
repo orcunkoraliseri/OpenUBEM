@@ -14,7 +14,7 @@ from openubem.validation.step8_gates import (
 
 
 ROOT = Path(__file__).parents[1]
-MATRIX_CSV = ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "content" / "eu_09_perturbation_matrix.csv"
+MATRIX_CSV = ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "content" / "eu_09_perturbation_matrix.csv"
 CHECKPOINTS = (
     "G8.1", "G8.3", "G8.5", "G8.6", "G8.7", "G8.8", "G8.9", "G8.10", "G8.11",
     "G8.12", "G8.12.assignment", "G8.12.value", "G8.13", "G8.14", "G8.16",

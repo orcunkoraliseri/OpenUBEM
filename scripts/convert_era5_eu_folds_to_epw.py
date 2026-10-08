@@ -6,7 +6,7 @@ fixed local standard time, no DST) to the three ``RULED_NOT_PINNED`` targets
 of ``openubem/data/weather/weather_registry.json``: es/Madrid, uk/London,
 it/Bologna. Fold, city, coordinates and the raw ERA5 window are read from the
 registry -- never retyped. Station elevations are not in the registry; they
-are taken from ``docs/docs_ACTIVE/europeanLocations/DeepResearch/
+are taken from ``docs/docs_DONE/SETUP/europeanLocations/DeepResearch/
 DR08_actual_year_weather_sources_and_licences.md`` (Madrid 609 m, London
 Heathrow 25 m, Bologna 37 m) and asserted non-null.
 
@@ -51,7 +51,7 @@ RAW_ROOT = Path("openubem/data/weather/raw")
 OUTPUT_ROOT = Path("openubem/data/weather")
 
 # Not present in the registry; DR08's recommended-station elevations.
-# (docs/docs_ACTIVE/europeanLocations/DeepResearch/DR08_actual_year_weather_sources_and_licences.md)
+# (docs/docs_DONE/SETUP/europeanLocations/DeepResearch/DR08_actual_year_weather_sources_and_licences.md)
 ELEVATIONS_M = {"es": 609.0, "uk": 25.0, "it": 37.0}
 ISO3 = {"es": "ESP", "uk": "GBR", "it": "ITA"}
 

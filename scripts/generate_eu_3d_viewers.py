@@ -13,7 +13,7 @@ rebuild tree) may supply the scheme name / refusal reason as annotation
 only, and only when it agrees with what the IDF's own zone kinds show.
 
 Outputs written to `openubem/outputs/3D/` and mirrored to
-`docs/docs_ACTIVE/europeanLocations/outputs_3D/`.
+`docs/docs_DONE/SETUP/europeanLocations/outputs_3D/`.
 """
 
 from __future__ import annotations
@@ -36,8 +36,8 @@ EU17_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-17"
 EU11_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11"
 WIN_TAG = "_win_2026-10-06"
 MERGED_TAG = "_merged_win_2026-10-06"
-RESULTS_SUMMARY = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "results" / "EU11_results_2026-10-08_summary.json"
-RESULTS_PER_HOME = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "results" / "EU11_results_2026-10-08_per_home.csv"
+RESULTS_SUMMARY = REPO_ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "results" / "EU11_results_2026-10-08_summary.json"
+RESULTS_PER_HOME = REPO_ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "results" / "EU11_results_2026-10-08_per_home.csv"
 FIXED_DIR = EU11_ROOT / "rulebook_2026-09-30" / "partner_fixed_homes_2026-10-08"
 EU21_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-21" / "district_plans"
 
@@ -1042,7 +1042,7 @@ def build_district(district: str) -> None:
     viewer_name = f"eu_{district}_viewer.html"
 
     out_dir_3d = REPO_ROOT / "openubem" / "outputs" / "3D"
-    mirror_dir_3d = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "outputs_3D"
+    mirror_dir_3d = REPO_ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "outputs_3D"
 
     target_data_dir = out_dir_3d / data_dir_name
     target_data_dir.mkdir(parents=True, exist_ok=True)
@@ -1363,8 +1363,8 @@ def build_district(district: str) -> None:
         f"{_tree_rel}/prepared_buildings.csv",
         f"{_tree_rel}/md5_2026-10-06.txt",
         f"{_merged_rel}/{_manifest_name}",
-        "docs/docs_ACTIVE/europeanLocations/results/EU11_results_2026-10-08_summary.json",
-        "docs/docs_ACTIVE/europeanLocations/results/EU11_results_2026-10-08_per_home.csv",
+        "docs/docs_DONE/SETUP/europeanLocations/results/EU11_results_2026-10-08_summary.json",
+        "docs/docs_DONE/SETUP/europeanLocations/results/EU11_results_2026-10-08_per_home.csv",
         "openubem/outputs/eu_evidence/EU-11/rulebook_2026-09-30/partner_fixed_homes_2026-10-08/manifest_all_193.csv",
         "openubem/outputs/eu_evidence/EU-11/rulebook_2026-09-30/partner_fixed_homes_2026-10-08/exclude_all_232.csv",
     ]
@@ -1435,7 +1435,7 @@ def build_district(district: str) -> None:
     index_html_path.write_text(index_html_content, encoding="utf-8")
     print(f"[{district}] Written index.html")
 
-    # Mirror to docs/docs_ACTIVE/europeanLocations/outputs_3D/
+    # Mirror to docs/docs_DONE/SETUP/europeanLocations/outputs_3D/
     mirror_dir_3d.mkdir(parents=True, exist_ok=True)
     mirror_viewer_path = mirror_dir_3d / viewer_name
     shutil.copy2(viewer_path, mirror_viewer_path)

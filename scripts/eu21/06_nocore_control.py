@@ -25,7 +25,7 @@ sys.path.insert(0, str(ROOT))
 
 IN_JSON = ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-21" / "rules_tests" / "test_01.json"
 OUT_JSON = ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-21" / "rules_tests" / "test_01_nocore.json"
-RULES_DIR = ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "rules"
+RULES_DIR = ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "rules"
 _FROZEN_NAME = "RULES_dwelling_layout_scheme_2026-08-28.html"
 FROZEN = RULES_DIR / _FROZEN_NAME if (RULES_DIR / _FROZEN_NAME).exists() else RULES_DIR / "archive" / _FROZEN_NAME
 OUT_HTML = RULES_DIR / "tests" / "TEST_01_nocore_2026-09-02.html"

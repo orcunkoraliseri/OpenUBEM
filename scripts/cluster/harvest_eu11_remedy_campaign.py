@@ -291,7 +291,7 @@ def main():
         districts = list(DISTRICT_JOBS.keys()) if args.all else [args.district]
         for dist in districts:
             harvest_district(dist, work_base)
-            print(f"  [{dist}] Updating 3D viewers and data in docs/docs_ACTIVE/europeanLocations/outputs_3D ...")
+            print(f"  [{dist}] Updating 3D viewers and data in docs/docs_DONE/SETUP/europeanLocations/outputs_3D ...")
             try:
                 from scripts.update_eu_outputs_3d import update_district_viewer
                 update_district_viewer(dist)

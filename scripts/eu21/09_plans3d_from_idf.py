@@ -38,7 +38,7 @@ from scripts.run_eu_s2_district_campaign import DISTRICTS, FLOOR_TO_FLOOR_M  # n
 
 EVIDENCE = ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11"
 EU02 = ROOT / "openubem" / "outputs" / "eu02"
-PLANS3D_DIR = ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "plans3D"
+PLANS3D_DIR = ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "plans3D"
 DATE = "2026-10-01"
 TAG = f"{DATE} from the simulated IDFs"
 CIRC_COLOR = "#c98a1b"

@@ -4,7 +4,7 @@ Tests E1 (sizing disabled) and E2 (OMP_NUM_THREADS=1) plus E0 (baseline control)
 across the 3 representative cells over 10 replicates each.
 
 Writes:
-  docs/docs_ACTIVE/europeanLocations/outputs/f181_t05_probes.csv
+  docs/docs_DONE/SETUP/europeanLocations/outputs/f181_t05_probes.csv
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ SCHEDULES_ROOT = GSS_ROOT / "Step7_docs/outputs_step7/schedules"
 
 BASE_RUN_ROOT = ROOT / "openubem/outputs/_tmp_f181/t05"
 BUILD_ROOT = BASE_RUN_ROOT / "_built"
-OUT_DIR = ROOT / "docs/docs_ACTIVE/europeanLocations/outputs"
+OUT_DIR = ROOT / "docs/docs_DONE/SETUP/europeanLocations/outputs"
 OUTPUT_CSV = OUT_DIR / "f181_t05_probes.csv"
 
 N_REPLICATES = 10

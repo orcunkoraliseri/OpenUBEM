@@ -16,7 +16,7 @@ if ROOT not in sys.path:
 from openubem.geometry import european_nocore as N
 
 EVID = ROOT + "openubem/outputs/eu_evidence/EU-11/"
-VIEW = ROOT + "docs/docs_ACTIVE/europeanLocations/outputs_3D/"
+VIEW = ROOT + "docs/docs_DONE/SETUP/europeanLocations/outputs_3D/"
 BASE = EVID + "rulebook_2026-09-30/baseline.csv"
 OUT = EVID + "bentwall_2026-09-30/"
 DISTRICTS = ["ES-MAD-BERRUGUETE", "FR-LYO-HAUTCOEURPENTES", "GB-LDN-STDUNSTANS", "IT-BOL-GALVANI2"]

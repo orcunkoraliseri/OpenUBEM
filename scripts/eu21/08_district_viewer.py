@@ -40,7 +40,7 @@ import scripts.eu20_morphology_atlas as M20
 
 EU02 = ROOT / "openubem" / "outputs" / "eu02"
 JSON_DIR = ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-21" / "district_plans"
-PLANS3D_DIR = ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "plans3D"
+PLANS3D_DIR = ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "plans3D"
 
 CENSUS_BAR_FRACTION = 0.95
 CHECK_IDS = ("C1", "C3", "C4", "C5", "C6", "C10", "C11")

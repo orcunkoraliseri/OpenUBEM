@@ -1,7 +1,7 @@
 """EU-17a T14: diagnose the T10 STOP (`FINDING 220`) without editing the campaign path.
 
 Side-effect-free instrumentation, per `D-EU-57` / T14's own "How"
-(`docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md`
+(`docs/docs_DONE/SETUP/europeanLocations/implementation/PLAN_eu17-eu18-boxrule-atlas-2026-08-31.md`
 §6 T14): this script monkeypatches the already-imported function *references* in
 `openubem.idf.surfaces` and `scripts.run_eu_s2_campaign` from the outside, calls
 the exact same functions `prepare()` (`scripts/run_eu_s2_district_campaign.py`)

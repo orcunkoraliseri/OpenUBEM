@@ -78,3 +78,34 @@ Also `python -c "import json,glob; [json.load(open(f,encoding='utf-8')) for f in
 ## 4. Progress log
 
 (executor appends `#### TXX — <title> — completed YYYY-MM-DD` + Artifacts / Deviations / Test status / Notes)
+
+#### T01 — Close the open bookkeeping — completed 2026-10-08
+- **Artifacts:** closure line inserted under the `# PLAN —` title of the 4 plans (bent-walls, floor-division-residual, rulebook-change, model-integrity); 8 `- [ ]` lines in CHECKLIST_european_locations_v5.md suffixed; ARCHIVED line under the title of STATE_ and CHECKLIST_european_locations_v5.md.
+- **Deviations:** none (one blank line added before each inserted blockquote for Markdown rendering; CRLF kept where files used it).
+- **Test status:** `grep -c "CLOSED 2026-10-08"` = 1 for each of the 4 plans; closed-at-archive lines 8 = `- [ ]` lines 8; ARCHIVED = 1 in each of STATE and CHECKLIST.
+- **Notes:** edits done before the move.
+
+#### T02 — Baseline the tests, then move the folder — completed 2026-10-08
+- **Artifacts:** `docs/docs_ACTIVE/europeanLocations/` renamed to `docs/docs_DONE/SETUP/europeanLocations/` with one Move-Item (no error).
+- **Deviations:** the 6 test files were run per file in parallel, not as one command, because `test_t02_dry_run_best_effort_measurement` (tests/test_eu_recut_95pct_2026_09_08.py) is CPU-bound and had not finished after about 40 min; it was stopped by PID and excluded from the baseline.
+- **Test status (before):** 153 passed, 1 failed, 0 errors, 1 not completed. Files: test_eu13b_circulation_sidecar 2 passed; test_eu17_relaxed_layout 71 passed; test_eu18c_viewer_geometry_only 12 passed; test_eu_construction_sets 47 passed; test_eu_step8_perturbation_coverage 4 passed; test_eu_recut_95pct_2026_09_08 17 passed, 1 failed (`test_t02_case2_hard_check_failure_still_refuses`), 1 not completed (`test_t02_dry_run_best_effort_measurement`).
+- **Move check:** before 453 files / 195,545,651 bytes; after 453 files / 195,545,651 bytes (plan said ~452); old path absent.
+- **Notes:** counts were taken before this log entry was appended; the plan file is included in both counts.
+
+#### T03 — Repair every live link to the old path — completed 2026-10-08
+- **Artifacts:** old path replaced by `docs_DONE/SETUP/europeanLocations` (separator style kept; pathlib part lists got `"SETUP"` inserted): 24 scripts, 45 replacements; 6 test files, 9; 4 campaign JSON + weather_registry.json, 6; 4 viewer `sources.json`, 8; `OpenUBEM_debug_References.md` 126; its `.bak_173vertex_correction` 34; `OpenUBEM_fundamentals.md` 2. Script kept in scratchpad, not under docs/.
+- **Deviations:** the `.bak` file was repaired too (it is in the live docs scope). `docs/PROJECT_CHECKLIST.md` journal text untouched.
+- **Test status:** search `docs_ACTIVE.{0,12}europeanLocations` over scripts tests openubem docs (excluding eu_evidence, docs_DONE, docs_main, layoutgenerator, .git, and PROJECT_CHECKLIST.md) = 0 lines.
+- **Notes:** `docs/docs_ACTIVE/**` had no hits.
+
+#### T04 — Re-run the tests — completed 2026-10-08
+- **Artifacts:** none.
+- **Deviations (manager ruling):** the 6 test files were run separately in parallel, as in T02; `test_t02_dry_run_best_effort_measurement` deselected (ran 40+ min in T02 without finishing).
+- **Test status:** before 153 passed, 1 failed (`test_t02_case2_hard_check_failure_still_refuses`), 0 errors; after 153 passed, 1 failed (same test), 0 errors. No regression. JSON check printed `json ok`.
+- **Notes:** none.
+
+#### T05 — Register the move — completed 2026-10-08
+- **Artifacts:** one row added to the path migration table in `docs/PROJECT_CHECKLIST.md` after the TechTransfer row.
+- **Deviations:** none.
+- **Test status:** `grep -c "docs_DONE/SETUP/europeanLocations" docs/PROJECT_CHECKLIST.md` = 1 (plus any pre-existing).
+- **Notes:** CP-2 reached.

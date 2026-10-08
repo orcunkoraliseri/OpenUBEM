@@ -1,4 +1,4 @@
-"""Update docs/docs_ACTIVE/europeanLocations/outputs_3D/ with harvested simulation results and new 3D geometry.
+"""Update docs/docs_DONE/SETUP/europeanLocations/outputs_3D/ with harvested simulation results and new 3D geometry.
 
 Reads:
 - IDFs from openubem/outputs/eu_evidence/EU-11/<DISTRICT>_finding249_remedy_2026-09-04/idfs/
@@ -6,9 +6,9 @@ Reads:
 - Summary from openubem/outputs/eu_evidence/EU-11/<DISTRICT>_finding249_remedy_2026-09-04/summary.json
 
 Updates and mirrors:
-- docs/docs_ACTIVE/europeanLocations/outputs_3D/eu_<DISTRICT>_viewer.html
-- docs/docs_ACTIVE/europeanLocations/outputs_3D/eu_<DISTRICT>_data/buildings.csv
-- docs/docs_ACTIVE/europeanLocations/outputs_3D/eu_<DISTRICT>_data/index.html
+- docs/docs_DONE/SETUP/europeanLocations/outputs_3D/eu_<DISTRICT>_viewer.html
+- docs/docs_DONE/SETUP/europeanLocations/outputs_3D/eu_<DISTRICT>_data/buildings.csv
+- docs/docs_DONE/SETUP/europeanLocations/outputs_3D/eu_<DISTRICT>_data/index.html
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ from scripts.generate_eu_3d_viewers import (
 RUN_SUFFIX = "finding249_remedy_2026-09-04"
 EVIDENCE_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11"
 OUT_DIR_3D = REPO_ROOT / "openubem" / "outputs" / "3D"
-MIRROR_DIR_3D = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "outputs_3D"
+MIRROR_DIR_3D = REPO_ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "outputs_3D"
 
 
 def update_district_viewer(district: str) -> None:
@@ -277,7 +277,7 @@ def update_district_viewer(district: str) -> None:
     viewer_path.write_text(html_content, encoding="utf-8")
     print(f"[{district}] Written HTML viewer -> {viewer_path} ({len(html_content)} bytes)")
 
-    # Mirror to docs/docs_ACTIVE/europeanLocations/outputs_3D/
+    # Mirror to docs/docs_DONE/SETUP/europeanLocations/outputs_3D/
     MIRROR_DIR_3D.mkdir(parents=True, exist_ok=True)
     mirror_viewer = MIRROR_DIR_3D / viewer_name
     shutil.copy2(viewer_path, mirror_viewer)

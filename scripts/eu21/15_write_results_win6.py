@@ -8,7 +8,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parents[2]
 EV = ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11"
-OUT = ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "results"
+OUT = ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "results"
 TAG = "win_2026-10-06"
 SUPERSEDES = "2026-09-08"
 STAMP = "2026-10-06"

@@ -65,7 +65,7 @@ import scripts.run_eu_s2_district_campaign as district_campaign  # noqa: E402
 from openubem.config import ENERGYPLUS_IDD_PATH  # noqa: E402
 from openubem.idf.surfaces import extrude_geometry, find_mismatched_interzone_pairs  # noqa: E402
 
-DEBUG_CSV = ROOT / "docs/docs_ACTIVE/europeanLocations/debugs/undivided_buildings_all_districts_2026-09-08.csv"
+DEBUG_CSV = ROOT / "docs/docs_DONE/SETUP/europeanLocations/debugs/undivided_buildings_all_districts_2026-09-08.csv"
 OUT_DIR = ROOT / "openubem/outputs/eu_evidence/EU-11/wallB_second_pass_2026-09-08"
 
 DISTRICT_LABEL_TO_CODE = {
