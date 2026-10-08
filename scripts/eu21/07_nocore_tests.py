@@ -8,6 +8,7 @@ not imported) from 06_nocore_control.py, which stays frozen. Never runs EnergyPl
 import argparse
 import collections
 import concurrent.futures as cf
+import contextlib
 import html
 import importlib.util as ilu
 import json
@@ -414,7 +415,7 @@ def _clears_donation_gates(merged, P, other_live):
     if pinch_area(merged, P) > 0.10:
         _t02c_note("refused", "C10")
         return False
-    if flat_aspect(merged) > MAX_FLAT_ASPECT:
+    if flat_aspect(merged) > NOCORE_RULESET["max_flat_aspect"]:
         _t02c_note("refused", "C11")
         return False
     return True
@@ -735,7 +736,7 @@ def cut_layered(poly, k, theta_offset=0.0, passes=3):
                 i += 1
                 continue
             worst_before = max(flat_aspect(fa), flat_aspect(fb))
-            if worst_before <= MAX_FLAT_ASPECT:
+            if worst_before <= NOCORE_RULESET["max_flat_aspect"]:
                 i += 1
                 continue
             merged = _clean_merge(fa, fb)
@@ -1119,7 +1120,7 @@ def _plate_score(poly, flats):
     pinch_total = sum(pinch_area(f, poly) for f in live)
     c10_ok = pinch_total <= 0.10
     max_aspect = max((flat_aspect(f) for f in live), default=99.0)
-    c11_ok = (len(live) <= 1) or (max_aspect <= MAX_FLAT_ASPECT)
+    c11_ok = (len(live) <= 1) or (max_aspect <= NOCORE_RULESET["max_flat_aspect"])
     areas = [f.area for f in live]
     spread = (min(areas) / max(areas)) if areas and max(areas) > 0 else 0.0
     return (cov_ok, c5_ok, c6_ok, c4_ok, c11_ok, c10_ok, round(spread, 4),
@@ -1665,13 +1666,14 @@ def build_flats(poly, k):
 # residual plate at 2.5 (81 plate-appearances) is delivered as an honest `FAIL`, never an invented
 # exemption. T05d's own stop-and-report (director-amended): the executor stops here and reports; T06
 # does not run this session.
-MAX_FLAT_ASPECT = 2.5
+MAX_FLAT_ASPECT = 5.0
 
-MAX_FLAT_ASPECT_STATUS = (
-    "MAX_FLAT_ASPECT = 2.5, set to the strictest rung by D-EU-89 clause 2 -- "
-    "not calibrated (D-EU-84's FAIL-0 condition was never met at 2.5/3.0/3.5/4.0); "
-    "C11 waived at k = 1 (undivided plate), D-EU-93"
-)
+def max_flat_aspect_status():
+    return (
+        f"MAX_FLAT_ASPECT = {NOCORE_RULESET['max_flat_aspect']}, MIN_SPREAD = 0.25 -- "
+        "owner-ruled rung R4 (D-EU-148, 2026-10-08), guard on; "
+        "C11 waived at k = 1 (undivided plate), D-EU-93"
+    )
 
 # D-EU-107 (`FINDING 244`, plan `eu-plan-homogeneity-2026-09-07`, CP-1 pinned
 # 2026-09-07): C12, the area-balance gate. `spread = min(flat area) / max(flat
@@ -1682,7 +1684,29 @@ MAX_FLAT_ASPECT_STATUS = (
 # alongside the frozen seven checks but never folds into `rec["verdict"]` --
 # hard rule 1/3 of the plan freeze C1/C3/C4/C5/C6/C10/C11's own pass/fail
 # gate; C12 is additive, measured, never merged into it.
-MIN_SPREAD = 0.50
+MIN_SPREAD = 0.25
+
+NOCORE_RULESET_DEFAULTS = {
+    "max_flat_aspect": 2.5,
+    "min_spread": 0.50,
+    "flat_area_cap_m2": None,
+}
+NOCORE_RULESET = {
+    "max_flat_aspect": MAX_FLAT_ASPECT,
+    "min_spread": MIN_SPREAD,
+    "flat_area_cap_m2": None,
+}
+
+
+@contextlib.contextmanager
+def nocore_ruleset(**values):
+    saved = dict(NOCORE_RULESET)
+    NOCORE_RULESET.update(values)
+    try:
+        yield NOCORE_RULESET
+    finally:
+        NOCORE_RULESET.clear()
+        NOCORE_RULESET.update(saved)
 
 
 def flat_aspect(f):
@@ -1812,14 +1836,14 @@ def run_checks(rec, flats, poly):
     if len(live) <= 1:
         checks["C11"] = {"pass": True, "show": f"{max_aspect:.1f} : 1 (k=1, D-EU-93)"}
     else:
-        checks["C11"] = {"pass": max_aspect <= MAX_FLAT_ASPECT, "show": f"{max_aspect:.1f} : 1"}
+        checks["C11"] = {"pass": max_aspect <= NOCORE_RULESET["max_flat_aspect"], "show": f"{max_aspect:.1f} : 1"}
 
     areas = [f.area for f in live]
     spread = round((min(areas) / max(areas)) if areas and max(areas) > 0 else 0.0, 4)
     if len(live) <= 1:
         checks["C12"] = {"pass": True, "show": f"{spread:.4f} (k=1, D-EU-93 exemption)"}
     else:
-        checks["C12"] = {"pass": spread >= MIN_SPREAD, "show": f"{spread:.4f}"}
+        checks["C12"] = {"pass": spread >= NOCORE_RULESET["min_spread"], "show": f"{spread:.4f}"}
 
     rec["checks"] = checks
     rec["spread"] = spread
@@ -1969,31 +1993,32 @@ def commonest_failed_check(recs):
     return f"{cid} &times;{n}"
 
 
-CHECK_META = [
-    ("C1", "Coverage", "0.999 &le; cov &le; 1.001",
-     'flats alone = 100&nbsp;% of the footprint, D-EU-80 &mdash; no square metre left unassigned'),
-    ("C3", "Drawn = claimed", "len(flats) == n", "the drawn flat count equals the claimed flat count"),
-    ("C4", "Each flat one room, no overlap", "lobes_of(f) is None for every flat; largest overlap &lt; 0.02&nbsp;m&sup2;",
-     "each flat is one connected room, no two flats overlap"),
-    ("C5", "Simple outline", "no interior ring; no zone contains another; &le; 40 points per zone",
-     "every flat is a simple outline so it writes straight out as a single floor surface"),
-    ("C6", "Facade contact", "min &ge; 2.50 m against footprint.exterior only",
-     "every flat holds at least 2.50 m of contact with the plate's outer perimeter"),
-    ("C10", "Created pinch", "sum over flats of created-pinch area &le; 0.10&nbsp;m&sup2;",
-     "no part of a flat may be narrower than 2.00 m because of how the plate was CUT &mdash; narrowness "
-     "inherited from the footprint's own tips and slots is excluded; measured as a mitre-joined "
-     "morphological opening at r = 1.00 m, D-EU-81/D-EU-87"),
-    ("C11", "Flat proportion",
-     f"max long/short of the minimum rotated rectangle &le; {MAX_FLAT_ASPECT:.1f}",
-     "no flat is a ribbon &mdash; a flat is at most "
-     f"{MAX_FLAT_ASPECT:.0f} times as long as it is wide, D-EU-82; waived when the plate is undivided "
-     "(k = 1, the single flat is the plate itself), D-EU-93"),
-]
+def check_meta():
+    return [
+        ("C1", "Coverage", "0.999 &le; cov &le; 1.001",
+         'flats alone = 100&nbsp;% of the footprint, D-EU-80 &mdash; no square metre left unassigned'),
+        ("C3", "Drawn = claimed", "len(flats) == n", "the drawn flat count equals the claimed flat count"),
+        ("C4", "Each flat one room, no overlap", "lobes_of(f) is None for every flat; largest overlap &lt; 0.02&nbsp;m&sup2;",
+         "each flat is one connected room, no two flats overlap"),
+        ("C5", "Simple outline", "no interior ring; no zone contains another; &le; 40 points per zone",
+         "every flat is a simple outline so it writes straight out as a single floor surface"),
+        ("C6", "Facade contact", "min &ge; 2.50 m against footprint.exterior only",
+         "every flat holds at least 2.50 m of contact with the plate's outer perimeter"),
+        ("C10", "Created pinch", "sum over flats of created-pinch area &le; 0.10&nbsp;m&sup2;",
+         "no part of a flat may be narrower than 2.00 m because of how the plate was CUT &mdash; narrowness "
+         "inherited from the footprint's own tips and slots is excluded; measured as a mitre-joined "
+         "morphological opening at r = 1.00 m, D-EU-81/D-EU-87"),
+        ("C11", "Flat proportion",
+         f"max long/short of the minimum rotated rectangle &le; {NOCORE_RULESET['max_flat_aspect']:.1f}",
+         "no flat is a ribbon &mdash; a flat is at most "
+         f"{NOCORE_RULESET['max_flat_aspect']:.0f} times as long as it is wide, D-EU-82; waived when the plate is undivided "
+         "(k = 1, the single flat is the plate itself), D-EU-93"),
+    ]
 
 
 def build_checks_html():
     items = []
-    for cid, name, tol, desc in CHECK_META:
+    for cid, name, tol, desc in check_meta():
         items.append(f'<li><code>{cid}</code> <b>{name}</b> &mdash; {desc}. Tolerance <code>{tol}</code>.</li>')
     return "<ul>" + "".join(items) + "</ul>"
 
@@ -2109,7 +2134,7 @@ def build_html(meta, data):
         '<span>census: openubem/outputs/eu_evidence/EU-20/morphology_census.csv</span>'
         f'<span>script: scripts/eu21/07_nocore_tests.py --test {test_n}</span>'
         '<span>law: D-EU-79</span>'
-        f'<span>{esc(MAX_FLAT_ASPECT_STATUS)}</span></div></header>'
+        f'<span>{esc(max_flat_aspect_status())}</span></div></header>'
     )
     spread_line = (f"min {spreads[0]:.2f} &middot; median {statistics.median(spreads):.2f} &middot; "
                    f"max {spreads[-1]:.2f}") if spreads else "n/a"
@@ -2194,10 +2219,10 @@ table.cov tfoot td{border-top:1px solid var(--ink);border-bottom:none;color:var(
 # ---------------------------------------------------------------------------
 # Driver.
 
-def run_test(test_n, universe, limit, render_only):
+def run_test(test_n, universe, limit, render_only, stamp="nocore_2026-09-03_r2"):
     meta = TESTS[test_n]
     json_path = OUT_DIR / f"{meta['json']}_nocore.json"
-    html_path = HTML_DIR / f"{meta['file'].replace('_2026-09-02', '_nocore_2026-09-03_r2')}.html"
+    html_path = HTML_DIR / f"{meta['file'].replace('_2026-09-02', '_' + stamp)}.html"
     if render_only:
         data = json.loads(json_path.read_text(encoding="utf-8"))
     else:
@@ -2564,6 +2589,7 @@ def main():
     ap.add_argument("--test", choices=["1", "2", "3", "4", "5", "all"])
     ap.add_argument("--render-only", action="store_true")
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--stamp", type=str, default="nocore_2026-09-03_r2")
     ap.add_argument("--bench", type=str, default=None,
                      help="Run the colour-repair bench (tag, e.g. T01) instead of the normal "
                           "test build; writes rules_tests/colour_repair_bench_<TAG>.json")
@@ -2578,7 +2604,7 @@ def main():
     if not args.render_only:
         universe = load_universe()
     for t in test_ids:
-        run_test(t, universe, args.limit, args.render_only)
+        run_test(t, universe, args.limit, args.render_only, args.stamp)
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 """T10 (plan ten-live-items-2026-08-20-evening): same-HEAD double run of the C04 building.
 
-Building identified at docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-06_twentysix-
+Building identified at docs/docs_DONE/openings/extra/MEASUREMENT_open-06_twentysix-
 simulation-columns.md:230 -- nyc_centre / way/266034056, the sole simulation_status flip
 (success -> not_simulated) carried as the "C04 leftover" alongside the iod movement.
 

@@ -21,7 +21,18 @@ from shapely.geometry.base import BaseGeometry
 from shapely.geometry.polygon import orient
 from shapely.ops import split, unary_union
 
-from openubem.geometry.european_nocore import cut_storey_nocore
+from openubem.geometry.european_nocore import (
+    NOCORE_RULESET,
+    NOCORE_RULESET_DEFAULTS,
+    _key as _nocore_key,
+    _strictly_better as _nocore_strictly_better,
+    cut_storey_nocore,
+    improve_cut_nocore,
+    nocore_ruleset,
+    repair_slivers,
+    rescore_cut,
+    ruleset_is_relaxed,
+)
 
 
 # --- EU-13B: ruled dwelling-layout scheme (footprint regularization, grid,
@@ -1335,6 +1346,43 @@ def generate_european_ruled_storey_layout(
     return result
 
 
+def _nocore_cut_and_improve(footprint: BaseGeometry, count: int):
+    plate, live, checks, verdict = cut_storey_nocore(footprint, count)
+    return improve_cut_nocore(plate, live, checks, verdict, count)
+
+
+def _nocore_cut_with_guard(footprint: BaseGeometry, dwelling_count: int):
+    if not ruleset_is_relaxed():
+        return _nocore_cut_and_improve(footprint, dwelling_count) + (dwelling_count,)
+    with nocore_ruleset(**NOCORE_RULESET_DEFAULTS):
+        base = _nocore_cut_and_improve(footprint, dwelling_count)
+    plate, live, checks, verdict = base
+    if verdict == "PASS" and checks["C12"]["pass"]:
+        return base + (dwelling_count,)
+    counts = [dwelling_count]
+    cap = NOCORE_RULESET["flat_area_cap_m2"]
+    if (
+        cap is not None
+        and (not checks["C4"]["pass"] or not checks["C5"]["pass"])
+        and plate.area / dwelling_count > cap
+    ):
+        counts.append(math.ceil(plate.area / cap))
+    old_rec = rescore_cut(plate, live, dwelling_count)
+    best = None
+    for count in counts:
+        cand = _nocore_cut_and_improve(footprint, count)
+        rec = rescore_cut(cand[0], cand[1], count)
+        if not rec["checks"]["C10"]["pass"]:
+            live2 = repair_slivers(cand[0], cand[1])
+            rec2 = rescore_cut(cand[0], live2, count)
+            if _nocore_strictly_better(rec, rec2):
+                cand = (cand[0], live2, rec2["checks"], rec2["verdict"])
+                rec = rec2
+        if _nocore_strictly_better(old_rec, rec) and (best is None or _nocore_key(rec) < _nocore_key(best[0])):
+            best = (rec, cand + (count,))
+    return best[1] if best is not None else (plate, live, old_rec["checks"], old_rec["verdict"], dwelling_count)
+
+
 def generate_european_nocore_storey_layout(
     footprint: BaseGeometry, *, dwelling_count: int, minimum_facade_contact_m: float = 2.5,
 ) -> EuropeanGridLayout:
@@ -1354,7 +1402,7 @@ def generate_european_nocore_storey_layout(
         footprint = Polygon(cleaned_exterior, list(footprint.interiors))
 
     try:
-        plate, live, checks, verdict = cut_storey_nocore(footprint, dwelling_count)
+        plate, live, checks, verdict, cut_count = _nocore_cut_with_guard(footprint, dwelling_count)
     except Exception as exc:
         return EuropeanGridLayout(
             scheme="nocore_equal_area", grid=f"nocore_{dwelling_count}", nu=dwelling_count, nv=1,
@@ -1368,7 +1416,7 @@ def generate_european_nocore_storey_layout(
     live = tuple(live)
     if verdict == "PASS":
         partition_audit = audit_european_floor_partition(
-            plate, live, expected_dwelling_count=dwelling_count,
+            plate, live, expected_dwelling_count=cut_count,
             topology_tolerance_fraction=EUROPEAN_TOPOLOGY_TOLERANCE_FRACTION,
         )
         fallback_reason = None
@@ -1383,10 +1431,10 @@ def generate_european_nocore_storey_layout(
         # `passed=false` on topology tolerance alone -- gating here would
         # refuse almost every eligible cut). C1/C3/C4/C5 and a short polygon
         # count still refuse exactly as before.
-        best_effort_eligible = set(failed_ids) <= {"C6", "C10", "C11"} and len(live) == dwelling_count
+        best_effort_eligible = set(failed_ids) <= {"C6", "C10", "C11"} and len(live) == cut_count
         if best_effort_eligible:
             partition_audit = audit_european_floor_partition(
-                plate, live, expected_dwelling_count=dwelling_count,
+                plate, live, expected_dwelling_count=cut_count,
                 topology_tolerance_fraction=EUROPEAN_TOPOLOGY_TOLERANCE_FRACTION,
             )
             fallback_reason = "NOCORE_BEST_EFFORT_" + "_".join(failed_ids)
@@ -2679,7 +2727,7 @@ def generate_european_building_dwelling_layout(
     if not floor_allocations:
         raise ValueError("floor_allocations must be non-empty")
     observed_max_per_floor = max(fa.dwelling_count for fa in floor_allocations)
-    if observed_max_per_floor > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
+    if EUROPEAN_LAYOUT_REGIME != "nocore" and observed_max_per_floor > RULED_GRID_MAX_DWELLINGS_PER_FLOOR:
         return EuropeanBuildingDwellingLayout(
             storey_groups=(), dwelling_layout_emitted=False,
             fallback_reason=DWELLING_DENSITY_REFUSAL_TOKEN,
@@ -2714,11 +2762,9 @@ def generate_european_building_dwelling_layout(
         if count == 0:
             if not groups:
                 raise AssertionError("floor_allocations[0] must always carry at least one dwelling")
-            groups[-1] = EuropeanStoreyGroup(
-                start_storey_index=groups[-1].start_storey_index,
-                storey_span=groups[-1].storey_span + 1,
-                layout=groups[-1].layout,
-            )
+            groups.append(EuropeanStoreyGroup(
+                start_storey_index=index, storey_span=1, layout=groups[-1].layout,
+            ))
             continue
         groups.append(EuropeanStoreyGroup(start_storey_index=index, storey_span=1, layout=_layout_for(count)))
     if not all(group.layout.dwelling_layout_emitted for group in groups):

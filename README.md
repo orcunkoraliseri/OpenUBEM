@@ -801,7 +801,7 @@ Earlier single-city milestone: a 483-building Boston neighbourhood reached 100% 
 | Results by topic (classification, HVAC/service loads, resolution) | `docs/docs_EXPLANATION/Results/` |
 | The Phase-E final validation report | `docs/docs_REPORTS/REPORT_phaseE_final.md` |
 | The binding design specs | `docs/docs_main/` (cross-cutting) + `docs/docs_stepN/` (per step) |
-| Current project status and open items | `docs/PROJECT_CHECKLIST.md` and `docs/docs_ACTIVE/openings/` |
+| Current project status and open items | `docs/PROJECT_CHECKLIST.md` and `docs/docs_DONE/openings/` |
 | Cluster runbook | `scripts/cluster/README.md` |
 
 ---

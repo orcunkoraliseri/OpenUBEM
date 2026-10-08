@@ -324,7 +324,7 @@ towers, hospitals), sometimes less. The point is not "more zones is better"; it 
 success, median `total_eui` 122.23 kWh/m²/yr** (the prior harvest, T19, was 7,990/8,160 = 97.92%,
 median 103.75).
 
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 
 **The improvement is not credited to the storey-matching arc.** The +163 additional passing
 buildings decompose as:
@@ -404,7 +404,7 @@ the nominal denominator is known to be wrong.
 **The condition that restores the column:** a fleet re-run that retains `eplusout.eio`, giving a
 verified, multiplier-aware denominator for every building rather than the 6-building local sample
 above. This is tracked as register item **OPEN-01** in
-[`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`](../../docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md).
+[`docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md`](../../docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md).
 Until that condition is met, `layout_assign` stays out of §4 by design.
 
 ### 10.6 The transformer cliff

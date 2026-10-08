@@ -1,7 +1,7 @@
 """FLEET-06b local execution (techtransfer block-6 plan, section 2e local-only decision,
 2026-09-18): run the 65,112-row scenario manifest through EnergyPlus locally, Speed
 withdrawn per the user's decision recorded in
-`docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md`
+`docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md`
 section 2e.
 
 Consumes, unmodified:

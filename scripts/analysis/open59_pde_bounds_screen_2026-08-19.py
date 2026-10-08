@@ -1,7 +1,7 @@
 """T02 of PLAN_gap-decomposition-2026-08-19.md.
 
 The OPEN-59 bounds screen, structurally copied from OPEN-55 SS3
-(docs/docs_ACTIVE/openings/extra/INVESTIGATION_open-55_pde-bounds-datacenter.md SS3), but
+(docs/docs_DONE/openings/extra/INVESTIGATION_open-55_pde-bounds-datacenter.md SS3), but
 run over all four Unknown-building PDE columns instead of equipment alone.
 
 For the 290 `OpenUBEMUnknown` buildings in the frozen `nyc_suburban` seeded GDF used by

@@ -1,6 +1,6 @@
 # Decision request — `D-EU-108`: what may be admitted to raise London beyond 451/1,242
 
-**2026-09-07.** Plan: `implementation/PLAN_eu-london-coverage-2026-09-07.md` T04. `CP-2` signed.
+**2026-09-07.** Plan: `implementation/DONE/PLAN_eu-london-coverage-2026-09-07.md` T04. `CP-2` signed.
 Every count below is measured from `exclusion_census_2026-09-07.csv` (1,242 rows) and
 `neighbour_pairs_2026-09-07.csv` (374 rows) directly for London; nothing is re-quoted from an earlier
 doc without re-measurement. No pipeline file is edited by this document.
@@ -84,4 +84,4 @@ separately from Option 1 (closed) and Option 4 (fallback if declined).
 Options **2** and **3** are admitted. Option 1 is moot (already implemented in production; 0 recoverable).
 Option 4 is declined. Every admitted row is stamped with its own provenance value so the observed-only
 population (451) stays separable from the observed+inferred population (758) in every later restatement.
-Recorded at `CP-3` of `implementation/PLAN_eu-london-coverage-2026-09-07.md`. T05 released.
+Recorded at `CP-3` of `implementation/DONE/PLAN_eu-london-coverage-2026-09-07.md`. T05 released.

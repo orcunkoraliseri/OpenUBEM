@@ -56,7 +56,7 @@ Evidence: `openubem/outputs/eu_evidence/EU-11/FR-LYO-HAUTCOEURPENTES_{ceiling82_
 (the four ids: `…INTERZONE_MISMATCH_REROUTED` before, `DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT` after, EUI
 source `delta_2026-09-07`); `outputs_3D/eu_FR-LYO-HAUTCOEURPENTES_viewer.html` (each id carries
 `"ls":"ruled"` with 6 / 9 zones per floor); `outputs_3D/eu_FR-LYO-HAUTCOEURPENTES_data/layouts/*.json`
-(dated 2026-09-01, carrying the old reasons); `implementation/PLAN_eu-dwelling-division-recovery-2026-09-07.md` §1–§2.
+(dated 2026-09-01, carrying the old reasons); `implementation/DONE/PLAN_eu-dwelling-division-recovery-2026-09-07.md` §1–§2.
 
 ---
 
@@ -81,16 +81,16 @@ Three different populations get mixed up in conversation. Keep them apart:
 Before the fix the "vertex bug" column was 1,239 fleet-wide; it is now 184. That is the whole of what
 `D-EU-109` did.
 
-🔴 **Superseded 2026-09-09 (T08 of `implementation/PLAN_eu-recut-95pct-2026-09-08.md`).** This whole
+🔴 **Superseded 2026-09-09 (T08 of `implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md`).** This whole
 table is the pre-recut baseline. After `D-EU-111` (best-effort tier) and `D-EU-112` (neighbour
 imputation) landed and the recut was simulated and harvested: population is 4,171 of 4,186 stock
 (not 3,601), divided is 3,641 ruled + 202 of 204 best-effort (T07/`CP-3` manifest-token count) against
 289 rule-refused shrinking toward its refused-hard/density residual, the vertex-bug 184 is unchanged
 (no remedy authorised, `FINDING 267`), and 576 of the 585 never-simulated are now recovered and
-simulated. District EUIs: Madrid 81.387738/1,170 of 1,187 · Lyon 70.345716/527 of 529 · London
-93.729757/1,240 of 1,240 · Bologna 54.671865/1,205 of 1,215 · fleet 66.295394/4,142 of 4,171
+simulated. District EUIs: Madrid 81.387738 *(superseded 2026-10-06 by results/EU11_results_2026-10-06, D-EU-145)*/1,170 of 1,187 · Lyon 70.345716 *(superseded 2026-10-06 by results/EU11_results_2026-10-06, D-EU-145)*/527 of 529 · London
+93.729757 *(superseded 2026-10-06 by results/EU11_results_2026-10-06, D-EU-145)*/1,240 of 1,240 · Bologna 54.671865 *(superseded 2026-10-06 by results/EU11_results_2026-10-06, D-EU-145)*/1,205 of 1,215 · fleet 66.295394 *(superseded 2026-10-06 by results/EU11_results_2026-10-06, D-EU-145)*/4,142 of 4,171
 (`<D>_merged_2026-09-08/summary.json`). Full table:
-`implementation/PLAN_eu-recut-95pct-2026-09-08.md` §8, T08 entry.
+`implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md` §8, T08 entry.
 
 ### 2.2 What the viewers on disk show *today* (what you are looking at)
 
@@ -241,14 +241,14 @@ pinch test) is implemented. Their freeze condition 2 is satisfied; they can free
 would freeze against change by 53 and 148 buildings (undivided → divided). Freeze after, not before.
 
 Evidence: `messages_GSSCanada/2026-09-08_4J_to_OpenUBEM_layout_payload_and_two_questions.md`;
-`STATE_european_locations_v5.md` §8 (`D-EU-110`, `FINDING 266`); `implementation/PLAN_eu-plan-homogeneity-2026-09-07.md:295`;
+`STATE_european_locations_v5.md` §8 (`D-EU-110`, `FINDING 266`); `implementation/DONE/PLAN_eu-plan-homogeneity-2026-09-07.md:295`;
 `openubem/outputs/eu_evidence/EU-21/homogeneity/affected_buildings_2026-09-07.csv`.
 
 ---
 
 ## 7. Order of work from here (each line is one fresh Sonnet dispatch unless marked director)
 
-> **Superseded 2026-09-08 (same day).** The owner accepted `D-EU-111`, authorised the wall-B second pass, and asked for neighbour imputation of the 585 never-simulated (`D-EU-112`). The order of work is now `implementation/PLAN_eu-recut-95pct-2026-09-08.md`; the list below is kept as the record of what was proposed. The per-building list of the 585 with a proposed imputed age is `debugs/never_simulated_buildings_all_districts_2026-09-08.csv` (585 rows: London 536, Lyon 21, Madrid 19, Bologna 9).
+> **Superseded 2026-09-08 (same day).** The owner accepted `D-EU-111`, authorised the wall-B second pass, and asked for neighbour imputation of the 585 never-simulated (`D-EU-112`). The order of work is now `implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md`; the list below is kept as the record of what was proposed. The per-building list of the 585 with a proposed imputed age is `debugs/never_simulated_buildings_all_districts_2026-09-08.csv` (585 rows: London 536, Lyon 21, Madrid 19, Bologna 9).
 
 1. **Wait for Bologna job 1311708 to drain** (director, ≈ 3.5 h) → harvest → restate Bologna → regenerate
    the Bologna viewer → five-line audit. Bologna undivided 664 → 260 in the viewer.
@@ -296,11 +296,11 @@ Nothing in this scan changes the conclusions of §3–§4: wall B (184) is a sec
 is the D-EU-111 decision, and the 585 never-simulated buildings are outside the scan because they have no
 geometry to divide.
 
-🔴 **Superseded 2026-09-09 (T08 of `implementation/PLAN_eu-recut-95pct-2026-09-08.md`).** Wall B (184) shipped
+🔴 **Superseded 2026-09-09 (T08 of `implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md`).** Wall B (184) shipped
 as a named, honest residual — no remedy cleared any of it (`FINDING 267`, ruled at `CP-1`). Wall C (289
 rule-refused) is no longer undivided as a block: `D-EU-111`'s best-effort tier recovered 202 of a 204-building
 target (T07/`CP-3`/`CP-3c` manifest-token count; Lyon short 2, `FINDING 269`). The 585 never-simulated are no
 longer all outside the scan: `D-EU-112`'s neighbour-imputation ladder recovered 576 of 585 and entered them
 into the campaign (T04); 9 remain out (7 already-complete-data engine-build failures, 2 London buildings
-excluded by the owner). Full per-district table: `implementation/PLAN_eu-recut-95pct-2026-09-08.md` §8, T08
+excluded by the owner). Full per-district table: `implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md` §8, T08
 entry.

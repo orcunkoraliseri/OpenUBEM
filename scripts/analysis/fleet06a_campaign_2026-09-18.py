@@ -5,7 +5,7 @@ manifest, per `PLAN_techtransfer-block6-2026-09-18.md`'s FLEET-06a correction:
 
 - `baseline` cell: the existing 2026-09-09 T07 IDFs, fetched unmodified from Speed
   (`fleet06a_fetch_baseline_2026-09-18` step, scp/rsync only) -- zero PV, zero measures,
-  matches the adopted 153.95 kWh/m2 / 8,139-building figure by construction. Not run
+  matches the adopted 153.95 kWh/m2 / 8,139-building figure by construction. Not run ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1).
   through `run_campaign()` at all; copied into the manifest as-is.
 - The 7 non-baseline cells: built from the fresh, today's-code IDFs produced by
   `scripts/analysis/fleet06a_rebuild_2026-09-18.py` (PV_INJECTION_ENABLED=True baked in),

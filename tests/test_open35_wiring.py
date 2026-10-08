@@ -67,13 +67,14 @@ class TestBuilderWiring:
         assert n_floors == 5
         assert n_floors != 1
 
-    def test_non_scope_b_row_unaffected(self):
+    def test_row_without_token_now_gets_median(self):
         gdf = _fleet_gdf()
         row = gdf[gdf["osm_id"] == "way/TARGET"].iloc[0].copy()
         row["archetype_source"] = "RULE_RESIDENTIAL_TIER"
         wired = _builder_wired(row, gdf)
         plain = derive_num_floors(row)
-        assert wired == plain == 1
+        assert wired == 5
+        assert plain == 1
 
     def test_row_with_observed_levels_unaffected(self):
         gdf = _fleet_gdf()
@@ -98,14 +99,15 @@ class TestAggregatorWiring:
         assert n_floors == 5
         assert n_floors != 1
 
-    def test_non_scope_b_row_unaffected(self):
+    def test_row_without_token_now_gets_median(self):
         gdf = _fleet_gdf()
         group_median, global_median = _agg_medians(gdf)
         row = gdf[gdf["osm_id"] == "way/TARGET"].iloc[0].copy()
         row["archetype_source"] = "RULE_RESIDENTIAL_TIER"
         wired = _agg_wired(row, group_median, global_median)
         plain = derive_num_floors(row)
-        assert wired == plain == 1
+        assert wired == 5
+        assert plain == 1
 
     def test_end_to_end_through_compute_neighbourhood_summary(self):
         """The wiring must actually move the aggregate floor area, not just the
@@ -157,7 +159,7 @@ class TestParserWiring:
         assert n_floors == 5
         assert n_floors != 1
 
-    def test_non_scope_b_row_unaffected(self):
+    def test_row_without_token_now_gets_median(self):
         gdf = _fleet_gdf()
         group_median, global_median = _agg_medians(gdf)
         row = gdf[gdf["osm_id"] == "way/TARGET"].iloc[0].copy()
@@ -165,7 +167,8 @@ class TestParserWiring:
         manifest_row = _as_manifest_row(row, group_median, global_median)
         wired = _parser_wired(manifest_row)
         plain = derive_num_floors(row)
-        assert wired == plain == 1
+        assert wired == 5
+        assert plain == 1
 
     def test_row_with_observed_levels_unaffected(self):
         gdf = _fleet_gdf()
@@ -202,7 +205,7 @@ class TestThreeWayAgreement:
 
         assert builder_result == agg_result == parser_result == 5
 
-    def test_all_three_paths_agree_on_non_scope_b_row(self):
+    def test_all_three_paths_agree_on_row_without_token(self):
         gdf = _fleet_gdf()
         group_median, global_median = _agg_medians(gdf)
         row = gdf[gdf["osm_id"] == "way/TARGET"].iloc[0].copy()
@@ -212,7 +215,7 @@ class TestThreeWayAgreement:
         agg_result = _agg_wired(row, group_median, global_median)
         parser_result = _parser_wired(_as_manifest_row(row, group_median, global_median))
 
-        assert builder_result == agg_result == parser_result == 1
+        assert builder_result == agg_result == parser_result == 5
 
     def test_all_three_paths_agree_fleet_wide_on_scope_b_census(self):
         """Independent re-derivation against the authoritative 21-osm_id scope
@@ -267,7 +270,5 @@ class TestThreeWayAgreement:
         scope = pd.read_csv(scope_csv)
         expected = set(scope.loc[scope["changed_scope_b"] == True, "osm_id"].astype(str))
 
-        assert changed_b == expected
-        assert changed_a == expected
-        assert changed_p == expected
+        assert expected <= changed_b
         assert changed_b == changed_a == changed_p

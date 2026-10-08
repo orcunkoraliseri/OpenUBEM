@@ -178,14 +178,14 @@ class TestCookingEmitter:
         assert vents[0].Ventilation_Type == "Exhaust"
         assert float(vents[0].Design_Flow_Rate) > 0
 
-    def test_fsr_gas_level_scales_with_area(self):
+    def test_fsr_gas_is_area_density(self):
         idf = _fresh_idf()
         z = _simple_zone(idf)
         row = pd.Series({"archetype_id": "FullServiceRestaurant", "footprint_area_m2": 400.0})
         assign_cooking(idf, row, [z])
         gas_eq = idf.idfobjects["GASEQUIPMENT"][0]
-        # gas_density=83.76 W/m² × 400 m² = 33,504 W
-        assert abs(float(gas_eq.Design_Level) - 83.76 * 400.0) < 1.0
+        assert gas_eq.Design_Level_Calculation_Method == "Watts/Area"
+        assert abs(float(gas_eq.Power_per_Zone_Floor_Area) - 83.76) < 1e-6
 
     def test_office_emits_nothing(self):
         idf = _fresh_idf()
@@ -280,3 +280,20 @@ class TestCookingEmitter:
                     if s.Name == "OpenUBEM_Cook_ExhaustSched"]
         assert len(compact) == 1, "exhaust must use a SCHEDULE:COMPACT operating window"
         assert not constant, "exhaust must no longer use a constant 24/7 schedule"
+
+    def test_three_zone_building_gets_one_zonelist_gas_object(self):
+        idf = _fresh_idf()
+        zs = [_simple_zone(idf, n) for n in ("BLD_F1_A", "BLD_F1_B", "BLD_F2_C")]
+        row = pd.Series({"archetype_id": "FullServiceRestaurant", "footprint_area_m2": 400.0})
+        assign_cooking(idf, row, zs)
+        gas = idf.idfobjects["GASEQUIPMENT"]
+        assert len(gas) == 1
+        g = gas[0]
+        assert g.Design_Level_Calculation_Method == "Watts/Area"
+        assert abs(float(g.Power_per_Zone_Floor_Area) - 83.76) < 1e-6
+        zl = [z for z in idf.idfobjects["ZONELIST"] if z.Name == g.Zone_or_ZoneList_or_Space_or_SpaceList_Name]
+        assert len(zl) == 1
+        assert [v for v in zl[0].obj[2:] if v] == ["BLD_F1_A", "BLD_F1_B", "BLD_F2_C"]
+        elec = [e for e in idf.idfobjects["ELECTRICEQUIPMENT"] if e.EndUse_Subcategory == "Cooking"]
+        assert len(elec) == 1
+        assert elec[0].Design_Level_Calculation_Method == "Watts/Area"

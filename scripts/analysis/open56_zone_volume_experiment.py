@@ -154,7 +154,7 @@ def run_ep(idf, epw, outdir):
     # dies at input processing with 1 severe and never reaches the volume calculation --
     # which is exactly how the first attempt at this experiment failed its own control.
     subprocess.run([str(EPLUS), "-x", "-w", str(epw), "-d", str(outdir), str(idf)],
-                   capture_output=True, text=True, timeout=1800)
+                   capture_output=True, text=True, timeout=1800, cwd=str(outdir))
 
 
 def read_run(outdir):

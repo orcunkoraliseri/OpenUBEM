@@ -206,7 +206,9 @@ def test_t04_3x2_middle_units_have_one_exterior_facade():
         assert contact < polygon.length * 0.4
 
 
-def test_t04_relation_3730743_like_building_is_refused_not_approximated():
+def test_t04_relation_3730743_like_building_is_refused_not_approximated(monkeypatch):
+    import openubem.geometry.european_residential as _er
+    monkeypatch.setattr(_er, "EUROPEAN_LAYOUT_REGIME", "ruled")
     footprint = box(0, 0, 55, 34)  # ~1870 m^2, matches EXAMPLE building 12's plate area
     allocation = allocate_european_dwellings(
         archetype_id="x", building_type="AB", n_apartment=156, n_storey=5, plate_area_m2=footprint.area,

@@ -62,7 +62,7 @@ def test_t01_excluded_buildings_csv_matches_histogram(tmp_path):
 # T02 -- D-EU-111 best-effort tier.
 # ---------------------------------------------------------------------------
 
-_C11_ONLY_FOOTPRINT = box(0, 0, 60, 5)
+_C11_ONLY_FOOTPRINT = box(0, 0, 90, 5)
 _C11_ONLY_DWELLING_COUNT = 3
 
 
@@ -91,7 +91,7 @@ def test_t02_case2_hard_check_failure_still_refuses(monkeypatch):
 
 
 def test_t02_case3_max_flat_aspect_unchanged_and_c11_fails():
-    assert MAX_FLAT_ASPECT == 2.5
+    assert MAX_FLAT_ASPECT == 5.0
     _plate, _live, checks, _verdict = cut_storey_nocore(_C11_ONLY_FOOTPRINT, _C11_ONLY_DWELLING_COUNT)
     assert checks["C11"]["pass"] is False
 

@@ -919,6 +919,7 @@ def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> No
     # make explicit for robustness).
     valid_zones.sort(key=_group_key)
 
+    _had_expanded_zones = any(z.get("extruded") for z in zones)
     _extrude_zone_groups(idf, valid_zones, _exc)
 
     # T03: wrap intersect_match to catch geomeppy geometry exceptions (IndexError from
@@ -938,6 +939,8 @@ def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> No
             type(_exc_im).__name__,
         )
         try:
+            if _had_expanded_zones:
+                raise RuntimeError("expanded core/perim zones cannot be re-extruded from valid_zones")
             _purge_idf_geometry(idf)
             _extrude_zone_groups(idf, valid_zones, _exc)
             idf.match()

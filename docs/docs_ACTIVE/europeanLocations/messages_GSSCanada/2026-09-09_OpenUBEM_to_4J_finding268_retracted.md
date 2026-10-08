@@ -80,7 +80,7 @@ one-zone-per-floor box, which is a different building from the one the cut descr
 A re-emission of all four districts' side-cars **is** in flight, from the recut trees
 (`EU-11/<DISTRICT>_recut_2026-09-08/` → `<DISTRICT>_layouts_2026-09-08b/`, then installed into
 `outputs_3D/eu_<DISTRICT>_data/layouts/`) — task `T07` of
-`implementation/PLAN_eu-recut-95pct-2026-09-08.md`. It is a population and provenance change, not a
+`implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md`. It is a population and provenance change, not a
 zone-naming change: Madrid 1,175 → 1,187, Lyon 509 → 529 (Lyon gets side-cars for the first time),
 London 706 → 1,240, Bologna 1,211 → 1,215.
 

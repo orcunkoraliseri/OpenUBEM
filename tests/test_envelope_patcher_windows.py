@@ -1,5 +1,5 @@
 """Unit tests for envelope_patcher.py's B03 additions (plan
-docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block1-2026-09-17.md):
+docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block1-2026-09-17.md):
 the `skip_when_better` clamp on `patch_envelope`, and the fail-loud orphaned/
 mismatched WindowShadingControl check."""
 

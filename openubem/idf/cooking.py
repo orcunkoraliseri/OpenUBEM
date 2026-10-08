@@ -98,10 +98,17 @@ def assign_cooking(idf, row, zones):
         row["data_quality_flag"] = provenance.append_flag_token(
             row.get("data_quality_flag"), tok
         )
-    zone_name = zones[0]["name"]
+    zone_names = [z["name"] for z in zones]
+    zl_name = f"Cooking_ZL_{arch}"
+    zl = idf.newidfobject("ZONELIST")
+    zl.Name = zl_name
+    zl.obj.extend(zone_names)
 
-    gas_w_m2 = data.get("gas_density_w_m2", 0.0)
-    elec_w_m2 = data.get("elec_density_w_m2", 0.0)
+    stack = 1
+    if len(zones) == 1:
+        stack = max(int(zones[0].get("num_floors", 1) or 1), 1)
+    gas_w_m2 = data.get("gas_density_w_m2", 0.0) * stack
+    elec_w_m2 = data.get("elec_density_w_m2", 0.0) * stack
 
     # Per-fuel schedule fractions (RESULT_04 Table 1)
     gas_frac = float(
@@ -122,10 +129,10 @@ def assign_cooking(idf, row, zones):
         hgf = _HGF[hg_gas_key]
         gas_eq = idf.newidfobject("GASEQUIPMENT")
         gas_eq.Name = f"Cooking_Gas_{arch}"
-        gas_eq.Zone_or_ZoneList_or_Space_or_SpaceList_Name = zone_name
+        gas_eq.Zone_or_ZoneList_or_Space_or_SpaceList_Name = zl_name
         gas_eq.Schedule_Name = gas_sched
-        gas_eq.Design_Level_Calculation_Method = "EquipmentLevel"
-        gas_eq.Design_Level = round(gas_w_m2 * total_area, 2)
+        gas_eq.Design_Level_Calculation_Method = "Watts/Area"
+        gas_eq.Power_per_Zone_Floor_Area = gas_w_m2
         gas_eq.Fraction_Latent = hgf["latent"]
         gas_eq.Fraction_Radiant = hgf["radiant"]
         gas_eq.Fraction_Lost = hgf["lost"]
@@ -137,10 +144,10 @@ def assign_cooking(idf, row, zones):
         hgf = _HGF[hg_elec_key]
         elec_eq = idf.newidfobject("ELECTRICEQUIPMENT")
         elec_eq.Name = f"Cooking_Elec_{arch}"
-        elec_eq.Zone_or_ZoneList_or_Space_or_SpaceList_Name = zone_name
+        elec_eq.Zone_or_ZoneList_or_Space_or_SpaceList_Name = zl_name
         elec_eq.Schedule_Name = elec_sched
-        elec_eq.Design_Level_Calculation_Method = "EquipmentLevel"
-        elec_eq.Design_Level = round(elec_w_m2 * total_area, 2)
+        elec_eq.Design_Level_Calculation_Method = "Watts/Area"
+        elec_eq.Watts_per_Zone_Floor_Area = elec_w_m2
         elec_eq.Fraction_Latent = hgf["latent"]
         elec_eq.Fraction_Radiant = hgf["radiant"]
         elec_eq.Fraction_Lost = hgf["lost"]
@@ -159,7 +166,7 @@ def assign_cooking(idf, row, zones):
         _sched_cook_exhaust_once(idf, "OpenUBEM_Cook_ExhaustSched")
         vent = idf.newidfobject("ZONEVENTILATION:DESIGNFLOWRATE")
         vent.Name = f"KitchenExhaust_{arch}"
-        vent.Zone_or_ZoneList_or_Space_or_SpaceList_Name = zone_name
+        vent.Zone_or_ZoneList_or_Space_or_SpaceList_Name = zones[0]["name"]
         vent.Schedule_Name = "OpenUBEM_Cook_ExhaustSched"
         vent.Design_Flow_Rate_Calculation_Method = "Flow/Zone"
         vent.Design_Flow_Rate = round(float(exhaust_m3_s) * scale, 4)

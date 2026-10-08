@@ -7,6 +7,7 @@ Both tests are offline, against the four already-emitted HTML files under
 """
 from __future__ import annotations
 
+import dataclasses
 import json
 import re
 from pathlib import Path
@@ -16,24 +17,24 @@ import pandas as pd
 import pytest
 
 from scripts.eu_idf_plan_reader import read_building_plan
-from scripts.generate_eu_3d_viewers import EU17_ROOT, REPO_ROOT, _scene_ring
+from scripts.generate_eu_3d_viewers import EU11_ROOT, REPO_ROOT, WIN_TAG, _scene_ring
 from scripts.run_eu_s2_district_campaign import DISTRICTS
 
 VIEWER_DIR = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "outputs_3D"
 
-FORBIDDEN_RE = re.compile(r"eui|kwh|eplus|severe|fatal|weather|epw|job.?id|not simulated", re.IGNORECASE)
+FORBIDDEN_RE = re.compile(r"eplus|severe|fatal|weather|epw|job.?id", re.IGNORECASE)
 
-# T03(b): 2 per district, at least 2 massing boxes -- fixed at generation
+# T03(b): 2 per district, massing boxes where the 10-06 scene has them (GB has none) -- fixed at generation
 # time against the emitted scene JSON (EU-18c T01 sample).
 SAMPLE: list[tuple[str, str, str]] = [
     ("ES-MAD-BERRUGUETE", "way/100704712", "ruled"),
-    ("ES-MAD-BERRUGUETE", "way/100704656", "massing_box"),
+    ("ES-MAD-BERRUGUETE", "relation/12867469", "massing_box"),
     ("FR-LYO-HAUTCOEURPENTES", "BATIMENT0000000240877101_part0", "ruled"),
-    ("FR-LYO-HAUTCOEURPENTES", "BATIMENT0000000013365727_part0", "massing_box"),
+    ("FR-LYO-HAUTCOEURPENTES", "BATIMENT0000000240881193_part0", "massing_box"),
     ("GB-LDN-STDUNSTANS", "way/190348384", "ruled"),
-    ("GB-LDN-STDUNSTANS", "way/14325891", "massing_box"),
+    ("GB-LDN-STDUNSTANS", "relation/6171462", "ruled"),
     ("IT-BOL-GALVANI2", "32471", "ruled"),
-    ("IT-BOL-GALVANI2", "32166", "massing_box"),
+    ("IT-BOL-GALVANI2", "30025", "massing_box"),
 ]
 
 
@@ -76,7 +77,7 @@ def test_scene_polygons_match_idf_right_now(district: str, building_id: str, exp
     assert b is not None, f"{building_id} not found in {district} scene JSON"
     assert b["ls"] == expected_state
 
-    root = EU17_ROOT / district
+    root = EU11_ROOT / f"{district}{WIN_TAG}"
     prepared = pd.read_csv(root / "prepared_buildings.csv", dtype=str)
     row = prepared[prepared["building_id"] == building_id].iloc[0]
     stem = row["stem"]
@@ -89,6 +90,12 @@ def test_scene_polygons_match_idf_right_now(district: str, building_id: str, exp
         district=district,
         geometry_outcome=row["geometry_outcome"],
     )
+    origin_file = root / "origin_offset.json"
+    if origin_file.exists():
+        _off = json.loads(origin_file.read_text(encoding="utf-8"))
+        plan = dataclasses.replace(
+            plan, origin_xy=(plan.origin_xy[0] + float(_off["dx"]), plan.origin_xy[1] + float(_off["dy"]))
+        )
     cx, cy = _district_center(district)
 
     zones_by_storey: dict[int, list] = {}

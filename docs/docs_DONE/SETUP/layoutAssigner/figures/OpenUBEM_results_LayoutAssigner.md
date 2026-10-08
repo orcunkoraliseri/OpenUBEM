@@ -528,7 +528,7 @@ limits that are disclosed below plainly, not in a caveats appendix — per this 
 median 103.75; adopted fleet baseline E-R3-3 + Phase-E + elevators: 158.0). **E-LA-22 still stands —
 this delta is reported as a fact, not credited to or blamed on this arc's own fixes (R01/R02/R03/R10).**
 
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-09-30.md CP-B.
 
 **The full success-gain decomposition, all four terms, because the two largest alone would overstate
 this arc's own contribution:**
@@ -546,7 +546,7 @@ overwhelmingly not this arc's own work** — 150 of the 163 additional passing b
 pre-existing CTF-convergence fix (E-LA-20, 2026-07-25) landing at fleet scale for the first time in
 this harvest, unrelated to R01/R02/R03/R10.
 
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-09-30.md CP-B.
 
 ### 8.2 `match_storeys()`'s expressible population is narrow, and R10 shrank it further
 

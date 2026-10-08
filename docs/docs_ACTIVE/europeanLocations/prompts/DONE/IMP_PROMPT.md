@@ -30,7 +30,7 @@ Sibling document `prompts/DONE/DIRECTOR_PROMPT_eu-ceiling82-recut_2026-09-09.md`
 ## 1. Read first, in this order (line ranges are the read guard)
 
 1. `CLAUDE.md` (project root) — all of it, once.
-2. `docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-recut-95pct-2026-09-08.md` — the plan you
+2. `docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md` — the plan you
    drive. Header + §1 + §2 (rules) + §7 (checkpoints) + **§8 (progress log, the live state)**. Read §6
    task by task only when you dispatch that task.
 3. `docs/docs_ACTIVE/europeanLocations/STATE_european_locations_v5.md` §0 (line 32: next free ids) and the
@@ -184,7 +184,7 @@ Remote fleet dirs: `/speed-scratch/o_iseri/fleets/EU11_<D>_recut_2026-09-08/`.
 Kickoff prompt, verbatim, adjust the range and the checkpoint:
 
 ```
-Read C:\Users\o_iseri\Desktop\OpenUBEM\docs\docs_ACTIVE\europeanLocations\implementation\PLAN_eu-recut-95pct-2026-09-08.md.
+Read C:\Users\o_iseri\Desktop\OpenUBEM\docs\docs_ACTIVE\europeanLocations\implementation\DONE\PLAN_eu-recut-95pct-2026-09-08.md.
 Execute T<start> through T<end> in order. Stop at the first checkpoint after T<end>,
 append progress log entries (one per completed task) under §8 of that doc,
 run any standalone tests called for in the plan, and report results before continuing.

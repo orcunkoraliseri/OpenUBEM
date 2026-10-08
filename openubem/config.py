@@ -50,7 +50,7 @@ EPW_CACHE_DIR: Path = Path(
 BASELINE_IDF_DIR: Path = Path(
     os.environ.get(
         "OPENUBEM_BASELINE_IDF_DIR",
-        r"C:\Users\o_iseri\Desktop\idf_reader\Content\00.BaselineBuildings_NUs_v231",
+        r"C:\Users\o_iseri\Desktop\NEXA-desktop\Content\00.BaselineBuildings_NUs_v231",
     )
 )
 EPW_MAX_STATION_KM: float = 300.0  # ASSUMPTION_DESIGN_DEFAULT (DESIGN line 84)
@@ -120,7 +120,7 @@ SIM_RETAIN_FILES: frozenset = frozenset({
     "openubem_run.log",
 })
 N_JOBS: int = int(os.environ.get("SLURM_CPUS_PER_TASK", 0)) or -1
-PREP_ABORT_ON_FAILURE: bool = True
+PREP_ABORT_ON_FAILURE: bool = False
 
 # ── Step 5 results / metrics constants (DESIGN line 29) ───────────────────────
 GWP_NATURAL_GAS_KGCO2_KWH: float = 0.181  # Iseri et al. (2025)

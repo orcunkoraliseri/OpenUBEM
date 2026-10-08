@@ -17,7 +17,7 @@ restoration check is printed.
 Mandatory control (must reproduce to four decimals before the sweep is trusted):
 at today's values, fine top-1 = 87/98 = 0.8878 and coarse top-1 = 98/98 = 1.0000 on
 tests/fixtures/labelled_archetypes_tagrich_v2.csv, matching
-docs/docs_ACTIVE/openings/extra/FIX_open-22_tagrich-gate.md. If the control does not
+docs/docs_DONE/openings/extra/FIX_open-22_tagrich-gate.md. If the control does not
 reproduce, the script stops before sweeping — no other number in this task is
 quotable.
 

@@ -380,7 +380,7 @@ Execution goes to a **fresh Sonnet session** (`model: "sonnet"` explicit); this 
 
 The arc has moved on from the Bologna-tail campaign in §5 above (closed) to the `recut-95pct`
 re-opening. Full detail lives in `IMP_PROMPT.md` (manager handover, start at §3 step 6 = T06b) and
-`implementation/PLAN_eu-recut-95pct-2026-09-08.md`. This section is a live status append only.
+`implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md`. This section is a live status append only.
 
 **UPDATE 2026-09-09 ~00:15 EDT: fully drained.** `1314065_11` (Lyon) finished `COMPLETED`, elapsed
 08:41:15. All 775 T06a tasks are now terminal — 0 RUNNING, 0 PENDING account-wide, confirmed via

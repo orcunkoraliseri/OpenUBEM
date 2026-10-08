@@ -52,6 +52,7 @@ GB_EPC = ROOT / "openubem/outputs/eu_evidence/EU-04/D-EU-22/gb_epc_certificates.
 GB_EPC_YEARS = ROOT / "openubem/outputs/eu_evidence/EU-04/D-EU-22/gb_epc_construction_year_sidecar.csv"
 GB_EPC_CERT_CACHE = ROOT / "openubem/outputs/eu_evidence/EU-04/D-EU-22/_cache/certificate"
 
+MIN_CATASTRO_OVERLAP_M2 = 5.0
 DISTRICTS = {
     "ES-MAD-BERRUGUETE": {"country": "ES", "fold": "es", "crs": "EPSG:32630"},
     "FR-LYO-HAUTCOEURPENTES": {"country": "FR", "fold": "fr", "crs": "EPSG:32631"},
@@ -145,6 +146,46 @@ def _valid_storeys(row: pd.Series) -> int | None:
     return int(value) if value > 0 and value.is_integer() else None
 
 
+def _dwellings_for(row: pd.Series, records: list[dict]) -> tuple[int, str]:
+    dwellings = row.get("observed_dwellings")
+    if pd.notna(dwellings) and float(dwellings).is_integer() and float(dwellings) > 0:
+        stamp = row.get("dwellings_source")
+        return int(dwellings), stamp if stamp == "observed_split" else "observed"
+    if row["building_type"] in ("SFH", "TH"):
+        return 1, "single"
+    rec = next((x for x in records if x["archetype_id"] == row["archetype_id"]), None)
+    n_apt = rec.get("n_apartment") if rec else 10.0
+    default = max(1, round(float(n_apt))) if pd.notna(n_apt) else 10
+    try:
+        a_c = float(rec["geometry"]["a_c_ref_m2"])
+        n_ref = float(rec["n_apartment"])
+        mean_flat = a_c / n_ref
+        area = float(row.geometry.area) * int(_valid_storeys(row))
+    except (TypeError, KeyError, ValueError):
+        return default, "archetype_default"
+    if not (mean_flat > 0 and area > 0 and pd.notna(mean_flat) and pd.notna(area)):
+        return default, "archetype_default"
+    return max(1, round(area / mean_flat)), "area_imputed"
+
+
+def _catastro_dwelling_overrides(sidecar: pd.DataFrame) -> dict[str, tuple[float | None, str]]:
+    frame = sidecar[sidecar["n_dwellings"].notna()].copy()
+    frame["building_id"] = frame["building_id"].astype(str)
+    solid = frame["overlap_area_m2"].isna() | (frame["overlap_area_m2"] >= MIN_CATASTRO_OVERLAP_M2)
+    result: dict[str, tuple[float | None, str]] = {
+        str(b): (None, "area_imputed") for b in frame.loc[~solid, "building_id"]
+    }
+    for _, group in frame[solid].groupby("catastro_local_id", sort=False):
+        total = float(group["overlap_area_m2"].sum())
+        for _, item in group.iterrows():
+            if len(group) > 1 and total > 0:
+                count = max(1, round(float(item["n_dwellings"]) * float(item["overlap_area_m2"]) / total))
+                result[item["building_id"]] = (float(count), "observed_split")
+            else:
+                result[item["building_id"]] = (float(item["n_dwellings"]), "observed")
+    return result
+
+
 def _geometry(row: pd.Series, records: list[dict]) -> tuple[list[dict], str]:
     """D-EU-33 parity with ``scripts/emit_eu11_layout_sidecars.py``: this is the
 
@@ -158,18 +199,8 @@ def _geometry(row: pd.Series, records: list[dict]) -> tuple[list[dict], str]:
     n_storey = _valid_storeys(row)
     if n_storey is None:
         raise ValueError("MISSING_OBSERVED_STOREY_COUNT")
-    dwellings = row.get("observed_dwellings")
-    is_observed = pd.notna(dwellings) and float(dwellings).is_integer() and float(dwellings) > 0
-    if is_observed:
-        dwellings_val = int(dwellings)
-    else:
-        btype = row["building_type"]
-        if btype in ("SFH", "TH"):
-            dwellings_val = 1
-        else:
-            rec = next((x for x in records if x["archetype_id"] == row["archetype_id"]), None)
-            n_apt = rec.get("n_apartment") if rec else 10.0
-            dwellings_val = max(1, round(float(n_apt))) if pd.notna(n_apt) else 10
+    dwellings_val, dwellings_source = _dwellings_for(row, records)
+    is_observed = dwellings_source in ("observed", "observed_split")
 
     allocation = allocate_european_dwellings(
         archetype_id=row["archetype_id"], building_type=row["building_type"],
@@ -638,8 +669,11 @@ def _it_rows(gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Co
 
 def _mapped_rows(district: str, gdf: gpd.GeoDataFrame, records: list[dict]) -> tuple[list[dict], Counter]:
     country = DISTRICTS[district]["country"]
+    overrides: dict[str, tuple[float | None, str]] = {}
     if district == "ES-MAD-BERRUGUETE":
-        gdf = apply_attribute_sidecar(gdf, pd.read_csv(ES_SIDECAR))
+        sidecar = pd.read_csv(ES_SIDECAR)
+        overrides = _catastro_dwelling_overrides(sidecar)
+        gdf = apply_attribute_sidecar(gdf, sidecar)
         gdf = gdf.assign(is_attached=compute_footprint_adjacency(gdf))
     if district == "FR-LYO-HAUTCOEURPENTES":
         gdf = gdf.assign(is_attached=compute_footprint_adjacency(gdf))
@@ -653,8 +687,11 @@ def _mapped_rows(district: str, gdf: gpd.GeoDataFrame, records: list[dict]) -> t
             exclusions.log(building_id, "base_mapping", "MISSING_OBSERVED_STOREY_COUNT"); continue
         record = next(x for x in records if x["archetype_id"] == decision.archetype_id)
         age = tabula_period(country, int(decision.year_built))
-        result.append({**item.to_dict(), **asdict(decision), "building_id": str(item.osm_id),
-                       "building_type": decision.building_type, "archetype_id": record["archetype_id"], "age_band": age})
+        row = {**item.to_dict(), **asdict(decision), "building_id": str(item.osm_id),
+               "building_type": decision.building_type, "archetype_id": record["archetype_id"], "age_band": age}
+        if building_id in overrides:
+            row["observed_dwellings"], row["dwellings_source"] = overrides[building_id]
+        result.append(row)
     return result, exclusions
 
 
@@ -1049,6 +1086,7 @@ def prepare(
     # `impute_from_neighbours`, so this local parameter never shadows the
     # module-level `impute_from_neighbours` function called below.
     impute_from_neighbours_enabled: bool = True,
+    only_ids: frozenset[str] | None = None,
 ) -> dict:
     cfg = DISTRICTS[district]; expected_crs = crs or cfg["crs"]
     manifest = ROOT / f"openubem/outputs/eu02/{district}/02_residential_manifest.gpkg"
@@ -1089,6 +1127,8 @@ def prepare(
     context_height_fallback_census: Counter = Counter()
     prepared, geometry_exclusions = [], _ExclusionCounter()
     for data in rows:
+        if only_ids is not None and str(data["building_id"]) not in only_ids:
+            continue
         row = pd.Series(data)
         try:
             # OSM identifiers include '/', while EnergyPlus object and Windows
@@ -1113,6 +1153,10 @@ def prepare(
             # mismatch. Disclose that here rather than leave `outcome` stale.
             if any(z.get("generation_status_note") == "room_layout_intersect_fallback" for z in zones):
                 outcome = "DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED"
+            if any(z.get("generation_status_note") == "room_layout_overlap_fallback" for z in zones):
+                outcome = f"{outcome}_OVERLAP_FALLBACK"
+            if any(z.get("generation_status_note") == "room_layout_preflight_fallback" for z in zones):
+                outcome = f"{outcome}_PREFLIGHT_FALLBACK"
             # T15 (D-EU-58): scripts/run_eu_s2_campaign.py's post-extrude at-risk gate
             # tags every zone with `fallback_reason` when it retains an already-emitted
             # geometry instead of raising. Surface it as its own manifest column so it
@@ -1138,6 +1182,7 @@ def prepare(
             conditioned_floor_area_m2 = round(
                 sum(float(z["floor_polygon"].area) for z in zones if z.get("conditioned") is not False), 4
             )
+            dwellings_used, dwellings_source = _dwellings_for(model_row, records)
             prepared.append({"building_id": row.building_id, "stem": target.stem, "archetype_id": row.archetype_id,
                              "building_type": row.building_type, "age_band": row.age_band, "geometry_outcome": outcome,
                              "idf_sha256": sha256_file(target), "weather_sha256": weather_sha,
@@ -1155,7 +1200,8 @@ def prepare(
                              # is computed or recomputed here (D-EU-55: nothing simulates).
                              "eui_denominator_m2": conditioned_floor_area_m2,
                              "context_building_count": len(context),
-                             "fallback_reason": fallback_reason})
+                             "fallback_reason": fallback_reason,
+                             "dwellings_used": dwellings_used, "dwellings_source": dwellings_source})
         except ValueError as exc:
             geometry_exclusions.log(row.building_id, "idf_build", str(exc))
         except (RuntimeError, ZeroDivisionError, IndexError) as exc:
@@ -1270,8 +1316,12 @@ def main() -> None:
              "against the newest earlier tree (_delta_2026-09-07 first, else _final_2026-09-07) "
              "and restrict fleet.lst to it.",
     )
+    parser.add_argument("--only-ids", dest="only_ids", type=Path, default=None)
     args = parser.parse_args()
-    result = prepare(args.district, args.archetypes, args.epw, args.crs, args.out, args.impute_from_neighbours)
+    only_ids = None
+    if args.only_ids is not None:
+        only_ids = frozenset(str(v) for v in pd.read_csv(args.only_ids, dtype=str)["building_id"])
+    result = prepare(args.district, args.archetypes, args.epw, args.crs, args.out, args.impute_from_neighbours, only_ids)
     if args.write_recut_simulate_list:
         result["recut_simulate_list"] = compute_recut_simulate_list(args.out, args.district)
     print(json.dumps(result, indent=2, sort_keys=True))

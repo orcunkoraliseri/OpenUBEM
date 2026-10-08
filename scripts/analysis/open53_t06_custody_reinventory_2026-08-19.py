@@ -104,8 +104,8 @@ def find_cited_evidence(repo_root):
     """Scan extra/*.md and the register for file paths that point into one of the four
     corpora above (by cell-mode dir name pattern or explicit path), and check which still
     exist on disk. Returns list of (source_doc, cited_string) and resolved paths found."""
-    extra_dir = os.path.join(repo_root, "docs", "docs_ACTIVE", "openings", "extra")
-    register = os.path.join(repo_root, "docs", "docs_ACTIVE", "openings",
+    extra_dir = os.path.join(repo_root, "docs", "docs_DONE", "openings", "extra")
+    register = os.path.join(repo_root, "docs", "docs_DONE", "openings",
                              "INVESTIGATION_open-items-register.md")
     md_files = [os.path.join(extra_dir, f) for f in os.listdir(extra_dir) if f.endswith(".md")]
     md_files.append(register)

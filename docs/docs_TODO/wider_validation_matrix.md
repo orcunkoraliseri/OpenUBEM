@@ -4,7 +4,7 @@
 ruling.** This document is now the only place the question is tracked.
 **Logged:** 2026-06-17 · **ID retired:** 2026-08-20, following the OPEN-21 precedent
 **Priority:** Optional / future — does not block any current work.
-**Register:** `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md` §2 (row struck) and
+**Register:** `docs/docs_DONE/openings/INVESTIGATION_open-items-register-II.md` §2 (row struck) and
 §6 (closing note). **`OPEN-20` is retired and must not be reused.**
 
 ---
@@ -23,7 +23,7 @@ deliberately.
 
 **What the retirement rests on:** the item's substance was already discharged. T20(b) of
 `PLAN_twenty-items-2026-08-19.md` wrote the external-validity statement in full —
-`docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-18-20_method-bounds.md` §(b). It states what the
+`docs/docs_DONE/openings/extra/MEASUREMENT_open-18-20_method-bounds.md` §(b). It states what the
 12-cell matrix supports, what it does not, and the one finding that bounds it hardest:
 
 > **OPEN-19 bounds this further** — the simulation model does not yet vary construction or HVAC
@@ -36,7 +36,7 @@ including the adopted **153.8231 kWh/m²**, which is a pooled statistic over exa
 Its precision *within* the population is not in question; its reach beyond it is what this document
 bounds. **Retiring the ID does not retire the caveat.**
 
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 
 ## What
 

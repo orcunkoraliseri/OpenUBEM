@@ -1,6 +1,6 @@
 """OPEN-12 T04 -- name the third 100%-residual cell and lock the replacement figures.
 
-Plan: docs/docs_ACTIVE/openings/implemenation/previous/PLAN_five-items-2026-08-20-late.md, T04.
+Plan: docs/docs_DONE/openings/implemenation/previous/PLAN_five-items-2026-08-20-late.md, T04.
 
 `extra/MEASUREMENT_open-12_height-residual-retrace.md` (T05 of an earlier plan) already
 established that the register's original 36.4% / 19.2% only reproduce on a gitignored,

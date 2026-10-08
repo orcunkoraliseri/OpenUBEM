@@ -23,6 +23,7 @@ Outputs (per district):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import shutil
@@ -67,6 +68,14 @@ TAGGED_DISTRICT_JOBS = {
     ("FR-LYO-HAUTCOEURPENTES", "recut_2026-09-08"): 1314065,
     ("GB-LDN-STDUNSTANS", "recut_2026-09-08"): 1314066,
     ("IT-BOL-GALVANI2", "recut_2026-09-08"): 1314067,
+    ("ES-MAD-BERRUGUETE", "fix_2026-09-29"): 1402184,
+    ("FR-LYO-HAUTCOEURPENTES", "fix_2026-09-29"): 1402185,
+    ("GB-LDN-STDUNSTANS", "fix_2026-09-29"): 1402186,
+    ("IT-BOL-GALVANI2", "fix_2026-09-29"): 1402187,
+    ("ES-MAD-BERRUGUETE", "fix_2026-10-01"): [1405556, 1405952, 1406517],
+    ("FR-LYO-HAUTCOEURPENTES", "fix_2026-10-01"): [1405481, 1405950, 1406516],
+    ("GB-LDN-STDUNSTANS", "fix_2026-10-01"): [1405523, 1405951],
+    ("IT-BOL-GALVANI2", "fix_2026-10-01"): [1405559, 1406674],
 }
 
 MANIFEST_COLUMNS = [
@@ -75,6 +84,9 @@ MANIFEST_COLUMNS = [
     "idf_sha256", "weather_sha256", "eplus_return_code", "severe_errors", "fatal_errors",
     "heating_kwh", "floor_area_m2", "eui_kwh_m2", "run_seconds", "platform", "energyplus_version",
 ]
+
+WIN5_TAG = "win_2026-10-05"
+WIN6_TAG = "win_2026-10-06"
 
 J_TO_KWH = 1.0 / 3.6e6
 _HEATING_SQL = (
@@ -143,30 +155,45 @@ def fetch_district_out(district: str, work_base: Path, tag: str | None = None) -
     return sim_out
 
 
-def fetch_sacct_elapsed(job_id: int) -> dict[int, int]:
+def fetch_sacct_elapsed(job_id: int, with_state: bool = False) -> dict:
     """Per-array-task elapsed seconds, keyed by array task index.
 
-    `sacct` here is a listing/reading command (allowed on the login node),
-    never compute. Excludes the `.batch`/`.extern` sub-steps that `sacct`
-    also reports for every array task.
+    With `with_state` the value is `(seconds, state)`. `sacct` here is a
+    listing/reading command (allowed on the login node), never compute.
+    Excludes the `.batch`/`.extern` sub-steps that `sacct` also reports for
+    every array task.
     """
+    fmt = "JobID,Elapsed,State" if with_state else "JobID,Elapsed"
     raw = _ssh(
-        f"sacct -j {job_id} --format=JobID,Elapsed --noheader --parsable2",
+        f"sacct -j {job_id} --format={fmt} --noheader --parsable2",
         timeout=60,
     )
-    out: dict[int, int] = {}
+    out: dict = {}
     for line in raw.splitlines():
         line = line.strip()
-        m = re.match(rf"^{job_id}_(\d+)\|(\d+)-(\d+):(\d+):(\d+)$", line)
+        state = line.split("|")[2].split()[0] if with_state and line.count("|") >= 2 else ""
+        m = re.match(rf"^{job_id}_(\d+)\|(\d+)-(\d+):(\d+):(\d+)(?:\|.*)?$", line)
         if m:
             idx, days, hh, mm, ss = m.groups()
-            out[int(idx)] = int(days) * 86400 + int(hh) * 3600 + int(mm) * 60 + int(ss)
+            secs = int(days) * 86400 + int(hh) * 3600 + int(mm) * 60 + int(ss)
+            out[int(idx)] = (secs, state) if with_state else secs
             continue
-        m = re.match(rf"^{job_id}_(\d+)\|(\d+):(\d+):(\d+)$", line)
+        m = re.match(rf"^{job_id}_(\d+)\|(\d+):(\d+):(\d+)(?:\|.*)?$", line)
         if m:
             idx, hh, mm, ss = m.groups()
-            out[int(idx)] = int(hh) * 3600 + int(mm) * 60 + int(ss)
+            secs = int(hh) * 3600 + int(mm) * 60 + int(ss)
+            out[int(idx)] = (secs, state) if with_state else secs
     return out
+
+
+def _elapsed_for_jobs(job_ids: list[int]) -> dict[int, int]:
+    per_job = [fetch_sacct_elapsed(j, with_state=True) for j in job_ids]
+    merged: dict[int, int] = {}
+    for idx in sorted({i for d in per_job for i in d}):
+        having = [d[idx] for d in per_job if idx in d]
+        completed = [secs for secs, state in having if state == "COMPLETED"]
+        merged[idx] = completed[-1] if completed else having[-1][0]
+    return merged
 
 
 # ── parse one task's remote output ─────────────────────────────────────────
@@ -233,12 +260,58 @@ def harvest_district(district: str, work_base: Path, tag: str | None = None) -> 
 
     fleet_lst = [s.strip() for s in (dist_dir / "fleet.lst").read_text(encoding="utf-8").splitlines() if s.strip()]
 
+    if tag and tag.startswith("win_"):
+        jobs_path = dist_dir / "speed_jobs.txt"
+        if not jobs_path.exists():
+            raise FileNotFoundError(f"missing {jobs_path} - the director writes it after submission")
+        job_id = [
+            int(ln.split()[0]) for ln in jobs_path.read_text(encoding="utf-8").splitlines() if ln.strip()
+        ]
+    else:
+        job_id = TAGGED_DISTRICT_JOBS.get((district, tag), DISTRICT_JOBS[district]) if tag else DISTRICT_JOBS[district]
+    is_win5 = tag in (WIN5_TAG, WIN6_TAG)
+    if is_win5:
+        idf_dir = dist_dir / "idfs"
+        stems = sorted(p.stem for p in idf_dir.glob("*.idf"))
+        md5_map = {}
+        for ln in (dist_dir / f"md5_{tag[len('win_'):]}.txt").read_text(encoding="utf-8").splitlines():
+            parts = ln.split()
+            if len(parts) >= 2:
+                md5_map[Path(parts[1]).stem] = parts[0].lower()
+        for stem in stems:
+            got = hashlib.md5((idf_dir / f"{stem}.idf").read_bytes()).hexdigest()
+            if md5_map.get(stem) != got:
+                raise ValueError(f"{district}: md5 mismatch for {stem}: file {got} vs md5 list {md5_map.get(stem)}")
+    else:
+        stems = fleet_lst
+    fleet_index = {s: i for i, s in enumerate(fleet_lst, start=1)}
     sim_out = fetch_district_out(district, work_base, tag)
-    job_id = TAGGED_DISTRICT_JOBS.get((district, tag), DISTRICT_JOBS[district]) if tag else DISTRICT_JOBS[district]
-    elapsed = fetch_sacct_elapsed(job_id)
+    elapsed = _elapsed_for_jobs(job_id) if isinstance(job_id, list) else fetch_sacct_elapsed(job_id)
+
+    shipped_path = dist_dir / "shipped_t06f.lst"
+    shipped = (
+        {s.strip() for s in shipped_path.read_text(encoding="utf-8").splitlines() if s.strip()}
+        if shipped_path.exists() else set()
+    )
+    not_in_fleet = sorted(shipped - set(fleet_lst))
+    if not_in_fleet:
+        raise ValueError(f"shipped_t06f.lst stems not in fleet.lst for {district}: {not_in_fleet[:5]}")
+    t06f_idf_dir = EVIDENCE_ROOT / f"{district}_{tag}_t06f" / "idfs"
+
+    shipped_g_path = dist_dir / "shipped_t06g.lst"
+    shipped_g = (
+        {s.strip() for s in shipped_g_path.read_text(encoding="utf-8").splitlines() if s.strip()}
+        if shipped_g_path.exists() else set()
+    )
+    not_in_fleet_g = sorted(shipped_g - set(fleet_lst))
+    if not_in_fleet_g:
+        raise ValueError(f"shipped_t06g.lst stems not in fleet.lst for {district}: {not_in_fleet_g[:5]}")
+    t06g_idf_dir = EVIDENCE_ROOT / f"{district}_{tag}_t06g" / "idfs"
+    has_variant = shipped_path.exists() or shipped_g_path.exists()
 
     rows = []
-    for idx, stem in enumerate(fleet_lst, start=1):
+    for stem in stems:
+        idx = fleet_index.get(stem)
         prow = prepared[prepared["stem"] == stem]
         if prow.empty:
             raise ValueError(f"fleet.lst stem {stem} not found in prepared_buildings.csv for {district}")
@@ -254,6 +327,19 @@ def harvest_district(district: str, work_base: Path, tag: str | None = None) -> 
         heating_kwh = task["heating_kwh"]
         eui = (heating_kwh / floor_area_m2) if (pd.notna(heating_kwh) and floor_area_m2 > 0) else pd.NA
 
+        if is_win5:
+            idf_sha = hashlib.sha256((dist_dir / "idfs" / f"{stem}.idf").read_bytes()).hexdigest()
+            idf_variant = "fix"
+        elif stem in shipped_g:
+            idf_sha = hashlib.sha256((t06g_idf_dir / f"{stem}.idf").read_bytes()).hexdigest()
+            idf_variant = "t06g"
+        elif stem in shipped:
+            idf_sha = hashlib.sha256((t06f_idf_dir / f"{stem}.idf").read_bytes()).hexdigest()
+            idf_variant = "t06f"
+        else:
+            idf_sha = prow["idf_sha256"]
+            idf_variant = "fix"
+
         rows.append({
             "building_id": prow["building_id"],
             "archetype_id": prow["archetype_id"],
@@ -261,7 +347,7 @@ def harvest_district(district: str, work_base: Path, tag: str | None = None) -> 
             "age_band": prow["age_band"],
             "geometry_outcome": prow["geometry_outcome"],
             "construction_period_provenance": prow.get("construction_period_provenance", ""),
-            "idf_sha256": prow["idf_sha256"],
+            "idf_sha256": idf_sha,
             "weather_sha256": prow["weather_sha256"],
             "eplus_return_code": task["eplus_return_code"],
             "severe_errors": task["severe_errors"],
@@ -269,12 +355,18 @@ def harvest_district(district: str, work_base: Path, tag: str | None = None) -> 
             "heating_kwh": round(heating_kwh, 6) if pd.notna(heating_kwh) else pd.NA,
             "floor_area_m2": round(floor_area_m2, 4),
             "eui_kwh_m2": round(eui, 6) if pd.notna(eui) else pd.NA,
-            "run_seconds": elapsed.get(idx, pd.NA),
+            "run_seconds": elapsed.get(idx, pd.NA) if idx is not None else pd.NA,
             "platform": task["platform"],
             "energyplus_version": task["energyplus_version"],
+            "idf_variant": idf_variant if has_variant else pd.NA,
+            "dwellings_used": prow.get("dwellings_used", pd.NA),
+            "dwellings_source": prow.get("dwellings_source", pd.NA),
         })
 
-    manifest = pd.DataFrame(rows, columns=MANIFEST_COLUMNS)
+    manifest_columns = MANIFEST_COLUMNS + (["idf_variant"] if has_variant else [])
+    if is_win5:
+        manifest_columns = manifest_columns + ["dwellings_used", "dwellings_source"]
+    manifest = pd.DataFrame(rows, columns=manifest_columns)
     slug = district.lower().replace("-", "_")
     manifest_path = dist_dir / f"{slug}_manifest.csv"
     manifest.to_csv(manifest_path, index=False)

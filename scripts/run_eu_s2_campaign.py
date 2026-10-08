@@ -27,6 +27,7 @@ import subprocess
 import sys
 import time
 from collections import Counter
+from itertools import groupby
 from pathlib import Path
 
 import geopandas as gpd
@@ -45,7 +46,10 @@ from openubem.geometry.european_residential import (
 from openubem.geometry.zoning import build_zones
 from openubem.idf.european_controls import add_european_heating_controls
 from openubem.idf.european_physics import add_european_internal_mass, add_nomass_construction
+from openubem.idf.european_windows import add_tabula_windows
+from openubem.idf.surface_orientation import normalise_surface_orientation
 from openubem.idf.builder import write_zone_volumes
+import openubem.idf.surfaces as _surfaces
 from openubem.idf.surfaces import (
     extrude_geometry,
     find_mismatched_interzone_pairs,
@@ -139,6 +143,1255 @@ def _has_near_duplicate_vertex_surfaces(idf, interzone_only: bool = True) -> boo
             if angle_deg > 180.0 - COLLINEAR_VERTEX_ANGLE_TOLERANCE_DEG:
                 return True
     return False
+
+
+MIRROR_COVERAGE_AREA_TOLERANCE_M2 = 1e-4
+MIRROR_COVERAGE_VERTEX_TOLERANCE_M = 0.005
+RING_CLEAN_MIN_EDGE_M = 0.01
+
+
+def _clean_ring_3d(coords):
+    import math
+
+    ring = [tuple(float(c) for c in p) for p in coords]
+    original = list(ring)
+
+    def _dist(a, b):
+        return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
+
+    def _one_pass(ring):
+        spiked = True
+        while spiked and len(ring) >= 3:
+            spiked = False
+            n = len(ring)
+            for i in range(n):
+                if _dist(ring[(i - 1) % n], ring[(i + 1) % n]) < RING_CLEAN_MIN_EDGE_M:
+                    j = (i + 1) % n
+                    ring = [p for k, p in enumerate(ring) if k not in (i, j)]
+                    spiked = True
+                    break
+        if len(ring) < 3:
+            ring = list(original)
+        changed = True
+        while changed and len(ring) > 3:
+            changed = False
+            n = len(ring)
+            for i in range(n):
+                p0, p1, p2 = ring[(i - 1) % n], ring[i], ring[(i + 1) % n]
+                v1 = tuple(a - b for a, b in zip(p0, p1))
+                v2 = tuple(a - b for a, b in zip(p2, p1))
+                len1 = math.sqrt(sum(c * c for c in v1))
+                len2 = math.sqrt(sum(c * c for c in v2))
+                drop = len1 < RING_CLEAN_MIN_EDGE_M or len2 < RING_CLEAN_MIN_EDGE_M
+                if not drop:
+                    cos_a = max(-1.0, min(1.0, sum(a * b for a, b in zip(v1, v2)) / (len1 * len2)))
+                    drop = math.degrees(math.acos(cos_a)) > 180.0 - COLLINEAR_VERTEX_ANGLE_TOLERANCE_DEG
+                if drop:
+                    del ring[i]
+                    changed = True
+                    break
+        return ring
+
+    while True:
+        before = len(ring)
+        ring = _one_pass(ring)
+        if len(ring) == before:
+            break
+    return ring
+
+
+def _plane_basis(ring):
+    import math
+
+    nx, ny, nz = _newell_normal(ring)
+    norm = math.sqrt(nx * nx + ny * ny + nz * nz)
+    if norm == 0.0:
+        return None
+    nx, ny, nz = nx / norm, ny / norm, nz / norm
+    ref = (1.0, 0.0, 0.0) if abs(nx) < 0.9 else (0.0, 1.0, 0.0)
+    ux = ny * ref[2] - nz * ref[1]
+    uy = nz * ref[0] - nx * ref[2]
+    uz = nx * ref[1] - ny * ref[0]
+    un = math.sqrt(ux * ux + uy * uy + uz * uz)
+    u = (ux / un, uy / un, uz / un)
+    v = (ny * u[2] - nz * u[1], nz * u[0] - nx * u[2], nx * u[1] - ny * u[0])
+    return tuple(ring[0]), u, v, (nx, ny, nz)
+
+
+def _plane_frame(ring):
+    basis = _plane_basis(ring)
+    if basis is None:
+        return None
+    origin, u, v, _n = basis
+
+    def project(p):
+        d = tuple(a - b for a, b in zip(p, origin))
+        return (sum(a * b for a, b in zip(d, u)), sum(a * b for a, b in zip(d, v)))
+
+    return project
+
+
+def _pair_covers_same_polygon(clean_ring, partner_ring) -> bool:
+    from shapely.geometry import Point
+
+    project = _plane_frame(clean_ring)
+    if project is None:
+        return False
+    a = Polygon([project(p) for p in clean_ring])
+    partner_clean = _clean_ring_3d(partner_ring)
+    if len(partner_clean) < 3:
+        return False
+    b = Polygon([project(p) for p in partner_clean])
+    if not a.is_valid:
+        a = a.buffer(0)
+    if not b.is_valid:
+        b = b.buffer(0)
+    if a.is_empty or b.is_empty or a.geom_type != "Polygon" or b.geom_type != "Polygon" or a.area <= 0.0 or b.area <= 0.0:
+        return False
+    if a.symmetric_difference(b).area > MIRROR_COVERAGE_AREA_TOLERANCE_M2:
+        return False
+    boundary = a.exterior
+    return all(boundary.distance(Point(project(p))) <= MIRROR_COVERAGE_VERTEX_TOLERANCE_M for p in partner_ring)
+
+
+def _newell_normal(ring):
+    nx = ny = nz = 0.0
+    n = len(ring)
+    for i in range(n):
+        x1, y1, z1 = ring[i]
+        x2, y2, z2 = ring[(i + 1) % n]
+        nx += (y1 - y2) * (z1 + z2)
+        ny += (z1 - z2) * (x1 + x2)
+        nz += (x1 - x2) * (y1 + y2)
+    return nx, ny, nz
+
+
+def _interzone_groups(bsds):
+    by_name = {str(s.Name).upper(): s for s in bsds}
+    parent = {name: name for name in by_name}
+
+    def find(x):
+        while parent[x] != x:
+            parent[x] = parent[parent[x]]
+            x = parent[x]
+        return x
+
+    linked = set()
+    for surf in bsds:
+        if str(getattr(surf, "Outside_Boundary_Condition", "")).upper() != "SURFACE":
+            continue
+        name = str(surf.Name).upper()
+        partner = str(getattr(surf, "Outside_Boundary_Condition_Object", "") or "").upper()
+        if partner not in by_name or partner == name:
+            continue
+        linked.update((name, partner))
+        parent[find(name)] = find(partner)
+    groups = {}
+    for name in linked:
+        groups.setdefault(find(name), []).append(name)
+    return by_name, [sorted(g) for g in groups.values()]
+
+
+def _same_cyclic_ring(a, b) -> bool:
+    if len(a) != len(b):
+        return False
+    return any(b[i:] + b[:i] == a for i in range(len(b)))
+
+
+MIRROR_NEAR_SAME_AREA_M2 = 0.01
+MAX_ADIABATIC_REMAINDER_M2 = 1.0
+REMAINDER_PLANE_TOLERANCE_M = 0.01
+PAIR_STAT_KEYS = (
+    "pairs_seen", "pairs_rewritten", "pairs_skipped_coverage", "pairs_near_same_mirrored", "pairs_split",
+    "remainder_paired", "remainder_dropped", "remainder_adiabatic", "adiabatic_area_m2", "pairs_still_skipped",
+    "remainder_outdoors", "outdoors_area_m2",
+)
+
+
+def _fenestration_hosts(idf) -> set:
+    try:
+        fens = idf.idfobjects["FENESTRATIONSURFACE:DETAILED"]
+    except KeyError:
+        return set()
+    return {str(f.Building_Surface_Name).upper() for f in fens}
+
+
+def _polygon_in_frame(ring, project):
+    poly = Polygon([project(p) for p in ring])
+    if not poly.is_valid:
+        poly = poly.buffer(0)
+    return poly
+
+
+def _relative_targets(members, rings, ref_index, cleaned):
+    ref_normal = _newell_normal(cleaned)
+    targets = []
+    for i, ring in enumerate(rings):
+        if i == ref_index:
+            targets.append(list(cleaned))
+            continue
+        same_side = len(members) > 2 and sum(a * b for a, b in zip(_newell_normal(ring), ref_normal)) > 0.0
+        targets.append(list(cleaned) if same_side else list(reversed(cleaned)))
+    return targets
+
+
+def _mirror_near_same_group(members, rings):
+    cleaned_all = [_clean_ring_3d(r) for r in rings]
+    if any(len(c) < 3 for c in cleaned_all):
+        return False
+    ref_index = max(range(len(rings)), key=lambda i: _ring_area_m2(cleaned_all[i]))
+    ref = cleaned_all[ref_index]
+    project = _plane_frame(ref)
+    if project is None:
+        return False
+    ref_poly = _polygon_in_frame(ref, project)
+    if ref_poly.is_empty or ref_poly.geom_type != "Polygon" or ref_poly.area <= 0.0:
+        return False
+    for i, c in enumerate(cleaned_all):
+        if i == ref_index:
+            continue
+        other = _polygon_in_frame(c, project)
+        if other.is_empty or other.geom_type != "Polygon" or other.area <= 0.0:
+            return False
+        if ref_poly.symmetric_difference(other).area > MIRROR_NEAR_SAME_AREA_M2 + 1e-9:
+            return False
+    for member, target in zip(members, _relative_targets(members, rings, ref_index, ref)):
+        member.setcoords(target)
+    return True
+
+
+def _find_remainder_partner(bsds, piece_ring, large, exclude, hosts):
+    basis = _plane_basis(piece_ring)
+    if basis is None:
+        return None
+    origin, _u, _v, normal = basis
+    project = _plane_frame(piece_ring)
+    piece_poly = _polygon_in_frame(piece_ring, project)
+    zone = str(getattr(large, "Zone_Name", "")).upper()
+    best = None
+    for cand in bsds:
+        name = str(cand.Name).upper()
+        if name in exclude or name in hosts:
+            continue
+        if str(getattr(cand, "Outside_Boundary_Condition", "")).upper() == "SURFACE":
+            continue
+        if str(getattr(cand, "Zone_Name", "")).upper() == zone:
+            continue
+        ring = [tuple(p) for p in cand.coords]
+        if len(ring) < 3:
+            continue
+        if any(abs(sum((a - b) * n for a, b, n in zip(p, origin, normal))) > REMAINDER_PLANE_TOLERANCE_M for p in ring):
+            continue
+        cn = _newell_normal(ring)
+        if sum(a * b for a, b in zip(cn, normal)) >= 0.0:
+            continue
+        cand_clean = _clean_ring_3d(ring)
+        if len(cand_clean) < 3:
+            continue
+        diff = piece_poly.symmetric_difference(_polygon_in_frame(cand_clean, project)).area
+        if diff <= MIRROR_NEAR_SAME_AREA_M2 and (best is None or diff < best[0]):
+            best = (diff, cand)
+    return None if best is None else best[1]
+
+
+def _nothing_across(bsds, piece_ring, large, exclude):
+    basis = _plane_basis(piece_ring)
+    project = _plane_frame(piece_ring)
+    if basis is None or project is None:
+        return False
+    origin, _u, _v, normal = basis
+    piece_poly = _polygon_in_frame(piece_ring, project)
+    zone = str(getattr(large, "Zone_Name", "")).upper()
+    for cand in bsds:
+        if str(cand.Name).upper() in exclude or str(getattr(cand, "Zone_Name", "")).upper() == zone:
+            continue
+        ring = [tuple(p) for p in cand.coords]
+        if len(ring) < 3:
+            continue
+        if any(abs(sum((a - b) * n for a, b, n in zip(p, origin, normal))) > REMAINDER_PLANE_TOLERANCE_M for p in ring):
+            continue
+        if sum(a * b for a, b in zip(_newell_normal(ring), normal)) >= 0.0:
+            continue
+        cand_clean = _clean_ring_3d(ring)
+        if len(cand_clean) < 3:
+            continue
+        if piece_poly.intersection(_polygon_in_frame(cand_clean, project)).area > MIRROR_NEAR_SAME_AREA_M2:
+            return False
+    return True
+
+
+def _outdoor_construction(bsds, kind):
+    for surf in bsds:
+        surface_type = str(getattr(surf, "Surface_Type", "")).upper()
+        obc = str(getattr(surf, "Outside_Boundary_Condition", "")).upper()
+        if kind == "roof" and surface_type == "ROOF" and obc == "OUTDOORS":
+            return surf.Construction_Name
+        if kind == "floor" and surface_type == "FLOOR" and obc in ("OUTDOORS", "GROUND"):
+            return surf.Construction_Name
+    return None
+
+
+def _split_larger_group(idf, bsds, members, rings, adiabatic_used):
+    cleaned = [_clean_ring_3d(r) for r in rings]
+    if any(len(c) < 3 for c in cleaned):
+        return None
+    li = max(range(len(members)), key=lambda i: _ring_area_m2(cleaned[i]))
+    large, large_clean = members[li], cleaned[li]
+    small_index = sorted((i for i in range(len(members)) if i != li), key=lambda i: str(members[i].Name))
+    hosts = _fenestration_hosts(idf)
+    if str(large.Name).upper() in hosts:
+        return None
+    basis = _plane_basis(large_clean)
+    project = _plane_frame(large_clean)
+    if basis is None or project is None:
+        return None
+    large_poly = _polygon_in_frame(large_clean, project)
+    if large_poly.is_empty or large_poly.geom_type != "Polygon":
+        return None
+    tol = MIRROR_COVERAGE_VERTEX_TOLERANCE_M
+    large_normal = basis[3]
+    small_polys = []
+    for i in small_index:
+        poly = _polygon_in_frame(cleaned[i], project)
+        if poly.is_empty or poly.geom_type != "Polygon" or not large_poly.buffer(tol).covers(poly):
+            return None
+        if sum(a * b for a, b in zip(_newell_normal(cleaned[i]), large_normal)) >= 0.0:
+            return None
+        small_polys.append(poly)
+    for a in range(len(small_polys)):
+        for b in range(a + 1, len(small_polys)):
+            if small_polys[a].intersection(small_polys[b]).area >= MIRROR_NEAR_SAME_AREA_M2:
+                return None
+    covered = small_polys[0].buffer(tol, join_style=2)
+    for poly in small_polys[1:]:
+        covered = covered.union(poly.buffer(tol, join_style=2))
+    remainder = large_poly.difference(covered)
+    parts = [g for g in getattr(remainder, "geoms", [remainder]) if g.geom_type == "Polygon" and not g.is_empty]
+    origin, u, v, _n = basis
+    plan = []
+    adiabatic_area = 0.0
+    outdoors_area = 0.0
+    dropped = 0
+    exclude = {str(m.Name).upper() for m in members}
+    for part in parts:
+        if part.area < MIRROR_NEAR_SAME_AREA_M2:
+            dropped += 1
+            continue
+        if part.interiors:
+            return None
+        part = orient(part, 1.0)
+        ring3 = [
+            tuple(origin[k] + x * u[k] + y * v[k] for k in range(3)) for x, y in list(part.exterior.coords)[:-1]
+        ]
+        ring3 = _clean_ring_3d(ring3)
+        if len(ring3) < 3:
+            dropped += 1
+            continue
+        partner = _find_remainder_partner(bsds, ring3, large, exclude, hosts)
+        if partner is not None:
+            exclude.add(str(partner.Name).upper())
+            plan.append((ring3, partner))
+        else:
+            kind = None
+            large_type = str(getattr(large, "Surface_Type", "")).upper()
+            if large_type in ("CEILING", "FLOOR") and _nothing_across(bsds, ring3, large, exclude):
+                wanted = "roof" if large_type == "CEILING" else "floor"
+                construction = _outdoor_construction(bsds, wanted)
+                if construction is not None:
+                    kind = (wanted, construction)
+            if kind is not None:
+                plan.append((ring3, kind))
+                outdoors_area += part.area
+            else:
+                plan.append((ring3, None))
+                adiabatic_area += part.area
+    if adiabatic_used + adiabatic_area > MAX_ADIABATIC_REMAINDER_M2:
+        return None
+    existing = {str(s.Name).upper() for s in bsds}
+
+    def fresh_name(base):
+        name = base
+        while name.upper() in existing:
+            name += "x"
+        existing.add(name.upper())
+        return name
+
+    for order, i in enumerate(small_index):
+        small = members[i]
+        small.setcoords(list(cleaned[i]))
+        if order == 0:
+            piece = large
+        else:
+            piece = idf.copyidfobject(large)
+            piece.Name = fresh_name(f"{large.Name}_S{order}")
+        piece.setcoords(list(reversed(cleaned[i])))
+        piece.Outside_Boundary_Condition = "Surface"
+        piece.Outside_Boundary_Condition_Object = small.Name
+        small.Outside_Boundary_Condition = "Surface"
+        small.Outside_Boundary_Condition_Object = piece.Name
+    paired = adiabatic = outdoors = 0
+    for index, (ring3, partner) in enumerate(plan, start=1):
+        piece = idf.copyidfobject(large)
+        piece.Name = fresh_name(f"{large.Name}_R{index}")
+        piece.setcoords(ring3)
+        piece.Sun_Exposure = "NoSun"
+        piece.Wind_Exposure = "NoWind"
+        if isinstance(partner, tuple):
+            wanted, construction = partner
+            piece.Construction_Name = construction
+            piece.Outside_Boundary_Condition = "Outdoors"
+            piece.Outside_Boundary_Condition_Object = ""
+            piece.Wind_Exposure = "WindExposed"
+            if wanted == "roof":
+                piece.Surface_Type = "Roof"
+                piece.Sun_Exposure = "SunExposed"
+            outdoors += 1
+        elif partner is None:
+            piece.Outside_Boundary_Condition = "Adiabatic"
+            piece.Outside_Boundary_Condition_Object = ""
+            adiabatic += 1
+        else:
+            piece.Outside_Boundary_Condition = "Surface"
+            piece.Outside_Boundary_Condition_Object = partner.Name
+            partner.Outside_Boundary_Condition = "Surface"
+            partner.Outside_Boundary_Condition_Object = piece.Name
+            partner.Sun_Exposure = "NoSun"
+            partner.Wind_Exposure = "NoWind"
+            partner.setcoords(list(reversed(ring3)))
+            paired += 1
+    return {
+        "paired": paired, "dropped": dropped, "adiabatic": adiabatic, "adiabatic_area_m2": adiabatic_area,
+        "outdoors": outdoors, "outdoors_area_m2": outdoors_area,
+    }
+
+
+def _repair_interzone_pairs(idf):
+    bsds = idf.idfobjects["BUILDINGSURFACE:DETAILED"]
+    by_name, groups = _interzone_groups(bsds)
+    stats = {key: 0 for key in PAIR_STAT_KEYS}
+    stats["adiabatic_area_m2"] = 0.0
+    stats["outdoors_area_m2"] = 0.0
+    unresolved = set()
+    for names in sorted(groups):
+        stats["pairs_seen"] += 1
+        members = [by_name[n] for n in names]
+        rings = [[tuple(p) for p in m.coords] for m in members]
+        if any(len(r) < 3 for r in rings):
+            stats["pairs_skipped_coverage"] += 1
+            stats["pairs_still_skipped"] += 1
+            unresolved.update(names)
+            continue
+        cleaned = _clean_ring_3d(rings[0])
+        if len(cleaned) < 3:
+            stats["pairs_skipped_coverage"] += 1
+            stats["pairs_still_skipped"] += 1
+            unresolved.update(names)
+            continue
+        targets = _relative_targets(members, rings, 0, cleaned)
+        if all(_same_cyclic_ring(t, r) for t, r in zip(targets, rings)):
+            continue
+        if all(_pair_covers_same_polygon(cleaned, ring) for ring in rings[1:]):
+            for member, target in zip(members, targets):
+                member.setcoords(target)
+            stats["pairs_rewritten"] += 1
+            continue
+        stats["pairs_skipped_coverage"] += 1
+        if _mirror_near_same_group(members, rings):
+            stats["pairs_near_same_mirrored"] += 1
+            continue
+        split = _split_larger_group(idf, bsds, members, rings, stats["adiabatic_area_m2"])
+        if split is not None:
+            stats["pairs_split"] += 1
+            stats["remainder_paired"] += split["paired"]
+            stats["remainder_dropped"] += split["dropped"]
+            stats["remainder_adiabatic"] += split["adiabatic"]
+            stats["adiabatic_area_m2"] += split["adiabatic_area_m2"]
+            stats["remainder_outdoors"] += split["outdoors"]
+            stats["outdoors_area_m2"] += split["outdoors_area_m2"]
+            continue
+        stats["pairs_still_skipped"] += 1
+        unresolved.update(names)
+    return stats, unresolved
+
+
+def _mirror_interzone_pairs_stats(idf) -> dict[str, int]:
+    return _repair_interzone_pairs(idf)[0]
+
+
+def _mirror_interzone_pairs(idf) -> int:
+    import logging
+
+    stats = _mirror_interzone_pairs_stats(idf)
+    logging.getLogger(__name__).info("mirror_interzone_pairs %s", stats)
+    return stats["pairs_rewritten"] + stats["pairs_near_same_mirrored"] + stats["pairs_split"]
+
+
+def _clean_surface_rings(idf, skip=frozenset()) -> int:
+    changed = 0
+    for surf in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
+        if str(surf.Name).upper() in skip:
+            continue
+        ring = [tuple(p) for p in surf.coords]
+        cleaned = _clean_ring_3d(ring)
+        if len(cleaned) >= 3 and len(cleaned) != len(ring) and _plane_basis(cleaned) is not None:
+            surf.setcoords(cleaned)
+            changed += 1
+    return changed
+
+
+SLIVER_SURFACE_MAX_AREA_M2 = 0.01
+SLIVER_BUILDING_MAX_TOTAL_AREA_M2 = 0.5
+
+
+def _ring_area_m2(ring) -> float:
+    import math
+
+    nx, ny, nz = _newell_normal(ring)
+    return 0.5 * math.sqrt(nx * nx + ny * ny + nz * nz)
+
+
+def _drop_sliver_surfaces(
+    idf,
+    max_area_m2: float = SLIVER_SURFACE_MAX_AREA_M2,
+    max_total_m2: float = SLIVER_BUILDING_MAX_TOTAL_AREA_M2,
+) -> tuple[int, float]:
+    import logging
+
+    bsds = idf.idfobjects["BUILDINGSURFACE:DETAILED"]
+    by_name, groups = _interzone_groups(bsds)
+    doomed = set()
+    for name, surf in by_name.items():
+        ring = [tuple(p) for p in surf.coords]
+        if len(ring) < 3 or len(_clean_ring_3d(ring)) < 3 or _ring_area_m2(ring) < max_area_m2:
+            doomed.add(name)
+    if not doomed:
+        return 0, 0.0
+    for names in groups:
+        if any(n in doomed for n in names):
+            doomed.update(names)
+    area = sum(_ring_area_m2([tuple(p) for p in by_name[n].coords]) for n in doomed)
+    if area > max_total_m2:
+        return 0, 0.0
+    fens = idf.idfobjects["FENESTRATIONSURFACE:DETAILED"]
+    for fen in list(fens):
+        if str(fen.Building_Surface_Name).upper() in doomed:
+            idf.removeidfobject(fen)
+    for name in doomed:
+        idf.removeidfobject(by_name[name])
+    logging.getLogger(__name__).info("drop_sliver_surfaces removed=%d area_m2=%.3e", len(doomed), area)
+    return len(doomed), area
+
+
+DEGENERATE_MIN_EDGE_M = 0.01
+DEGENERATE_COLLINEAR_SIN = 1e-4
+DEGENERATE_ZERO_AREA_M2 = 1e-4
+DEGENERATE_DROP_AREA_M2 = 0.01
+PREFLIGHT_FALLBACK_NOTE = "room_layout_preflight_fallback"
+LAST_DEGENERATE_STATS: dict = {}
+
+
+def _ep_effective_ring(ring):
+    import math
+
+    pts = [tuple(float(c) for c in p) for p in ring]
+
+    def _d(a, b):
+        return math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b)))
+
+    changed = True
+    while changed and len(pts) >= 3:
+        changed = False
+        n = len(pts)
+        for i in range(n):
+            nxt = pts[(i + 1) % n]
+            if _d(pts[i], nxt) < DEGENERATE_MIN_EDGE_M:
+                del pts[(i + 1) % n]
+                changed = True
+                break
+        if changed:
+            continue
+        n = len(pts)
+        for i in range(n):
+            a, b, c = pts[(i - 1) % n], pts[i], pts[(i + 1) % n]
+            u = tuple(x - y for x, y in zip(b, a))
+            v = tuple(x - y for x, y in zip(c, b))
+            lu = math.sqrt(sum(x * x for x in u))
+            lv = math.sqrt(sum(x * x for x in v))
+            if lu == 0.0 or lv == 0.0:
+                del pts[i]
+                changed = True
+                break
+            cx = u[1] * v[2] - u[2] * v[1]
+            cy = u[2] * v[0] - u[0] * v[2]
+            cz = u[0] * v[1] - u[1] * v[0]
+            if math.sqrt(cx * cx + cy * cy + cz * cz) / (lu * lv) < DEGENERATE_COLLINEAR_SIN:
+                del pts[i]
+                changed = True
+                break
+    return pts
+
+
+def _degenerate_ring(ring) -> bool:
+    eff = _ep_effective_ring(ring)
+    return len(eff) < 3 or _ring_area_m2(eff) < DEGENERATE_ZERO_AREA_M2
+
+
+EXPOSED_BETWEEN_ZONES_MIN_OVERLAP_M2 = 0.1
+HORIZONTAL_LEVEL_TOLERANCE_M = 0.01
+FLOOR_NORMAL_Z_SIGN = 1.0
+_FLOOR_TYPES = ("FLOOR",)
+_CEILING_TYPES = ("ROOF", "CEILING", "ROOFCEILING")
+LAST_ORIENTATION_STATS: dict = {}
+
+
+def _horizontal_level_polygon(surf):
+    ring = [tuple(p) for p in surf.coords]
+    if len(ring) < 3:
+        return None
+    zs = [p[2] for p in ring]
+    if max(zs) - min(zs) > HORIZONTAL_LEVEL_TOLERANCE_M:
+        return None
+    poly = Polygon([(p[0], p[1]) for p in ring])
+    if not poly.is_valid:
+        poly = poly.buffer(0)
+    if poly.is_empty:
+        return None
+    return sum(zs) / len(zs), poly
+
+
+def _exposed_between_zones(bsds) -> list[str]:
+    levels = []
+    for surf in bsds:
+        zone = getattr(surf, "Zone_Name", None)
+        if zone is None:
+            continue
+        level = _horizontal_level_polygon(surf)
+        if level is not None:
+            levels.append((str(surf.Name), str(zone).upper(), level[0], str(surf.Outside_Boundary_Condition).upper(), level[1]))
+    found = []
+    for name, zone, z, obc, poly in levels:
+        if obc not in _OUTSIDE_CONDITIONS:
+            continue
+        for other_name, other_zone, other_z, _obc, other_poly in levels:
+            if other_zone == zone or abs(other_z - z) > HORIZONTAL_LEVEL_TOLERANCE_M:
+                continue
+            if poly.intersects(other_poly) and poly.intersection(other_poly).area > EXPOSED_BETWEEN_ZONES_MIN_OVERLAP_M2:
+                found.append(name)
+                break
+    return found
+
+
+def _fix_horizontal_orientation(idf) -> int:
+    fixed = 0
+    fens = []
+    try:
+        fens = list(idf.idfobjects["FENESTRATIONSURFACE:DETAILED"])
+    except KeyError:
+        pass
+    for surf in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
+        kind = str(surf.Surface_Type).upper()
+        if kind not in _FLOOR_TYPES and kind not in _CEILING_TYPES:
+            continue
+        ring = [tuple(p) for p in surf.coords]
+        if len(ring) < 3 or max(p[2] for p in ring) - min(p[2] for p in ring) > HORIZONTAL_LEVEL_TOLERANCE_M:
+            continue
+        nz = _newell_normal(ring)[2]
+        if abs(nz) < 1e-9:
+            continue
+        want = FLOOR_NORMAL_Z_SIGN if kind in _FLOOR_TYPES else -FLOOR_NORMAL_Z_SIGN
+        if nz * want > 0:
+            continue
+        surf.setcoords(list(reversed(ring)))
+        for fen in fens:
+            if str(fen.Building_Surface_Name).upper() == str(surf.Name).upper():
+                fen.setcoords(list(reversed([tuple(p) for p in fen.coords])))
+        fixed += 1
+    LAST_ORIENTATION_STATS["orientation_fixed"] = LAST_ORIENTATION_STATS.get("orientation_fixed", 0) + fixed
+    return fixed
+
+
+def ep_geometry_preflight(idf) -> list[tuple[str, str]]:
+    bsds = list(idf.idfobjects["BUILDINGSURFACE:DETAILED"])
+    by_name = {str(s.Name).upper(): s for s in bsds}
+    eff = {name: _ep_effective_ring([tuple(p) for p in s.coords]) for name, s in by_name.items()}
+    found = []
+    for name, surf in by_name.items():
+        ring = eff[name]
+        if len(ring) < 3 or _ring_area_m2(ring) < DEGENERATE_ZERO_AREA_M2:
+            found.append((str(surf.Name), "ZERO_AREA"))
+        if str(getattr(surf, "Outside_Boundary_Condition", "")).upper() != "SURFACE":
+            continue
+        partner = str(getattr(surf, "Outside_Boundary_Condition_Object", "") or "").upper()
+        if partner not in by_name:
+            found.append((str(surf.Name), "NO_PARTNER"))
+        elif len(eff[partner]) != len(ring):
+            found.append((str(surf.Name), "VERTEX_MISMATCH"))
+    found.extend((name, "EXPOSED_BETWEEN_ZONES") for name in _exposed_between_zones(bsds))
+    return found
+
+
+def _remove_degenerate_surfaces(idf) -> tuple[int, float]:
+    import logging
+
+    bsds = idf.idfobjects["BUILDINGSURFACE:DETAILED"]
+    by_name, groups = _interzone_groups(bsds)
+    doomed = set()
+    for name, surf in by_name.items():
+        ring = [tuple(p) for p in surf.coords]
+        cleaned = _ep_effective_ring(ring)
+        if len(cleaned) < 3 or _ring_area_m2(cleaned) < DEGENERATE_DROP_AREA_M2:
+            doomed.add(name)
+            continue
+        if len(cleaned) != len(ring) and _plane_basis(cleaned) is not None:
+            surf.setcoords(cleaned)
+    for names in groups:
+        if any(n in doomed for n in names):
+            doomed.update(names)
+    for name, surf in by_name.items():
+        if name in doomed or str(getattr(surf, "Outside_Boundary_Condition", "")).upper() != "SURFACE":
+            continue
+        partner = by_name.get(str(getattr(surf, "Outside_Boundary_Condition_Object", "") or "").upper())
+        if partner is None or str(partner.Name).upper() in doomed or name > str(partner.Name).upper():
+            continue
+        ring = [tuple(p) for p in surf.coords]
+        other = [tuple(p) for p in partner.coords]
+        if len(_ep_effective_ring(ring)) != len(_ep_effective_ring(other)):
+            partner.setcoords(list(reversed(ring)))
+    area = sum(_ring_area_m2([tuple(p) for p in by_name[n].coords]) for n in doomed)
+    fens = idf.idfobjects["FENESTRATIONSURFACE:DETAILED"]
+    for fen in list(fens):
+        if str(fen.Building_Surface_Name).upper() in doomed:
+            idf.removeidfobject(fen)
+    for name in doomed:
+        idf.removeidfobject(by_name[name])
+    if doomed:
+        logging.getLogger(__name__).info("remove_degenerate_surfaces removed=%d area_m2=%.3e", len(doomed), area)
+    return len(doomed), area
+
+
+HIDDEN_PLANE_TOLERANCE_M = 0.01
+HIDDEN_FACING_DOT = -0.99
+HIDDEN_MIN_OVERLAP_M2 = 1e-6
+_OUTSIDE_CONDITIONS = ("OUTDOORS", "GROUND")
+
+
+def _surface_records_from_text(text: str) -> list[dict]:
+    records = []
+    for block in re.split(r"(?im)^\s*BUILDINGSURFACE:DETAILED\s*,", text)[1:]:
+        body = block.split(";", 1)[0]
+        fields = [line.split("!", 1)[0].strip().rstrip(",").strip() for line in body.splitlines()[1:]]
+        if len(fields) < 11:
+            continue
+        nums = []
+        for f in fields[11:]:
+            if f == "":
+                continue
+            nums.append(float(f))
+        ring = [tuple(nums[i:i + 3]) for i in range(0, len(nums) - 2, 3)]
+        records.append({
+            "name": fields[0], "stype": fields[1].upper(), "zone": fields[3].upper(),
+            "obc": fields[5].upper(), "ring": ring,
+        })
+    return records
+
+
+def _surface_records_from_idf(idf) -> list[dict]:
+    return [
+        {
+            "name": str(s.Name), "stype": str(s.Surface_Type).upper(), "zone": str(s.Zone_Name).upper(),
+            "obc": str(s.Outside_Boundary_Condition).upper(), "ring": [tuple(p) for p in s.coords],
+        }
+        for s in idf.idfobjects["BUILDINGSURFACE:DETAILED"]
+    ]
+
+
+def _hidden_pairs(records: list[dict]) -> dict[int, list]:
+    import numpy as np
+
+    count = len(records)
+    normals = np.zeros((count, 3))
+    centroids = np.zeros((count, 3))
+    areas = np.zeros(count)
+    for i, rec in enumerate(records):
+        ring = rec["ring"]
+        if len(ring) < 3:
+            continue
+        nx, ny, nz = _newell_normal(ring)
+        norm = (nx * nx + ny * ny + nz * nz) ** 0.5
+        areas[i] = 0.5 * norm
+        if norm > 0.0:
+            normals[i] = (nx / norm, ny / norm, nz / norm)
+        centroids[i] = np.mean(np.asarray(ring), axis=0)
+    pairs: dict[int, list] = {}
+    for i, rec in enumerate(records):
+        if rec["obc"] not in _OUTSIDE_CONDITIONS or areas[i] <= 0.0:
+            continue
+        ring = rec["ring"]
+        offsets = np.abs((centroids - np.asarray(ring[0])) @ normals[i])
+        near = np.nonzero(
+            (normals @ normals[i] < HIDDEN_FACING_DOT) & (offsets < 50.0 * HIDDEN_PLANE_TOLERANCE_M) & (areas > 0.0)
+        )[0]
+        project = _plane_frame(ring)
+        if project is None:
+            continue
+        origin = np.asarray(ring[0])
+        mine = _polygon_in_frame(ring, project)
+        for j in near:
+            other = records[j]
+            if other["zone"] == rec["zone"]:
+                continue
+            verts = np.asarray(other["ring"])
+            if np.max(np.abs((verts - origin) @ normals[i])) > HIDDEN_PLANE_TOLERANCE_M:
+                continue
+            inter = mine.intersection(_polygon_in_frame(other["ring"], project))
+            if inter.area > HIDDEN_MIN_OVERLAP_M2:
+                pairs.setdefault(i, []).append((int(j), inter))
+    return pairs
+
+
+def _hidden_overlaps(records: list[dict]) -> dict[str, float]:
+    from shapely.ops import unary_union
+
+    hidden = {}
+    for i, found in _hidden_pairs(records).items():
+        hidden[records[i]["name"]] = float(unary_union([inter for _j, inter in found]).area)
+    return hidden
+
+
+def hidden_outdoor_area(idf_path) -> dict:
+    records = _surface_records_from_text(Path(idf_path).read_text(encoding="utf-8", errors="replace"))
+    hidden = _hidden_overlaps(records)
+    by_name = {r["name"]: r for r in records}
+    result = {
+        "hidden_outdoor_m2": 0.0, "hidden_ground_m2": 0.0, "surface_count": len(records),
+        "outdoor_wall_m2": 0.0, "roof_m2": 0.0, "ground_floor_m2": 0.0, "outdoor_floor_m2": 0.0,
+        "outdoor_ceiling_m2": 0.0, "hidden_names": sorted(hidden),
+    }
+    for name, area in hidden.items():
+        key = "hidden_ground_m2" if by_name[name]["obc"] == "GROUND" else "hidden_outdoor_m2"
+        result[key] += area
+    for rec in records:
+        if len(rec["ring"]) < 3:
+            continue
+        area = _ring_area_m2(rec["ring"])
+        stype, obc = rec["stype"], rec["obc"]
+        if stype == "WALL" and obc == "OUTDOORS":
+            result["outdoor_wall_m2"] += area
+        elif stype == "ROOF" and obc == "OUTDOORS":
+            result["roof_m2"] += area
+        elif stype == "FLOOR" and obc == "GROUND":
+            result["ground_floor_m2"] += area
+        elif stype == "FLOOR" and obc == "OUTDOORS":
+            result["outdoor_floor_m2"] += area
+        elif stype == "CEILING" and obc == "OUTDOORS":
+            result["outdoor_ceiling_m2"] += area
+    return result
+
+
+OVERLAP_TOLERANCE = 1.01
+OVERLAP_PAIR_MIN_M2 = 0.1
+OVERLAP_FALLBACK_NOTE = "room_layout_overlap_fallback"
+
+
+def _storey_floor_overlap(records: list[dict]) -> dict:
+    from shapely.geometry import Polygon as _Polygon
+    from shapely.ops import unary_union
+
+    storeys: dict[float, dict[str, list]] = {}
+    for rec in records:
+        ring = rec["ring"]
+        if rec["stype"] != "FLOOR" or len(ring) < 3:
+            continue
+        poly = _Polygon([(p[0], p[1]) for p in ring])
+        if not poly.is_valid:
+            poly = poly.buffer(0)
+        if poly.is_empty:
+            continue
+        z = round(sum(p[2] for p in ring) / len(ring), 1)
+        storeys.setdefault(z, {}).setdefault(rec["zone"], []).append(poly)
+    out = {"floor_sum_m2": 0.0, "floor_union_m2": 0.0, "overlap_pairs": 0, "worst_ratio": 1.0, "storeys": {}}
+    for z, zones in storeys.items():
+        merged = {name: unary_union(polys) for name, polys in zones.items()}
+        sum_m2 = sum(g.area for g in merged.values())
+        union_m2 = unary_union(list(merged.values())).area
+        names = list(merged)
+        pairs = sum(
+            1
+            for i in range(len(names))
+            for j in range(i + 1, len(names))
+            if merged[names[i]].intersection(merged[names[j]]).area > OVERLAP_PAIR_MIN_M2
+        )
+        out["floor_sum_m2"] += sum_m2
+        out["floor_union_m2"] += union_m2
+        out["overlap_pairs"] += pairs
+        out["storeys"][z] = (sum_m2, union_m2, pairs)
+        if union_m2 > 0.0:
+            out["worst_ratio"] = max(out["worst_ratio"], sum_m2 / union_m2)
+    return out
+
+
+def zone_floor_overlap(idf_path) -> dict:
+    records = _surface_records_from_text(Path(idf_path).read_text(encoding="utf-8", errors="replace"))
+    return _storey_floor_overlap(records)
+
+
+def _storeys_overlap(idf) -> bool:
+    return _storey_floor_overlap(_surface_records_from_idf(idf))["worst_ratio"] > OVERLAP_TOLERANCE
+
+
+HIDDEN_MIN_PIECE_M2 = 0.001
+CLIP_MIN_PIECE_M2 = 0.01
+CLIP_OUTSIDE_TRIGGER_M2 = 1e-3
+CLIP_SURFACE_TYPES = ("FLOOR", "CEILING", "ROOF", "ROOFCEILING")
+
+
+def _unpair_horizontal(surf) -> None:
+    surf.Outside_Boundary_Condition = "Outdoors"
+    surf.Outside_Boundary_Condition_Object = ""
+    surf.Sun_Exposure = "SunExposed"
+    surf.Wind_Exposure = "WindExposed"
+    if str(surf.Surface_Type).upper() in ("CEILING", "ROOFCEILING"):
+        surf.Surface_Type = "Roof"
+
+
+def _clip_zone_horizontals_to_own_polygon(idf, dwelling_polygons) -> dict:
+    stats = {"surfaces_clipped": 0, "pieces_added": 0, "pieces_dropped": 0, "unpaired": 0}
+    bsds = idf.idfobjects["BUILDINGSURFACE:DETAILED"]
+    hosts = _fenestration_hosts(idf)
+    names = {str(s.Name).upper() for s in bsds}
+    own = {str(k).upper(): v for k, v in dwelling_polygons.items()}
+    touched = set()
+    for surf in list(bsds):
+        if str(surf.Surface_Type).upper() not in CLIP_SURFACE_TYPES:
+            continue
+        zone_poly = own.get(str(surf.Zone_Name).upper())
+        if zone_poly is None or str(surf.Name).upper() in hosts:
+            continue
+        ring = [tuple(p) for p in surf.coords]
+        if len(ring) < 3:
+            continue
+        poly = Polygon([(p[0], p[1]) for p in ring])
+        if not poly.is_valid:
+            poly = poly.buffer(0)
+        if poly.is_empty:
+            continue
+        inside = poly.intersection(zone_poly)
+        if poly.area - inside.area <= CLIP_OUTSIDE_TRIGGER_M2:
+            continue
+        z = sum(p[2] for p in ring) / len(ring)
+        clockwise = not Polygon([(p[0], p[1]) for p in ring]).exterior.is_ccw
+        parts = [g for g in _polygon_parts(inside) if g.area >= CLIP_MIN_PIECE_M2]
+        stats["surfaces_clipped"] += 1
+        touched.add(str(surf.Name).upper())
+        partner = str(surf.Outside_Boundary_Condition_Object).upper()
+        if str(surf.Outside_Boundary_Condition).upper() == "SURFACE" and partner:
+            touched.add(partner)
+        if not parts:
+            idf.removeidfobject(surf)
+            stats["pieces_dropped"] += 1
+            continue
+        parts.sort(key=lambda g: -g.area)
+        for index, part in enumerate(parts):
+            part = orient(Polygon(part.exterior), -1.0 if clockwise else 1.0)
+            new_ring = [(x, y, z) for x, y in list(part.exterior.coords)[:-1]]
+            if index == 0:
+                surf.setcoords(new_ring)
+                continue
+            piece = idf.copyidfobject(surf)
+            name = f"{surf.Name}_C{index}"
+            while name.upper() in names:
+                name += "x"
+            names.add(name.upper())
+            piece.Name = name
+            piece.setcoords(new_ring)
+            touched.add(name.upper())
+            stats["pieces_added"] += 1
+    for surf in bsds:
+        if str(surf.Outside_Boundary_Condition).upper() != "SURFACE":
+            continue
+        if str(surf.Name).upper() in touched or str(surf.Outside_Boundary_Condition_Object).upper() in touched:
+            _unpair_horizontal(surf)
+            stats["unpaired"] += 1
+    return stats
+
+
+def _own_polygons_by_zone(zones) -> dict:
+    out = {}
+    for z in zones:
+        coords = z.get("coords_m")
+        name = str(z.get("name", ""))
+        if not coords or z.get("fallback_to_bbox"):
+            continue
+        if "_dwelling_" not in name and not name.endswith("_circulation"):
+            continue
+        poly = Polygon([(c[0], c[1]) for c in coords])
+        if not poly.is_valid:
+            poly = poly.buffer(0)
+        if not poly.is_empty:
+            out[name] = poly
+    return out
+
+
+RUN_OUTLINE_TOLERANCE_M2 = 0.01
+
+
+def _zone_outline(zone):
+    poly = Polygon([(c[0], c[1]) for c in zone["coords_m"]])
+    return poly if poly.is_valid else poly.buffer(0)
+
+
+def _storey_runs(group) -> list:
+    runs = []
+    for zone in group:
+        index = _surfaces._get_floor_idx(zone["name"]) or 0
+        if runs:
+            last = runs[-1]
+            same = _zone_outline(last[-1][1]).symmetric_difference(_zone_outline(zone)).area <= RUN_OUTLINE_TOLERANCE_M2
+            if index == last[-1][0] + 1 and same:
+                last.append((index, zone))
+                continue
+        runs.append([(index, zone)])
+    return runs
+
+
+def _extrude_zone_groups_per_storey(idf, valid_zones, _exc) -> None:
+    for key, group_iter in groupby(valid_zones, key=_surfaces._group_key):
+        group = list(group_iter)
+        group.sort(key=lambda z: (_surfaces._get_floor_idx(z["name"]) or 0))
+        base_name = f"{key[0]}_{key[1]}"
+        runs = _storey_runs(group)
+        whole = len(runs) == 1 and runs[0][0][0] == 0
+        for run in runs:
+            first_index = run[0][0]
+            members = [z for _i, z in run]
+            m = len(members)
+            first = members[0]
+            floor_h = first["height_m"]
+            for member in members:
+                if int(member.get("storey_span", 1) or 1) != 1:
+                    raise AssertionError(f"zone {member['name']} has storey_span {member.get('storey_span')}, expected 1")
+            run_height = sum(z["height_m"] for z in members)
+            block_name = base_name if whole else f"{base_name}_a{first_index}"
+            try:
+                idf.add_block(name=block_name, coordinates=first["coords_m"], height=run_height, num_stories=m)
+                fallback = False
+            except _exc:
+                bbox_coords = list(first["floor_polygon"].minimum_rotated_rectangle.exterior.coords)[:-1]
+                try:
+                    idf.add_block(name=block_name, coordinates=bbox_coords, height=run_height, num_stories=m)
+                    fallback = True
+                    _surfaces.logger.warning("block %s fell back to bbox extrusion", block_name)
+                except Exception:
+                    _surfaces.logger.warning(
+                        "block %s extrusion failed even with bbox — skipping %d zone(s)", block_name, m
+                    )
+                    continue
+            if first_index:
+                shift = first_index * floor_h
+                geo_names = {f"Block {block_name} Storey {k}" for k in range(m)}
+                for surf in idf.idfobjects["BUILDINGSURFACE:DETAILED"]:
+                    if surf.Zone_Name not in geo_names:
+                        continue
+                    surf.setcoords([(p[0], p[1], p[2] + shift) for p in surf.coords])
+                    if (
+                        surf.Zone_Name == f"Block {block_name} Storey 0"
+                        and str(surf.Surface_Type).upper() == "FLOOR"
+                    ):
+                        surf.Outside_Boundary_Condition = "Outdoors"
+                        surf.Outside_Boundary_Condition_Object = ""
+                        surf.Sun_Exposure = "SunExposed"
+                        surf.Wind_Exposure = "WindExposed"
+            for storey_no, z in enumerate(members):
+                _surfaces._rename_geomeppy_zone(idf, f"Block {block_name} Storey {storey_no}", z["name"])
+                z["extruded"] = True
+                if fallback:
+                    z["fallback_to_bbox"] = True
+
+
+HIDDEN_PASS_LIMIT = 60
+HIDDEN_PAIRABLE_CONDITIONS = ("OUTDOORS", "GROUND", "ADIABATIC")
+HIDDEN_PASS_STAT_KEYS = (
+    "pairs_split", "pieces_paired", "pieces_adiabatic", "adiabatic_area_m2", "remainders_dropped",
+    "whole_adiabatic", "windows_deleted", "window_area_m2",
+)
+LAST_HIDDEN_PASS_STATS: dict = {}
+
+
+def _polygon_parts(geometry) -> list:
+    return [g for g in getattr(geometry, "geoms", [geometry]) if g.geom_type == "Polygon" and not g.is_empty]
+
+
+def _frame_ring_to_3d(part, basis) -> list:
+    origin, u, v, _n = basis
+    part = orient(part, 1.0)
+    return [tuple(origin[k] + x * u[k] + y * v[k] for k in range(3)) for x, y in list(part.exterior.coords)[:-1]]
+
+
+def _paired_surface_type(surface_type):
+    return "Ceiling" if str(surface_type).upper() in ("ROOF", "ROOFCEILING") else surface_type
+
+
+def _rehost_windows(idf, host, project, overlap_polys, pieces, stats) -> None:
+    try:
+        fens = idf.idfobjects["FENESTRATIONSURFACE:DETAILED"]
+    except KeyError:
+        return
+    host_name = str(host.Name).upper()
+    for fen in list(fens):
+        if str(fen.Building_Surface_Name).upper() != host_name:
+            continue
+        ring = [tuple(p) for p in fen.coords]
+        poly = _polygon_in_frame(ring, project) if len(ring) >= 3 else None
+        target = None
+        if poly is not None and not poly.is_empty:
+            if not any(poly.intersection(o).area > HIDDEN_MIN_OVERLAP_M2 for o in overlap_polys):
+                for name, piece_poly in pieces:
+                    if piece_poly.buffer(MIRROR_COVERAGE_VERTEX_TOLERANCE_M).covers(poly):
+                        target = name
+                        break
+        if target is None:
+            stats["windows_deleted"] += 1
+            stats["window_area_m2"] += 0.0 if poly is None else float(poly.area)
+            idf.removeidfobject(fen)
+        else:
+            fen.Building_Surface_Name = target
+
+
+def _split_hidden_surface(idf, surf, basis, overlap_rings, kept_parts, names, overlap_obc):
+    def fresh(base):
+        name = base
+        while name.upper() in names:
+            name += "x"
+        names.add(name.upper())
+        return name
+
+    over = []
+    for index, ring in enumerate(overlap_rings):
+        if len(ring) < 3 or _plane_basis(ring) is None:
+            over.append(None)
+            continue
+        piece = idf.copyidfobject(surf)
+        piece.Name = fresh(f"{surf.Name}_H{index + 1}")
+        piece.setcoords(ring)
+        piece.Sun_Exposure = "NoSun"
+        piece.Wind_Exposure = "NoWind"
+        piece.Outside_Boundary_Condition = overlap_obc
+        piece.Outside_Boundary_Condition_Object = ""
+        if overlap_obc == "Surface":
+            piece.Surface_Type = _paired_surface_type(piece.Surface_Type)
+        over.append(piece)
+    rest = []
+    for index, part in enumerate(kept_parts):
+        ring = _clean_ring_3d(_frame_ring_to_3d(part, basis))
+        if len(ring) < 3 or _plane_basis(ring) is None:
+            continue
+        piece = idf.copyidfobject(surf)
+        piece.Name = fresh(f"{surf.Name}_K{index + 1}")
+        piece.setcoords(ring)
+        rest.append((str(piece.Name).upper(), part))
+    return over, rest
+
+
+def _apply_hidden_pair(idf, a, b, inter, names, stats) -> bool:
+    from shapely.ops import unary_union
+
+    ring_a = [tuple(p) for p in a.coords]
+    basis_a = _plane_basis(ring_a)
+    project_a = _plane_frame(ring_a)
+    if basis_a is None or project_a is None:
+        return False
+    parts = [g for g in _polygon_parts(inter) if g.area >= HIDDEN_MIN_PIECE_M2]
+    if not parts:
+        return False
+    a_poly = _polygon_in_frame(ring_a, project_a)
+    a_rest = _polygon_parts(a_poly.difference(unary_union(parts)))
+    a_keep = [g for g in a_rest if g.area >= MIRROR_NEAR_SAME_AREA_M2]
+    stats["remainders_dropped"] += len(a_rest) - len(a_keep)
+    if any(p.interiors for p in parts) or any(g.interiors for g in a_keep):
+        a.Outside_Boundary_Condition = "Adiabatic"
+        a.Outside_Boundary_Condition_Object = ""
+        a.Sun_Exposure = "NoSun"
+        a.Wind_Exposure = "NoWind"
+        stats["pairs_split"] += 1
+        stats["whole_adiabatic"] += 1
+        stats["adiabatic_area_m2"] += _ring_area_m2(ring_a)
+        return True
+    overlap_rings = [_clean_ring_3d(_frame_ring_to_3d(p, basis_a)) for p in parts]
+    b_obc = str(getattr(b, "Outside_Boundary_Condition", "")).upper()
+    ring_b = [tuple(p) for p in b.coords]
+    basis_b = _plane_basis(ring_b)
+    project_b = _plane_frame(ring_b)
+    pair_b = b_obc in HIDDEN_PAIRABLE_CONDITIONS and basis_b is not None and project_b is not None
+    b_keep = []
+    b_overlap_polys = []
+    if pair_b:
+        b_poly = _polygon_in_frame(ring_b, project_b)
+        b_overlap_polys = [_polygon_in_frame(r, project_b) for r in overlap_rings if len(r) >= 3]
+        b_rest = _polygon_parts(b_poly.difference(unary_union(b_overlap_polys)))
+        b_keep = [g for g in b_rest if g.area >= MIRROR_NEAR_SAME_AREA_M2]
+        stats["remainders_dropped"] += len(b_rest) - len(b_keep)
+        if any(g.interiors for g in b_keep):
+            pair_b = False
+    stats["pairs_split"] += 1
+    a_over, a_rest_named = _split_hidden_surface(
+        idf, a, basis_a, overlap_rings, a_keep, names, "Surface" if pair_b else "Adiabatic",
+    )
+    _rehost_windows(idf, a, project_a, parts, a_rest_named, stats)
+    if pair_b:
+        b_over, b_rest_named = _split_hidden_surface(
+            idf, b, basis_b, [list(reversed(r)) for r in overlap_rings], b_keep, names, "Surface",
+        )
+        _rehost_windows(idf, b, project_b, b_overlap_polys, b_rest_named, stats)
+        for pa, pb in zip(a_over, b_over):
+            if pa is not None and pb is not None:
+                pa.Outside_Boundary_Condition_Object = pb.Name
+                pb.Outside_Boundary_Condition_Object = pa.Name
+                stats["pieces_paired"] += 1
+                continue
+            for lone in (pa, pb):
+                if lone is not None:
+                    lone.Outside_Boundary_Condition = "Adiabatic"
+                    lone.Outside_Boundary_Condition_Object = ""
+                    stats["pieces_adiabatic"] += 1
+        idf.removeidfobject(b)
+    else:
+        for pa in a_over:
+            if pa is not None:
+                stats["pieces_adiabatic"] += 1
+                stats["adiabatic_area_m2"] += _ring_area_m2([tuple(p) for p in pa.coords])
+    idf.removeidfobject(a)
+    return True
+
+
+def _pair_hidden_outdoor_surfaces(idf) -> dict:
+    stats = {key: 0 for key in HIDDEN_PASS_STAT_KEYS}
+    stats["adiabatic_area_m2"] = 0.0
+    stats["window_area_m2"] = 0.0
+    for _ in range(HIDDEN_PASS_LIMIT):
+        objects = list(idf.idfobjects["BUILDINGSURFACE:DETAILED"])
+        pairs = _hidden_pairs(_surface_records_from_idf(idf))
+        if not pairs:
+            break
+        used = set()
+        names = {str(s.Name).upper() for s in objects}
+        for i in sorted(pairs):
+            if i in used:
+                continue
+            across = sorted(
+                pairs[i],
+                key=lambda item: (str(objects[item[0]].Outside_Boundary_Condition).upper() == "SURFACE", -item[1].area),
+            )
+            for j, inter in across:
+                if j in used:
+                    continue
+                if _apply_hidden_pair(idf, objects[i], objects[j], inter, names, stats):
+                    used.update((i, j))
+                    break
+        if not used:
+            break
+    LAST_HIDDEN_PASS_STATS.clear()
+    LAST_HIDDEN_PASS_STATS.update(stats)
+    return stats
 
 
 RING_VERTEX_REMOVAL_CHORD_DISTANCE_TOLERANCE_M = 0.010
@@ -640,7 +1893,13 @@ def build_idf_for_building(
         coords = zone.get("coords_m")
         if coords:
             zone["coords_m"] = _drop_redundant_ring_vertices(coords)
-    extrude_geometry(idf, zones, context or [])
+    _frozen_extrusion = _surfaces._extrude_zone_groups
+    _surfaces._extrude_zone_groups = _extrude_zone_groups_per_storey
+    try:
+        extrude_geometry(idf, zones, context or [])
+    finally:
+        _surfaces._extrude_zone_groups = _frozen_extrusion
+    _clip_zone_horizontals_to_own_polygon(idf, _own_polygons_by_zone(zones))
     # FINDING 210 residual (D-EU-42/D-EU-43 [OPEN] correction, 2026-08-31 root-cause
     # pass): geomeppy's own intersect_match (surfaces.py:866, non-editable, D-EU-41)
     # inserts new boundary vertices from live floating-point intersection arithmetic
@@ -671,6 +1930,9 @@ def build_idf_for_building(
     # consecutive vertices on one surface's own ring closer than
     # `NEAR_DUPLICATE_VERTEX_TOLERANCE_M`) so the reroute fires proactively instead of
     # relying on a raw count that this class of defect does not always move.
+    _pair_stats, _unresolved_pairs = _repair_interzone_pairs(idf)
+    _drop_sliver_surfaces(idf)
+    _clean_surface_rings(idf, _unresolved_pairs)
     mismatched = find_mismatched_interzone_pairs(idf)
     # FINDING 249 restricted remedy (2026-09-04): `_has_near_duplicate_vertex_surfaces`
     # only flags surfaces with a valid interzone partner (`Outside_Boundary_Condition ==
@@ -720,11 +1982,58 @@ def build_idf_for_building(
                 )
     apply_adiabatic_party_walls(idf, context or [])
     write_zone_volumes(idf, zones)
+    LAST_ORIENTATION_STATS.clear()
+    _fix_horizontal_orientation(idf)
+    _pair_hidden_outdoor_surfaces(idf)
+    _clean_surface_rings(idf, _unresolved_pairs)
+    if _storeys_overlap(idf):
+        if not _force_reroute_room_layout_to_one_zone_per_floor(idf, zones, "zone_floor_overlap"):
+            raise RuntimeError("zone_floor_overlap_unresolved: flats overlap on a storey and no one-zone-per-floor fallback exists")
+        idf.intersect_match()
+        _repair_roof_roof_pairs(idf)
+        _repair_mismatched_horizontal_pairs(idf)
+        _pair_interfloor_surfaces(idf)
+        _pair_stats, _unresolved_pairs = _repair_interzone_pairs(idf)
+        _drop_sliver_surfaces(idf)
+        _clean_surface_rings(idf, _unresolved_pairs)
+        apply_adiabatic_party_walls(idf, context or [])
+        write_zone_volumes(idf, zones)
+        _fix_horizontal_orientation(idf)
+        _pair_hidden_outdoor_surfaces(idf)
+        _clean_surface_rings(idf, _unresolved_pairs)
+        for _z in zones:
+            _z["generation_status_note"] = OVERLAP_FALLBACK_NOTE
+
+    _removed, _removed_area = _remove_degenerate_surfaces(idf)
+    LAST_DEGENERATE_STATS.clear()
+    LAST_DEGENERATE_STATS.update(degenerate_removed=_removed, degenerate_area_m2=_removed_area)
+    if ep_geometry_preflight(idf):
+        if not _force_reroute_room_layout_to_one_zone_per_floor(idf, zones, "ep_geometry_preflight"):
+            raise RuntimeError("ep_geometry_preflight_unresolved: degenerate surfaces and no one-zone-per-floor fallback exists")
+        idf.intersect_match()
+        _repair_roof_roof_pairs(idf)
+        _repair_mismatched_horizontal_pairs(idf)
+        _pair_interfloor_surfaces(idf)
+        _pair_stats, _unresolved_pairs = _repair_interzone_pairs(idf)
+        _drop_sliver_surfaces(idf)
+        _clean_surface_rings(idf, _unresolved_pairs)
+        apply_adiabatic_party_walls(idf, context or [])
+        write_zone_volumes(idf, zones)
+        _fix_horizontal_orientation(idf)
+        _pair_hidden_outdoor_surfaces(idf)
+        _clean_surface_rings(idf, _unresolved_pairs)
+        _remove_degenerate_surfaces(idf)
+        if ep_geometry_preflight(idf):
+            raise RuntimeError("ep_geometry_preflight_unresolved: degenerate surfaces remain after one-zone-per-floor fallback")
+        for _z in zones:
+            _z["generation_status_note"] = PREFLIGHT_FALLBACK_NOTE
 
     wall_construction = _envelope_construction(idf, record, "wall")
     roof_construction = _envelope_construction(idf, record, "roof")
     floor_construction = _envelope_construction(idf, record, "floor")
     _assign_envelope_constructions(idf, wall_construction, roof_construction, floor_construction)
+    normalise_surface_orientation(idf)
+    add_tabula_windows(idf, record)
 
     for zone in zones:
         if zone.get("conditioned") is False:

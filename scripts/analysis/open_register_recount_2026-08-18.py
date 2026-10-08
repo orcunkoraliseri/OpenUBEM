@@ -13,7 +13,7 @@ the last data row at line 688 (one stray blank line at 675 tolerated).
 import re
 from pathlib import Path
 
-REGISTER = Path(r"C:\Users\o_iseri\Desktop\OpenUBEM\docs\docs_ACTIVE\openings\INVESTIGATION_open-items-register.md")
+REGISTER = Path(r"C:\Users\o_iseri\Desktop\OpenUBEM\docs\docs_DONE\openings\INVESTIGATION_open-items-register.md")
 
 HEADER_LINE = "| ID | Item | Theme | Blast radius | Evidence |"
 SEP_LINE_PREFIX = "|---|---|---|---|---|"

@@ -461,6 +461,10 @@ def test_load_conservation_across_modes_multifloor(tmp_path):
                 za[surf.Zone_Name] = za.get(surf.Zone_Name, 0) + abs(poly.area)
         return za
 
+    def _mult_area(idf, za):
+        mult = {z.Name: float(z.Multiplier or 1) for z in idf.idfobjects["ZONE"]}
+        return sum(a * mult.get(n, 1.0) for n, a in za.items())
+
     def _sum_loads(objs, abs_methods, abs_attr, rate_attr, zone_attr, method_attr, za):
         """Sum installed loads, handling both absolute (Level) and Area-normalized methods."""
         total = 0.0
@@ -514,8 +518,8 @@ def test_load_conservation_across_modes_multifloor(tmp_path):
             f"got {len(cook_gas)}/{len(cook_elec)}/{len(refrig)}/{len(wu)}"
         )
         process[mode] = {
-            "cook_gas": float(cook_gas[0].Design_Level),
-            "cook_elec": float(cook_elec[0].Design_Level),
+            "cook_gas": float(cook_gas[0].Power_per_Zone_Floor_Area) * _mult_area(idf, za),
+            "cook_elec": float(cook_elec[0].Watts_per_Zone_Floor_Area) * _mult_area(idf, za),
             "refrig": float(refrig[0].Design_Level),
             "dhw": float(wu[0].Peak_Flow_Rate),
         }

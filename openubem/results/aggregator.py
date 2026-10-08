@@ -80,12 +80,8 @@ def _derive_num_floors_wired(
     levels_group_median: dict,
     levels_global_median: "int | None",
 ) -> int:
-    """OPEN-35 T05: reach derive_num_floors()'s Scope B agreement kwargs for rows whose
-    fired archetype rule consumed the classifier's group-/global-median levels fallback.
-    All other rows are byte-identical to the pre-T05 call."""
-    from openubem.geometry.footprint import _archetype_consumed_group_median, derive_num_floors
-    if not _archetype_consumed_group_median(row):
-        return derive_num_floors(row)
+    """OPEN-35 Option A: pass the classifier's group-/global-median levels to derive_num_floors()."""
+    from openubem.geometry.footprint import derive_num_floors
     from openubem.semantic.building_classifier import _normalise_use_class
     use_class, _ = _normalise_use_class(row)
     return derive_num_floors(

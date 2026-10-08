@@ -23,7 +23,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sqlite3
 import subprocess
 import sys
 import tarfile
@@ -60,41 +59,6 @@ OUTPUT_DIR = REPO / "openubem" / "outputs" / "comparisons"
 OUTPUT_ALL_CSV = OUTPUT_DIR / "t08_all_modes_eui.csv"
 OUTPUT_SUMMARY_CSV = OUTPUT_DIR / "t08_mode_cell_summary.csv"
 
-J_TO_KWH = 1.0 / 3.6e6
-
-# 9 end-uses parsed from RunPeriod meters (T08 trimmed IDFs: no hourly zone variables).
-# InteriorLights:Electricity and InteriorEquipment:Electricity were added to HVAC_METERS
-# in outputs.py (T08 change) so trimmed IDFs have them as RunPeriod meters.
-_METER_NAMES = (
-    "Cooling:Electricity",
-    "Heating:Electricity",
-    "Heating:NaturalGas",
-    "Fans:Electricity",
-    "Pumps:Electricity",
-    "WaterSystems:NaturalGas",
-    "WaterSystems:Electricity",
-    "InteriorEquipment:NaturalGas",
-    "Refrigeration:Electricity",
-    "InteriorLights:Electricity",
-    "InteriorEquipment:Electricity",
-    "Cooking:InteriorEquipment:Electricity",
-    "Refrigeration:InteriorEquipment:Electricity",
-)
-_METER_SQL = (
-    "SELECT d.Name, r.Value "
-    "FROM ReportData r "
-    "JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex "
-    "WHERE d.ReportingFrequency = 'Run Period' "
-    f"AND d.Name IN ({', '.join(repr(m) for m in _METER_NAMES)})"
-)
-# Fallback: zone variables (present in untrimmed IDFs / phaseE SQL)
-_ZONE_SQL = (
-    "SELECT d.Name, SUM(r.Value) "
-    "FROM ReportData r "
-    "JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex "
-    "WHERE d.Name IN ('Zone Lights Electricity Energy', 'Zone Electric Equipment Electricity Energy') "
-    "GROUP BY d.Name"
-)
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -158,63 +122,84 @@ def fetch_mode_cell(cell: str, mode: str, fleet_lst: list[str], work_base: Path)
     return sim_out
 
 
-# ── Parse one building's SQL → 9-end-use EUI ─────────────────────────────────
+# ── Parse one building's SQL with the production parser ─────────────────────
 
-def _parse_sql(sql_path: Path, floor_area: float) -> dict[str, float]:
-    """Parse RunPeriod meters from SQL. Returns per-m2 EUI for 9 end-uses."""
-    meters: dict[str, float] = dict.fromkeys(_METER_NAMES, 0.0)
-    zone_kwh: dict[str, float] = {"lights": 0.0, "equip": 0.0}
+_LEGACY_KEYS = {
+    "heating_eui": "heating_eui_kwh_m2",
+    "cooling_eui": "cooling_eui_kwh_m2",
+    "lighting_eui": "lighting_eui_kwh_m2",
+    "equipment_eui": "equipment_eui_kwh_m2",
+    "fans_eui": "fans_eui_kwh_m2",
+    "pumps_eui": "pumps_eui_kwh_m2",
+    "dhw_eui": "dhw_eui_kwh_m2",
+    "cooking_eui": "cooking_eui_kwh_m2",
+    "refrig_eui": "refrigeration_eui_kwh_m2",
+    "total_eui": "total_eui_kwh_m2",
+}
 
-    with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
-        for name, val_j in conn.execute(_METER_SQL).fetchall():
-            if name in meters and val_j is not None:
-                meters[name] += float(val_j) * J_TO_KWH
-        # Fallback: zone variables (untrimmed IDFs)
-        for name, total_j in conn.execute(_ZONE_SQL).fetchall():
-            if total_j is not None:
-                if "Lights" in name:
-                    zone_kwh["lights"] = float(total_j) * J_TO_KWH
-                elif "Electric Equipment" in name:
-                    zone_kwh["equip"] = float(total_j) * J_TO_KWH
 
-    # Prefer RunPeriod meter over zone variable (trimmed IDFs have the meter)
-    lights_kwh = meters["InteriorLights:Electricity"] if meters["InteriorLights:Electricity"] > 0 else zone_kwh["lights"]
-    equip_kwh = meters["InteriorEquipment:Electricity"] if meters["InteriorEquipment:Electricity"] > 0 else zone_kwh["equip"]
+def parse_production(sql_path: Path, manifest_row: pd.Series) -> dict:
+    """OPEN-65 D1/D2: the only parser a harvest may use is parse_building().
 
-    heating_kwh = meters["Heating:Electricity"] + meters["Heating:NaturalGas"]
-    dhw_kwh = meters["WaterSystems:NaturalGas"] + meters["WaterSystems:Electricity"]
-    cooking_kwh = meters["InteriorEquipment:NaturalGas"] + meters["Cooking:InteriorEquipment:Electricity"]
-    refrig_kwh = meters["Refrigeration:Electricity"] + meters["Refrigeration:InteriorEquipment:Electricity"]
+    Returns the production metrics dict plus abups_ok from check_building_integrity().
+    Raises ValueError carrying the production status and message when parse_building()
+    does not return parse_status == "success" (never fabricates a value).
+    """
+    from openubem.results.parser import check_building_integrity, parse_building
 
-    total_kwh = (
-        heating_kwh
-        + meters["Cooling:Electricity"]
-        + lights_kwh
-        + equip_kwh
-        + meters["Fans:Electricity"]
-        + meters["Pumps:Electricity"]
-        + dhw_kwh
-        + cooking_kwh
-        + refrig_kwh
-    )
-    fa = float(floor_area)
-    if fa <= 0:
-        raise ValueError(f"non-positive floor_area_m2={fa} for {sql_path.parent.name}")
-    return {
-        "heating_eui":   heating_kwh / fa,
-        "cooling_eui":   meters["Cooling:Electricity"] / fa,
-        "lighting_eui":  lights_kwh / fa,
-        "equipment_eui": equip_kwh / fa,
-        "fans_eui":      meters["Fans:Electricity"] / fa,
-        "pumps_eui":     meters["Pumps:Electricity"] / fa,
-        "dhw_eui":       dhw_kwh / fa,
-        "cooking_eui":   cooking_kwh / fa,
-        "refrig_eui":    refrig_kwh / fa,
-        "total_eui":     total_kwh / fa,
-    }
+    parsed = parse_building(sql_path, None, manifest_row)
+    if parsed["parse_status"] != "success":
+        raise ValueError(f"{parsed['parse_status']}: {parsed['error_summary']}")
+    parsed["abups_ok"] = check_building_integrity(Path(sql_path))["abups_ok"]
+    return parsed
+
+
+def _production_row(sql_path: Path, manifest_row: pd.Series) -> dict:
+    parsed = parse_production(sql_path, manifest_row)
+    out = {legacy: parsed[prod] for legacy, prod in _LEGACY_KEYS.items()}
+    out["floor_area_m2"] = parsed["floor_area_m2"]
+    out["abups_ok"] = parsed["abups_ok"]
+    for col, val in parsed.items():
+        if col.endswith("_eui_kwh_m2") and col not in _LEGACY_KEYS.values() and col in _DH_COLUMNS:
+            out[col] = val
+    return out
+
+
+_DH_COLUMNS = (
+    "elevators_eui_kwh_m2",
+    "dhw_district_eui_kwh_m2", "cooling_district_eui_kwh_m2", "heating_district_eui_kwh_m2",
+    "fans_district_eui_kwh_m2", "pumps_district_eui_kwh_m2",
+    "refrigeration_district_eui_kwh_m2", "lighting_district_eui_kwh_m2",
+    "equipment_district_eui_kwh_m2", "exterior_lighting_eui_kwh_m2",
+    "exterior_equipment_eui_kwh_m2", "heat_rejection_eui_kwh_m2",
+    "humidification_eui_kwh_m2", "heat_recovery_eui_kwh_m2", "generators_eui_kwh_m2",
+)
 
 
 # ── Parse all buildings for one (cell, mode) ─────────────────────────────────
+
+def _manifest_row(osm_id: str, bld_row: pd.Series, manifest: pd.DataFrame | None, stem: str) -> pd.Series:
+    num_zones, dq_flag, res_mode = 1, "", None
+    if manifest is not None:
+        mrow = manifest[manifest["osm_id"].astype(str) == osm_id]
+        if mrow.empty:
+            mrow = manifest[manifest["osm_id"].astype(str).str.replace("/", "_", 1) == stem]
+        if not mrow.empty:
+            m = mrow.iloc[0]
+            num_zones = int(m.get("num_zones", 1) or 1)
+            dq_flag = str(m.get("data_quality_flag", "") or "")
+            res_mode = m.get("resolution_mode")
+    levels = bld_row.get("levels")
+    return pd.Series({
+        "osm_id": osm_id,
+        "num_zones": num_zones,
+        "data_quality_flag": dq_flag,
+        "resolution_mode": res_mode,
+        "archetype_id": bld_row.get("archetype_id", ""),
+        "footprint_area_m2": float(bld_row.get("footprint_area_m2", 0.0) or 0.0),
+        "levels": None if levels is None or pd.isna(levels) else levels,
+    })
+
 
 def parse_cell_mode(cell: str, mode: str, sim_out: Path, fleet_lst: list[str],
                     cell_info: pd.DataFrame, manifest: pd.DataFrame | None) -> pd.DataFrame:
@@ -266,7 +251,7 @@ def parse_cell_mode(cell: str, mode: str, sim_out: Path, fleet_lst: list[str],
 
         if status == "success" and sql_path.exists():
             try:
-                row.update(_parse_sql(sql_path, floor_area))
+                row.update(_production_row(sql_path, _manifest_row(osm_id, bld_row, manifest, stem)))
             except Exception as exc:
                 row["parse_error"] = str(exc)
 
@@ -295,6 +280,8 @@ def build_cell_info(cell: str) -> pd.DataFrame:
                 "osm_id": str(r["osm_id"]),
                 "archetype_id": str(r.get("archetype_id", "")),
                 "floor_area_m2": fa,
+                "footprint_area_m2": float(r.get("footprint_area_m2", 0)),
+                "levels": r.get("levels"),
                 "phaseE_total_eui": float(r.get("total_eui_kwh_m2", float("nan"))),
             })
         return pd.DataFrame(rows)
@@ -308,6 +295,8 @@ def build_cell_info(cell: str) -> pd.DataFrame:
                 "osm_id": str(r["osm_id"]),
                 "archetype_id": str(r.get("archetype_id", "")),
                 "floor_area_m2": fa,
+                "footprint_area_m2": float(r.get("footprint_area_m2", 0)),
+                "levels": r.get("levels"),
                 "phaseE_total_eui": float("nan"),
             })
         return pd.DataFrame(rows)

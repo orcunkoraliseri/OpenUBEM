@@ -2,7 +2,7 @@
 
 ## Provenance
 
-Computed 2026-09-18, TechTransfer block 6, Task C04 (`docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md` §2a).
+Computed 2026-09-18, TechTransfer block 6, Task C04 (`docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md` §2a).
 
 **Sample:** 20 buildings = 2 WWR variants (`wwr=0.30` and `wwr=0.45`, suffix `_V2` on the second
 variant's `osm_id`) x the 10-archetype `tests/fixtures/synthetic_10_buildings.py` fixture

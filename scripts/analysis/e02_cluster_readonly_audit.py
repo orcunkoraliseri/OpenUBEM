@@ -13,7 +13,7 @@ scripts/cluster/t08_harvest_results.py, which wraps every remote command in
     documented E02 submission waves, using sacct facts, not a reconstructed
     story from timestamps.
 
-Plan: docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md, T05.
+Plan: docs/docs_DONE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md, T05.
 """
 
 from __future__ import annotations
@@ -399,12 +399,12 @@ def main() -> None:
 def write_report(lines: list[str], local_only: bool) -> None:
     # Intermediate raw console dump only -- lives under tempfile.gettempdir(),
     # never in the repo. The dated report is
-    # docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-39-40_cluster-records.md.
+    # docs/docs_DONE/openings/extra/MEASUREMENT_open-39-40_cluster-records.md.
     import tempfile
     out_path = Path(tempfile.gettempdir()) / "t05_cluster_readonly_audit_raw_output.txt"
     out_path.write_text("\n".join(lines), encoding="utf-8")
     print(f"\nRaw output written to {out_path} (intermediate; the dated report is "
-          f"docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-39-40_cluster-records.md)")
+          f"docs/docs_DONE/openings/extra/MEASUREMENT_open-39-40_cluster-records.md)")
     if local_only:
         print("NOTE: cluster was unreachable -- only local halves of (a)(ii) and (b) were run.")
 

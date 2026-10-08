@@ -11,7 +11,7 @@
 # fleet.lst carries one "cell_name<TAB>stem<TAB>epw_basename" line per array task.
 #
 # Speed's SLURM caps a single array job at MaxArraySize=10001, so the 65,112-case fleet
-# is split (per docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md
+# is split (per docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md
 # section 2d) into 7 chained array jobs, each reading its own contiguous slice file
 # (FLEET_LST, default "fleet.lst" for a single-job/back-compat run).
 #

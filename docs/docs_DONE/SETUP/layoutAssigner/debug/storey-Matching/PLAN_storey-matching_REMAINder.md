@@ -1147,7 +1147,7 @@ no cluster compute): `squeue -u o_iseri -h -o '%j %T' | sort | uniq -c` → 33 j
 JobName,State | grep t20_` → **8,153 COMPLETED + 7 FAILED = 8,160**, 12/12 cells present — matches
 the PARK NOTE exactly. Nothing was racing this dispatch.
 
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-09-30.md CP-B.
 
 **Artifacts:**
 - `openubem/outputs/comparisons/t20_layout_assign_eui.csv` (8,160 rows) +
@@ -1202,7 +1202,7 @@ by hand before trusting it across 8,160" — both of the following were found by
 **1. Fleet success rate.** Simulation-level (ground truth `eplusout.end`, never `.end`'s SLURM
 counterpart) = **8,153/8,160 = 99.914%**, median `total_eui` = **122.23 kWh/m²/yr**. This is
 identical, building-for-building, to the SLURM-level count (8,153 COMPLETED) — verified by comparing
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-09-30.md CP-B.
 the harvest's own per-cell `success` counts against the PARK NOTE's per-cell SLURM COMPLETED counts,
 cell by cell: exact match on all 12. **No simulation-level failure hides inside a SLURM-COMPLETED
 task, and no SLURM-FAILED task secretly completed.** 99.914% clears T19's 97.92% floor by a wide
@@ -1368,7 +1368,7 @@ parse; see item 3.)
 
 | Claim | Source I opened myself | Verdict |
 |---|---|---|
-| 8,153 / 8,160 = 99.914 % (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | `t20_layout_assign_eui.csv`, 8,160 rows, `status` = {success: 8153, failed: 7} | ✅ exact |
+| 8,153 / 8,160 = 99.914 % (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see previous/PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | `t20_layout_assign_eui.csv`, 8,160 rows, `status` = {success: 8153, failed: 7} | ✅ exact ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-09-30.md CP-B. |
 | median `total_eui` 122.23 | same file | ✅ 122.2272 |
 | 12 cells, full census | same file, `groupby(cell)` sums to 8,160 | ✅ |
 | Fatal signature of the 7 | raw `eplusout.err` line 52–58, `nyc_rural/way_965718400` | ✅ `** Severe ** CalcHeatBalanceInsideSurf … zone="LAUNDRYROOMFLR1" … −12459.96 C`, `** Fatal **` line 55 |
@@ -1473,7 +1473,7 @@ and 7 are re-routed to R06c rather than closed. Corrections 2 and 3 are binding 
 **Pre-flight:** re-read the tail of this document immediately before this append (still ends at line
 1464, "Not signed: CP-E..." — no concurrent R06c append had landed). Read AUDIT — R06 (director,
 2026-08-04) in full before touching anything, per its four binding constraints (99.914%/8,153 success;
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-09-30.md CP-B.
 7 failures = mislabelled true `SmallHotel`, not a generic envelope defect, E-LA-38; `has_fatal` dead,
 E-LA-39, never cited; no `eio` columns anywhere in the T20 harvest, denominator must not be mislabelled
 as `eio`-derived; R10's 593→503 applied-population shrink and the stale 81.6%/98.4% shares are R08's to
@@ -1529,7 +1529,7 @@ severity untouched) = 5 artifacts, matching the plan's "five PNGs" target.
 **Numbers as shipped (all read directly from `t20_layout_assign_eui.csv` / `t17`/`t18`/`t19` siblings,
 none hardcoded except the audited E-LA-38 fact):**
 - Fleet success: **8,153/8,160 = 99.914%** (T19 97.92% = 7,990/8,160; T17 96.65% = 7,887/8,160).
-  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-09-30.md CP-B.
 - Fleet median `total_eui` (successful rows): **122.23 kWh/m²/yr** (T19 103.75; adopted baseline
   158.0). E-LA-22 caveat stated on the figure: this delta is not attributed to R01/R02/R03/R10.
 - Figure 2 LA-cell `layout_assign` medians (kWh/m²/yr): MidriseApartment 199.6 (n=1,753), MediumOffice
@@ -1581,7 +1581,7 @@ Recomputed independently from `t17/t18/t19/t20_layout_assign_eui.csv`:
 
 | Claim in the R09 entry | Director's recomputation | Match |
 |---|---|---|
-| T20 success 8,153/8,160 = 99.914 % (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | 8,153 / 8,160 = 99.914 % | ✅ |
+| T20 success 8,153/8,160 = 99.914 % (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see previous/PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | 8,153 / 8,160 = 99.914 % | ✅ ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-09-30.md CP-B. |
 | T19 97.92 %, T17 96.65 % | 7,990 = 97.917 %, 7,887 = 96.654 % | ✅ |
 | T20 median `total_eui` 122.23 | 122.2272 | ✅ |
 | T19 median 103.75 | 103.7533 | ✅ |
@@ -2047,7 +2047,7 @@ and `117/117 (100%)` (never `0/125`/`107/107`); F-11 population stated as 439 wi
 503 vs 435 both printed, with which-one-means-what stated; E-LA-36's 0/522 cited as director-verified;
 fleet headline 8,153/8,160=99.914%, median 122.23, with E-LA-22 stated in the same breath.
 
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-09-30.md CP-B.
 
 **Artifacts:** `OpenUBEM_results_LayoutAssigner.md` (§8, §9 added), `docs/PROJECT_CHECKLIST.md` (§L
 updated), `DONE/DONE-implementation_plan.md` (§7 Q3 entry appended), this progress-log entry. No other
@@ -2088,7 +2088,7 @@ this verdict. All reproduce.
 
 | Claim | Independent recomputation | |
 |---|---|---|
-| Fleet 8,153/8,160 = 99.914%, median `total_eui` 122.23; T19 7,990/8,160 = 97.92%, median 103.75 (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | identical | ✅ |
+| Fleet 8,153/8,160 = 99.914%, median `total_eui` 122.23; T19 7,990/8,160 = 97.92%, median 103.75 (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see previous/PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) | identical | ✅ ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_ACTIVE/openings/implemenation/PLAN_three-rulings-2026-09-30.md CP-B. |
 | Gain decomposition `+150 + 2 + 14 − 3 = +163` | identical | ✅ |
 | `applied` 503, down 90 from 593 (66 `MidriseApartment` + 24 `HighriseApartment`) | identical | ✅ |
 | Status transition matrix (503 / 90 / 1,902 / 3,727 / 1,220) | reproduced exactly by `pd.crosstab(old_status, new_status)` on `t20_r10_reach_change.csv`; rows sum to 7,442 | ✅ |

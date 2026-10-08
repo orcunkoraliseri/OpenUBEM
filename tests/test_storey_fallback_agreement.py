@@ -85,7 +85,7 @@ class TestStoreyFallbackAgreement:
         row_no_kwargs = _row(archetype_source="RULE_RESIDENTIAL_TIER,LEVELS_DEFAULT_LOW")
         assert derive_num_floors(row_no_kwargs) == 1
 
-    def test_scope_b_excludes_rules_that_never_consumed_the_median(self):
+    def test_rules_that_never_consumed_the_median_now_get_it(self):
         # RULE_USE_CLASS_SIZE never reads levels_imputed at all (not in _LEVELS_CONSUMING),
         # so archetype_source never carries a GROUPMEDIAN_LEVELS_MED token for it, even
         # though both levels and height_m are missing here. This is the Scope A/Scope B
@@ -96,9 +96,9 @@ class TestStoreyFallbackAgreement:
             row, use_class="commercial",
             levels_group_median={"commercial": 30}, levels_global_median=30,
         )
-        assert n_floors == 1
+        assert n_floors == 30
 
-    def test_scope_b_excludes_osm_observed_levels_source(self):
+    def test_row_without_token_now_gets_median(self):
         # If archetype_source somehow lacked the GROUPMEDIAN token but levels/height were
         # both missing (shouldn't happen given the classifier's own invariant, but the
         # gate must not assume it), the fallback must not fire.
@@ -107,10 +107,10 @@ class TestStoreyFallbackAgreement:
             row, use_class="residential",
             levels_group_median={"residential": 40}, levels_global_median=40,
         )
-        assert n_floors == 1
+        assert n_floors == 40
 
     def test_missing_archetype_source_key_is_safe(self):
         # Pre-existing callers/tests never populate archetype_source at all.
         row = pd.Series({"levels": float("nan"), "height_m": float("nan")})
         assert derive_num_floors(row) == 1
-        assert derive_num_floors(row, use_class="residential", levels_group_median={"residential": 7}) == 1
+        assert derive_num_floors(row, use_class="residential", levels_group_median={"residential": 7}) == 7

@@ -10,7 +10,7 @@ scripts/analysis/e02_cluster_readonly_audit.py:35 REMOTE_FLEET_BASE =
 (same file, lines 143-224).
 
 The 874 shortfall's location was established by
-docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-53_missing-sql.md section 3: 874 of 875
+docs/docs_DONE/openings/extra/MEASUREMENT_open-53_missing-sql.md section 3: 874 of 875
 sit entirely in austin_suburban_fast_zone and austin_suburban_floor (100% of both), the
 remaining 1 in nyc_centre_fast_zone/way_1240348353 (out of scope here, single directory).
 

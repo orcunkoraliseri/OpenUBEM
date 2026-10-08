@@ -36,7 +36,7 @@ from scripts.run_eu_s2_district_campaign import (
     _records, _valid_storeys, DISTRICTS, ES_SIDECAR, GB_EPC, GB_EPC_BANDS,
     _gb_rows, _gb_impute_rows, _it_rows, _mapped_rows, FLOOR_TO_FLOOR_M, ZONE_WINDING_SIGN
 )
-from scripts.eu_idf_plan_reader import read_district
+from scripts.eu_idf_plan_reader import load_prepared_buildings, read_building_plan
 
 REPO_ROOT = Path("C:/Users/o_iseri/Desktop/OpenUBEM")
 
@@ -190,12 +190,37 @@ def emit_layouts_for_district(
     # stale on most of the fleet's already-built IDFs. Read the actual IDF
     # zone kinds instead of trusting that column -- ground truth, not a
     # second independent recomputation of what the layout *should* be.
+    idf_plans_by_id = {}
+    skipped_plan_ids: list[str] = []
     try:
-        idf_plans_by_id = {plan.building_id: plan for plan in read_district(district, dist_dir)}
+        _prepared = load_prepared_buildings(district, dist_dir)
+        _geom_outcome = dict(zip(manifest_df["building_id"].astype(str), manifest_df["geometry_outcome"]))
+        for _, _prow in _prepared.iterrows():
+            _bid = str(_prow["building_id"])
+            _idf = dist_dir / "idfs" / f"{_prow['stem']}.idf"
+            if not _idf.exists() or _bid not in _geom_outcome:
+                continue
+            try:
+                idf_plans_by_id[_bid] = read_building_plan(
+                    _idf, stem=_prow["stem"], building_id=_bid, district=district,
+                    geometry_outcome=_geom_outcome[_bid],
+                )
+            except Exception:
+                skipped_plan_ids.append(_bid)
     except (FileNotFoundError, ValueError) as exc:
         print(f"[{district}] WARNING: could not read IDF plans for parity check ({exc}); "
               f"proceeding without reroute disclosure for this run.")
         idf_plans_by_id = {}
+    print(f"[{district}] IDF plans read: {len(idf_plans_by_id)}; skipped ids: {skipped_plan_ids}")
+
+    used_map: dict[str, tuple[int, str]] = {}
+    if population_manifest is not None:
+        used_map = {
+            str(b): (int(n), str(src))
+            for b, n, src in zip(
+                population_df["building_id"], population_df["dwellings_used"], population_df["dwellings_source"]
+            )
+        }
 
     # Read Step 2 manifest
     step2_manifest = REPO_ROOT / f"openubem/outputs/eu02/{district}/02_residential_manifest.gpkg"
@@ -259,6 +284,10 @@ def emit_layouts_for_district(
                 n_apt = rec.get("n_apartment") if rec else 10.0
                 dwellings_val = max(1, round(float(n_apt))) if pd.notna(n_apt) else 10
                 provenance_token = "IMPUTED_TIER4_STATISTICAL_TABULA"
+
+        if str(bid) in used_map:
+            dwellings_val = used_map[str(bid)][0]
+            provenance_token = "DWELLINGS_USED_" + used_map[str(bid)][1].upper()
 
         allocation = allocate_european_dwellings(
             archetype_id=row["archetype_id"],

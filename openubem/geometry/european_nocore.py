@@ -30,13 +30,14 @@ raw UTM footprint at ~4.5 x 10⁶ m (the live engine, T03).
 `openubem.geometry.european_residential`, never re-implemented -- that module imports
 this one (T03), so a module-level import here would be circular.
 """
+import contextlib
 import math
 
 from shapely import set_precision
 from shapely.affinity import rotate, translate
 from shapely.geometry import LineString, MultiPolygon, Point, Polygon, box
 from shapely.ops import split as _shp_split
-from shapely.ops import unary_union
+from shapely.ops import linemerge, polygonize, unary_union
 from shapely.validation import make_valid
 
 SQUARE = dict(cap_style="flat", join_style="mitre")
@@ -486,7 +487,7 @@ def _clears_donation_gates(merged, P, other_live):
         return False
     if pinch_area(merged, P) > 0.10:
         return False
-    if flat_aspect(merged) > MAX_FLAT_ASPECT:
+    if flat_aspect(merged) > NOCORE_RULESET["max_flat_aspect"]:
         return False
     return True
 
@@ -801,7 +802,7 @@ def cut_layered(poly, k, theta_offset=0.0, passes=3):
                 i += 1
                 continue
             worst_before = max(flat_aspect(fa), flat_aspect(fb))
-            if worst_before <= MAX_FLAT_ASPECT:
+            if worst_before <= NOCORE_RULESET["max_flat_aspect"]:
                 i += 1
                 continue
             merged = _clean_merge(fa, fb)
@@ -1181,7 +1182,7 @@ def _plate_score(poly, flats):
     pinch_total = sum(pinch_area(f, poly) for f in live)
     c10_ok = pinch_total <= 0.10
     max_aspect = max((flat_aspect(f) for f in live), default=99.0)
-    c11_ok = (len(live) <= 1) or (max_aspect <= MAX_FLAT_ASPECT)
+    c11_ok = (len(live) <= 1) or (max_aspect <= NOCORE_RULESET["max_flat_aspect"])
     areas = [f.area for f in live]
     spread = (min(areas) / max(areas)) if areas and max(areas) > 0 else 0.0
     return (cov_ok, c5_ok, c6_ok, c4_ok, c11_ok, c10_ok, round(spread, 4),
@@ -1729,7 +1730,7 @@ def build_flats(poly, k):
 # residual plate at 2.5 (81 plate-appearances) is delivered as an honest `FAIL`, never an invented
 # exemption. T05d's own stop-and-report (director-amended): the executor stops here and reports; T06
 # does not run this session.
-MAX_FLAT_ASPECT = 2.5
+MAX_FLAT_ASPECT = 5.0
 
 # D-EU-107 (`FINDING 244`, plan `eu-plan-homogeneity-2026-09-07`, CP-1 pinned
 # 2026-09-07): C12, the area-balance gate. `spread = min(flat area) / max(flat
@@ -1741,7 +1742,33 @@ MAX_FLAT_ASPECT = 2.5
 # C1/C3/C4/C5/C6/C10/C11's own pass/fail gate; C12 is additive, measured,
 # never merged into it. Extracted (D-EU-95), not re-implemented, from
 # `scripts/eu21/07_nocore_tests.py`, T03 of the same plan.
-MIN_SPREAD = 0.50
+MIN_SPREAD = 0.25
+
+NOCORE_RULESET_DEFAULTS = {
+    "max_flat_aspect": 2.5,
+    "min_spread": 0.50,
+    "flat_area_cap_m2": None,
+}
+NOCORE_RULESET = {
+    "max_flat_aspect": MAX_FLAT_ASPECT,
+    "min_spread": MIN_SPREAD,
+    "flat_area_cap_m2": None,
+}
+
+
+def ruleset_is_relaxed():
+    return NOCORE_RULESET != NOCORE_RULESET_DEFAULTS
+
+
+@contextlib.contextmanager
+def nocore_ruleset(**values):
+    saved = dict(NOCORE_RULESET)
+    NOCORE_RULESET.update(values)
+    try:
+        yield NOCORE_RULESET
+    finally:
+        NOCORE_RULESET.clear()
+        NOCORE_RULESET.update(saved)
 
 
 def flat_aspect(f):
@@ -1827,6 +1854,42 @@ def pinch_area(f, plate):
     return 0.0 if g is None or g.is_empty else g.area
 
 
+def repair_slivers(plate, flats):
+    out = list(flats)
+    for i in range(len(out)):
+        f = out[i]
+        if f is None or f.is_empty:
+            continue
+        sl = _pinch_geom(f, plate)
+        if sl is None or sl.is_empty:
+            continue
+        for s in parts(sl) or []:
+            if s.area <= 0.01:
+                continue
+            f = out[i]
+            probe = s.buffer(0.01, cap_style=3, join_style=2)
+            best, best_len = None, 0.0
+            for j, g in enumerate(out):
+                if j == i or g is None or g.is_empty:
+                    continue
+                shared = probe.intersection(g.exterior).length
+                if shared > best_len:
+                    best, best_len = j, shared
+            if best is None:
+                continue
+            try:
+                nf = ok(f.difference(s)).buffer(0)
+                nn = ok(unary_union([out[best], s])).buffer(0)
+            except Exception:
+                continue
+            if not isinstance(nf, Polygon) or nf.is_empty or not isinstance(nn, Polygon):
+                continue
+            if nf.area < f.area / 2:
+                continue
+            out[i], out[best] = nf, nn
+    return out
+
+
 def run_checks(rec, flats, poly):
     checks = {}
     n = rec["drawn_per_floor"]
@@ -1871,14 +1934,17 @@ def run_checks(rec, flats, poly):
     if len(live) <= 1:
         checks["C11"] = {"pass": True, "show": f"{max_aspect:.1f} : 1 (k=1, D-EU-93)"}
     else:
-        checks["C11"] = {"pass": max_aspect <= MAX_FLAT_ASPECT, "show": f"{max_aspect:.1f} : 1"}
+        checks["C11"] = {"pass": max_aspect <= NOCORE_RULESET["max_flat_aspect"], "show": f"{max_aspect:.1f} : 1"}
 
     areas = [f.area for f in live]
     spread = round((min(areas) / max(areas)) if areas and max(areas) > 0 else 0.0, 4)
     if len(live) <= 1:
         checks["C12"] = {"pass": True, "show": f"{spread:.4f} (k=1, D-EU-93 exemption)"}
     else:
-        checks["C12"] = {"pass": spread >= MIN_SPREAD, "show": f"{spread:.4f}"}
+        checks["C12"] = {"pass": spread >= NOCORE_RULESET["min_spread"], "show": f"{spread:.4f}"}
+
+    bent = c13_bent_walls(poly, live)
+    checks["C13"] = {"pass": bent == 0, "show": str(bent), "value": bent}
 
     rec["checks"] = checks
     rec["spread"] = spread
@@ -1912,3 +1978,475 @@ def cut_storey_nocore(footprint, dwelling_count):
     poly_out = translate(poly, cx, cy)
     live_out = [translate(f, cx, cy) for f in live]
     return poly_out, live_out, rec["checks"], rec["verdict"]
+
+
+BENT_CORNER_TURN = -0.17
+WING_BEND_TOLERANCE_M = 0.10
+WALL_END_TOLERANCE_M = 0.05
+BALANCE_STEP_M = 0.05
+BALANCE_MAX_STEPS = 40
+BALANCE_TOP_CANDIDATES = 5
+STRAIGHTEN_MAX_ROUNDS = 12
+BALANCE_MAX_ROUNDS = 12
+SPREAD_EPS = 1e-6
+NOCORE_IMPROVE_ENABLED = True
+_GATED_CHECKS = ("C1", "C3", "C4", "C5", "C6", "C10", "C11")
+
+
+def _plate_reflex_points(poly):
+    from shapely.geometry.polygon import orient
+
+    out = []
+    for g in getattr(poly, "geoms", [poly]):
+        if g.geom_type != "Polygon":
+            continue
+        g = orient(g, 1.0)
+        for ring in [g.exterior] + list(g.interiors):
+            c = list(ring.coords)[:-1]
+            n = len(c)
+            for i in range(n):
+                a, b, d = c[i - 1], c[i], c[(i + 1) % n]
+                la = math.hypot(b[0] - a[0], b[1] - a[1])
+                lb = math.hypot(d[0] - b[0], d[1] - b[1])
+                if la < 0.3 or lb < 0.3:
+                    continue
+                cr = (b[0] - a[0]) * (d[1] - b[1]) - (b[1] - a[1]) * (d[0] - b[0])
+                if cr / (la * lb) < BENT_CORNER_TURN:
+                    out.append(Point(b))
+    return out
+
+
+def _flat_bends(flat, boundary, reflex):
+    c = list(flat.exterior.coords)[:-1]
+    if not Polygon(c).exterior.is_ccw:
+        c = c[::-1]
+    n = len(c)
+
+    def interior_edge(j):
+        p, q = c[j % n], c[(j + 1) % n]
+        return boundary.distance(Point((p[0] + q[0]) / 2, (p[1] + q[1]) / 2)) > 0.05
+
+    def near_reflex(pt):
+        p = Point(pt)
+        return any(p.distance(r) <= WING_BEND_TOLERANCE_M for r in reflex)
+
+    cut_made = 0
+    wing = 0
+    for i in range(n):
+        a, b, d = c[i - 1], c[i], c[(i + 1) % n]
+        la = math.hypot(b[0] - a[0], b[1] - a[1])
+        lb = math.hypot(d[0] - b[0], d[1] - b[1])
+        if la < 0.3 or lb < 0.3:
+            continue
+        cr = (b[0] - a[0]) * (d[1] - b[1]) - (b[1] - a[1]) * (d[0] - b[0])
+        if not (cr / (la * lb) < BENT_CORNER_TURN and boundary.distance(Point(b)) > 0.10):
+            continue
+        cut_made += 1
+        f = i
+        guard = 0
+        while interior_edge(f) and guard < n:
+            f += 1
+            guard += 1
+        g = i
+        guard = 0
+        while interior_edge(g - 1) and guard < n:
+            g -= 1
+            guard += 1
+        if near_reflex(c[f % n]) or near_reflex(c[g % n]):
+            wing += 1
+    return cut_made, wing
+
+
+def c13_bent_walls(poly, flats):
+    """D-EU-120 (C13): the number of cut-made inside corners that are not wing
+    bends -- a party wall that bends inside the plate where the rules (groups
+    sheet, step 5) want one straight line. A corner is cut-made when it lies
+    more than 0.10 m from the plate boundary; it is a wing bend when the run of
+    party wall through it starts or ends within 0.10 m of a reflex vertex of the
+    plate. Reported beside C12, never part of the verdict."""
+    live = [f for f in flats if f is not None and not f.is_empty and f.geom_type == "Polygon"]
+    if len(live) < 2:
+        return 0
+    boundary = poly.boundary
+    reflex = _plate_reflex_points(poly)
+    total = 0
+    for f in live:
+        cut_made, wing = _flat_bends(f, boundary, reflex)
+        total += cut_made - wing
+    return total
+
+
+def _score_cut(poly, flats, k):
+    rec = {"drawn_per_floor": k}
+    run_checks(rec, flats, poly)
+    return rec
+
+
+def rescore_cut(plate, live, k):
+    cx, cy = plate.centroid.x, plate.centroid.y
+    return _score_cut(translate(plate, -cx, -cy), [translate(f, -cx, -cy) for f in live], k)
+
+
+def _failed_count(checks):
+    return sum(1 for c in _GATED_CHECKS + ("C12",) if not checks[c]["pass"])
+
+
+def _key(rec):
+    checks = rec["checks"]
+    return _failed_count(checks), checks["C13"]["value"], rec["spread"]
+
+
+def _strictly_better(old, new):
+    oc, nc = old["checks"], new["checks"]
+    for c in _GATED_CHECKS + ("C12",):
+        if oc[c]["pass"] and not nc[c]["pass"]:
+            return False
+    fo, co, so = _key(old)
+    fn, cn, sn = _key(new)
+    if fn > fo or cn > co or sn < so - SPREAD_EPS:
+        return False
+    return fn < fo or cn < co or sn > so + SPREAD_EPS
+
+
+def _corner_vertices(coords):
+    pts = list(coords)
+    out = [pts[0]]
+    for i in range(1, len(pts) - 1):
+        a, b, d = out[-1], pts[i], pts[i + 1]
+        la = math.hypot(b[0] - a[0], b[1] - a[1])
+        lb = math.hypot(d[0] - b[0], d[1] - b[1])
+        if la < 1e-9 or lb < 1e-9:
+            continue
+        cr = (b[0] - a[0]) * (d[1] - b[1]) - (b[1] - a[1]) * (d[0] - b[0])
+        if abs(cr) / (la * lb) > 0.0017:
+            out.append(b)
+    out.append(pts[-1])
+    return out
+
+
+def _party_walls(flats):
+    walls = []
+    for i in range(len(flats)):
+        for j in range(i + 1, len(flats)):
+            if not flats[i].intersects(flats[j]):
+                continue
+            shared = flats[i].boundary.intersection(flats[j].boundary)
+            lines = []
+            for g in getattr(shared, "geoms", [shared]):
+                if g.geom_type == "LineString" and g.length > 1e-6:
+                    lines.append(g)
+                elif g.geom_type == "MultiLineString":
+                    lines.extend(x for x in g.geoms if x.length > 1e-6)
+            if not lines:
+                continue
+            merged = linemerge(lines)
+            if merged.geom_type != "LineString" or merged.is_ring or merged.length < 0.5:
+                continue
+            walls.append((i, j, _corner_vertices(merged.coords)))
+    return walls
+
+
+def _split_faces(union, chord):
+    faces = list(polygonize(unary_union([union.boundary, chord])))
+    return [f for f in faces if union.contains(f.representative_point())]
+
+
+def _pair_union(fi, fj):
+    u = unary_union([fi, fj])
+    return u if u.geom_type == "Polygon" else None
+
+
+def _replaced(flats, i, j, fi, fj):
+    out = list(flats)
+    out[i], out[j] = fi, fj
+    return out
+
+
+def _straighten_candidates(poly, flats, reflex):
+    boundary = poly.boundary
+    for i, j, verts in _party_walls(flats):
+        if len(verts) < 3:
+            continue
+        e0, e1 = verts[0], verts[-1]
+        if boundary.distance(Point(e0)) > WALL_END_TOLERANCE_M or boundary.distance(Point(e1)) > WALL_END_TOLERANCE_M:
+            continue
+        if any(Point(e).distance(r) <= WING_BEND_TOLERANCE_M for e in (e0, e1) for r in reflex):
+            continue
+        yield i, j, e0, e1
+
+
+def _straightened(flats, i, j, e0, e1):
+    fi, fj = flats[i], flats[j]
+    union = _pair_union(fi, fj)
+    if union is None:
+        return None
+    chord = LineString([e0, e1])
+    if not union.buffer(0.01).contains(chord):
+        return None
+    faces = _split_faces(union, chord)
+    if len(faces) != 2 or any(f.geom_type != "Polygon" or not f.is_valid for f in faces):
+        return None
+    a, b = faces
+    if a.intersection(fi).area >= b.intersection(fi).area:
+        ni, nj = a, b
+    else:
+        ni, nj = b, a
+    return _replaced(flats, i, j, ni, nj)
+
+
+def _straighten_pass(poly, flats, k, base):
+    reflex = _plate_reflex_points(poly)
+    rejected = set()
+    for _ in range(STRAIGHTEN_MAX_ROUNDS):
+        accepted = False
+        for i, j, e0, e1 in _straighten_candidates(poly, flats, reflex):
+            tag = (i, j, round(e0[0], 3), round(e0[1], 3), round(e1[0], 3), round(e1[1], 3))
+            if tag in rejected:
+                continue
+            trial = _straightened(flats, i, j, e0, e1)
+            if trial is None:
+                rejected.add(tag)
+                continue
+            rec = _score_cut(poly, trial, k)
+            if _strictly_better(base, rec):
+                flats, base, accepted = trial, rec, True
+                break
+            rejected.add(tag)
+        if not accepted:
+            break
+    return flats, base
+
+
+def _slid_variants(flats, i, j, verts):
+    if len(verts) != 2:
+        return []
+    fi, fj = flats[i], flats[j]
+    union = _pair_union(fi, fj)
+    if union is None:
+        return []
+    (x0, y0), (x1, y1) = verts
+    length = math.hypot(x1 - x0, y1 - y0)
+    if length < 0.5:
+        return []
+    dx, dy = (x1 - x0) / length, (y1 - y0) / length
+    nx, ny = -dy, dx
+    mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+    minx, miny, maxx, maxy = union.bounds
+    reach = math.hypot(maxx - minx, maxy - miny) + 1.0
+    side_i = (fi.centroid.x - mx) * nx + (fi.centroid.y - my) * ny
+    out = []
+    for step in range(-BALANCE_MAX_STEPS, BALANCE_MAX_STEPS + 1):
+        if step == 0:
+            continue
+        t = step * BALANCE_STEP_M
+        px, py = mx + t * nx, my + t * ny
+        seg = LineString([(px - dx * reach, py - dy * reach), (px + dx * reach, py + dy * reach)])
+        inter = union.intersection(seg)
+        if inter.is_empty:
+            continue
+        if inter.geom_type == "MultiLineString":
+            inter = linemerge(inter)
+        if inter.geom_type != "LineString" or inter.length < 0.5:
+            continue
+        faces = _split_faces(union, inter)
+        if len(faces) != 2 or any(f.geom_type != "Polygon" or not f.is_valid for f in faces):
+            continue
+        s0 = (faces[0].centroid.x - px) * nx + (faces[0].centroid.y - py) * ny
+        s1 = (faces[1].centroid.x - px) * nx + (faces[1].centroid.y - py) * ny
+        if s0 * s1 >= 0:
+            continue
+        pos, neg = (faces[0], faces[1]) if s0 > 0 else (faces[1], faces[0])
+        ni, nj = (pos, neg) if side_i > 0 else (neg, pos)
+        out.append((abs(ni.area - nj.area), ni, nj))
+    out.sort(key=lambda r: r[0])
+    return out
+
+
+def _rank(rec):
+    failed, bent, spread = _key(rec)
+    return failed, bent, -spread
+
+
+def _balance_pass(poly, flats, k, base):
+    if base["checks"]["C12"]["pass"]:
+        return flats, base
+    dead = set()
+    for _ in range(BALANCE_MAX_ROUNDS):
+        areas = [f.area for f in flats]
+        extreme = {areas.index(min(areas)), areas.index(max(areas))}
+        accepted = False
+        for i, j, verts in _party_walls(flats):
+            if i not in extreme and j not in extreme:
+                continue
+            tag = (i, j, round(flats[i].area, 3), round(flats[j].area, 3))
+            if tag in dead:
+                continue
+            best = None
+            for _diff, ni, nj in _slid_variants(flats, i, j, verts)[:BALANCE_TOP_CANDIDATES]:
+                trial = _replaced(flats, i, j, ni, nj)
+                rec = _score_cut(poly, trial, k)
+                if _strictly_better(base, rec) and (best is None or _rank(rec) < _rank(best[1])):
+                    best = (trial, rec)
+            if best is None:
+                dead.add(tag)
+                continue
+            flats, base, accepted = best[0], best[1], True
+            break
+        if not accepted:
+            break
+    return flats, base
+
+
+SHAPE_MAX_ROUNDS = 12
+SHAPE_TOP_CANDIDATES = 8
+SIMPLIFY_TOLERANCES_M = (0.05, 0.10, 0.20, 0.30)
+WIDE_THETA_OFFSETS = 24
+_SHAPE_CHECKS = ("C6", "C10", "C11", "C12")
+
+
+def _live_flats(flats):
+    return [f for f in flats if not f.is_empty]
+
+
+def _flats_to_fix(poly, flats, base):
+    checks = base["checks"]
+    target = set()
+    if not (checks["C6"]["pass"] and checks["C10"]["pass"] and checks["C11"]["pass"]):
+        for idx, f in enumerate(flats):
+            bad = False
+            if not checks["C6"]["pass"] and sbuf(f, 0.05).intersection(poly.exterior).length < 2.50:
+                bad = True
+            if not checks["C10"]["pass"] and pinch_area(f, poly) > 0.0:
+                bad = True
+            if not checks["C11"]["pass"] and flat_aspect(f) > NOCORE_RULESET["max_flat_aspect"]:
+                bad = True
+            if bad:
+                target.add(idx)
+    if not checks["C12"]["pass"]:
+        areas = [f.area for f in flats]
+        target.add(areas.index(min(areas)))
+        target.add(areas.index(max(areas)))
+    return target
+
+
+def _shape_pass(poly, flats, k, base):
+    if all(base["checks"][c]["pass"] for c in _SHAPE_CHECKS):
+        return flats, base
+    reflex = _plate_reflex_points(poly)
+    for _ in range(SHAPE_MAX_ROUNDS):
+        target = _flats_to_fix(poly, flats, base)
+        if not target:
+            break
+        best = None
+        for i, j, verts in _party_walls(flats):
+            if i not in target and j not in target:
+                continue
+            for _diff, ni, nj in _slid_variants(flats, i, j, verts)[:SHAPE_TOP_CANDIDATES]:
+                trial = _replaced(flats, i, j, ni, nj)
+                rec = _score_cut(poly, trial, k)
+                if _strictly_better(base, rec) and (best is None or _rank(rec) < _rank(best[1])):
+                    best = (trial, rec)
+        for i, j, e0, e1 in _straighten_candidates(poly, flats, reflex):
+            if i not in target and j not in target:
+                continue
+            trial = _straightened(flats, i, j, e0, e1)
+            if trial is None:
+                continue
+            rec = _score_cut(poly, trial, k)
+            if _strictly_better(base, rec) and (best is None or _rank(rec) < _rank(best[1])):
+                best = (trial, rec)
+        if best is None:
+            break
+        flats, base = best
+    return flats, base
+
+
+def _only_point_count_fails(base, flats):
+    if base["checks"]["C5"]["pass"]:
+        return False
+    live = _live_flats(flats)
+    if any(len(f.interiors) for f in live):
+        return False
+    reps = [f.representative_point() for f in live]
+    for i, fi in enumerate(live):
+        for j, pt in enumerate(reps):
+            if i != j and fi.contains(pt):
+                return False
+    return max((len(f.exterior.coords) - 1 for f in live), default=0) > 40
+
+
+def _build_live(poly, k):
+    result = build_flats(poly, k)
+    return _live_flats(result[1])
+
+
+def _simplify_pass(poly, flats, k, base):
+    if not _only_point_count_fails(base, flats):
+        return flats, base
+    for tol in SIMPLIFY_TOLERANCES_M:
+        simple = poly.simplify(tol, preserve_topology=True)
+        if simple.geom_type != "Polygon" or simple.is_empty or not simple.is_valid:
+            continue
+        try:
+            trial = _build_live(simple, k)
+        except Exception:
+            continue
+        if not trial or any(f.geom_type != "Polygon" for f in trial):
+            continue
+        rec = _score_cut(poly, trial, k)
+        if rec["checks"]["C1"]["pass"] and _strictly_better(base, rec):
+            return trial, rec
+    return flats, base
+
+
+def _wide_search_pass(poly, flats, k, base):
+    global MAX_THETA_OFFSETS
+    if all(base["checks"][c]["pass"] for c in _GATED_CHECKS):
+        return flats, base
+    saved = MAX_THETA_OFFSETS
+    MAX_THETA_OFFSETS = WIDE_THETA_OFFSETS
+    try:
+        trial = _build_live(poly, k)
+    except Exception:
+        return flats, base
+    finally:
+        MAX_THETA_OFFSETS = saved
+    if not trial or any(f.geom_type != "Polygon" for f in trial):
+        return flats, base
+    rec = _score_cut(poly, trial, k)
+    trial, rec = _shape_pass(poly, trial, k, rec)
+    trial, rec = _simplify_pass(poly, trial, k, rec)
+    if _strictly_better(base, rec):
+        return trial, rec
+    return flats, base
+
+
+def improve_cut_nocore(plate, live, checks, verdict, dwelling_count):
+    """D-EU-120: straighten bent party walls, then balance unequal flats, each step
+    kept only if strictly better (never worse on any check that passes today,
+    better on at least one of the failed-check count, C12 spread, C13). A cut
+    that is already clean, or where no step is strictly better, is returned as
+    the very same objects."""
+    unchanged = (plate, live, checks, verdict)
+    if not NOCORE_IMPROVE_ENABLED or len(live) < 1:
+        return unchanged
+    try:
+        cx, cy = plate.centroid.x, plate.centroid.y
+        poly = translate(plate, -cx, -cy)
+        flats = [translate(f, -cx, -cy) for f in live]
+        if any(f.geom_type != "Polygon" for f in flats):
+            return unchanged
+        base = _score_cut(poly, flats, dwelling_count)
+        start = base
+        if base["checks"]["C13"]["value"] > 0:
+            flats, base = _straighten_pass(poly, flats, dwelling_count, base)
+        flats, base = _balance_pass(poly, flats, dwelling_count, base)
+        flats, base = _shape_pass(poly, flats, dwelling_count, base)
+        flats, base = _simplify_pass(poly, flats, dwelling_count, base)
+        flats, base = _wide_search_pass(poly, flats, dwelling_count, base)
+        if base is start:
+            return unchanged
+        out = [translate(f, cx, cy) for f in flats]
+        return plate, out, base["checks"], base["verdict"]
+    except Exception:
+        return unchanged

@@ -3,7 +3,7 @@
 EnergyPlus already applies 18 C for every month to any surface whose Outside_Boundary_Condition
 is "ground" when no Site:GroundTemperature:BuildingSurface object exists in the IDF. This module
 makes that value explicit and citable instead of leaving it as an unstated default -- see
-docs/docs_ACTIVE/TechTransfer/2026-09-17_chosen_vs_inherited.md for the rationale (D1: undisturbed
+docs/docs_DONE/TechTransfer/2026-09-17_chosen_vs_inherited.md for the rationale (D1: undisturbed
 soil temperature explicitly rejected; D3: Site:GroundTemperature:FCfactorMethod not added here).
 """
 from geomeppy import IDF as GeomIDF

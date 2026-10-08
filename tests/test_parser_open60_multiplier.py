@@ -1,6 +1,6 @@
 """OPEN-60 (T03): lighting/equipment EUI must scale by zone multiplier x zone list
 multiplier, matching the multiplier-aware floor-area denominator already produced by
-resolve_simulated_floor_area(). See docs/docs_ACTIVE/openings/extra/FIX_open-60_multiplier-eui.md
+resolve_simulated_floor_area(). See docs/docs_DONE/openings/extra/FIX_open-60_multiplier-eui.md
 and PLAN_rulings-and-fixes-2026-08-21.md T03.
 
 Scope: openubem/results/parser.py — parse_eio_zone_multipliers() (new) and _compute_eui()'s

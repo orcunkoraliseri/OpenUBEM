@@ -96,7 +96,7 @@ Every residual `FAIL` is a named, honest structural residual (thick-band courtya
 multi-wing plates whose wings do not separate under any tried candidate) — never an invented exemption, never a
 loosened check.
 
-Sheets: `docs/docs_ACTIVE/europeanLocations/rules/tests/TEST_0N_nocore_2026-09-03_r2.html`. Census:
+Sheets: `docs/docs_ACTIVE/europeanLocations/rules/tests/archive/TEST_0N_nocore_2026-09-03_r2.html`. Census:
 `openubem/outputs/eu_evidence/EU-21/rules_tests/test_0N_nocore.json`. This is a geometric census only — no
 EnergyPlus run stands behind any number here (`D-EU-55`).
 
@@ -120,7 +120,7 @@ EnergyPlus run stands behind any number here (`D-EU-55`).
 |---|---|
 | no-core builder | `scripts/eu21/07_nocore_tests.py` |
 | fleet census | `openubem/outputs/eu_evidence/EU-21/rules_tests/test_0N_nocore.json`, N = 1..5 |
-| delivered sheets | `docs/docs_ACTIVE/europeanLocations/rules/tests/TEST_0N_nocore_2026-09-03_r2.html` |
+| delivered sheets | `docs/docs_ACTIVE/europeanLocations/rules/tests/archive/TEST_0N_nocore_2026-09-03_r2.html` |
 | owner-read sheets (2026-09-03, no `_r2`) | `docs/docs_ACTIVE/europeanLocations/rules/tests/archive/reviewed_2026-09-03/` |
 | archived six-check baseline | `docs/docs_ACTIVE/europeanLocations/rules/archive/EXAMPLE_dwelling_layout_validation_nocore_2026-09-02.md` |
 | archived core-era original | `docs/docs_ACTIVE/europeanLocations/rules/archive/EXAMPLE_dwelling_layout_validation_2026-08-28.md` |

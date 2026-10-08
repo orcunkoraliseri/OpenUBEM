@@ -1,7 +1,7 @@
 """
 OPEN-46 / T04 — EVIDENCE ONLY.
 
-Builds two inventories per docs/docs_ACTIVE/openings/implemenation/
+Builds two inventories per docs/docs_DONE/openings/implemenation/
 PLAN_three-new-items-2026-08-12.md T04:
 
 Inventory A (code): every file-pair divergence between the live tree and

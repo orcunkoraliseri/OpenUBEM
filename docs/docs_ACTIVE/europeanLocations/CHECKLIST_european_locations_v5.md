@@ -1,7 +1,9 @@
 # European locations × Step 8 — progress checklist (v5)
 
+> **ARCHIVED 2026-10-08** to `docs/docs_DONE/SETUP/europeanLocations/`. Final results: `results/EU11_results_2026-10-08_*` (Madrid 68.774 / 1,119 · Lyon 57.810 / 501 · London 68.307 / 1,215 · Bologna 58.164 / 1,035 · fleet 62.626 / 3,870). Bologna files under `openubem/outputs/eu_evidence/EU-11/` stay frozen until the GSS Canada 4J session reports done.
+
 🔴 **CLOSED 2026-09-09.** Closed, reopened the same day for `T06b`, `T07`, `T08` of
-`implementation/PLAN_eu-recut-95pct-2026-09-08.md`, then closed again once all three landed. Read-only:
+`implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md`, then closed again once all three landed. Read-only:
 not executed, not appended to, not deleted. Statuses below were refreshed at `T08`. Current truth: the
 block at the head of [`STATE_european_locations_v5.md`](STATE_european_locations_v5.md).
 
@@ -55,12 +57,12 @@ Updated by the director after each dispatch audit, never by an executor.
 - [x] `eu21-global-rules-2026-09-02`
 - [x] `eu21-checks-c8c4-2026-09-02`
 - [x] `eu21-test01-clean-2026-09-02` — CLOSED, superseded
-- [ ] `eu21-cutter-2026-09-02` — 🟥 **PARKED.** Files intact; only the owner may restart it.
+- [ ] `eu21-cutter-2026-09-02` — 🟥 **PARKED.** Files intact; only the owner may restart it. — **closed at archive 2026-10-08, not pursued (D-EU-148/149).**
 - [x] `eu21-nocore-2026-09-02` — CLOSED
 - [x] `eu21-compactness-2026-09-03` — ✅ **COMPLETE** (`CP-3`)
 - [x] `eu21-district-viewer-2026-09-03` — ✅ **COMPLETE** (`CP-3`, plus the `_r2` archive pass)
 - [x] `eu21-colour-repair-2026-09-03` — ✅ **COMPLETE** (`CP-4`) — PASS 2,012 → 2,178 → 2,353 (79.1 % → 85.6 % → 92.5 %), refused 23 → 15, 0 regressions at either step
-- [ ] `eu-engine-nocore-carryin-2026-09-03` — ▶ **IN FLIGHT** (`D-EU-95`) — extract the proven cutter into `openubem/geometry/european_nocore.py`, prove bit-parity with `_r5` on all 2,544 plates, seam it into the engine, rebuild the four districts' IDFs, then the Speed campaign. ✅ **`CP-1` SIGNED** — 2,529 plates compared, **0/0/0/0 mismatches** · `CP-2` IDF audit still to come
+- [ ] `eu-engine-nocore-carryin-2026-09-03` — ▶ **IN FLIGHT** (`D-EU-95`) — extract the proven cutter into `openubem/geometry/european_nocore.py`, prove bit-parity with `_r5` on all 2,544 plates, seam it into the engine, rebuild the four districts' IDFs, then the Speed campaign. ✅ **`CP-1` SIGNED** — 2,529 plates compared, **0/0/0/0 mismatches** · `CP-2` IDF audit still to come — **closed at archive 2026-10-08, not pursued (D-EU-148/149).**
 - [x] `eu-nocore-finding249-remedy-2026-09-04` — ✅ **COMPLETE** — restricted Option B (partner-less near-duplicate-vertex carve-out only). T01/T02 done, 17/17 unit tests green. T03 (16-building real-EnergyPlus regression) completed 16/16 clean, 0 fatal / 0 severe. T04 measured by the director: 🔴 **`FINDING 250`** — reroute **1,135/2,262 (50.2 %)**, down from 1,306/2,262 (57.7 %), 171 buildings recovered — `CP-2` gate 5 still FAILS. `D-EU-100` lifted the wait-for-`CP-2` gate on Speed submission.
 - [x] `eu-nocore-full-fleet-expansion-2026-09-04` — 🟨 **T01-T03 (prep) COMPLETE, T04+ (package/ship) BLOCKED.** `D-EU-101` — owner ruled all residential building types in scope. Gap +1,659; prep recovered +363 (London +307, Madrid +56, Lyon/Bologna +0, expected). `FINDING 253`. Packaging/Speed submission still waits on the live 2,527-task campaign (`eu-nocore-finding249-remedy-2026-09-04`, T06) draining — far from done as of 2026-09-04 evening.
 
@@ -75,7 +77,7 @@ Updated by the director after each dispatch audit, never by an executor.
 - [x] T05a — the engine's own building-level census (`FINDING 246`) — 2,544 rows, fleet `EMITTED` 2,279 (89.6 %) · `FALLBACK` 240 · `REFUSED_K_GT_12` 25, against `_r5`'s 2,353 `PASS` (92.5 %); the 74 that changed side all moved one way, none the other
 - [x] T05 — four districts rebuilt, audited — 🔴 **`CP-2` FAILED, not signed** (`FINDING 249`). Four gates pass exactly: zero `*_circulation` zones, route counts = `T05a`'s 2,279 `EMITTED`, conditioned = gross on all 2,262, old-vs-new attribute diff 0/0/0. The fifth fails: the `FINDING 210` reroute fires on **1,306** buildings (delivered build: 2) and discards the dwelling layout, so real layouts fall **1,446 → 956**
 - [x] T06 — the Speed campaign, director only — ▶ **IN FLIGHT ON SPEED** (`D-EU-100`, partition `ps`, `--time=7-00:00:00`, throttle `%8`): London (`1305158`) **100% completed & harvested** (82/82 RC=0, mean EUI 87.34 kWh/m², `outputs_3D` updated); Lyon (`1305167`, 103 done), Madrid (`1305176`, 65 done), Bologna (`1305186`, 67 done) running autonomously. Fleet: 317 completed, 24 running, 12 failed.
-- [ ] T05-fix — root-cause the `intersect_match` reroute at no-core subdivision density; recover the 17 `IDF_ASSEMBLY_FAILED_RuntimeError` buildings — **owner's call, not started**
+- [ ] T05-fix — root-cause the `intersect_match` reroute at no-core subdivision density; recover the 17 `IDF_ASSEMBLY_FAILED_RuntimeError` buildings — **owner's call, not started** — **closed at archive 2026-10-08, not pursued (D-EU-148/149).**
 
 ---
 
@@ -173,9 +175,9 @@ tasks (see the plan doc for full detail):
       `PERIOD_STRADDLE_K` 20→12, `MISSING_OBSERVED_STOREY_COUNT` 47→52 — every predicted number matched.
       389/389 baseline rows re-emit with identical `idf_sha256`; provenance split 24 + 6. Fleet
       **3,096/4,186 (74.0 %)**.
-- [ ] Promote `GB-LDN-STDUNSTANS_full_fleet_epcyear_2026-09-04/` over `..._full_fleet_2026-09-04/` — written
+- [ ] Promote `GB-LDN-STDUNSTANS_full_fleet_epcyear_2026-09-04/` over `..._full_fleet_2026-09-04/` — written — **closed at archive 2026-10-08, not pursued (D-EU-148/149).**
       to a separate folder on purpose; promotion is a director call, deliberately not taken by the executor.
-- [ ] Rule on the remaining recoverable populations (+331 max: Madrid Catastro `BuildingPart` storeys +163,
+- [ ] Rule on the remaining recoverable populations (+331 max: Madrid Catastro `BuildingPart` storeys +163, — **closed at archive 2026-10-08, not pursued (D-EU-148/149).**
       straddle-intersection +69, 13–14 dwelling gap +38, `house`/`terrace` floor dimensions +33, ISTAT tie
       policy +12, `D-EU-58` tolerance +4, Bologna ladder for `building=residential` +6) — the only path above
       74 %, and the ceiling stops at ≈82 % even if all are granted. See
@@ -185,13 +187,13 @@ tasks (see the plan doc for full detail):
 
 - [x] Carry the written rules into `openubem/geometry/european_residential.py` — ✅ done, `D-EU-95`, `implementation/DONE/PLAN_eu-engine-nocore-carryin-2026-09-03.md`, bit-parity 0 mismatches on 2,529/2,529 plates.
 - [x] Close the 95 % coverage gap, biggest group first — superseded: `EU-19` ran on `D-EU-100`'s lifted gate, not on a re-passed 95 % bar; see `STATE` §7 items 2–3.
-- [ ] The buildings demoted at IDF-writing time — a separate defect, never a morphology failure — still open, not scheduled.
+- [ ] The buildings demoted at IDF-writing time — a separate defect, never a morphology failure — still open, not scheduled. — **closed at archive 2026-10-08, not pursued (D-EU-148/149).**
 - [x] Republish `plans3D/` from the new plans, geometry only — superseded by the merged `outputs_3D/` viewers, `PLAN_eu-viewer-eui-floorplan-2026-09-07.md`.
 - [x] Confirm the Speed queue is empty before `EU-19` is prepared — ✅ checked 2026-09-03: `squeue -u o_iseri` → **0 jobs**; EnergyPlus 23.1.0 present on `/speed-scratch`, 27 TB free. Re-check immediately before submitting.
 - [x] `EU-19` simulate — ✅ EU-11 ceiling82 harvest closed 2026-09-06, 3,344 run / 3,321 success / 23 failed, pooled EUI by district in `STATE` §8.
 - [x] EUI colour-by + EU-21 check badges on the 3D viewers — ✅ closed 2026-09-07, `PLAN_eu-viewer-eui-floorplan-2026-09-07.md`.
-- [ ] Housekeeping: `scripts/eu21/04_group_tests.py` still writes archived sheet filenames
-- [ ] 🔴 New, `FINDING 258`: some plates' floor-plan division is not homogeneous (tiny dwellings + one oversized one) despite `PASS ALL 7 CHECKS` — owner ruling: per-building fix only, never a full-batch re-cut/re-simulation, not scheduled.
+- [ ] Housekeeping: `scripts/eu21/04_group_tests.py` still writes archived sheet filenames — **closed at archive 2026-10-08, not pursued (D-EU-148/149).**
+- [ ] 🔴 New, `FINDING 258`: some plates' floor-plan division is not homogeneous (tiny dwellings + one oversized one) despite `PASS ALL 7 CHECKS` — owner ruling: per-building fix only, never a full-batch re-cut/re-simulation, not scheduled. — **closed at archive 2026-10-08, not pursued (D-EU-148/149).**
 
 ---
 

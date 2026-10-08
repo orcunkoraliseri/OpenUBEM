@@ -19,7 +19,6 @@ from openubem.config import (
     assert_prototype_idf_version,
 )
 from openubem.geometry.footprint import (
-    _archetype_consumed_group_median,
     derive_num_floors,
     simplify_footprint,
     translate_to_origin,
@@ -166,11 +165,7 @@ def _fleet_levels_medians(gdf: gpd.GeoDataFrame) -> "tuple[dict, int | None]":
 
 
 def _derive_num_floors_wired(row: pd.Series, gdf: gpd.GeoDataFrame) -> int:
-    """OPEN-35 T05: reach derive_num_floors()'s Scope B agreement kwargs for rows whose
-    fired archetype rule consumed the classifier's group-/global-median levels fallback.
-    All other rows are byte-identical to the pre-T05 call."""
-    if not _archetype_consumed_group_median(row):
-        return derive_num_floors(row)
+    """OPEN-35 Option A: pass the classifier's group-/global-median levels to derive_num_floors()."""
     from openubem.semantic.building_classifier import _normalise_use_class
     levels_group_median, levels_global_median = _fleet_levels_medians(gdf)
     use_class, _ = _normalise_use_class(row)
@@ -674,6 +669,17 @@ class BuildingIDF:
                 "num_context_buildings": len(context),
                 "simplification_status": simp_status, "data_quality_flag": dq_flag,
                 "generation_status": "failed_no_extruded_zones",
+                "resolution_mode": self.resolution_mode,
+            }
+
+        if not self.idf.idfobjects["ZONE"]:
+            logger.error("osm_id=%s IDF holds no Zone object — dropping", osm_id)
+            return {
+                "osm_id": osm_id, "idf_path": "", "archetype_id": arch,
+                "zoning_strategy": strategy, "num_zones": 0,
+                "num_context_buildings": len(context),
+                "simplification_status": simp_status, "data_quality_flag": dq_flag,
+                "generation_status": "failed_no_zones",
                 "resolution_mode": self.resolution_mode,
             }
 

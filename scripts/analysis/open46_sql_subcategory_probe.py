@@ -3,7 +3,7 @@ OPEN-46 / T03 — EVIDENCE ONLY.
 
 Probes whether the adopted phaseE_elevrb run's EnergyPlus SQL files carry
 enough information to report elevator energy as a separate end-use without
-re-simulating anything. See docs/docs_ACTIVE/openings/implemenation/
+re-simulating anything. See docs/docs_DONE/openings/implemenation/
 PLAN_three-new-items-2026-08-12.md T03.
 
 This script makes NO fix and changes NO source file. It only reads

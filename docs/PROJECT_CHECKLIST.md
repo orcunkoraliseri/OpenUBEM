@@ -24,21 +24,23 @@ documents were moved and, in a few cases, renamed. Use this table to resolve any
 | `docs/docs_ACTIVE/phaseC_combinedResim/` | `docs/docs_DONE/SETUP/phaseC_combinedResim/` |
 | `docs/docs_ACTIVE/3D/` | `docs/docs_DONE/VISUALS/3D-visualization/` |
 | `docs/docs_ACTIVE/UTCI/` | `docs/docs_DONE/OUTDOOR/UTCI/` |
+| `docs/docs_ACTIVE/TechTransfer/` *(archived 2026-09-28, nothing renamed)* | `docs/docs_DONE/TechTransfer/` |
+| `docs/docs_ACTIVE/openings/` *(archived 2026-10-08, nothing renamed; 181 files swept, 14 other `docs_DONE/` files left as standing exclusion)* | `docs/docs_DONE/openings/` |
 
 🔒 **Added 2026-08-20 — a rotation, and then a move. Both, in that order.**
 Book I was **closed** at 8,246 lines and the live register became
-`docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md` (**16** live items as of
+`docs/docs_DONE/openings/INVESTIGATION_open-items-register-II.md` (**16** live items as of
 2026-08-20 evening; it opened at 21). The closed book is still the authority on closed items and on
 each live item's full history.
 
 🔴 **Correction, 2026-08-20 (evening).** This paragraph originally read *"stays exactly where it is …
 no link in this file is dead because of it"*. **That is no longer true.** Book I was moved into
-`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` and the move was committed in
+`docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md` and the move was committed in
 `4f2a5a4` *("docs: archive Register I, establish Register II…")*, which left **129 dead citations
 across 58 files**. The archiving rule below applied and the sweep had not been run.
 
 ✅ **Sweep completed 2026-08-20 (evening), director** — T07 of
-`docs_ACTIVE/openings/implemenation/previous/PLAN_ten-live-items-2026-08-20-evening.md`. **129 → 1**; the one
+`docs_DONE/openings/implemenation/previous/PLAN_ten-live-items-2026-08-20-evening.md`. **129 → 1**; the one
 survivor is inside `docs_DONE/`, which is a standing exclusion below and is resolved by this table
 rather than edited. 57 files repaired to the `DONE/` path, plus 4 archived plans whose `../`-relative
 form was already stale by one level and is now written out in full. New rows for this table:
@@ -54,7 +56,7 @@ follow"* although both had completed and CP-3 was signed. **`openings/implemenat
 plan in force.** ⚠️ **No longer true as of later the same day — see the block immediately below.**
 
 🟢 **Second ten-item pass, 2026-08-21 (director + four concurrent Sonnet executors).** Plan now
-in force: `docs_ACTIVE/openings/implemenation/previous/PLAN_ten-live-items-2026-08-21.md` — **T01–T10 all
+in force: `docs_DONE/openings/implemenation/previous/PLAN_ten-live-items-2026-08-21.md` — **T01–T10 all
 executed, CP-A–CP-D all signed** (§9 of that doc). Ten live items measured: OPEN-53 (×2), 17, 14,
 35, 62, 38×56, 18, 19, 09×38. **No item closed, no item opened, no published number moved, no ruling
 taken** — the register still stands at **16 live / 46 retired / 62 total, next free `OPEN-63`**.
@@ -81,7 +83,7 @@ fatal runs in only **145 of 40,800** harvest directories (0.36 %), so OPEN-38's 
 `evidence/open48_refleet4` return **153.8304**, not the adopted **153.8231** (0.005 %) — immaterial to
 every conclusion, **the adopted baseline is unchanged**, but the adopted figure is not exactly
 reproducible from the adopted evidence.
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 
 ⚠️ **Two plans are now in force and NEITHER has been archived** — `PLAN_ten-live-items-2026-08-21.md` (day) and `PLAN_ten-live-items-2026-08-21-night.md` (night, all of CP-E–CP-H signed). Their citation sweeps are not owed until they move to `implemenation/previous/`. **The night pass is the more recent authority** — it supersedes the day pass on the volume/failure test and resolves the day pass's `relation/7480583` floor-area conflict; see the section dated **2026-08-21, night** at the end of this file.
 
@@ -93,7 +95,7 @@ archived 2026-08-22 with its own sweep (**15 refs, 6 path-qualified repaired, 0 
 
 🟢 **State of 2026-08-22, evening — the arc's first plan that FIXES a published number
 rather than measuring one. ✅ Complete, and ARCHIVED 2026-09-09.**
-`docs_ACTIVE/openings/implemenation/previous/PLAN_open61-dh-remedy-2026-08-22.md`, opened on the user's ruling
+`docs_DONE/openings/implemenation/previous/PLAN_open61-dh-remedy-2026-08-22.md`, opened on the user's ruling
 *"open-61 vas-y"*. **T01, T01b, T02, T03 and T04 all complete; 🛑 CP-1 and ✅ CP-2 both SIGNED
 (§9 of that doc).** The sentence below originally read *"T03 is authorised and running"*; that is
 superseded — T03 finished the same evening and CP-2 was ruled.
@@ -134,12 +136,12 @@ superseded — T03 finished the same evening and CP-2 was ruled.
   are exactly that shape and **their expected values encode the understatement**. **Fleet exposure
   measured at zero buildings**, so no published number moves.
 - ✅ **CP-2 RULED 2026-08-22 — the user delegated the call (*"tu progress comme tu recommend"*) and the ruling is: KEEP 153.8231, carry a stated caveat. The restatement is NOT adopted.** Four reasons, the first decisive: **(1)** 171.7718 is computed on the census population (n = 8,144) and 153.8231 on run 4 (n = 8,153) — **the arithmetic to restate the adopted figure has never been run**, so adopting would replace it with a figure from a different population rather than correct it. **(2)** Carbon would not follow (OPEN-63, no DH emission factor), so two published figures would contradict each other. **(3)** OPEN-56's ≈+1.0 and the 15.8 % storey-vs-simulated-area disagreement both still move the same number — one of them the **denominator** — so adopting now means restating twice. **(4)** The fix is already in the code, so nothing is hidden by waiting. ❓ **Proposed, not taken:** closing OPEN-61, whose defect is fixed and whose size is now published as a caveat. Full reasoning: §9 of the plan.
-  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 - 🔴 **Nothing published has moved. 153.8231 kWh/m² pooled over 8,153 remains the adopted
   figure.** T03 produces a **candidate** restatement only (the census rebuild's **152.3011 →
   171.7718**, n = 8,144). ⚠️ **152.3011 and 153.8231 are different populations and must
   never be differenced.** Adoption is the user's ruling at **CP-2**, framed as adopt-or-caveat.
-  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 
 ✅ **Third archiving pass, 2026-09-09 (director) — the last openings plan is archived and its sweep is run.**
 `PLAN_open61-dh-remedy-2026-08-22.md` moved from `implemenation/` into `implemenation/previous/`;
@@ -160,7 +162,7 @@ to a file that exists. 0 dead.**
 
 | Old path (dead) | Current location |
 |---|---|
-| `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` | `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` |
+| `docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md` | `docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md` |
 
 **Four files were also renamed by the move** — prefix substitution alone will not find them:
 
@@ -313,7 +315,7 @@ inert on it (F10, by construction — no re-simulation was needed to establish t
 > the same buildings, the same definition, better donors.** ⚠️ **The new figure is not volume-correct
 > — OPEN-56 is still open, every building still simulates with a 10 m³ zone-volume stub worth about
 > +1.0 kWh/m², and that is NOT in the 153.8.** A volume-correct fleet would be ≈154.8. Derivation:
-> `docs/docs_ACTIVE/openings/extra/MEASUREMENT_fleet-restatement-2026-08-19.md`.
+> `docs/docs_DONE/openings/extra/MEASUREMENT_fleet-restatement-2026-08-19.md`.
 >
 > **Two things are waiting on you.** (1) The floor-count fix (OPEN-35) corrected 20 buildings that were
 > wrongly modelled as single-storey — but the 21st, a 19-storey hotel in `nyc_centre`, **now fails to
@@ -398,7 +400,7 @@ implementation plan is now CLOSED). **The 12-cell / 8,160-building T20 fleet re-
 never been harvested:** `squeue` empty, 12/12 arrays, **8,153 COMPLETED + 7 FAILED = 8,160** exactly
 (nyc_rural 3, la_urban 3, la_centre 1 — SLURM-level, *not* simulation-level, and each must be mapped
 to a defect ID). No `t20_*` artifact exists on disk and no R06 progress-log entry exists.
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 **Remaining path: R06b (harvest + 7 reported items) → director audit → R09 (five cross-mode figures)
 → R08 (documentation closure) → CP-E, the final checkpoint.** Both executor prompts are written and
 current. **Resume by pasting
@@ -1141,7 +1143,7 @@ It is **not** the adopted baseline and never has been — see §0.
 | 4 | **Structural-fixes** (T01–T11) | 2026-07-24 | CP-E **with caveat** | 4 fixes verified fleet-scale — **but 98.81% → 97.92%**, because `thermal_mass=True` unmasked **E-LA-20** (150 `nyc_rural` SmallOffice newly Fatal) |
 | 5 | **E-LA-20 investigation** (I01–I05) | 2026-07-25 | CP-INV — **ended OPEN by design** | Root cause proven, not hypothesized. E-LA-21, E-LA-22 |
 | 6 | **E-LA-20 multilayer fix** (F01–F11-N-b) | 2026-07-25 | **CP-C SIGNED** | Fixed + verified 150/150. E-LA-23, E-LA-24 |
-| 7 | **Storey matching** (R01–R10) | 2026-08-04 | **CP-E SIGNED** | T20 fleet: **99.914%** (8,153/8,160), median 122.23 kWh/m²/yr. E-LA-36 fixed inside arc; E-LA-38/39/40/41 found; Q3 confirmed NOT closed (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) |
+| 7 | **Storey matching** (R01–R10) | 2026-08-04 | **CP-E SIGNED** | T20 fleet: **99.914%** (8,153/8,160), median 122.23 kWh/m²/yr. E-LA-36 fixed inside arc; E-LA-38/39/40/41 found; Q3 confirmed NOT closed (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see previous/PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B. |
 
 ### The E-LA-20 defect, in four lines
 
@@ -1249,7 +1251,7 @@ document the limit; extending to the shorter case "buys reach, not correctness" 
 **T20 fleet result:** 8,153/8,160 = **99.914%** success, median `total_eui` **122.23** kWh/m²/yr — but
 **150 of the +163-building success gain over T19 is the pre-existing E-LA-20 fix landing at fleet
 scale, not this arc's own work** (full decomposition: results doc §8.1).
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 **E-LA-36** (`Zone.Multiplier`
 × `ZoneList` silent 50% storey over-count) was found and fixed *inside* this arc, 0/522 verified.
 **E-LA-38** (41/8,160 buildings mislabelled Hotel→Office by the harvest's stale archetype source)
@@ -1312,7 +1314,7 @@ re-run that retains `eplusout.eio`.
 > re-derives to 31. Detail in the dated amendment further down this section.
 >
 > **The resume brief is the closing amendment of**
-> `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — written to stand alone. The
+> `docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md` — written to stand alone. The
 > director handover `openings/prompts/DIRECTOR_PROMPT_openings_2026-08-06.md` now opens with a
 > one-screen state box and closes with §11, the resume order. The board
 > `openings/implemenation/board_published-numbers.html` carries a pause panel at its head (same
@@ -1347,7 +1349,7 @@ re-run that retains `eplusout.eio`.
 > **OPEN-25 CLOSED** (fixed 2026-06-10, the day after it was named — carried here for eight weeks
 > afterwards); **OPEN-34 and OPEN-35 opened**, both found by *auditing* a completed task rather than
 > by running one; first measurements made on **OPEN-22, OPEN-29, OPEN-06/07/11, OPEN-34**.
-> Plan doc for the no-compute work: `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_no-compute-queue.md`.
+> Plan doc for the no-compute work: `docs/docs_DONE/openings/implemenation/previous/PLAN_no-compute-queue.md`.
 > The five-mode local re-run is **parked at the user's instruction** until a machine is free.
 >
 > **Superseded the same night — round 2 of the no-compute queue:
@@ -1415,7 +1417,7 @@ re-run that retains `eplusout.eio`.
 > directions, finishing off N14's struck "same rows" claim.
 >
 > ### 2026-08-06 — the compute queue opens; **E02 is running**
-> Plan: `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_compute-queue.md` (C01–C06). **The user
+> Plan: `docs/docs_DONE/openings/implemenation/previous/PLAN_compute-queue.md` (C01–C06). **The user
 > released the local workstation for simulation**, unparking every measurement the no-compute queue
 > could not reach.
 > 🔴 **A second prerequisite was found, and it had an attractive wrong answer.** Besides the known
@@ -1466,7 +1468,7 @@ re-run that retains `eplusout.eio`.
 
 > **🔴 Amended 2026-08-11 (later) — the E02 audit and closure pass.
 > The register is now at 31 tracked items / 31 findings, down from 35 / 37.**
-> Plan: `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md` — T01–T06, all six
+> Plan: `docs/docs_DONE/openings/implemenation/previous/PLAN_e02-audit-and-closure.md` — T01–T06, all six
 > landed, three checkpoints director-signed by independent re-derivation from raw artifacts.
 > **Arithmetic, so it can be checked: 35 − 5 closed + 1 opened = 31.**
 >
@@ -1501,7 +1503,7 @@ re-run that retains `eplusout.eio`.
 > **Rulings owed, in order: OPEN-22 · OPEN-01(c) · OPEN-01's remedy · CP-M2 · OPEN-11.**
 > **Nothing is queued, nothing is in flight, no agent is running, and Speed is not needed.**
 
-`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` — **29 items, OPEN-01 … OPEN-32**
+`docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md` — **29 items, OPEN-01 … OPEN-32**
 (**OPEN-23 `layoutGenerator` excluded by the user 2026-08-04**, ID retired — not a direction being
 continued; the engine's record stays under `docs/docs_TODO/layoutgenerator/`. **OPEN-21 mixed-use
 classification deferred by the user 2026-08-05**, ID retired — one function per building stands, full
@@ -1517,12 +1519,12 @@ claim carries an evidence mark — ✅ verified · 📄 documented, not re-verif
 ❓ unmeasured. **No 📄 or ⚠️ number goes into a plan without being re-derived first.**
 
 **Director prompt for a fresh manager session:**
-~~`docs/docs_ACTIVE/openings/prompts/previous/DIRECTOR_PROMPT_openings_2026-08-05.md` — self-contained, **current**.~~
-**Amended 2026-08-11:** `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` —
+~~`docs/docs_DONE/openings/prompts/previous/DIRECTOR_PROMPT_openings_2026-08-05.md` — self-contained, **current**.~~
+**Amended 2026-08-11:** `docs/docs_DONE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` —
 self-contained, **current**. It is written after E02 finished *and* was harvested, so it opens on
 audit → rule rather than on submission. **All earlier prompts (`..._2026-08-04/05/06/10.md`) are spent**
 and now live in `prompts/previous/`, each marked superseded in-file; kept as historical record only.
-Supporting documents for this arc live in `docs/docs_ACTIVE/openings/extra/`, per user instruction
+Supporting documents for this arc live in `docs/docs_DONE/openings/extra/`, per user instruction
 2026-08-05 — the arc folder itself stays clean.
 
 **Four patterns visible only with the items in one list:**
@@ -1539,7 +1541,7 @@ Supporting documents for this arc live in `docs/docs_ACTIVE/openings/extra/`, pe
 4. ~~The register found a duplicate on its first pass~~ — **swept 2026-08-05 (OPEN-05, CLOSED):**
    41 `E-LA` + 16 `E-UTCI` IDs, **both sequences dense, no gaps, no ID reuse, and E-LA-21/E-LA-39 is
    the only duplicate** (treat E-LA-39 as an alias). Report:
-   `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-05_defect-id-sweep.md`. Director-audited by independent
+   `docs/docs_DONE/openings/extra/MEASUREMENT_open-05_defect-id-sweep.md`. Director-audited by independent
    re-enumeration. **Next free: E-LA-42, E-UTCI-17.** The sweep exposed a *different* hygiene defect,
    now **OPEN-29**: ~8 `E-LA` IDs are OPEN at their own defining line yet appear nowhere in the
    register — including `has_fatal` itself. Candidate list unverified; first measurement is to follow
@@ -1754,7 +1756,7 @@ miscount; the table itself was complete at 21.)*
 | Item | Outcome |
 |---|---|
 | **OPEN-24** — live EnergyPlus gate | 🟢 **CLOSED. The gate was never parked — it had simply never been run on this machine.** EnergyPlus **23.1.0-87ed9199d4** is installed locally; **7 passed** in four sequential director runs (66.38 / 65.99 / 66.57 / 66.68 s); no test needs the network. An eight-week-old *blocked* status came from an assumption nobody had tested. |
-| **OPEN-32** — net of the two opposing `layout_assign` errors | 🟢 **CLOSED. They do not cancel.** Net ≈ **1.12 at the median**, and **only 12.6% of buildings fall within ±10% of cancellation**; per-building net spans **0.0032 – 19.88** on n=8,153. (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) |
+| **OPEN-32** — net of the two opposing `layout_assign` errors | 🟢 **CLOSED. They do not cancel.** Net ≈ **1.12 at the median**, and **only 12.6% of buildings fall within ±10% of cancellation**; per-building net spans **0.0032 – 19.88** on n=8,153. (⚠ superseded 2026-09-10 — restated 153.95 kWh/m² / 8,139 buildings, see previous/PLAN_accuracy-restatement-2026-09-09.md T08 CP-4) ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B. |
 | **OPEN-13** | Still open (E-UTCI-12 residual), but its carried-forward weakness is **discharged**: the fusion guard now derives its column set from the fetcher, pinned by a test proved non-vacuous by mutation. |
 | **OPEN-27** | Still open — **only the user can edit DESIGN.** Now pinned meanwhile by 3 tests binding the coarse-class archetype names to the archetype JSON, so drift fails a test instead of going unnoticed. |
 | **OPEN-29** | Still open. All eight forwarded defect IDs re-checked at HEAD: **all eight STILL-OPEN, no verdict changed.** The remaining measurement is **cluster-only** — now established rather than assumed. |
@@ -1834,10 +1836,10 @@ duplicated. Twenty-five IDs retired in all** (22 going in + OPEN-06/OPEN-37/OPEN
 **Next free item ID: OPEN-54.**
 
 **Full suite, run alone:** see the plan doc's T06 progress-log entry
-(`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_five-items-2026-08-18.md` §8) for the raw counts
+(`docs/docs_DONE/openings/implemenation/previous/PLAN_five-items-2026-08-18.md` §8) for the raw counts
 against the 1875/55/0 baseline.
 
-Full detail: `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`.
+Full detail: `docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md`.
 
 ---
 
@@ -1859,8 +1861,8 @@ pass).
 
 **Full suite, run alone (T01/A1, foreground):** `1875 passed, 55 skipped, 11 warnings in 1572.28s (0:26:12)`.
 
-Full detail: `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`;
-`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_four-items-2026-08-18.md` §8.
+Full detail: `docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md`;
+`docs/docs_DONE/openings/implemenation/previous/PLAN_four-items-2026-08-18.md` §8.
 
 ---
 
@@ -1884,9 +1886,9 @@ retired in all.** Struck-vs-retired difference unchanged at **exactly 2** (OPEN-
 
 **Full suite, run alone (T06, foreground):** `1875 passed, 55 skipped, 11 warnings in 1035.59s (0:17:15)`
 
-Full detail: `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`;
-`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-52-and-four-items-2026-08-18.md` §8;
-director's log `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` §5.20.
+Full detail: `docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md`;
+`docs/docs_DONE/openings/implemenation/previous/PLAN_open-52-and-four-items-2026-08-18.md` §8;
+director's log `docs/docs_DONE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` §5.20.
 
 ---
 
@@ -1901,7 +1903,7 @@ open.** Correcting a record is not closing an item.
 | **OPEN-47** | 🔴 **STAYS OPEN on Reason 2 alone.** Reason 1 — "the floor-count divergence is Not adjudicated" — was stale: **you ruled on it 2026-08-12** and the reasoning is in `building_classifier.py:167-189`. Every number in that ruling reproduces exactly on a freshly written script (598 changes, 380/161/57, 437 newly elevator-eligible, sources 85/346/167). What keeps it open is the citation half: a second fabricated DOI, a systemic wrong-locator pattern, two dead links. |
 | **OPEN-13** | 🔴 **STAYS OPEN, narrowed to nothing of its own.** Its claim that a bare `pytest` aborts at collection is false at HEAD by two independent mechanisms. All ten skips (corrected from nine) are future-feature pinning for OPEN-17, not lost production coverage. |
 | **OPEN-12** | 🔴 **STAYS OPEN; the six-week contradiction is explained.** Both original figures reproduce exactly on the UTCI arc's own untracked working copy; the fleet's tracked files really are 100% missing. **Two correct numbers describing two different populations — no reconciliation is owed.** |
-| **OPEN-48 — superseded 2026-08-18 (late)** | 🟢 **The third fleet run was authorised by you and has run. The blocker above is discharged.** Full result: `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-48_third-fleet-run.md`. **Answer: the OPEN-49 fix is worth nothing outside noise on classified buildings — under 0.08 %** (Unknown-free cells `la_rural` −0.0906 and `austin_urban` −0.0614; +0.0004 / +0.0001 / −0.0001 on three cells with Unknowns excluded). Every classified building changed value and no cell mean moved. 🔴 **CP-2 ruled: run 3 yields NO fleet figure** — five of twelve cells stopped on a defect the run itself found (**OPEN-55**, Unknown buildings drawing data-centre equipment loads up to 5381.96 W/m²), and four of the five passes passed *by dropping* exactly those buildings. 🔴 **CP-3 ruled: `157.1` STAYS** — OPEN-55 postdates it and nothing measured displaces it. ⚠️ **New, and it belongs beside the published figure:** run 2's Unknown path contributes **+4.058 kWh/m² (+2.615 %)** — 650 buildings, 3.7 % of floor area, mean EUI 264.9 vs fleet 159.2 — **nearly twice the +2.16 discrepancy this arc spent three fleet runs chasing.** Measured on run 2, **estimated** for the adopted run (whose per-building results are gone); **report it, never subtract it.** The run that could move 157.1 is one taken *after* the OPEN-55 ruling. |
+| **OPEN-48 — superseded 2026-08-18 (late)** | 🟢 **The third fleet run was authorised by you and has run. The blocker above is discharged.** Full result: `docs/docs_DONE/openings/extra/MEASUREMENT_open-48_third-fleet-run.md`. **Answer: the OPEN-49 fix is worth nothing outside noise on classified buildings — under 0.08 %** (Unknown-free cells `la_rural` −0.0906 and `austin_urban` −0.0614; +0.0004 / +0.0001 / −0.0001 on three cells with Unknowns excluded). Every classified building changed value and no cell mean moved. 🔴 **CP-2 ruled: run 3 yields NO fleet figure** — five of twelve cells stopped on a defect the run itself found (**OPEN-55**, Unknown buildings drawing data-centre equipment loads up to 5381.96 W/m²), and four of the five passes passed *by dropping* exactly those buildings. 🔴 **CP-3 ruled: `157.1` STAYS** — OPEN-55 postdates it and nothing measured displaces it. ⚠️ **New, and it belongs beside the published figure:** run 2's Unknown path contributes **+4.058 kWh/m² (+2.615 %)** — 650 buildings, 3.7 % of floor area, mean EUI 264.9 vs fleet 159.2 — **nearly twice the +2.16 discrepancy this arc spent three fleet runs chasing.** Measured on run 2, **estimated** for the adopted run (whose per-building results are gone); **report it, never subtract it.** The run that could move 157.1 is one taken *after* the OPEN-55 ruling. |
 | **OPEN-51** | ⚠️ **Already closed hours earlier — a director error in choosing the slate**, recorded in the register rather than buried. Re-run anyway, which **located the original `.err` evidence a previous closure had declared lost**; verdict unchanged, evidence grade upgraded. |
 
 ---
@@ -1958,7 +1960,7 @@ task.
 **Register: 25 tracked items → 25** (nothing closed, nothing opened). Re-counted programmatically:
 **25 live / 31 struck / 56 total, exactly OPEN-01…OPEN-56, no row missing, none duplicated. Next free
 `OPEN-57`.** Struck-vs-retired difference unchanged at **exactly 2** (OPEN-02, OPEN-28).
-Full record: `docs/docs_ACTIVE/openings/extra/MEASUREMENT_ten-items-2026-08-18-overnight.md`.
+Full record: `docs/docs_DONE/openings/extra/MEASUREMENT_ten-items-2026-08-18-overnight.md`.
 
 ---
 
@@ -2004,9 +2006,9 @@ original percentages. Both sit in the space the standing corpus-erosion warning 
 six days stale when you asked, now carrying 13–18 August. Keeping it current is a standing obligation
 from now on.
 
-Full detail: `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`;
-`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open-48-and-four-items-2026-08-18.md` §8;
-director's log `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` §5.21.
+Full detail: `docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md`;
+`docs/docs_DONE/openings/implemenation/previous/PLAN_open-48-and-four-items-2026-08-18.md` §8;
+director's log `docs/docs_DONE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md` §5.21.
 
 
 ---
@@ -2057,9 +2059,9 @@ the rest of the pass continued as designed and none of the other nine tasks depe
 so the OPEN-55 test can finally run, and whether to spend one on **OPEN-58's** blast radius — which
 old results used the buggy helper. Both are registered; neither is scheduled.
 
-Full detail: `docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md`;
-`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_ten-items-2026-08-19.md` §8;
-director's log `docs/docs_ACTIVE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`.
+Full detail: `docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md`;
+`docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-2026-08-19.md` §8;
+director's log `docs/docs_DONE/openings/prompts/DIRECTOR_PROMPT_openings_2026-08-11.md`.
 
 ---
 
@@ -2238,12 +2240,12 @@ not the 800+ GB feared. Affordable. **Whether to do it is your call, and I have 
 
 - **Nothing published changed.** **153.8 kWh/m² over 8,153 buildings stands untouched** — this is a
   48-building sample and is labelled as one everywhere it appears.
-  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 - **Nothing was opened, closed or struck.** Still 19 live items, next free ID OPEN-60.
 - **The executor stalled mid-job** — it launched the run, then sat waiting for a notification that
   never comes. The run itself finished fine; I picked up the analysis and write-up myself. Third
   time this failure mode has cost a hand-off.
-- Full detail: `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-03-18_untrimmed-sample.md`.
+- Full detail: `docs/docs_DONE/openings/extra/MEASUREMENT_open-03-18_untrimmed-sample.md`.
 
 
 ---
@@ -2264,7 +2266,7 @@ low for any building modelled that way, which was **42 of the 48**.
 ✅ **Your published fleet figure is not affected, and I checked rather than assumed.** That
 multiplying only happens in the room-by-room mode. I looked inside the actual model files from the
 published run: **every multiplier is 1.** **153.8 over 8,153 buildings is untouched.**
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 What it does
 mean is that every room-by-room energy figure this project has recorded is too low — a fault in a
 mode nothing published depends on.
@@ -2292,7 +2294,7 @@ and the fleet pipeline simply never calls it. Several other entry points do.
   buildings, **all four** drawn columns are inside their allowed bounds — none out of range. So
   this is **not** a bounds defect like the last one. Those buildings look genuinely
   higher-intensity, which makes it a calibration question, not a bug.
-- Full detail: `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-03-18_untrimmed-sample.md` §10.
+- Full detail: `docs/docs_DONE/openings/extra/MEASUREMENT_open-03-18_untrimmed-sample.md` §10.
 
 
 ## 2026-08-19 (night, last two decisions taken + full board audit)
@@ -2306,7 +2308,7 @@ scaled. **6 of 48 buildings reconcile within 2 %; the worst is out by 192 %.** I
 nothing published depends on it — that is exactly the kind of fault that gets forgotten and then
 rediscovered expensively. 🟢 **No adopted number moves: 153.8 kWh/m² over 8,153 buildings is untouched**,
 verified by reading three real fleet model files, not by argument.
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 🔴 **The more general finding:** the
 check that catches this **already exists in the code** (`check_building_integrity()`) and the fleet
 pipeline never calls it.
@@ -2365,7 +2367,7 @@ out at 0.1× it is dead, whatever any external table says.
 proportion to the lighting share. It does not — lowering lighting lowers cooling and *raises* heating,
 and those do not cancel. Only a simulation measures that, and this one does.
 
-Plan: `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_vintage-elasticity-2026-08-19.md`. Local, no cluster
+Plan: `docs/docs_DONE/openings/implemenation/previous/PLAN_vintage-elasticity-2026-08-19.md`. Local, no cluster
 time. First checkpoint is a control: rebuild one building with loads unchanged and confirm it reproduces
 the run we already have to within 0.5 %.
 
@@ -2375,7 +2377,7 @@ Board row **C04** is closed. All 26 simulation-derived columns of the results fi
 between the frozen June fixture (`docs/docs_VALIDATION/validations/overAll/results/phaseE/`) and the
 August local re-run (`open48_refleet4`), across all twelve cells and 8,153 buildings that succeed in
 both runs.
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 
 **The answer is not a per-column pass/fail — the fleet splits in two.** 48.2 % of buildings come back
 unchanged within 0.1 %; 48.6 % within 1 %; **9.0 % move by more than 5 %**, and the 5th percentile of
@@ -2406,7 +2408,7 @@ not treated as physical evidence.
 **Standing lesson:** an executor handed a wrong baseline reports confidently on that baseline. Verify
 the fixture family — column count and last-touching commit — *before* dispatching a comparison.
 
-**Artifacts.** `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-06_twentysix-simulation-columns.md`,
+**Artifacts.** `docs/docs_DONE/openings/extra/MEASUREMENT_open-06_twentysix-simulation-columns.md`,
 `openubem/outputs/comparisons/open06_26col_reproducibility.csv`.
 
 **Still open from this:** whether `iod` and one `simulation_status` flip are code drift or
@@ -2454,7 +2456,7 @@ right to flag rather than tidy them away.
 from-scratch buildings, where loads, archetype and weather are identical across modes, so the whole
 −23.61 % must live in geometry, zoning, envelope or HVAC sizing. Both runs are already on disk.
 
-**Artifacts.** `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-03_load-elasticity.md` §CP-2 ·
+**Artifacts.** `docs/docs_DONE/openings/extra/MEASUREMENT_open-03_load-elasticity.md` §CP-2 ·
 `scripts/analysis/open03_load_source_decomposition_2026-08-20.py` ·
 `openubem/outputs/comparisons/open03_load_source_decomposition.csv` · `..._per_building.csv`.
 Register: **20 live / 40 struck / OPEN-01..OPEN-60 / next free OPEN-61** (re-derived after the edit).
@@ -2490,7 +2492,7 @@ under `layout_assign` — at the **same** floor area, the **same** 81 zones and 
 The other three buildings have identical envelopes in both modes and differ only in HVAC autosizing.
 **OPEN-03 has carried a name about internal loads since the beginning and is really about geometry.**
 
-**Artifacts.** `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-03_enduse-localisation.md` ·
+**Artifacts.** `docs/docs_DONE/openings/extra/MEASUREMENT_open-03_enduse-localisation.md` ·
 `openubem/outputs/comparisons/open03_enduse_localisation{,_geometry,_pooled}.csv`.
 
 #### 🔴 OPEN-61 opened — the energy total quietly drops a heat source
@@ -2506,7 +2508,7 @@ Any remedy either requests the meter in the IDF (changing every future run, fixi
 teaches the parser a second, differently-shaped source of truth. **Neither is chosen here.**
 
 **The adopted `153.8231 kWh/m²` is NOT restated.**
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 Four buildings do not size a fleet. The honest
 statement is that it is low by an unknown amount that measures ~1 % where it has been measured.
 
@@ -2544,7 +2546,7 @@ credited ≥ 0.85 (measured 0.890, pass) · **strict fine left ungated as a diag
 would force a choice between deleting the classifier's height rule and bending the answer key to match
 it, and a test threshold should not make that decision quietly. **No register ID opened.**
 
-**Artifacts.** `docs/docs_ACTIVE/openings/extra/MEASUREMENT_s03_tagrich-v3-exam.md` ·
+**Artifacts.** `docs/docs_DONE/openings/extra/MEASUREMENT_s03_tagrich-v3-exam.md` ·
 `tests/fixtures/labelled_archetypes_tagrich_v3.csv` (592) · `..._tagpoor_v3.csv` (290) ·
 `openubem/outputs/comparisons/open_s03_v3_fixture_breakdown.csv`. The two older fixtures were **not
 touched**.
@@ -2595,7 +2597,7 @@ The 21-building paired run was dispatched and is the one piece of this pass stil
 will be reported as within-cell medians only — never pooled into a headline, never restated as a fleet
 EUI correction, never carried back onto the 1,031-building framing.**
 
-**Artifacts.** `docs/docs_ACTIVE/openings/extra/MEASUREMENT_open-35_storey-intervention.md` ·
+**Artifacts.** `docs/docs_DONE/openings/extra/MEASUREMENT_open-35_storey-intervention.md` ·
 `openubem/outputs/comparisons/open35_storey_intervention_2026-08-20{,_census,_selection}.csv`.
 
 **Standing lesson: an executor that stops at a failed control is worth more than one that delivers a
@@ -2647,7 +2649,7 @@ sign flip.
 
 ⚠️ **What it does not say.** It does not restate the fleet baseline — **21 buildings out of 8,153 do
 not move `153.8 kWh/m²`** and I did not try.
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 It is not an estimate of what the defect costs across the
 fleet: these 21 were chosen *because* the two fallbacks disagree. And it still does **not** answer
 **which fallback is right** — that is the design decision OPEN-35 has always been waiting for. Tonight
@@ -2668,10 +2670,10 @@ obligation was discharged (**W9**), and **207 GB** of disk came back. **Register
 ### 2026-08-20 (later) — the open-items register was closed and a book II opened
 
 You asked for the director prompt to be refreshed and for the register to be closed if it could be.
-It could. **`docs/docs_ACTIVE/openings/DONE/INVESTIGATION_open-items-register.md` is CLOSED** at 8,246
+It could. **`docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md` is CLOSED** at 8,246
 lines — 61 items, 40 of them already struck — and carries a 🔒 banner at its head saying so.
 
-**The live register is now `docs/docs_ACTIVE/openings/INVESTIGATION_open-items-register-II.md`:
+**The live register is now `docs/docs_DONE/openings/INVESTIGATION_open-items-register-II.md`:
 180 lines, the 21 live items and nothing else.** Their rows are copied over word for word; no item
 was opened, closed, merged or re-scoped by the rotation.
 
@@ -2705,7 +2707,7 @@ what is unmeasured, and what is next. Both are updated in place at their own URL
 
 ### 2026-08-20 (late) — five tasks ran against four open items, and two of them changed shape
 
-`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_five-items-2026-08-20-late.md` was written, executed
+`docs/docs_DONE/openings/implemenation/previous/PLAN_five-items-2026-08-20-late.md` was written, executed
 T01–T05 by four Sonnet executors, audited at three checkpoints and closed the same day. Nothing was
 committed; nothing ran on the cluster; only one task simulated, and it was gated behind the first
 checkpoint.
@@ -2721,7 +2723,7 @@ re-simulated production buildings carry it. It is concentrated by archetype: off
 kWh/m², apartments ~32, and apartments are a third of the fleet. Fleet exposure is **estimated** at
 8.7–20.2 kWh/m² — 6–13 % of the adopted 153.8231 — but that estimate transfers a 60-building ratio
 onto 8,153 buildings and **must not be published as a correction**.
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 A census-scale measurement is the
 obvious next arc and was deliberately not authorised.
 
@@ -2757,7 +2759,7 @@ is visible from the table and not only from the closed item.
 **One stale caveat was corrected in the same pass.** §1's fleet-figure line still read that the
 adopted 153.8231 kWh/m² was "~1 % low by OPEN-61 on the four buildings where that has been
 measured".
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 That is superseded: OPEN-61 is fleet-wide and the exposure is **estimated at 6–13 %**.
 The line now says so, and says explicitly that the range is a size and not a correction.
 
@@ -2780,7 +2782,7 @@ reused. ⚠️ **The caveat it carried survives it** and now belongs to the TODO
 the model does not vary construction or HVAC by climate zone, so even the three sampled climates are
 weaker evidence than the geography suggests — and that binds the adopted **153.8231 kWh/m²**,
 a pooled statistic over exactly this population.
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 
 **OPEN-18 was examined as a closure candidate and rejected as one.** Its ✅ marks the elimination of
 the `Zone.Multiplier` *approach*, not of the defect. Book I §8 says so in as many words — *"Q3 stays
@@ -2790,7 +2792,7 @@ open; that approach does not"* — and calls it the largest open modelling probl
 (18 + 43 = 61, no overlap, no gaps).
 
 **Both authorised arcs are now planned** in
-`docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open61-census-open03-storeys-2026-08-20.md`, T01–T05
+`docs/docs_DONE/openings/implemenation/previous/PLAN_open61-census-open03-storeys-2026-08-20.md`, T01–T05
 over four checkpoints, not started. 🔴 **One discovery shaped the whole plan: run 4's `.sql` files
 were discarded** — all 8,160 buildings kept only `.eio`, `.end` and `.err`, so the district-heating
 term is **not recoverable from disk** and the census needs a re-run. Cost measured from run 4's own
@@ -2857,7 +2859,7 @@ and on every one of them it was the service-hot-water row and nothing else — t
 the output rather than argued.
 
 🔴 **The full census is running now — all 8,153 buildings, about eight hours, on this machine.**
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 It
 had to be a re-simulation: the original results files were deleted, so there is nothing left to
 re-read. Cost, now measured rather than guessed: **97 CPU-hours**, and a tenth of the fleet buys half
@@ -2883,7 +2885,7 @@ yours whenever you want it.
 ## 2026-08-20 (afternoon) — four decisions taken, and a second plan started beside the census
 
 **You asked what could move while the census runs, and then ruled on four questions.** All four are
-recorded in `docs/docs_ACTIVE/openings/implemenation/previous/PLAN_open62-z-origin-and-three-rulings-2026-08-20.md`
+recorded in `docs/docs_DONE/openings/implemenation/previous/PLAN_open62-z-origin-and-three-rulings-2026-08-20.md`
 §4, which is the second plan now in force. It exists because none of its work needs EnergyPlus — it is
 IDF text parsing — so it runs **beside** the saturated machine rather than behind it.
 
@@ -2945,7 +2947,7 @@ failure is silent.
 
 **Still running:** the 8,153-building census (OPEN-61) and the fleet-scale re-run of the storey
 count with the corrected parser (OPEN-62 T02).
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 
 ## 2026-08-20 (evening, later) — the replacement check failed, and that is the result worth having
 
@@ -2978,7 +2980,7 @@ fallback is correct; a proposed reconciliation control; and OPEN-53's custody ri
 🔴 **One thing needs you before the census finishes.** The 8,153-building re-simulation is writing
 ≈38 GB of results into a temporary folder that no policy covers and that disappears with the
 session.
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. That re-simulation only exists because the previous copy was deleted, at a cost now measured
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. That re-simulation only exists because the previous copy was deleted, at a cost now measured ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 at **97.2 CPU-hours**. If this copy is swept too, the next question costs the same again. **Preserve
 or discard — it is a disk-budget call and it is yours.** I have not moved it.
 
@@ -3159,7 +3161,7 @@ Both were found by re-deriving the numbers myself rather than by reading the rep
 The headline fleet figure **cannot be reproduced from the evidence the record points at**. Every
 recomputation — including from the exact folder the record names as its own source, which is still on
 disk — returns **153.8304** where the adopted figure is **153.8231**.
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 The difference is five
 thousandths of one percent and changes nothing. **The adopted figure stands.** But it is now a
 settled negative rather than an open question, and it is written down so nobody quietly rounds it
@@ -3192,7 +3194,7 @@ compared against it. When we did:
 
 - The definition we already use gets the storey count **right on 8,153 of 8,160 buildings — 99.91 %**,
   and the floor area it produces is **identical to what reality produces**, to the digit.
-  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 - The rival definition gets it right on **39.78 %**, and undercounts on 4,670 buildings.
 
 **So there was never a choice between two defensible conventions.** One is right and the other is
@@ -3279,7 +3281,7 @@ of an open-ended one.
 **The pass is closed.** `PLAN_rulings-and-fixes-2026-08-21.md` §9 signed: both authorised fixes in,
 suite **1,927 passed / 55 skipped / 0 failed**, **no adopted number restated** (153.8231 over 8,153
 stands).
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 
 **One thing changed that nobody planned.** The suite's skip count fell by one, and neither task caused
 it — a test that used to skip now passes. **Which test is unrecoverable: every restatement of this
@@ -3329,7 +3331,7 @@ itself a second time.
 
 **Size, for context only: pooled site energy rises 12.78 %** on the census rebuild. 🔴 **No
 published figure moves in this pass. 153.8231 kWh/m² over 8,153 stands.**
-⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations.
+⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B.
 The restated figure
 will be produced and brought to you as a question — adopt it, or keep the current figure and
 carry the correction as a stated caveat. **That decision is yours and the plan forbids the executor

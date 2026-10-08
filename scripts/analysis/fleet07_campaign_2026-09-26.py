@@ -3,7 +3,7 @@ log every measure status.
 
 Copy of the FLEET-06a builder logic (`scripts/analysis/fleet06a_campaign_2026-09-18.py`,
 never modified) with the FLEET-07b changes from
-`docs/docs_ACTIVE/TechTransfer/implementation/PLAN_techtransfer-block7-fleet07-2026-09-26.md`
+`docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block7-fleet07-2026-09-26.md`
 section 6:
 
 - `archetype` (the building's `archetype_id` from

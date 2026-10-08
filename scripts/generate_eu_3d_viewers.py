@@ -5,7 +5,7 @@ EU-18c (`D-EU-59`): the click-through modal (3D district -> click a building
 carries no energy, no EnergyPlus output, no run/job id, no weather -- pure
 geometry. Per-building floor plans (dwelling rings, circulation ring, whole
 massing-box ring, storey z-ranges) are read directly out of the emitted IDFs
-under `openubem/outputs/eu_evidence/EU-17/<district>/idfs/*.idf` via
+under `openubem/outputs/eu_evidence/EU-11/<district>_win_2026-10-06/idfs/*.idf` via
 `scripts/eu_idf_plan_reader.py::read_building_plan` -- never out of the
 EU-11 layout side-cars, which disagree with the IDFs on 970 buildings
 (`FINDING 213` / `FINDING 215`). The district's own EU-17 side-car (same
@@ -18,6 +18,7 @@ Outputs written to `openubem/outputs/3D/` and mirrored to
 
 from __future__ import annotations
 
+import dataclasses
 import hashlib
 import json
 import shutil
@@ -27,15 +28,67 @@ from typing import Any
 import geopandas as gpd
 import pandas as pd
 
-from scripts.eu_idf_plan_reader import BuildingPlan, ZonePlan, parse_idf_floor_zones, read_district
+import scripts.eu_idf_plan_reader as READER
+from scripts.eu_idf_plan_reader import BuildingPlan, ZonePlan, load_manifest, load_prepared_buildings, parse_idf_floor_zones, read_building_plan
 
 REPO_ROOT = Path("C:/Users/o_iseri/Desktop/OpenUBEM")
 EU17_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-17"
 EU11_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11"
+WIN_TAG = "_win_2026-10-06"
+MERGED_TAG = "_merged_win_2026-10-06"
+RESULTS_SUMMARY = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "results" / "EU11_results_2026-10-08_summary.json"
+RESULTS_PER_HOME = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "results" / "EU11_results_2026-10-08_per_home.csv"
+FIXED_DIR = EU11_ROOT / "rulebook_2026-09-30" / "partner_fixed_homes_2026-10-08"
 EU21_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-21" / "district_plans"
 
 # Same check-id order as `scripts/eu21/08_district_viewer.py:46` -- annotation
 # only (T03, hard rule 3): never a second source of truth for geometry.
+FAULT_CSV = EU11_ROOT / "division_residual_2026-09-29" / "geometry_fault_excluded_2026-10-06.csv"
+UNDIVIDED_CSV = EU11_ROOT / "division_residual_2026-09-29" / "undivided_excluded_2026-10-01.csv"
+
+
+def _load_undivided_ids(district: str) -> set[str]:
+    df = pd.read_csv(UNDIVIDED_CSV, dtype=str)
+    ids = set(df.loc[df["district"] == district, "building_id"])
+    ex = pd.read_csv(FIXED_DIR / "exclude_all_232.csv", dtype=str)
+    return ids | set(ex.loc[ex["district"] == district, "building_id"])
+
+
+def _load_fault_ids(district: str) -> set[str]:
+    df = pd.read_csv(FAULT_CSV, dtype=str)
+    return set(df.loc[df["district"] == district, "building_id"])
+
+
+def _read_fault_plan(path: Path, **kw: Any) -> BuildingPlan:
+    orig = READER.parse_idf_floor_zones
+
+    def tolerant(p: Path):
+        names, rings, zmax = orig(p)
+        return [n for n in names if rings.get(n)], rings, zmax
+
+    READER.parse_idf_floor_zones = tolerant
+    try:
+        return read_building_plan(path, **kw)
+    finally:
+        READER.parse_idf_floor_zones = orig
+
+
+def _read_tree(district: str, root: Path) -> list[BuildingPlan]:
+    prepared = load_prepared_buildings(district, root)
+    manifest = load_manifest(district, root)
+    outcome_by_id = dict(zip(manifest["building_id"], manifest["geometry_outcome"]))
+    fault_ids = _load_fault_ids(district)
+    plans: list[BuildingPlan] = []
+    for _, row in prepared.iterrows():
+        path = root / "idfs" / f"{row['stem']}.idf"
+        outcome = outcome_by_id.get(row["building_id"])
+        if not path.exists() or outcome is None:
+            continue
+        kw = dict(stem=row["stem"], building_id=row["building_id"], district=district, geometry_outcome=outcome)
+        plans.append(_read_fault_plan(path, **kw) if row["building_id"] in fault_ids else read_building_plan(path, **kw))
+    return plans
+
+
 CHECK_IDS = ("C1", "C3", "C4", "C5", "C6", "C10", "C11")
 
 # HTML template parts
@@ -130,6 +183,7 @@ button:disabled{{opacity:.42;cursor:not-allowed}}
   <div class="row"><span class="k">Simulated (has EUI)</span><span id="nsim"></span></div>
   <div class="row"><span class="k">IDF only, not simulated</span><span id="nidfonly"></span></div>
   <div class="row"><span class="k">No IDF</span><span id="nnoidf"></span></div>
+  <div class="row"><span class="k">Not divided, not simulated</span><span id="nund"></span></div>
   <div class="row"><span class="k">Height measured</span><span id="hm"></span></div>
   <div class="row"><span class="k">Height from storeys &times;3.0 m</span><span id="hl"></span></div>
   <div class="row"><span class="k">Height assumed 9.0 m</span><span id="ha"></span></div>
@@ -182,6 +236,7 @@ document.getElementById("nexc").textContent=D.n_exc.toLocaleString();
 document.getElementById("nsim").textContent=(D.sim_counts ? D.sim_counts.simulated : 0).toLocaleString();
 document.getElementById("nidfonly").textContent=(D.sim_counts ? D.sim_counts.idf_only : 0).toLocaleString();
 document.getElementById("nnoidf").textContent=(D.sim_counts ? D.sim_counts.no_idf : D.n_res).toLocaleString();
+document.getElementById("nund").textContent=(D.sim_counts&&D.sim_counts.undivided?D.sim_counts.undivided:0).toLocaleString();
 document.getElementById("hm").textContent=D.counts.measured.toLocaleString();
 document.getElementById("hl").textContent=D.counts.levels.toLocaleString();
 document.getElementById("ha").textContent=D.counts.assumed.toLocaleString();
@@ -196,7 +251,7 @@ var hmax=1;for(var i=0;i<B.length;i++)if(B[i].h>hmax)hmax=B[i].h;
 hmax=Math.min(hmax,60);
 var years=B.filter(function(b){return b.y}).map(function(b){return b.y});
 var ymin=years.length?Math.min.apply(null,years):1900,ymax=years.length?Math.max.apply(null,years):2020;
-var euis=B.filter(function(b){return b.eui!=null;}).map(function(b){return b.eui;});
+var euis=B.filter(function(b){return b.eui!=null&&!b.ud;}).map(function(b){return b.eui;});
 var euimin=euis.length?Math.min.apply(null,euis):0,euimax=euis.length?Math.max.apply(null,euis):200;
 
 var RAMP=[[68,1,84],[59,82,139],[33,145,140],[94,201,98],[253,231,37]];
@@ -220,8 +275,12 @@ function simIdx(b){
   if(b.ss==="idf_only")return 1;
   return 2;
 }
+var UND_COLOR=[232,60,200];
+var UND_N=B.filter(function(b){return b.ud;}).length;
+function undRow(){return "<div class='keys' style='margin-top:6px'><div><span class='sw' style='background:rgb("+UND_COLOR+")'></span>Not divided — not simulated ("+UND_N+")</div></div>";}
 function baseColor(b){
   if(b.c===1)return [96,104,118];
+  if(b.ud)return UND_COLOR;
   if(mode==="p")return PROV[b.p];
   if(mode==="y"){if(!b.y)return [80,88,100];return ramp((b.y-ymin)/Math.max(1,ymax-ymin));}
   if(mode==="s")return SIM_COLORS[simIdx(b)];
@@ -368,6 +427,7 @@ function hover(e){
       "<br>height "+b.h.toFixed(1)+" m <i>("+prov+")</i>"+
       (b.l?"<br>storeys "+b.l:"")+(b.y?"<br>built "+b.y:"")+
       "<br>footprint "+b.a.toFixed(0)+" m²"+
+      (b.ud?"<br><b>Not divided — not simulated</b>":"")+
       (b.ls?"<br>layout: <b>"+stateLabel(b)+"</b>":"")+
       "<br><span style='color:#7fb3e0;font-size:10.5px;'>click for floor plan &rarr;</span>";
     tip.style.display="block";
@@ -437,7 +497,9 @@ function openPopup(b){
   var statusHtml="";
   var bestEffortIds=(pl && pl.reason && pl.reason.indexOf("NOCORE_BEST_EFFORT_")===0)
     ? pl.reason.slice("NOCORE_BEST_EFFORT_".length).split("_").join(", ") : null;
-  if(b.ls==="ruled" && bestEffortIds){
+  if(b.ud){
+    statusHtml="<span class='m-badge noidf'>LEFT OUT &mdash; NOT CORRECTLY DIVIDED</span><p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>This home could not be divided into flats correctly, so it is left out of the results and has no EUI.</p>";
+  } else if(b.ls==="ruled" && bestEffortIds){
     statusHtml="<span class='m-badge fallback'>DIVIDED &mdash; BEST EFFORT (shape check failed: " + bestEffortIds + ")</span>";
     if(pl && pl.scheme) statusHtml += " <b>Scheme:</b> " + pl.scheme + ".";
     statusHtml += "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>D-EU-111: this cut failed a shape check (thin flat / short facade / pinch) but every dwelling is still drawn with real party walls. Zone geometry read directly from the emitted IDF, storey by storey.</p>";
@@ -451,7 +513,7 @@ function openPopup(b){
     statusHtml += "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>One undivided zone per storey. No interior partition exists in the IDF.</p>";
   } else {
     statusHtml="<span class='m-badge noidf'>NO IDF</span> " +
-      (b.c===1 ? "Excluded / non-residential building." : "No IDF file exists for this building in the ceiling82 or EU-17 tree.") +
+      (b.c===1 ? "Excluded / non-residential building." : "No IDF file exists for this building in the 2026-10-06 tree.") +
       "<p style='color:#8b95a7;font-size:11.5px;margin-top:4px;'>Showing footprint outline only.</p>";
   }
   if(pl && pl.f204){
@@ -721,6 +783,7 @@ function legend(){
     out+="<div><span class='sw' style='background:rgb(96,104,118)'></span>excluded / non-residential</div></div>";
     lb.innerHTML=out;
   }
+  lb.innerHTML+=undRow();
 }
 function setMode(m,btn){
   mode=m;["bH","bP","bY","bS","bU"].forEach(function(id){document.getElementById(id).classList.remove("on");});
@@ -856,37 +919,11 @@ def _circulation_label(rings: tuple[tuple[tuple[float, float], ...], ...]) -> st
     return "circulation"
 
 
-def _load_eu17_sidecar(district: str, building_id: str) -> dict | None:
-    for _tag in ("recut_2026-09-08", "delta_2026-09-07", "final_2026-09-07", "ceiling82_2026-09-05"):
-        _path = EU11_ROOT / f"{district}_{_tag}" / "layouts" / f"{building_id}.json"
-        if _path.exists():
-            return json.loads(_path.read_text(encoding="utf-8"))
-    path = EU17_ROOT / district / "layouts" / f"{building_id}.json"
-    if not path.exists():
-        return None
-    return json.loads(path.read_text(encoding="utf-8"))
-
-
 def _load_eu11_eui(district: str) -> dict[str, float | None]:
-    """``{building_id: eui_kwh_m2}`` from the EU-11 merged manifest,
-    preferring ``_merged_2026-09-08`` (T07), then ``_merged_2026-09-07``,
-    then the ceiling82 manifest (``_ceiling82_2026-09-05``, T01), mirroring
-    ``_load_eu17_sidecar``'s per-district single-file load shape but for the
-    CSV manifest, not a per-building JSON side-car. A building with no
-    manifest row (excluded / no_idf / failed-on-Speed) is simply absent from
-    the dict; a manifest row with a blank ``eui_kwh_m2`` maps to ``None``
-    rather than being dropped."""
-    city_lower = district.lower().replace("-", "_")
-    path = EU11_ROOT / f"{district}_merged_2026-09-08" / f"{city_lower}_manifest.csv"
-    if not path.exists():
-        path = EU11_ROOT / f"{district}_merged_2026-09-07" / f"{city_lower}_manifest.csv"
-    if not path.exists():
-        path = EU11_ROOT / f"{district}_ceiling82_2026-09-05" / f"{city_lower}_manifest.csv"
-    if not path.exists():
-        return {}
-    df = pd.read_csv(path, usecols=["building_id", "eui_kwh_m2"], dtype={"building_id": str})
+    df = pd.read_csv(RESULTS_PER_HOME, dtype={"building_id": str})
+    df = df[(df["district"] == district) & (df["has_result"].astype(str) == "True")]
     eui_by_id: dict[str, float | None] = {}
-    for bid, eui in zip(df["building_id"], df["eui_kwh_m2"]):
+    for bid, eui in zip(df["building_id"], df["eui_heating_kwh_m2"]):
         eui_by_id[bid] = float(eui) if pd.notna(eui) else None
     return eui_by_id
 
@@ -1066,38 +1103,26 @@ def build_district(district: str) -> None:
         "assumed": int((res_subset["provenance_code"] == 2).sum()),
     }
 
-    # Geometry, read from the emitted IDFs -- rule 3: never the layout
-    # side-cars. `read_district` walks `idfs/*.idf` once, keyed by the
-    # building id `prepared_buildings.csv` maps each stem to.
-    #
-    # T01 (FINDING 259): resolve each building's IDF against the EU-11
-    # ceiling82 tree first -- the tree that was actually simulated -- and
-    # fall back to the EU-17 rebuild tree only where ceiling82 has no file
-    # for that id. `idf_root_by_id` remembers which root each plan came
-    # from so the idf_path built below (`:1110`, `:1116`) points at the
-    # right `idfs/` directory.
-    idf_evidence_root = EU17_ROOT / district
-    ceiling82_root = EU11_ROOT / f"{district}_ceiling82_2026-09-05"
-    plans_by_id: dict[str, BuildingPlan] = {p.building_id: p for p in read_district(district, idf_evidence_root)}
+    idf_evidence_root = EU11_ROOT / f"{district}{WIN_TAG}"
+    origin_file = idf_evidence_root / "origin_offset.json"
+    off_dx = off_dy = 0.0
+    if origin_file.exists():
+        _off = json.loads(origin_file.read_text(encoding="utf-8"))
+        off_dx, off_dy = float(_off["dx"]), float(_off["dy"])
+    plans_by_id: dict[str, BuildingPlan] = {}
+    for p in _read_tree(district, idf_evidence_root):
+        plans_by_id[p.building_id] = dataclasses.replace(
+            p, origin_xy=(p.origin_xy[0] + off_dx, p.origin_xy[1] + off_dy)
+        )
     idf_root_by_id: dict[str, Path] = {bid: idf_evidence_root for bid in plans_by_id}
-    for p in read_district(district, ceiling82_root):
-        plans_by_id[p.building_id] = p
-        idf_root_by_id[p.building_id] = ceiling82_root
-
-    for _tag in ("final_2026-09-07", "delta_2026-09-07", "recut_2026-09-08"):
-        _root = EU11_ROOT / f"{district}_{_tag}"
-        if not (_root / "idfs").is_dir():
-            continue
-        for p in read_district(district, _root, skip_missing=True):
-            plans_by_id[p.building_id] = p
-            idf_root_by_id[p.building_id] = _root
-
-    # EU-11 ceiling82 manifest EUI, loaded once per district (T01) -- joined
-    # on the same `bid` used everywhere else in the `:1007` loop below. A
-    # building present in this dict (whether or not its `eui_kwh_m2` is
-    # null, e.g. an EnergyPlus severe/fatal-error run) has a manifest row
-    # and counts against `population_run`; a building absent from it never
-    # got a Speed job at all.
+    _ph = pd.read_csv(RESULTS_PER_HOME, dtype={"building_id": str})
+    _outcome_new = dict(zip(_ph.loc[_ph["district"] == district, "building_id"], _ph.loc[_ph["district"] == district, "geometry_outcome"]))
+    _fx = pd.read_csv(FIXED_DIR / "manifest_all_193.csv", dtype=str)
+    for _, _r in _fx[_fx["district"] == district].iterrows():
+        _bid = _r["building_id"]
+        _np = read_building_plan(Path(_r["idf"]), stem=_r["stem"], building_id=_bid, district=district, geometry_outcome=_outcome_new[_bid])
+        plans_by_id[_bid] = _np
+        idf_root_by_id[_bid] = FIXED_DIR / district
     eui_by_id = _load_eu11_eui(district)
 
     # EU-21 no-core cutter evidence (checks/status/verdict/scheme), loaded
@@ -1122,6 +1147,8 @@ def build_district(district: str) -> None:
     buildings_csv_rows: list[dict[str, Any]] = []
     ruled_count = massing_count = no_idf_count = 0
     simulated_count = idf_only_count = 0
+    undivided_ids = _load_undivided_ids(district)
+    undivided_count = 0
 
     for i, row in combined_gdf.iterrows():
         bid = str(row["osm_id"])
@@ -1157,13 +1184,13 @@ def build_district(district: str) -> None:
                 layout_state = "ruled"
                 ruled_count += 1
                 idf_path = idf_root_by_id[bid] / "idfs" / f"{plan.stem}.idf"
-                sidecar = _load_eu17_sidecar(district, bid)
+                sidecar = None
                 pl_obj = _build_plan_payload(plan, idf_path, sidecar, cx, cy)
             else:
                 layout_state = "massing_box"
                 massing_count += 1
                 idf_path = idf_root_by_id[bid] / "idfs" / f"{plan.stem}.idf"
-                sidecar = _load_eu17_sidecar(district, bid)
+                sidecar = None
                 pl_obj = _build_plan_payload(plan, idf_path, sidecar, cx, cy)
 
             # T01 (FINDING 259): a fourth, orthogonal state -- was this
@@ -1172,7 +1199,10 @@ def build_district(district: str) -> None:
             # `population_run`, not `population_success` -- a severe/fatal
             # E+ error still counts as "run") vs. has an IDF but never got
             # a Speed job vs. no IDF anywhere.
-            if layout_state == "no_idf":
+            if bid in undivided_ids:
+                sim_state = "undivided"
+                undivided_count += 1
+            elif layout_state == "no_idf":
                 sim_state = "no_idf"
             elif bid in eui_by_id:
                 sim_state = "simulated"
@@ -1214,8 +1244,10 @@ def build_district(district: str) -> None:
             "ls": layout_state,
             "ss": sim_state,
             "pl": pl_obj,
-            "eui": eui_by_id.get(bid),
+            "eui": None if bid in undivided_ids else eui_by_id.get(bid),
         }
+        if bid in undivided_ids:
+            b_obj["ud"] = 1
         scene_buildings.append(b_obj)
 
         buildings_csv_rows.append({
@@ -1254,14 +1286,15 @@ def build_district(district: str) -> None:
         "simulated": simulated_count,
         "idf_only": idf_only_count,
         "no_idf": no_idf_count,
+        "undivided": undivided_count,
     }
 
     geometry_note = (
-        f"<b>Geometry for {n_res:,} residential buildings, read from the emitted IDFs "
-        f"(EU-11 ceiling82 tree first, EU-17 rebuild tree as fallback).</b> "
+        f"<b>Geometry for {n_res:,} residential buildings, read from the simulated IDFs "
+        f"(2026-10-06 tree; the 193 homes re-divided on 2026-10-08 from their new IDFs).</b> "
         f"{simulated_count:,} were actually simulated (have an EUI, matching "
         f"<code>summary.json</code>'s <code>population_run</code>), {idf_only_count:,} have an "
-        f"IDF but were never run, {no_idf_count:,} have no IDF in either tree and are shown grey. "
+        f"IDF but were never run, {no_idf_count:,} have no IDF in the tree and are shown grey. "
         f"Of the {simulated_count + idf_only_count:,} with an IDF, {ruled_count:,} carry a dwelling "
         f"layout ruled from their own IDF zones and {massing_count:,} are a massing box (one "
         "undivided zone per storey). Zone polygons drawn in the floor-plan modal come directly "
@@ -1313,47 +1346,39 @@ def build_district(district: str) -> None:
         if stale_path.exists():
             stale_path.unlink()
 
-    # Build the target from the four EU-11 waves alone (D-EU-116: the EU-17
-    # base seed is dropped -- it leaked pre-2026-09-08 payloads through for
-    # ids the recut emitted no layout for, giving a mixed-vintage tree the
-    # 4J peer's own R10/R5 checks refuse). Overlay in the same tag priority
-    # `_load_eu17_sidecar` (:859-863) uses -- ceiling82_2026-09-05,
-    # final_2026-09-07, delta_2026-09-07, recut_2026-09-08 -- so the newest
-    # wave always wins and the mirrored tree can never disagree with the
-    # viewer's own reads again (D-EU-115). The recut tree covers every
-    # building that has an IDF, so nothing real is lost by dropping EU-17.
-    # FINDING 213/215 ("never the EU-11 side-cars -- they disagreed with the
-    # IDFs") is superseded: emit_eu11_layout_sidecars.py now derives every
-    # side-car from read_district(district, dist_dir) on the same tree it
-    # writes into, so a recut side-car agrees with its IDF by construction.
     target_layouts_dir = target_data_dir / "layouts"
     if target_layouts_dir.exists():
         shutil.rmtree(target_layouts_dir)
-    target_layouts_dir.mkdir(parents=True, exist_ok=True)
-    for _tag in ("ceiling82_2026-09-05", "final_2026-09-07", "delta_2026-09-07", "recut_2026-09-08"):
-        _overlay_src = EU11_ROOT / f"{district}_{_tag}" / "layouts"
-        if not _overlay_src.exists():
-            continue
-        for _overlay_file in _overlay_src.glob("**/*.json"):
-            _rel = _overlay_file.relative_to(_overlay_src)
-            _overlay_dst = target_layouts_dir / _rel
-            _overlay_dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(_overlay_file, _overlay_dst)
-    n_sidecars = sum(1 for _ in target_layouts_dir.glob("**/*.json")) if target_layouts_dir.exists() else 0
-    print(f"[{district}] Installed {n_sidecars} layout side-cars to {target_layouts_dir} (EU-11 overlays only, recut_2026-09-08 highest priority)")
+    n_sidecars = 0
 
     # Construct sources.json
+    _tree_rel = f"openubem/outputs/eu_evidence/EU-11/{district}{WIN_TAG}"
+    _merged_rel = f"openubem/outputs/eu_evidence/EU-11/{district}{MERGED_TAG}"
+    _manifest_name = f"{district.lower().replace('-', '_')}_manifest.csv"
+    _md5_path = idf_evidence_root / "md5_2026-10-06.txt"
     generated_from = [
         f"openubem/outputs/eu02/{district}/01_source.json",
         f"openubem/outputs/eu02/{district}/02_residential_manifest.gpkg",
         f"openubem/outputs/eu02/{district}/02_excluded_manifest.gpkg",
-        f"openubem/outputs/eu_evidence/EU-17/{district}/prepared_buildings.csv",
+        f"{_tree_rel}/prepared_buildings.csv",
+        f"{_tree_rel}/md5_2026-10-06.txt",
+        f"{_merged_rel}/{_manifest_name}",
+        "docs/docs_ACTIVE/europeanLocations/results/EU11_results_2026-10-08_summary.json",
+        "docs/docs_ACTIVE/europeanLocations/results/EU11_results_2026-10-08_per_home.csv",
+        "openubem/outputs/eu_evidence/EU-11/rulebook_2026-09-30/partner_fixed_homes_2026-10-08/manifest_all_193.csv",
+        "openubem/outputs/eu_evidence/EU-11/rulebook_2026-09-30/partner_fixed_homes_2026-10-08/exclude_all_232.csv",
     ]
     sha256_map = {
         "01_source.json": _file_sha256(src_json_path),
         "02_residential_manifest.gpkg": _file_sha256(res_gpkg_path),
         "02_excluded_manifest.gpkg": _file_sha256(exc_gpkg_path),
         "prepared_buildings.csv": _file_sha256(idf_evidence_root / "prepared_buildings.csv"),
+        "md5_2026-10-06.txt": _file_sha256(_md5_path),
+        _manifest_name: _file_sha256(EU11_ROOT / f"{district}{MERGED_TAG}" / _manifest_name),
+        "EU11_results_2026-10-08_summary.json": _file_sha256(RESULTS_SUMMARY),
+        "EU11_results_2026-10-08_per_home.csv": _file_sha256(RESULTS_PER_HOME),
+        "manifest_all_193.csv": _file_sha256(FIXED_DIR / "manifest_all_193.csv"),
+        "exclude_all_232.csv": _file_sha256(FIXED_DIR / "exclude_all_232.csv"),
     }
 
     sources_dict: dict[str, Any] = {
@@ -1361,7 +1386,8 @@ def build_district(district: str) -> None:
         "viewer": viewer_name,
         "generated_from": generated_from,
         "sha256": sha256_map,
-        "idf_source_directory": f"openubem/outputs/eu_evidence/EU-17/{district}/idfs",
+        "idf_source_directory": f"{_tree_rel}/idfs",
+        "origin_offset_added": [off_dx, off_dy],
         "layout_counts": layout_counts,
         "layouts_coverage": (
             f"{ruled_count} dwelling layout ruled, {massing_count} massing box, "

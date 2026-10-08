@@ -424,7 +424,7 @@ def build_html(district, tag, plates, geom_by_bid, summary, cutter_sha256, wall_
   <div class="row"><span class="k">Census</span><span style="text-align:right">EU-20/morphology_census.csv</span></div>
   <div class="row"><span class="k">Manifest</span><span style="text-align:right">eu02/{esc(district)}/02_residential_manifest.gpkg</span></div>
   <div class="row"><span class="k">Cutter sha256</span><span>{cutter_sha256[:12]}&hellip;</span></div>
-  <div class="row"><span class="k">MAX_FLAT_ASPECT</span><span>{M07.MAX_FLAT_ASPECT} \u2014 not frozen (D-EU-86 clause 2, FINDING 242)</span></div>
+  <div class="row"><span class="k">MAX_FLAT_ASPECT</span><span>{M07.NOCORE_RULESET['max_flat_aspect']} \u2014 not frozen (D-EU-86 clause 2, FINDING 242)</span></div>
   <div class="row"><span class="k">Built (UTC)</span><span>{built_utc}</span></div>
   <div class="row"><span class="k">Wall time</span><span>{wall_time_s} s</span></div>
   <div class="sub" style="margin-top:6px">D-EU-79&hellip;D-EU-89 &middot; footprint + storeys + flats only, no simulated result, no IDF (D-EU-55)</div>
@@ -880,7 +880,7 @@ def main():
         "district": district, "tag": tag,
         "built": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "cutter_sha256": cutter_sha256,
-        "max_flat_aspect": M07.MAX_FLAT_ASPECT,
+        "max_flat_aspect": M07.NOCORE_RULESET["max_flat_aspect"],
         "summary": summary,
         "plates": plates,
     }

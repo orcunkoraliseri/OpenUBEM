@@ -17,7 +17,7 @@ Five things are re-derived here, each from a command this script runs itself:
      `pytest.skip(...)` site under tests/ -- NOT a re-run of the full 17-minute
      suite (the director's instruction for this task waives that; the
      1875 passed / 55 skipped / 1930 collected figure is therefore quoted
-     from docs/docs_ACTIVE/openings/extra/FIX_open-52_temproot-remedy.md:173,
+     from docs/docs_DONE/openings/extra/FIX_open-52_temproot-remedy.md:173,
      not re-derived by executing the whole suite in this task). The static
      census is a lower bound on skip *sites*, not a byte-exact reconciliation
      against the runtime 55 -- parametrization and skipif truthiness can
@@ -105,7 +105,7 @@ def step3_static_skip_census() -> dict[str, int]:
     print(f"Total skip-marker sites across tests/: {total_sites}")
     print("Quoted baseline (NOT re-derived by full-suite execution in this task): "
           "1875 passed, 55 skipped, 1930 collected "
-          "(source: docs/docs_ACTIVE/openings/extra/FIX_open-52_temproot-remedy.md:173)")
+          "(source: docs/docs_DONE/openings/extra/FIX_open-52_temproot-remedy.md:173)")
     return counts
 
 
@@ -165,7 +165,7 @@ def main():
             writer.writerow(["static_skip_census", name, n])
         writer.writerow(["static_skip_census", "TOTAL_SITES", sum(static_census.values())])
         writer.writerow(["quoted_baseline", "source",
-                          "docs/docs_ACTIVE/openings/extra/FIX_open-52_temproot-remedy.md:173"])
+                          "docs/docs_DONE/openings/extra/FIX_open-52_temproot-remedy.md:173"])
         writer.writerow(["quoted_baseline", "value", "1875 passed, 55 skipped, 1930 collected"])
         writer.writerow(["collection_count", "bare_pytest_q_collect_only_tail", bare_tail.replace("\n", " | ")])
         writer.writerow(["collection_count", "tests_scoped_collect_only_tail", scoped_tail.replace("\n", " | ")])
