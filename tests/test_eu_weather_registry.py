@@ -34,7 +34,9 @@ def _valid_epw(path: Path) -> None:
 def test_registry_is_explicitly_ruled_not_pinned_and_has_three_targets():
     registry = ruled_not_pinned_registry()
     assert registry["status"] == "RULED_NOT_PINNED"
-    assert [target["fold"] for target in registry["targets"]] == ["es", "uk", "it"]
+    assert [target["fold"] for target in registry["targets"]] == [
+        "es", "uk", "it", "at", "kr", "ca", "fi", "za", "hu", "am",
+    ]
     assert all(target["weather_file"] is None for target in registry["targets"])
     assert all(target["licence_status"] == "CAPTURE_AT_DOWNLOAD" for target in registry["targets"])
 
@@ -76,7 +78,9 @@ def test_committed_registry_preserves_template_targets_and_records_lyon_promotio
     assert lyon["validation"]["gate_6_energyplus_smoke"] == "PASS"
     assert lyon["validation"]["gate_5_monthly_national_benchmark"] == "PASS_WITH_DOCUMENTED_NOVEMBER_EXCEPTION"
     template = ruled_not_pinned_registry()
-    assert [target["fold"] for target in template["targets"]] == ["es", "uk", "it"]
+    assert [target["fold"] for target in template["targets"]] == [
+        "es", "uk", "it", "at", "kr", "ca", "fi", "za", "hu", "am",
+    ]
 
 
 def test_preflight_accepts_well_formed_nonleap_epw(tmp_path: Path):

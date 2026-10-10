@@ -3,7 +3,7 @@ floor-plan polygons are exactly what `read_building_plan` reads out of the
 building's own IDF right now (`D-EU-59`, rule 3 -- never the side-cars).
 
 Both tests are offline, against the four already-emitted HTML files under
-`docs/docs_DONE/SETUP/europeanLocations/outputs_3D/`.
+`docs/docs_ACTIVE/europeanLocations/outputs_3D/`.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from scripts.eu_idf_plan_reader import read_building_plan
 from scripts.generate_eu_3d_viewers import EU11_ROOT, REPO_ROOT, WIN_TAG, _scene_ring
 from scripts.run_eu_s2_district_campaign import DISTRICTS
 
-VIEWER_DIR = REPO_ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "outputs_3D"
+VIEWER_DIR = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "outputs_3D"
 
 FORBIDDEN_RE = re.compile(r"eplus|severe|fatal|weather|epw|job.?id", re.IGNORECASE)
 

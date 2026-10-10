@@ -78,6 +78,13 @@ TAGGED_DISTRICT_JOBS = {
     ("IT-BOL-GALVANI2", "fix_2026-10-01"): [1405559, 1406674],
 }
 
+NEW_SITES = (
+    "AT-VIE-RUDOLFSHEIM", "KR-SEO-MAPO", "CA-MTL-PLATEAU", "FI-HEL-KALLIO",
+    "ZA-CPT-WOODSTOCK", "HU-BUD-ERZSEBETVAROS", "AM-EVN-NORNORK",
+)
+NEW_SITE_FLEET_PREFIX = "EU22"
+COMPLETED_MARKER = "EnergyPlus Completed Successfully"
+
 MANIFEST_COLUMNS = [
     "building_id", "archetype_id", "building_type", "age_band", "geometry_outcome",
     "construction_period_provenance",
@@ -107,7 +114,8 @@ def _ssh(cmd: str, timeout: int = 120) -> str:
 
 
 def _remote_fleet_dir(district: str, tag: str | None = None) -> str:
-    base = f"{_REMOTE_FLEET_BASE}/EU11_{district}"
+    prefix = NEW_SITE_FLEET_PREFIX if district in NEW_SITES else "EU11"
+    base = f"{_REMOTE_FLEET_BASE}/{prefix}_{district}"
     return f"{base}_{tag}" if tag else base
 
 
@@ -128,7 +136,7 @@ def fetch_district_out(district: str, work_base: Path, tag: str | None = None) -
     remote_cmd = (
         f"cd {remote_dir}/out && "
         f"tar czf - --ignore-failed-read "
-        f"*/eplusout.sql */eplusout.err */eplusout.eio */task.rc "
+        f"*/eplusout.sql */eplusout.err */eplusout.eio */eplusout.end */task.rc "
         f"*/platform.txt */energyplus_version.txt"
     )
     tgz = work_base / f"fetch_{label}.tgz"
@@ -211,7 +219,7 @@ def _parse_heating_kwh(sql_path: Path) -> float | None:
     return float(val_j) * J_TO_KWH
 
 
-def parse_task(bdir: Path) -> dict:
+def parse_task(bdir: Path, require_end: bool = False) -> dict:
     row: dict = {
         "eplus_return_code": pd.NA, "severe_errors": pd.NA, "fatal_errors": pd.NA,
         "heating_kwh": pd.NA, "platform": pd.NA, "energyplus_version": pd.NA,
@@ -233,6 +241,11 @@ def parse_task(bdir: Path) -> dict:
         and "Completed Successfully" in err_text
     )
 
+    if completed and require_end:
+        end_path = bdir / "eplusout.end"
+        end_text = end_path.read_text(encoding="utf-8", errors="replace") if end_path.exists() else ""
+        completed = COMPLETED_MARKER in end_text
+
     if completed:
         row["heating_kwh"] = _parse_heating_kwh(bdir / "eplusout.sql")
 
@@ -252,6 +265,9 @@ def parse_task(bdir: Path) -> dict:
 # ── harvest one district ────────────────────────────────────────────────────
 
 def harvest_district(district: str, work_base: Path, tag: str | None = None) -> dict:
+    new_site = district in NEW_SITES
+    if new_site and not (tag and tag.startswith("win_")):
+        raise ValueError(f"{district}: a new site is harvested with --tag win_<date>, got {tag!r}")
     dist_dir = EVIDENCE_ROOT / (f"{district}_{tag}" if tag else district)
     prepared_path = dist_dir / "prepared_buildings.csv"
     if not prepared_path.exists():
@@ -269,7 +285,7 @@ def harvest_district(district: str, work_base: Path, tag: str | None = None) -> 
         ]
     else:
         job_id = TAGGED_DISTRICT_JOBS.get((district, tag), DISTRICT_JOBS[district]) if tag else DISTRICT_JOBS[district]
-    is_win5 = tag in (WIN5_TAG, WIN6_TAG)
+    is_win5 = tag in (WIN5_TAG, WIN6_TAG) or new_site
     if is_win5:
         idf_dir = dist_dir / "idfs"
         stems = sorted(p.stem for p in idf_dir.glob("*.idf"))
@@ -319,7 +335,7 @@ def harvest_district(district: str, work_base: Path, tag: str | None = None) -> 
         floor_area_m2 = float(prow["floor_area_m2"])
 
         bdir = sim_out / stem
-        task = parse_task(bdir) if bdir.exists() else {
+        task = parse_task(bdir, require_end=new_site) if bdir.exists() else {
             "eplus_return_code": pd.NA, "severe_errors": pd.NA, "fatal_errors": pd.NA,
             "heating_kwh": pd.NA, "platform": pd.NA, "energyplus_version": pd.NA,
         }
@@ -427,7 +443,7 @@ def harvest_district(district: str, work_base: Path, tag: str | None = None) -> 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--district", choices=sorted(DISTRICT_JOBS), help="single district")
+    parser.add_argument("--district", choices=sorted(DISTRICT_JOBS) + list(NEW_SITES), help="single district")
     parser.add_argument("--all", action="store_true", help="harvest all three submitted districts")
     parser.add_argument("--tag", default=None, help="harvest a tagged re-run instead of the default campaign")
     args = parser.parse_args()

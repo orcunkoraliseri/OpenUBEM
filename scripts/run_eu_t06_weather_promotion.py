@@ -217,10 +217,9 @@ def process_fold(
         print(f"SKIP_INCOMPLETE {fold} {have}/{need}")
         return "SKIP_INCOMPLETE"
 
-    start_year, end_year = convert_module.window_years(target)
     candidate_years: list[int] = []
     epw_paths: dict[int, Path] = {}
-    for year in dict.fromkeys([start_year, end_year]):
+    for year in convert_module.candidate_years(target):
         epw_path = convert_module.convert_fold_year(target, year)
         if epw_path is not None:
             candidate_years.append(year)
@@ -321,7 +320,9 @@ def _approved_for(approved: dict[str, list[int]], fold: str, year: int) -> list[
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--fold", action="append", choices=["es", "uk", "it"], help="repeatable")
+    parser.add_argument(
+        "--fold", action="append", choices=["es", "uk", "it", *convert_module.NEW_SURVEY_YEARS], help="repeatable"
+    )
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--benchmark-dir", type=Path, default=DEFAULT_BENCHMARK_DIR)
     parser.add_argument("--energyplus-root", type=Path, default=ENERGYPLUS_PATH)

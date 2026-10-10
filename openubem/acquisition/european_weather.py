@@ -57,7 +57,49 @@ EUROPEAN_WEATHER_TARGETS: tuple[EuropeanWeatherTarget, ...] = (
         latitude=44.53, longitude=11.29, raw_era5_window="2013-01-01/2014-12-31",
         local_standard_utc_offset=1, output_filename="it_bologna_2013_2014.epw",
     ),
+    EuropeanWeatherTarget(
+        fold="at", city="Vienna", station="Wien-Schwechat", wmo="11036",
+        latitude=48.11, longitude=16.57, raw_era5_window="2007-01-01/2008-12-31",
+        local_standard_utc_offset=1, output_filename="at_vienna_2007_2008.epw",
+    ),
+    EuropeanWeatherTarget(
+        fold="ca", city="Montreal", station="Montreal-Trudeau", wmo="71627",
+        latitude=45.47, longitude=-73.74, raw_era5_window="2010-01-01/2011-12-31",
+        local_standard_utc_offset=-5, output_filename="ca_montreal_2010_2011.epw",
+    ),
+    EuropeanWeatherTarget(
+        fold="fi", city="Helsinki", station="Helsinki-Vantaa", wmo="02974",
+        latitude=60.33, longitude=24.97, raw_era5_window="2008-01-01/2009-12-31",
+        local_standard_utc_offset=2, output_filename="fi_helsinki_2008_2009.epw",
+    ),
+    EuropeanWeatherTarget(
+        fold="za", city="Cape Town", station="Cape Town Intl", wmo="68816",
+        latitude=-33.97, longitude=18.6, raw_era5_window="2009-01-01/2010-12-31",
+        local_standard_utc_offset=2, output_filename="za_capetown_2009_2010.epw",
+    ),
+    EuropeanWeatherTarget(
+        fold="hu", city="Budapest", station="Budapest-Ferihegy", wmo="12839",
+        latitude=47.43, longitude=19.18, raw_era5_window="2008-01-01/2009-12-31",
+        local_standard_utc_offset=1, output_filename="hu_budapest_2008_2009.epw",
+    ),
+    EuropeanWeatherTarget(
+        fold="am", city="Yerevan", station="Yerevan-Zvartnots", wmo="37789",
+        latitude=40.15, longitude=44.4, raw_era5_window="2007-01-01/2008-12-31",
+        local_standard_utc_offset=4, output_filename="am_yerevan_2007_2008.epw",
+    ),
 )
+
+NEW_SURVEY_YEARS: dict[str, int] = {
+    "at": 2008, "ca": 2010, "fi": 2009, "za": 2010, "hu": 2009, "am": 2008,
+}
+
+
+def city_slug(city: str) -> str:
+    """ASCII lower-case name without spaces, used in raw-archive folder and file names."""
+    import unicodedata
+
+    folded = unicodedata.normalize("NFKD", city).encode("ascii", "ignore").decode("ascii")
+    return folded.lower().replace(" ", "")
 
 _REQUIRED_ERA5_VARIABLES = ("2t", "2d", "sp", "10u", "10v", "ssrd", "fdir", "tcc", "tp")
 _REQUIRED_EPW_COLUMNS = (

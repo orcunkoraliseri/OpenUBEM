@@ -6,7 +6,7 @@ fixed local standard time, no DST) to the three ``RULED_NOT_PINNED`` targets
 of ``openubem/data/weather/weather_registry.json``: es/Madrid, uk/London,
 it/Bologna. Fold, city, coordinates and the raw ERA5 window are read from the
 registry -- never retyped. Station elevations are not in the registry; they
-are taken from ``docs/docs_DONE/SETUP/europeanLocations/DeepResearch/
+are taken from ``docs/docs_ACTIVE/europeanLocations/DeepResearch/
 DR08_actual_year_weather_sources_and_licences.md`` (Madrid 609 m, London
 Heathrow 25 m, Bologna 37 m) and asserted non-null.
 
@@ -33,6 +33,7 @@ so converting both window years never overwrites one with the other.
 from __future__ import annotations
 
 import argparse
+import calendar
 import hashlib
 import json
 import sys
@@ -46,14 +47,22 @@ import pandas as pd
 import pvlib
 import xarray as xr
 
+from openubem.acquisition.european_weather import NEW_SURVEY_YEARS, city_slug
+
 REGISTRY_PATH = Path("openubem/data/weather/weather_registry.json")
 RAW_ROOT = Path("openubem/data/weather/raw")
 OUTPUT_ROOT = Path("openubem/data/weather")
 
 # Not present in the registry; DR08's recommended-station elevations.
-# (docs/docs_DONE/SETUP/europeanLocations/DeepResearch/DR08_actual_year_weather_sources_and_licences.md)
-ELEVATIONS_M = {"es": 609.0, "uk": 25.0, "it": 37.0}
-ISO3 = {"es": "ESP", "uk": "GBR", "it": "ITA"}
+# (docs/docs_ACTIVE/europeanLocations/DeepResearch/DR08_actual_year_weather_sources_and_licences.md)
+ELEVATIONS_M = {
+    "es": 609.0, "uk": 25.0, "it": 37.0,
+    "at": 183.0, "kr": 86.0, "ca": 36.0, "fi": 46.8, "za": 42.0, "hu": 138.1, "am": 865.0,
+}
+ISO3 = {
+    "es": "ESP", "uk": "GBR", "it": "ITA",
+    "at": "AUT", "kr": "KOR", "ca": "CAN", "fi": "FIN", "za": "ZAF", "hu": "HUN", "am": "ARM",
+}
 
 REQUIRED_VARIABLES = {"t2m", "d2m", "sp", "u10", "v10", "ssrd", "fdir", "tcc", "tp"}
 
@@ -90,7 +99,8 @@ def load_fold_targets(registry_path: Path = REGISTRY_PATH) -> dict[str, dict[str
             "raw_era5_window": raw_window,
             "diary_window": entry.get("diary_window"),
             "diary_window_status": entry.get("diary_window_status"),
-            "raw_dir": RAW_ROOT / f"era5_{city.lower()}_{start_year}_{end_year}",
+            "survey_year": NEW_SURVEY_YEARS.get(fold),
+            "raw_dir": RAW_ROOT / f"era5_{city_slug(city)}_{start_year}_{end_year}",
             "output_filename": str(output_filename),
         }
     return targets
@@ -98,6 +108,13 @@ def load_fold_targets(registry_path: Path = REGISTRY_PATH) -> dict[str, dict[str
 
 def window_years(target: dict[str, object]) -> tuple[int, int]:
     return int(target["start_year"]), int(target["end_year"])
+
+
+def candidate_years(target: dict[str, object]) -> list[int]:
+    """Years to convert: both window years for the original folds, the survey year for the new ones."""
+    if target.get("survey_year") is not None:
+        return [int(target["survey_year"])]
+    return list(dict.fromkeys(window_years(target)))
 
 
 def resolve_year(target: dict[str, object], requested_year: int | None) -> int | None:
@@ -124,6 +141,14 @@ def archives_for_year(target: dict[str, object], year: int) -> list[Path]:
             f"year {year} is outside {target['fold']}'s window {target['raw_era5_window']}"
         )
     raw_dir: Path = target["raw_dir"]
+    if target.get("survey_year") is not None:
+        if year != int(target["survey_year"]):
+            raise ValueError(f"year {year} is not {target['fold']}'s survey year {target['survey_year']}")
+        city_name = city_slug(str(target["city"]))
+        months = [raw_dir / f"era5_{city_name}_{year}-{month:02d}.zip" for month in range(1, 13)]
+        if int(target["utc_offset_hours"]) > 0:
+            return [raw_dir / f"era5_{city_name}_{year - 1}-12-31.zip", *months]
+        return [*months, raw_dir / f"era5_{city_name}_{year + 1}-01-01.zip"]
     city = str(target["city"]).lower()
     prior_year = year - 1
     if prior_year == start_year - 1:
@@ -148,9 +173,8 @@ def archive_completeness_for_year(target: dict[str, object], year: int) -> tuple
 
 def required_archives(target: dict[str, object]) -> list[Path]:
     """The boundary day plus every month of both window years -- same layout as the acquirer."""
-    start_year, end_year = window_years(target)
     seen: dict[Path, None] = {}
-    for year in (start_year, end_year):
+    for year in candidate_years(target):
         for path in archives_for_year(target, year):
             seen[path] = None
     return list(seen)
@@ -271,6 +295,10 @@ def write_epw(target: dict[str, object], year: int) -> Path:
     frame, latitude, longitude = load_era5_hourly(archives, utc_start, utc_end)
     elevation_m = float(target["elevation_m"])
     offset = int(target["utc_offset_hours"])
+    new_fold = target.get("survey_year") is not None
+    if new_fold:
+        local_index = frame.index + pd.Timedelta(hours=offset)
+        frame = frame.loc[~((local_index.month == 2) & (local_index.day == 29))]
     rows = epw_rows(frame, latitude, longitude, elevation_m, offset)
     if len(rows) != 8760:
         raise AssertionError(f"expected 8760 EPW rows, found {len(rows)}")
@@ -286,7 +314,7 @@ def write_epw(target: dict[str, object], year: int) -> Path:
         "GROUND TEMPERATURES,0",
         "HOLIDAYS/DAYLIGHT SAVINGS,No,0,0,0",
         f"COMMENTS 1,Direct ERA5 reanalysis; {wmo} reference; not station observations or TMY",
-        f"COMMENTS 2,UTC {year - 1}-12-31 23:00 to {year}-12-31 22:00; fixed UTC+{offset}, no DST",
+        _comments_2(year, offset, utc_start, utc_end, new_fold),
         f"DATA PERIODS,1,1,Data,{first_weekday},1/1,12/31",
     ]
     output = output_path_for_year(target, year)
@@ -296,6 +324,16 @@ def write_epw(target: dict[str, object], year: int) -> Path:
         for row in rows:
             stream.write(",".join(str(value) for value in row) + "\n")
     return output
+
+
+def _comments_2(year: int, offset: int, utc_start: pd.Timestamp, utc_end: pd.Timestamp, new_fold: bool) -> str:
+    if not new_fold:
+        return f"COMMENTS 2,UTC {year - 1}-12-31 23:00 to {year}-12-31 22:00; fixed UTC+{offset}, no DST"
+    leap = "; 29 February dropped" if calendar.isleap(year) else ""
+    return (
+        f"COMMENTS 2,UTC {utc_start:%Y-%m-%d %H:%M} to {utc_end:%Y-%m-%d %H:%M}; "
+        f"fixed UTC{offset:+d}, no DST{leap}"
+    )
 
 
 def sha256_of(path: Path) -> str:
@@ -318,8 +356,7 @@ def convert_fold_year(target: dict[str, object], year: int) -> Path | None:
 def convert_fold(target: dict[str, object], requested_year: int | None, all_years: bool) -> None:
     fold = str(target["fold"])
     if all_years:
-        start_year, end_year = window_years(target)
-        for year in (start_year, end_year):
+        for year in candidate_years(target):
             convert_fold_year(target, year)
         return
     year = resolve_year(target, requested_year)
@@ -331,7 +368,7 @@ def convert_fold(target: dict[str, object], requested_year: int | None, all_year
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fold", action="append", choices=["es", "uk", "it"], help="repeatable")
+    parser.add_argument("--fold", action="append", choices=["es", "uk", "it", *NEW_SURVEY_YEARS], help="repeatable")
     parser.add_argument("--all", action="store_true")
     year_group = parser.add_mutually_exclusive_group()
     year_group.add_argument("--year", type=int)

@@ -2,8 +2,8 @@
 
 Diagnostic only. No change under openubem/. Calls run_campaign_cell unmodified.
 Writes:
-  docs/docs_DONE/SETUP/europeanLocations/outputs/f181_t03_cells.csv
-  docs/docs_DONE/SETUP/europeanLocations/outputs/f181_t03_per_archetype.csv
+  docs/docs_ACTIVE/europeanLocations/outputs/f181_t03_cells.csv
+  docs/docs_ACTIVE/europeanLocations/outputs/f181_t03_per_archetype.csv
 """
 from __future__ import annotations
 
@@ -28,7 +28,7 @@ NOTICE_PATH = GSS_ROOT / "Step10_docs/docs/2026-08-26_10.1_chaining-closure-noti
 SCHEDULES_ROOT = GSS_ROOT / "Step7_docs/outputs_step7/schedules"
 
 BASE_RUN_ROOT = ROOT / "openubem/outputs/_tmp_f181/t03"
-OUT_DIR = ROOT / "docs/docs_DONE/SETUP/europeanLocations/outputs"
+OUT_DIR = ROOT / "docs/docs_ACTIVE/europeanLocations/outputs"
 CELLS_CSV = OUT_DIR / "f181_t03_cells.csv"
 PER_ARCHETYPE_CSV = OUT_DIR / "f181_t03_per_archetype.csv"
 

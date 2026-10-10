@@ -27,6 +27,8 @@ from typing import Iterable
 from cdsapi.api import get_url_key_verify
 from ecmwf.datastores.client import Client as DatastoresClient
 
+from openubem.acquisition.european_weather import NEW_SURVEY_YEARS, city_slug
+
 
 DATASET = "reanalysis-era5-single-levels"
 REGISTRY_PATH = Path("openubem/data/weather/weather_registry.json")
@@ -74,7 +76,9 @@ def _load_targets(registry_path: Path = REGISTRY_PATH) -> list[dict[str, object]
             "longitude": float(entry["longitude"]),
             "start_year": start_year,
             "end_year": end_year,
-            "raw_dir": Path(f"openubem/data/weather/raw/era5_{entry['city'].lower()}_{start_year}_{end_year}"),
+            "utc_offset_hours": int(entry["local_standard_utc_offset"]),
+            "survey_year": NEW_SURVEY_YEARS.get(str(entry["fold"])),
+            "raw_dir": Path(f"openubem/data/weather/raw/era5_{city_slug(str(entry['city']))}_{start_year}_{end_year}"),
         })
     return targets
 
@@ -99,7 +103,9 @@ def _jobs(target: dict[str, object]) -> list[tuple[str, dict[str, object], Path]
     raw_dir: Path = target["raw_dir"]
     start_year = int(target["start_year"])
     end_year = int(target["end_year"])
-    city = str(target["city"]).lower()
+    city = city_slug(str(target["city"]))
+    if target.get("survey_year") is not None:
+        return _survey_year_jobs(target, area, raw_dir, city)
     jobs = [
         (
             f"{start_year - 1}-12-31",
@@ -115,6 +121,31 @@ def _jobs(target: dict[str, object]) -> list[tuple[str, dict[str, object], Path]
                 _request(area, year, month, days),
                 raw_dir / f"era5_{city}_{year}-{month:02d}.zip",
             ))
+    return jobs
+
+
+def _survey_year_jobs(
+    target: dict[str, object], area: list[float], raw_dir: Path, city: str
+) -> list[tuple[str, dict[str, object], Path]]:
+    """The survey year's 12 months plus the one adjacent UTC boundary day its local year needs."""
+    year = int(target["survey_year"])
+    jobs: list[tuple[str, dict[str, object], Path]] = []
+    if int(target["utc_offset_hours"]) > 0:
+        jobs.append((
+            f"{year - 1}-12-31", _request(area, year - 1, 12, [31]),
+            raw_dir / f"era5_{city}_{year - 1}-12-31.zip",
+        ))
+    for month in range(1, 13):
+        days = range(1, monthrange(year, month)[1] + 1)
+        jobs.append((
+            f"{year}-{month:02d}", _request(area, year, month, days),
+            raw_dir / f"era5_{city}_{year}-{month:02d}.zip",
+        ))
+    if int(target["utc_offset_hours"]) < 0:
+        jobs.append((
+            f"{year + 1}-01-01", _request(area, year + 1, 1, [1]),
+            raw_dir / f"era5_{city}_{year + 1}-01-01.zip",
+        ))
     return jobs
 
 
@@ -188,6 +219,8 @@ def poll(target: dict[str, object]) -> None:
         if dest.is_file() and dest.stat().st_size:
             print(f"ACQUIRED {target['fold']} {state['label']} {dest.stat().st_size}")
             continue
+        if state["reply"].get("status") in ("rejected", "failed"):
+            continue
         request_id = state["reply"].get("request_id", state["reply"].get("jobID"))
         if not request_id:
             raise ValueError(f"CDS job manifest has no request ID: {manifest}")
@@ -245,13 +278,74 @@ def run_sequential(targets: list[dict[str, object]], interval: int = 20) -> None
             print(f"SEQUENTIAL_COMPLETE {target['fold']} {label}")
 
 
+def _label_state(target: dict[str, object], label: str) -> str:
+    """Latest known CDS state of a label: ACQUIRED, an active state, or the last final state."""
+    dest = next(d for lab, _r, d in _jobs(target) if lab == label)
+    if dest.is_file() and dest.stat().st_size:
+        return "ACQUIRED"
+    manifests = sorted(_job_dir(target).glob(f"{label}*.json"), key=lambda path: path.stat().st_mtime)
+    if not manifests:
+        return "NOT_SUBMITTED"
+    return str(json.loads(manifests[-1].read_text(encoding="utf-8")).get("reply", {}).get("status", "unknown"))
+
+
+def _rejection_text(request_id: str) -> str:
+    try:
+        _client().get_remote(request_id).get_results()
+    except Exception as exc:
+        return " ".join(str(exc).split())[:400]
+    return "no error text"
+
+
+def run_throttled(targets: list[dict[str, object]], max_active: int, interval: int) -> None:
+    """Keep at most ``max_active`` CDS jobs queued or running; resubmit rejected ones as slots free."""
+    active_states = {"accepted", "running", "NOT_SUBMITTED_ACTIVE"}
+    while True:
+        for target in targets:
+            poll(target)
+        states = {
+            (str(t["fold"]), label): _label_state(t, label)
+            for t in targets for label, _r, _d in _jobs(t)
+        }
+        pending = [key for key, state in states.items() if state != "ACQUIRED"]
+        active = sum(1 for key in pending if states[key] in active_states)
+        print(f"CYCLE {datetime.now(timezone.utc).isoformat()} active={active} pending={len(pending)} "
+              f"acquired={len(states) - len(pending)}/{len(states)}", flush=True)
+        if not pending:
+            return
+        by_fold = {str(t["fold"]): t for t in targets}
+        for fold, label in pending:
+            if active >= max_active:
+                break
+            if states[(fold, label)] in active_states:
+                continue
+            target = by_fold[fold]
+            try:
+                submit(target, {label})
+            except Exception as exc:
+                print(f"SUBMIT_ERROR {fold} {label} {' '.join(str(exc).split())[:400]}", flush=True)
+                break
+            time.sleep(20)
+            poll(target)
+            new_state = _label_state(target, label)
+            if new_state in ("rejected", "failed"):
+                latest = sorted(_job_dir(target).glob(f"{label}*.json"), key=lambda path: path.stat().st_mtime)[-1]
+                request_id = json.loads(latest.read_text(encoding="utf-8"))["reply"].get("request_id", "")
+                print(f"REJECTED {fold} {label} {request_id} {_rejection_text(request_id)}", flush=True)
+                break
+            active += 1
+        time.sleep(interval)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     actions = parser.add_mutually_exclusive_group(required=True)
     actions.add_argument("--submit", action="store_true")
     actions.add_argument("--poll", action="store_true")
     actions.add_argument("--run-sequential", action="store_true", help="acquire all missing jobs serially")
-    parser.add_argument("--fold", action="append", help="restrict to this fold (es/uk/it); repeatable")
+    actions.add_argument("--run-throttled", action="store_true", help="keep --max-active jobs queued, resubmit rejected")
+    parser.add_argument("--max-active", type=int, default=4)
+    parser.add_argument("--fold", action="append", help="restrict to this fold; repeatable")
     parser.add_argument("--label", action="append", help="submit only this job label; repeatable")
     parser.add_argument("--interval", type=int, default=20)
     args = parser.parse_args()
@@ -267,6 +361,8 @@ def main() -> None:
         for target in targets:
             poll(target)
         report(targets)
+    elif args.run_throttled:
+        run_throttled(targets, args.max_active, max(30, args.interval))
     else:
         run_sequential(targets, max(5, args.interval))
 

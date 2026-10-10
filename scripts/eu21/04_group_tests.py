@@ -21,7 +21,7 @@ from shapely.geometry import Polygon
 ROOT = pathlib.Path(r"C:\Users\o_iseri\Desktop\OpenUBEM")
 sys.path.insert(0, str(ROOT))
 
-RULES_DIR = ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "rules"
+RULES_DIR = ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "rules"
 _FROZEN_NAME = "RULES_dwelling_layout_scheme_2026-08-28.html"
 FROZEN = RULES_DIR / _FROZEN_NAME if (RULES_DIR / _FROZEN_NAME).exists() else RULES_DIR / "archive" / _FROZEN_NAME
 HTML_DIR = RULES_DIR / "tests"

@@ -23,6 +23,13 @@ EU02_SITE_COUNTRY = {
     "FR-LYO-HAUTCOEURPENTES": "FR",
     "GB-LDN-STDUNSTANS": "GB",
     "IT-BOL-GALVANI2": "IT",
+    "AT-VIE-RUDOLFSHEIM": "AT",
+    "KR-SEO-MAPO": "KR",
+    "CA-MTL-PLATEAU": "CA",
+    "FI-HEL-KALLIO": "FI",
+    "ZA-CPT-WOODSTOCK": "ZA",
+    "HU-BUD-ERZSEBETVAROS": "HU",
+    "AM-EVN-NORNORK": "AM",
 }
 
 # These are deliberately a smaller set than the acquisition residential
@@ -223,7 +230,7 @@ def map_observed_building_to_tabula(
 ) -> EuropeanArchetypeMappingDecision:
     """Map only fully evidenced source attributes; otherwise retain an exclusion."""
     country = country_stock_code.upper()
-    if country not in {"ES", "GB", "IT", "FR"}:
+    if country not in {"ES", "GB", "IT", "FR", "AT", "KR", "CA", "FI", "ZA", "HU", "AM"}:
         raise ValueError(f"Unsupported country_stock_code: {country_stock_code}")
     building_id = str(row.get("osm_id", "")).strip()
     if not building_id:

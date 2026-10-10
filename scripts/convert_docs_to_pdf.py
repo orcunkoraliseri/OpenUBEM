@@ -276,7 +276,7 @@ def convert_md_to_pdf(md_path: Path, pdf_path: Path):
 
 
 def main():
-    target_dir = Path(r"C:\Users\o_iseri\Desktop\OpenUBEM\docs\docs_DONE\SETUP\europeanLocations")
+    target_dir = Path(r"C:\Users\o_iseri\Desktop\OpenUBEM\docs\docs_ACTIVE\europeanLocations")
     files = [
         ("STATE_european_locations_v3.md", "STATE_european_locations_v3.pdf"),
         ("BRIEF_european_locations_v3.md", "BRIEF_european_locations_v3.pdf"),

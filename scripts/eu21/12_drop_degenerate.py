@@ -20,8 +20,25 @@ DISTRICTS = {
     "FR": "FR-LYO-HAUTCOEURPENTES",
     "GB": "GB-LDN-STDUNSTANS",
     "IT": "IT-BOL-GALVANI2",
+    "AT": "AT-VIE-RUDOLFSHEIM",
+    "KR": "KR-SEO-MAPO",
+    "CA": "CA-MTL-PLATEAU",
+    "FI": "FI-HEL-KALLIO",
+    "ZA": "ZA-CPT-WOODSTOCK",
+    "HU": "HU-BUD-ERZSEBETVAROS",
+    "AM": "AM-EVN-NORNORK",
 }
-CRS = {"FR": "EPSG:32631", "IT": "EPSG:32632"}
+CRS = {
+    "FR": "EPSG:32631",
+    "IT": "EPSG:32632",
+    "AT": "EPSG:32633",
+    "KR": "EPSG:32652",
+    "CA": "EPSG:32618",
+    "FI": "EPSG:32635",
+    "ZA": "EPSG:32734",
+    "HU": "EPSG:32634",
+    "AM": "EPSG:32638",
+}
 MAX_WORKERS = 8
 MAX_SLIVER_M2 = 0.2
 COPY_FILES = ("prepared_buildings.csv", "windows.csv")
@@ -31,7 +48,7 @@ _FEN = "FENESTRATIONSURFACE:DETAILED"
 
 
 def _tag(tree: str) -> str:
-    return tree.replace("_win_", "")
+    return tree.replace("_win_", "").replace("_dw_", "")
 
 
 def _load_idf(path: Path):
@@ -309,8 +326,8 @@ def main() -> None:
         sys.exit("STOP: source and target trees must differ")
     if args.target_tree in ("_win_2026-10-03", "_win_2026-10-04"):
         sys.exit("STOP: never write into a 10-03 or 10-04 tree")
-    codes = [c.strip() for c in args.districts.split(",")]
-    shift = {c.strip() for c in args.shift.split(",") if c.strip()}
+    codes = [c.strip().upper() for c in args.districts.split(",")]
+    shift = {c.strip().upper() for c in args.shift.split(",") if c.strip()}
     problems = run(codes, args.source_tree, args.target_tree, shift, args.workers)
     if problems:
         print(f"STOP: {problems} problem(s); see degenerate_{_tag(args.target_tree)}.csv")

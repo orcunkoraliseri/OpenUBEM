@@ -39,7 +39,7 @@ from scripts.eu_idf_plan_reader import BuildingPlan, district_paths, read_distri
 from scripts.run_eu_s2_district_campaign import DISTRICTS
 
 ROOT = Path(__file__).resolve().parents[1]
-PLANS_DIR = ROOT / "docs/docs_DONE/SETUP/europeanLocations/plans3D"
+PLANS_DIR = ROOT / "docs/docs_ACTIVE/europeanLocations/plans3D"
 
 FORBIDDEN_TERMS = ("eui", "kwh", "energyplus", "heating", "cooling", "epw", "job")
 

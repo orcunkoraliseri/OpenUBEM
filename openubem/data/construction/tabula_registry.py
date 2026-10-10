@@ -289,3 +289,58 @@ def generate_fr_registry(calculator_workbook: Path, output_dir: Path) -> Path:
         "\n".join(exclusion_lines) + "\n", encoding="utf-8"
     )
     return destination
+
+
+def generate_country_registry(
+    cc: str,
+    calculator_workbook: Path,
+    output_dir: Path,
+    *,
+    expected_md5: str | None = CALCULATOR_MD5,
+    exclude_prefixes: tuple[str, ...] | None = None,
+) -> Path:
+    """Generate tabula_archetypes_<cc>.json from Calc.Set.Building rows of one country."""
+    code = cc.upper()
+    fold = code.lower()
+    if exclude_prefixes is None:
+        exclude_prefixes = ("FR.OPHM.",) if code == "FR" else ()
+    workbook = Path(calculator_workbook)
+    if expected_md5 is not None:
+        actual_md5 = hashlib.md5(workbook.read_bytes()).hexdigest()
+        if actual_md5 != expected_md5:
+            raise ValueError(f"Unexpected calculator workbook MD5 {actual_md5}")
+    loaded = load_workbook(workbook, read_only=True, data_only=True)
+    sheet = loaded[SOURCE_SHEET]
+    headers = [str(value) if value is not None else None for value in next(sheet.iter_rows(min_row=1, max_row=1, values_only=True))]
+    required = {"Code_Country", "Number_BuildingVariant", "Code_BuildingVariant"}.union(_EXTRA_COLUMNS)
+    if missing := required.difference(headers):
+        raise ValueError(f"Calculator workbook lacks columns: {sorted(missing)}")
+    rows = []
+    for values in sheet.iter_rows(min_row=2, values_only=True):
+        row = dict(zip(headers, values))
+        if row["Code_Country"] != code or row["Number_BuildingVariant"] != 1:
+            continue
+        if str(row["Code_BuildingVariant"]).startswith(exclude_prefixes):
+            continue
+        rows.append(row)
+    if not rows:
+        raise ValueError(f"No Number_BuildingVariant == 1 rows for country {code}")
+    boundaries = _load_boundary_conditions(Path(__file__).with_name("tabula_boundary_conditions_eu.json"))
+    workbook_sha256 = _sha256(workbook)
+    records = []
+    for row in rows:
+        archetype_id = str(row["Code_BuildingVariant"])
+        if any(row[column] is None for column in _EXTRA_COLUMNS):
+            raise ValueError(f"Missing calculator value for {archetype_id}")
+        if str(row["Code_BoundaryCond"]) not in boundaries:
+            raise ValueError(f"{archetype_id}: boundary condition {row['Code_BoundaryCond']} is not EU.SUH or EU.MUH")
+        extras = {column: float(row[column]) for column in _EXTRA_COLUMNS}
+        record = _record(row, extras, boundaries[str(row["Code_BoundaryCond"])], workbook_sha256)
+        record["survey_fold"] = fold
+        records.append(record)
+    records.sort(key=lambda record: record["archetype_id"])
+    output = Path(output_dir)
+    output.mkdir(parents=True, exist_ok=True)
+    destination = output / f"tabula_archetypes_{fold}.json"
+    _write_json(destination, {"attribution": ATTRIBUTION, "records": records})
+    return destination

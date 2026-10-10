@@ -414,7 +414,7 @@ It is built and validated on the **nyc_centre** pilot first, then batch-generate
 A viewer carries **two independent things**: the *geometry channel* (always present) and one or more *result
 channels* (present only when a run produced them). The four European district viewers
 (`openubem/outputs/3D/eu_<neighbourhood>_viewer.html`, mirrored to
-`docs/docs_DONE/SETUP/europeanLocations/outputs_3D/`) are the reference case for what happens when the second is
+`docs/docs_ACTIVE/europeanLocations/outputs_3D/`) are the reference case for what happens when the second is
 missing, and they are the model to copy for any new result parameter.
 
 | Channel | Bound from | Behaviour when absent |
@@ -466,7 +466,7 @@ bound on **1,202 of 1,220** residential buildings, area-pooling to **55.5346 kWh
 
 🔴 **It is bound on an imputed construction period, and the manifest says so on every row.** No
 per-building observed construction year exists in any open source for Bologna — the sweep in
-`docs/docs_DONE/SETUP/europeanLocations/implementation/EU11_Bologna_construction_year_investigation.md` stands,
+`docs/docs_ACTIVE/europeanLocations/implementation/EU11_Bologna_construction_year_investigation.md` stands,
 and the INSPIRE Buildings WFS retry required by `PROMPT_EU-14` §1 failed again on all nine endpoints
 (DNS / 404 / 500, evidence in `openubem/outputs/eu_evidence/EU-14/inspire_wfs_probe_evidence.json`).
 `D-EU-34` therefore authorises a **tagged** imputation: each footprint's TABULA period is the dominant

@@ -1,7 +1,7 @@
 """EU-04 S1 geometry-to-EnergyPlus design-day smoke runner (D-EU-04-H, Option H1).
 
 Frozen 12-building sample from
-docs/docs_DONE/SETUP/europeanLocations/prompts/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md §2.
+docs/docs_ACTIVE/europeanLocations/prompts/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md §2.
 This is a runner, not a test: it measures two independent axes on real French
 footprints and never launders a fallback into a dwelling-layout success.
 

@@ -32,6 +32,8 @@ this one (T03), so a module-level import here would be circular.
 """
 import contextlib
 import math
+import os
+import time
 
 from shapely import set_precision
 from shapely.affinity import rotate, translate
@@ -2421,6 +2423,159 @@ def _wide_search_pass(poly, flats, k, base):
     return flats, base
 
 
+SWEEP_THETAS = (0.0, 15.0, 30.0, 45.0, 60.0, 75.0, 90.0)
+SWEEP_DEFAULT_BUDGET_S = 600.0
+_SWEEP_ACTIVE = False
+_SWEEP_MEMO = {}
+
+
+class _SweepTimeout(Exception):
+    pass
+
+
+def _sweep_enabled():
+    return os.environ.get("OPENUBEM_NOCORE_SWEEP", "") == "1"
+
+
+def _sweep_budget_s():
+    try:
+        return float(os.environ.get("OPENUBEM_NOCORE_SWEEP_S", SWEEP_DEFAULT_BUDGET_S))
+    except ValueError:
+        return SWEEP_DEFAULT_BUDGET_S
+
+
+def _sweep_try(name, fn):
+    try:
+        r = fn()
+    except Exception:
+        return None
+    return (name, r) if r is not None else None
+
+
+def _sweep_candidates(poly, k, deadline):
+    poly_n = _normalize(poly)
+    theta, cx, cy, L, W = frame(poly_n)
+    reflex_pts = _reflex_points_world(poly_n)
+    if len(poly.interiors) > 0:
+        c = _sweep_try("ring_bisect", lambda: cut_ring_bisect(poly, k))
+        if c:
+            yield c
+    for t in SWEEP_THETAS:
+        if time.time() > deadline:
+            raise _SweepTimeout()
+        c = _sweep_try("nocore", lambda: cut_nocore(poly, k, theta_offset=t))
+        if c:
+            yield c
+        if k >= 2:
+            def swept():
+                bx = _sweep_boundaries(to_local(poly_n, theta + t, cx, cy), k)
+                return cut_nocore(poly, k, theta_offset=t, bx=bx) if bx is not None else None
+
+            c = _sweep_try("nocore_sweep", swept)
+            if c:
+                yield c
+            if reflex_pts:
+                def snapped():
+                    bx = _sweep_boundaries(to_local(poly_n, theta + t, cx, cy), k)
+                    if bx is None:
+                        return None
+                    rx = _reflex_local_xs(reflex_pts, theta + t, cx, cy)
+                    sx = _snap_boundaries(bx[1:-1], rx, bx[0], bx[-1])
+                    if sx is None:
+                        return None
+                    return cut_nocore(poly, k, theta_offset=t, bx=[bx[0]] + sx + [bx[-1]])
+
+                c = _sweep_try("nocore_snapped", snapped)
+                if c:
+                    yield c
+        for name, fn in (
+            ("layered", lambda: cut_layered(poly, k, theta_offset=t)),
+            ("radial", lambda: cut_radial(poly, k, theta_offset=t)),
+            ("wingwise", lambda: cut_wingwise(poly, k, theta_offset=t)),
+        ):
+            c = _sweep_try(name, fn)
+            if c:
+                yield c
+        for rows in range(2, min(k, MAX_GRID_ROWS) + 1):
+            c = _sweep_try(f"grid{rows}", lambda: cut_grid(poly, k, theta_offset=t, rows=rows))
+            if c:
+                yield c
+            if reflex_pts:
+                def gs():
+                    rx = _reflex_local_xs(reflex_pts, theta + t, cx, cy)
+                    return cut_grid_snapped(poly, k, t, rows, rx)
+
+                c = _sweep_try(f"grid{rows}_snapped", gs)
+                if c:
+                    yield c
+
+
+def _sweep_passes(rec):
+    return all(rec["checks"][c]["pass"] for c in _GATED_CHECKS + ("C12",))
+
+
+def _sweep_search(poly, k, deadline):
+    pool, seen = [], set()
+    for _name, (p, flats, stuck) in _sweep_candidates(poly, k, deadline):
+        try:
+            sig = tuple(sorted((round(f.area, 1), round(f.centroid.x, 1), round(f.centroid.y, 1)) for f in flats if not f.is_empty))
+            if sig in seen:
+                continue
+            seen.add(sig)
+            sc, fl, st = _finish_candidate(p, flats, stuck)
+            live = _live_flats(fl)
+            rec = _score_cut(p, live, k)
+            if _sweep_passes(rec):
+                return p, live, rec
+            pool.append((sc, p, live))
+        except _SweepTimeout:
+            raise
+        except Exception:
+            continue
+    pool.sort(key=lambda t: t[0], reverse=True)
+    for _sc, p, live in pool:
+        if time.time() > deadline:
+            raise _SweepTimeout()
+        try:
+            rec0 = _score_cut(p, live, k)
+            _, out, _, _ = improve_cut_nocore(p, live, rec0["checks"], rec0["verdict"], k)
+            out = _live_flats(out)
+            rec = _score_cut(p, out, k)
+            if _sweep_passes(rec):
+                return p, out, rec
+        except _SweepTimeout:
+            raise
+        except Exception:
+            continue
+    return None
+
+
+def _sweep_pass(poly, flats, k, base):
+    global _SWEEP_ACTIVE
+    if not _sweep_enabled() or _SWEEP_ACTIVE or k <= 1 or not ruleset_is_relaxed():
+        return flats, base
+    if all(base["checks"][c]["pass"] for c in _GATED_CHECKS + ("C12",)):
+        return flats, base
+    key = (poly.wkb, k, _sweep_budget_s(), tuple(sorted(NOCORE_RULESET.items())))
+    if key in _SWEEP_MEMO:
+        found = _SWEEP_MEMO[key]
+    else:
+        _SWEEP_ACTIVE = True
+        try:
+            found = _sweep_search(poly, k, time.time() + _sweep_budget_s())
+        except Exception:
+            found = None
+        finally:
+            _SWEEP_ACTIVE = False
+        _SWEEP_MEMO[key] = found
+    if found is None:
+        return flats, base
+    _p, out, rec = found
+    if not out or any(f.geom_type != "Polygon" for f in out):
+        return flats, base
+    return out, rec
+
+
 def improve_cut_nocore(plate, live, checks, verdict, dwelling_count):
     """D-EU-120: straighten bent party walls, then balance unequal flats, each step
     kept only if strictly better (never worse on any check that passes today,
@@ -2444,6 +2599,7 @@ def improve_cut_nocore(plate, live, checks, verdict, dwelling_count):
         flats, base = _shape_pass(poly, flats, dwelling_count, base)
         flats, base = _simplify_pass(poly, flats, dwelling_count, base)
         flats, base = _wide_search_pass(poly, flats, dwelling_count, base)
+        flats, base = _sweep_pass(poly, flats, dwelling_count, base)
         if base is start:
             return unchanged
         out = [translate(f, cx, cy) for f in flats]

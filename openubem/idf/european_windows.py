@@ -8,7 +8,10 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 ARCHETYPE_DIR = ROOT / "openubem" / "data" / "construction"
-COUNTRY_FILES = {"ES": "es", "FR": "fr", "GB": "gb", "IT": "it"}
+COUNTRY_FILES = {
+    "ES": "es", "FR": "fr", "GB": "gb", "IT": "it",
+    "AT": "at", "KR": "kr", "CA": "ca", "FI": "fi", "ZA": "za", "HU": "hu", "AM": "am",
+}
 U_WINDOW_LIMIT_W_M2K = 7.0
 MIN_WINDOW_AREA_M2 = 0.05
 CONVEXITY_TOLERANCE = 1e-9

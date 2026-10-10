@@ -10,6 +10,7 @@ from dataclasses import dataclass
 import hashlib
 import json
 import math
+import os
 from pathlib import Path
 from typing import Iterable
 
@@ -24,6 +25,7 @@ from shapely.ops import split, unary_union
 from openubem.geometry.european_nocore import (
     NOCORE_RULESET,
     NOCORE_RULESET_DEFAULTS,
+    _GATED_CHECKS as _NOCORE_GATED,
     _key as _nocore_key,
     _strictly_better as _nocore_strictly_better,
     cut_storey_nocore,
@@ -1351,6 +1353,15 @@ def _nocore_cut_and_improve(footprint: BaseGeometry, count: int):
     return improve_cut_nocore(plate, live, checks, verdict, count)
 
 
+def _nocore_accepts(old_rec, rec) -> bool:
+    if _nocore_strictly_better(old_rec, rec):
+        return True
+    if os.environ.get("OPENUBEM_NOCORE_SWEEP", "") != "1":
+        return False
+    gated = _NOCORE_GATED + ("C12",)
+    return all(rec["checks"][c]["pass"] for c in gated) and not all(old_rec["checks"][c]["pass"] for c in gated)
+
+
 def _nocore_cut_with_guard(footprint: BaseGeometry, dwelling_count: int):
     if not ruleset_is_relaxed():
         return _nocore_cut_and_improve(footprint, dwelling_count) + (dwelling_count,)
@@ -1378,7 +1389,7 @@ def _nocore_cut_with_guard(footprint: BaseGeometry, dwelling_count: int):
             if _nocore_strictly_better(rec, rec2):
                 cand = (cand[0], live2, rec2["checks"], rec2["verdict"])
                 rec = rec2
-        if _nocore_strictly_better(old_rec, rec) and (best is None or _nocore_key(rec) < _nocore_key(best[0])):
+        if _nocore_accepts(old_rec, rec) and (best is None or _nocore_key(rec) < _nocore_key(best[0])):
             best = (rec, cand + (count,))
     return best[1] if best is not None else (plate, live, old_rec["checks"], old_rec["verdict"], dwelling_count)
 

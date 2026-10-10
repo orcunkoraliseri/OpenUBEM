@@ -18,7 +18,7 @@ DATA_DIR = REPOSITORY_ROOT / "openubem" / "data" / "construction"
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "eu" / "step8_outputs"
 _REFERENCE_CSV_NAME = "tabula_102_extra_columns_2026-08-23.csv"
 _REFERENCE_SEARCH_ROOT = (
-    REPOSITORY_ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "debugs"
+    REPOSITORY_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "debugs"
 )
 
 

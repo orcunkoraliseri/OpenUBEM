@@ -10,6 +10,7 @@ sys.path.insert(0, str(REPO))
 import pandas as pd
 
 from scripts.cluster import harvest_eu11_merged as hm
+from scripts.cluster.harvest_eu11_district import NEW_SITES
 
 WIN5_TAG = hm.WIN5_TAG
 WIN6_TAG = hm.WIN6_TAG
@@ -20,7 +21,49 @@ OUT_COLUMNS = ["building_id", "old_count", "new_count", "dwellings_source", "sta
 STATUSES = ["simulated", "run_failed", "undivided_excluded", "not_residential", "no_model"]
 
 
+def build_flat_counts_new_site(district: str, tag: str) -> pd.DataFrame:
+    if not tag.startswith("win_"):
+        raise ValueError(f"tag {tag}: a new site uses win_<date>")
+    date = tag[len("win_"):]
+    win_dir = hm._dist_dir(district, tag)
+    counts = pd.read_csv(win_dir / f"dwelling_counts_{date}.csv", dtype=str).drop_duplicates("building_id")
+    counts = counts.set_index("building_id")
+    manifest = pd.read_csv(hm._manifest_path(district, tag), dtype=str)
+    left_out = pd.read_csv(win_dir / "left_out.csv", dtype=str)
+    if "district" in left_out.columns:
+        left_out = left_out[left_out["district"] == district]
+    left_out_ids = set(left_out["building_id"])
+    in_manifest = set(manifest["building_id"])
+    heating = dict(zip(manifest["building_id"], pd.to_numeric(manifest["heating_kwh"], errors="coerce")))
+    buildings = pd.read_csv(BUILDINGS_ROOT / f"eu_{district}_data" / "buildings.csv", dtype=str)
+
+    rows = []
+    for _, b in buildings.iterrows():
+        bid = str(b["building_id"])
+        if bid in left_out_ids:
+            status = "undivided_excluded"
+        elif bid in in_manifest and pd.notna(heating.get(bid)):
+            status = "simulated"
+        elif bid in in_manifest:
+            status = "run_failed"
+        elif b.get("class") == "excluded":
+            status = "not_residential"
+        else:
+            status = "no_model"
+        c = counts.loc[bid] if bid in counts.index else None
+        rows.append({
+            "building_id": bid,
+            "old_count": c["old_count"] if c is not None else "",
+            "new_count": c["new_count"] if c is not None else "",
+            "dwellings_source": c["dwellings_source"] if c is not None else "",
+            "status": status,
+        })
+    return pd.DataFrame(rows, columns=OUT_COLUMNS)
+
+
 def build_flat_counts(district: str, tag: str = WIN5_TAG) -> pd.DataFrame:
+    if district in NEW_SITES:
+        return build_flat_counts_new_site(district, tag)
     if district not in ALLOWED:
         raise ValueError(f"{district}: flat counts are exported for {ALLOWED} only")
     if tag not in TAGS:
@@ -65,8 +108,10 @@ def build_flat_counts(district: str, tag: str = WIN5_TAG) -> pd.DataFrame:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--district", required=True)
-    parser.add_argument("--tag", default=WIN5_TAG, choices=TAGS)
+    parser.add_argument("--tag", default=WIN5_TAG)
     args = parser.parse_args()
+    if args.district not in NEW_SITES and args.tag not in TAGS:
+        parser.error(f"--tag must be one of {TAGS} for {args.district}")
     df = build_flat_counts(args.district, args.tag)
     out = hm._dist_dir(args.district, f"merged_{args.tag}") / f"flat_counts_{args.tag[len('win_'):]}.csv"
     out.parent.mkdir(parents=True, exist_ok=True)

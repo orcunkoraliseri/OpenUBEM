@@ -34,11 +34,27 @@ from openubem.semantic.european_archetype_mapping import (
 from openubem.semantic.construction_sets import tabula_period
 from scripts.run_eu_s2_district_campaign import (
     _records, _valid_storeys, DISTRICTS, ES_SIDECAR, GB_EPC, GB_EPC_BANDS,
-    _gb_rows, _gb_impute_rows, _it_rows, _mapped_rows, FLOOR_TO_FLOOR_M, ZONE_WINDING_SIGN
+    _gb_rows, _gb_impute_rows, _it_rows, _mapped_rows, FLOOR_TO_FLOOR_M, ZONE_WINDING_SIGN,
+    _layout_with_kminus1,
 )
+from scripts.cluster.harvest_eu11_district import NEW_SITES
 from scripts.eu_idf_plan_reader import load_prepared_buildings, read_building_plan
+from scripts.run_eu_s2_district_campaign import impute_from_neighbours
+from openubem.semantic.new_country_rules import NEW_COUNTRIES, new_country_rows
 
 REPO_ROOT = Path("C:/Users/o_iseri/Desktop/OpenUBEM")
+FOUR_SITES = ("ES-MAD-BERRUGUETE", "FR-LYO-HAUTCOEURPENTES", "GB-LDN-STDUNSTANS", "IT-BOL-GALVANI2")
+
+
+def _write_new_site_population(district: str, dist_dir: Path) -> Path:
+    manifest = pd.read_csv(dist_dir / (district.lower().replace("-", "_") + "_manifest.csv"), dtype=str)
+    left_out = pd.read_csv(dist_dir / "left_out.csv", dtype=str)
+    if "district" in left_out.columns:
+        left_out = left_out[left_out["district"] == district]
+    kept = manifest[~manifest["building_id"].isin(set(left_out["building_id"]))]
+    path = dist_dir / "sidecar_population.csv"
+    kept.to_csv(path, index=False)
+    return path
 
 
 class ManifestSafetyError(RuntimeError):
@@ -175,6 +191,8 @@ def emit_layouts_for_district(
         }
 
     manifest_df = pd.read_csv(manifest_path)
+    if district in NEW_SITES and population_manifest is None:
+        population_manifest = _write_new_site_population(district, dist_dir)
     if population_manifest is not None:
         population_df = pd.read_csv(population_manifest)
         simulated_ids = set(population_df["building_id"].astype(str))
@@ -239,6 +257,10 @@ def emit_layouts_for_district(
         rows = rows + recovered_rows
     elif district == "IT-BOL-GALVANI2":
         rows, _ = _it_rows(gdf, records)
+    elif cfg["country"] in NEW_COUNTRIES:
+        rows, _ = new_country_rows(district, gdf, records)
+        recovered_rows, _ = impute_from_neighbours(gdf, rows, records, district)
+        rows = rows + recovered_rows
     else:
         rows, _ = _mapped_rows(district, gdf, records)
 
@@ -302,9 +324,10 @@ def emit_layouts_for_district(
         # and use the ruled n_u x n_v grid / morphological routes as the
         # primary scheme (equal_strip_multi_angle_sweep stays the secondary
         # route for storeys the ruled grid cannot serve).
-        building_layout = generate_european_building_dwelling_layout(
+        building_layout, _ = _layout_with_kminus1(
             footprint,
-            floor_allocations=allocation.floor_allocations,
+            allocation,
+            used_map[str(bid)][1] if str(bid) in used_map else ("observed" if is_observed else "other"),
         )
 
         # T09(b): the IDF actually built for this building is the ground
@@ -690,7 +713,7 @@ def main() -> None:
         district, _, path = entry.partition("=")
         pop_manifests[district] = Path(path)
 
-    targets = args.district if args.district else list(DISTRICTS)
+    targets = args.district if args.district else list(FOUR_SITES)
     results = {}
     for district in targets:
         print(f"\n=== Emitting layout side-cars for {district} ===")

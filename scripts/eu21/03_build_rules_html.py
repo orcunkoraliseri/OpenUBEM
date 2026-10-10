@@ -4,8 +4,8 @@ from shapely.affinity import translate as _translate
 
 REPO = pathlib.Path(r"C:/Users/o_iseri/Desktop/OpenUBEM")
 EU20 = REPO / "openubem/outputs/eu_evidence/EU-20"
-FROZEN = REPO / "docs/docs_DONE/SETUP/europeanLocations/rules/RULES_dwelling_layout_scheme_2026-08-28.html"
-OUT = REPO / "docs/docs_DONE/SETUP/europeanLocations/rules/RULES_dwelling_layout_groups_2026-09-01.html"
+FROZEN = REPO / "docs/docs_ACTIVE/europeanLocations/rules/RULES_dwelling_layout_scheme_2026-08-28.html"
+OUT = REPO / "docs/docs_ACTIVE/europeanLocations/rules/RULES_dwelling_layout_groups_2026-09-01.html"
 
 css = "\n".join(FROZEN.read_text(encoding="utf-8").splitlines()[2:122])
 

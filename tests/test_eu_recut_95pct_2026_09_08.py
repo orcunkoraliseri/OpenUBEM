@@ -116,7 +116,7 @@ def test_t02_case4_geometry_outcome_token_is_best_effort():
 # storey count derived from that tree's own recorded floor area, both local.
 # ---------------------------------------------------------------------------
 
-_DEBUG_CSV = ROOT / "docs/docs_DONE/SETUP/europeanLocations/debugs/undivided_buildings_all_districts_2026-09-08.csv"
+_DEBUG_CSV = ROOT / "docs/docs_ACTIVE/europeanLocations/debugs/undivided_buildings_all_districts_2026-09-08.csv"
 _DISTRICT_LABELS = {
     "Madrid": "ES-MAD-BERRUGUETE", "Lyon": "FR-LYO-HAUTCOEURPENTES",
     "London": "GB-LDN-STDUNSTANS", "Bologna": "IT-BOL-GALVANI2",
@@ -257,7 +257,7 @@ def test_t02_dry_run_best_effort_measurement():
 # T04 -- D-EU-112 neighbour imputation for the never-simulated.
 # ---------------------------------------------------------------------------
 
-_ORACLE_CSV = ROOT / "docs/docs_DONE/SETUP/europeanLocations/debugs/never_simulated_buildings_all_districts_2026-09-08.csv"
+_ORACLE_CSV = ROOT / "docs/docs_ACTIVE/europeanLocations/debugs/never_simulated_buildings_all_districts_2026-09-08.csv"
 
 
 def _write_gb_epc_csvs(tmp_path, monkeypatch, years: dict, certs: list = ()) -> None:

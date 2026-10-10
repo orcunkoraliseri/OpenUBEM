@@ -5,7 +5,7 @@ each cell once (dry_run=True); every probe mutates a *copy* of that built IDF wi
 eppy/geomeppy, never the repo source. Nothing here is adopted.
 
 Writes:
-  docs/docs_DONE/SETUP/europeanLocations/outputs/f181_t04_probes.csv
+  docs/docs_ACTIVE/europeanLocations/outputs/f181_t04_probes.csv
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ SCHEDULES_ROOT = GSS_ROOT / "Step7_docs/outputs_step7/schedules"
 
 BASE_RUN_ROOT = ROOT / "openubem/outputs/_tmp_f181/t04"
 BUILD_ROOT = BASE_RUN_ROOT / "_built"
-OUT_DIR = ROOT / "docs/docs_DONE/SETUP/europeanLocations/outputs"
+OUT_DIR = ROOT / "docs/docs_ACTIVE/europeanLocations/outputs"
 PROBES_CSV = OUT_DIR / "f181_t04_probes.csv"
 
 N_REPLICATES = 3

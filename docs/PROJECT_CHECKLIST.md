@@ -25,7 +25,7 @@ documents were moved and, in a few cases, renamed. Use this table to resolve any
 | `docs/docs_ACTIVE/3D/` | `docs/docs_DONE/VISUALS/3D-visualization/` |
 | `docs/docs_ACTIVE/UTCI/` | `docs/docs_DONE/OUTDOOR/UTCI/` |
 | `docs/docs_ACTIVE/TechTransfer/` *(archived 2026-09-28, nothing renamed)* | `docs/docs_DONE/TechTransfer/` |
-| `docs/docs_ACTIVE/europeanLocations/` *(archived 2026-10-08, nothing renamed)* | `docs/docs_DONE/SETUP/europeanLocations/` |
+| `docs/docs_ACTIVE/europeanLocations/` *(archived 2026-10-08, nothing renamed)* | `docs/docs_DONE/SETUP/europeanLocations/` — **brought back to `docs/docs_ACTIVE/europeanLocations/` 2026-10-08 (owner), citations repointed** |
 | `docs/docs_ACTIVE/openings/` *(archived 2026-10-08, nothing renamed; 181 files swept, 14 other `docs_DONE/` files left as standing exclusion)* | `docs/docs_DONE/openings/` |
 
 🔒 **Added 2026-08-20 — a rotation, and then a move. Both, in that order.**

@@ -24,6 +24,7 @@ try:
 except Exception:
     ES_SIDECAR = ROOT / "openubem/outputs/eu_evidence/EU-04/es_catastro_attribute_sidecar.csv"
 EVIDENCE = ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11"
+EU02 = ROOT / "openubem" / "outputs" / "eu02"
 DATA_3D = ROOT / "openubem" / "outputs" / "3D"
 OUT_DIR = EVIDENCE / "integrity_2026-10-02"
 DISTRICTS = {
@@ -31,8 +32,19 @@ DISTRICTS = {
     "FR": "FR-LYO-HAUTCOEURPENTES",
     "GB": "GB-LDN-STDUNSTANS",
     "IT": "IT-BOL-GALVANI2",
+    "AT": "AT-VIE-RUDOLFSHEIM",
+    "KR": "KR-SEO-MAPO",
+    "CA": "CA-MTL-PLATEAU",
+    "FI": "FI-HEL-KALLIO",
+    "ZA": "ZA-CPT-WOODSTOCK",
+    "HU": "HU-BUD-ERZSEBETVAROS",
+    "AM": "AM-EVN-NORNORK",
 }
-SHIFTED = ("FR", "IT")
+NEW_SITES = ("AT", "KR", "CA", "FI", "ZA", "HU", "AM")
+SHIFTED = ("FR", "IT") + NEW_SITES
+NA_NEW_SITE = "NOT_APPLICABLE_NEW_SITE"
+I13_NA_DETAIL = "no 09-08 reference tree exists for a new site"
+I1_NA_DETAIL = "storey count was imputed from neighbours; no independent reference"
 MAX_WORKERS = 10
 STOREY_HEIGHT_M = 3.0
 CHECKS = ["I1", "I2", "I3", "I4", "I5", "I6", "I7", "I8", "I9", "I10", "I11", "I12", "I13"]
@@ -186,6 +198,9 @@ def _isnan(v):
 
 
 def storey_reference(ctx):
+    ov = ctx.get("storeys_ref_override")
+    if ov is not None:
+        return ov
     sl = ctx.get("levels_sidecar")
     if not _isnan(sl) and sl != "" and float(sl) > 0:
         return int(round(float(sl))), "levels_sidecar"
@@ -374,6 +389,9 @@ def evaluate(parsed, ctx):
     r["I1_value"] = n_levels
     r["I1_pass"] = _flag(ref is not None and n_levels == ref)
     r["I1_info_vs_storey_count"] = _flag(csv_storeys is not None and n_levels == int(csv_storeys))
+    if ref_source == "idf_height_self_imputed":
+        r["I1_pass"] = ""
+        r["I1_note"] = f"{NA_NEW_SITE}: {I1_NA_DETAIL}"
 
     if n_levels and level_area[0] > 0:
         devs = [abs(a - level_area[0]) / level_area[0] for a in level_area]
@@ -551,7 +569,12 @@ def evaluate(parsed, ctx):
 
     a08 = ctx.get("area_0908")
     stem = ctx["stem"]
-    if a08 is None or (isinstance(a08, float) and math.isnan(a08)) or a08 <= 0:
+    if ctx.get("new_site"):
+        r["I13_value"] = float("nan")
+        r["I13_pass"] = ""
+        r["I13_reason"] = NA_NEW_SITE
+        r["I13_na_detail"] = I13_NA_DETAIL
+    elif a08 is None or (isinstance(a08, float) and math.isnan(a08)) or a08 <= 0:
         r["I13_value"] = float("nan")
         r["I13_pass"] = ""
         r["I13_reason"] = "no_0908_value"
@@ -649,16 +672,62 @@ def _work(args):
     return row
 
 
+def _new_site_inputs(d, tdir, prep):
+    import geopandas as gpd
+    from openubem.semantic.new_country_rules import resolve_storeys
+
+    man_path = EU02 / d / "02_residential_manifest.gpkg"
+    gdf = gpd.read_file(man_path)
+    gdf["osm_id"] = gdf["osm_id"].astype(str)
+    gdf = gdf.drop_duplicates("osm_id").set_index("osm_id")
+    rows = {}
+    for _, src in prep.iterrows():
+        bid = str(src["building_id"])
+        if bid not in gdf.index:
+            continue
+        item = gdf.loc[bid]
+        n, tag = resolve_storeys(item)
+        if n is not None:
+            source = "manifest_levels" if not tag else "manifest_height"
+        else:
+            idf_path = tdir / "idfs" / f"{src['stem']}.idf"
+            n = _idf_storeys(idf_path) if idf_path.exists() else None
+            source = "idf_height_self_imputed"
+        if n is None:
+            continue
+        lv = item.get("levels")
+        h = item.get("height_m")
+        rows[bid] = {
+            "storey_count": int(n),
+            "storey_source": source,
+            "footprint_area_m2": float(item["footprint_area_m2"]),
+            "levels": float(lv) if lv is not None and pd.notna(lv) else float("nan"),
+            "height_m": float(h) if h is not None and pd.notna(h) else float("nan"),
+            "height_source": str(item.get("provenance_height_m", "")),
+        }
+    frame = pd.DataFrame.from_dict(rows, orient="index") if rows else pd.DataFrame(
+        columns=["storey_count", "storey_source", "footprint_area_m2", "levels", "height_m", "height_source"]
+    )
+    frame.index.name = "building_id"
+    return frame, pd.DataFrame(index=pd.Index([], name="building_id")), man_path
+
+
 def _district_contexts(code, tree, ref_tree):
     d = DISTRICTS[code]
+    new_site = code in NEW_SITES
+    if new_site:
+        ref_tree = tree
     tdir = EVIDENCE / f"{d}_{tree}"
     rdir = EVIDENCE / f"{d}_{ref_tree}"
     prep = pd.read_csv(tdir / "prepared_buildings.csv")
     ref_prep = pd.read_csv(rdir / "prepared_buildings.csv")
-    b = pd.read_csv(DATA_3D / f"eu_{d}_data" / "buildings.csv").set_index("building_id")
+    if new_site:
+        b, man, man_path = _new_site_inputs(d, tdir, prep)
+    else:
+        b = pd.read_csv(DATA_3D / f"eu_{d}_data" / "buildings.csv").set_index("building_id")
+        man_path = next((EVIDENCE / f"{d}_merged_2026-09-08").glob("*_manifest.csv"))
+        man = pd.read_csv(man_path).set_index("building_id")
     win = pd.read_csv(tdir / "windows.csv").set_index("stem")
-    man_path = next((EVIDENCE / f"{d}_merged_2026-09-08").glob("*_manifest.csv"))
-    man = pd.read_csv(man_path).set_index("building_id")
     deg_path = sorted(tdir.glob("degenerate_*.csv"))
     deg = pd.read_csv(deg_path[-1]).set_index("stem") if deg_path else pd.DataFrame()
     date = tree[-10:]
@@ -698,7 +767,7 @@ def _district_contexts(code, tree, ref_tree):
             "t06s_rerun": stem in rerun,
         }
         if src is not None:
-            bid = src["building_id"]
+            bid = str(src["building_id"])
             ctx["building_id"] = bid
             ctx["prepared_floor_area_m2"] = float(src["floor_area_m2"])
             ctx["dwellings_used"] = int(src["dwellings_used"])
@@ -715,6 +784,9 @@ def _district_contexts(code, tree, ref_tree):
                 ctx["levels_data"] = float(lv) if pd.notna(lv) else ""
                 ctx["height_m"] = float(b.loc[bid, "height_m"]) if pd.notna(b.loc[bid, "height_m"]) else float("nan")
                 ctx["height_source"] = str(b.loc[bid, "height_source"])
+                if new_site:
+                    ctx["new_site"] = True
+                    ctx["storeys_ref_override"] = (int(b.loc[bid, "storey_count"]), str(b.loc[bid, "storey_source"]))
             if sidecar is not None and str(bid) in sidecar.index:
                 sv = sidecar.loc[str(bid), "levels"]
                 if pd.notna(sv):
@@ -787,7 +859,11 @@ def main(argv=None):
     ap.add_argument("--districts", default="ES,FR,GB,IT")
     ap.add_argument("--ref-tree", default="win_2026-10-05")
     ap.add_argument("--workers", type=int, default=MAX_WORKERS)
+    ap.add_argument("--out-dir")
     a = ap.parse_args(argv)
+    global OUT_DIR
+    if a.out_dir:
+        OUT_DIR = Path(a.out_dir)
     summary = []
     for code in [x.strip().upper() for x in a.districts.split(",") if x.strip()]:
         d, df, man = run_district(code, a.tree, a.ref_tree, a.workers)

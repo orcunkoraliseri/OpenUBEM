@@ -12,11 +12,12 @@ import csv
 import hashlib
 import io
 import json
+import os
 import re
 import shutil
 import zipfile
 from collections import Counter
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from pathlib import Path
 
 import geopandas as gpd
@@ -31,9 +32,14 @@ from openubem.geometry.european_residential import (
     _stabilize_ring_coords,
     generate_european_building_dwelling_layout,
     generate_european_dwelling_layout,
+    generate_european_nocore_storey_layout,
 )
 from openubem.geometry.zoning import build_zones
 from openubem.semantic.construction_sets import select_tabula_archetype, tabula_period
+from openubem.semantic.new_country_rules import (
+    NEW_COUNTRIES, attached_by_id, build_row, load_period_years, new_country_rows,
+    observed_tag_type, resolve_storeys, resolve_year,
+)
 from openubem.semantic.european_archetype_mapping import (
     EU02_SITE_COUNTRY, apply_attribute_sidecar, compute_footprint_adjacency,
     compute_footprint_adjacency_pairs, map_observed_building_to_tabula,
@@ -58,6 +64,13 @@ DISTRICTS = {
     "FR-LYO-HAUTCOEURPENTES": {"country": "FR", "fold": "fr", "crs": "EPSG:32631"},
     "GB-LDN-STDUNSTANS": {"country": "GB", "fold": "uk", "crs": "EPSG:32630"},
     "IT-BOL-GALVANI2": {"country": "IT", "fold": "it", "crs": "EPSG:32632"},
+    "AT-VIE-RUDOLFSHEIM": {"country": "AT", "fold": "at", "crs": "EPSG:32633"},
+    "KR-SEO-MAPO": {"country": "KR", "fold": "kr", "crs": "EPSG:32652"},
+    "CA-MTL-PLATEAU": {"country": "CA", "fold": "ca", "crs": "EPSG:32618"},
+    "FI-HEL-KALLIO": {"country": "FI", "fold": "fi", "crs": "EPSG:32635"},
+    "ZA-CPT-WOODSTOCK": {"country": "ZA", "fold": "za", "crs": "EPSG:32734"},
+    "HU-BUD-ERZSEBETVAROS": {"country": "HU", "fold": "hu", "crs": "EPSG:32634"},
+    "AM-EVN-NORNORK": {"country": "AM", "fold": "am", "crs": "EPSG:32638"},
 }
 MANIFEST_COLUMNS = [
     "building_id", "archetype_id", "building_type", "age_band", "geometry_outcome",
@@ -100,9 +113,10 @@ class _GeometryOutcome(str):
     keeps working unchanged.
     """
 
-    def __new__(cls, value: str, layout_reason: str | None = None) -> "_GeometryOutcome":
+    def __new__(cls, value: str, layout_reason: str | None = None, dwellings_removed: int = 0) -> "_GeometryOutcome":
         self = str.__new__(cls, value)
         self.layout_reason = layout_reason
+        self.dwellings_removed = dwellings_removed
         return self
 
 
@@ -186,6 +200,42 @@ def _catastro_dwelling_overrides(sidecar: pd.DataFrame) -> dict[str, tuple[float
     return result
 
 
+def _kminus1_enabled() -> bool:
+    return os.environ.get("OPENUBEM_NOCORE_KMINUS1", "") == "1"
+
+
+def _storey_layout_is_good(layout) -> bool:
+    return bool(layout.dwelling_layout_emitted) and not (layout.fallback_reason or "").startswith("NOCORE_BEST_EFFORT_")
+
+
+def _building_layout_has_failure(layout) -> bool:
+    if not layout.dwelling_layout_emitted:
+        return True
+    return any(reason and reason.startswith("NOCORE_BEST_EFFORT_") for reason in layout.fallback_reason_by_storey)
+
+
+def _layout_with_kminus1(footprint, allocation, dwellings_source: str):
+    layout = generate_european_building_dwelling_layout(footprint, floor_allocations=allocation.floor_allocations)
+    if not _kminus1_enabled() or dwellings_source != "area_imputed" or not _building_layout_has_failure(layout):
+        return layout, 0
+    reduced: dict[int, int] = {}
+    for count in sorted({fa.dwelling_count for fa in allocation.floor_allocations if fa.dwelling_count >= 2}):
+        if _storey_layout_is_good(generate_european_nocore_storey_layout(footprint, dwelling_count=count)):
+            continue
+        if _storey_layout_is_good(generate_european_nocore_storey_layout(footprint, dwelling_count=count - 1)):
+            reduced[count] = count - 1
+    if not reduced:
+        return layout, 0
+    floors = tuple(replace(fa, dwelling_count=reduced.get(fa.dwelling_count, fa.dwelling_count)) for fa in allocation.floor_allocations)
+    retry = generate_european_building_dwelling_layout(footprint, floor_allocations=floors)
+    if not retry.dwelling_layout_emitted:
+        return layout, 0
+    if layout.dwelling_layout_emitted and sum(1 for r in retry.fallback_reason_by_storey if r) > sum(1 for r in layout.fallback_reason_by_storey if r):
+        return layout, 0
+    removed = sum(a.dwelling_count - b.dwelling_count for a, b in zip(allocation.floor_allocations, floors))
+    return retry, removed
+
+
 def _geometry(row: pd.Series, records: list[dict]) -> tuple[list[dict], str]:
     """D-EU-33 parity with ``scripts/emit_eu11_layout_sidecars.py``: this is the
 
@@ -211,9 +261,7 @@ def _geometry(row: pd.Series, records: list[dict]) -> tuple[list[dict], str]:
     # units_per_floor constant replayed across every storey), and fail the
     # whole building closed above the ruled grid's 8/floor ceiling rather
     # than approximating it.
-    building_layout = generate_european_building_dwelling_layout(
-        footprint, floor_allocations=allocation.floor_allocations,
-    )
+    building_layout, dwellings_removed = _layout_with_kminus1(footprint, allocation, dwellings_source)
     # T01: the layout's own reason (refusal reason when not emitted, or the
     # first non-empty per-storey best-effort tag when emitted) -- thrown away
     # by every caller until now (fact 4).
@@ -247,7 +295,7 @@ def _geometry(row: pd.Series, records: list[dict]) -> tuple[list[dict], str]:
         # applied above -- re-stabilize here, the actual last point before
         # `coords_m` is baked into the IDF, so the fix survives orientation.
         zone["coords_m"] = _stabilize_ring_coords(poly)
-    return zones, _GeometryOutcome(outcome, layout_reason)
+    return zones, _GeometryOutcome(outcome, layout_reason, dwellings_removed)
 
 
 def _gb_age_decision(band: str | None, observed_years: set[int]) -> tuple[str, str, str] | tuple[None, str, str]:
@@ -1059,6 +1107,54 @@ def _impute_it_rows(
     return recovered, _counter_from_records(excluded_records)
 
 
+def _impute_new_country_rows(
+    district: str, gdf: gpd.GeoDataFrame, records: list[dict], base_rows: list[dict],
+) -> tuple[list[dict], Counter]:
+    country = DISTRICTS[district]["country"]
+    period_years = load_period_years(district)
+    base_by_id = {str(r["building_id"]): r for r in base_rows}
+    pairs = compute_footprint_adjacency_pairs(gdf)
+    attached = attached_by_id(gdf)
+    geom_by_id = {str(oid): geom for oid, geom in zip(gdf["osm_id"].astype(str), gdf.geometry)}
+    base_gdf = gdf[gdf["osm_id"].astype(str).isin(base_by_id)]
+    storeys_by_id = {bid: int(r["levels"]) for bid, r in base_by_id.items()}
+    storey_mode_by_type, storey_mode_all = _neighbour_field_mode(
+        [{"building_type": r.get("building_type"), "storeys": storeys_by_id[bid]} for bid, r in base_by_id.items()],
+        "storeys",
+    )
+    recovered: list[dict] = []
+    excluded_records: list[dict] = []
+    for _, item in gdf.sort_values("osm_id", kind="stable").iterrows():
+        building_id = str(item.osm_id)
+        if building_id in base_by_id:
+            continue
+        year, year_provenance, blocker = resolve_year(item, period_years)
+        if year is None:
+            continue
+        storeys, _ = resolve_storeys(item)
+        if storeys is not None:
+            continue
+        nearest = {building_id: _nearest_prepared_id(geom_by_id.get(building_id), base_gdf)}
+        tagged = observed_tag_type(item)
+        storeys, storey_tag = _neighbour_ladder_value(
+            building_id, pairs, base_by_id.keys(), storeys_by_id, nearest,
+            storey_mode_by_type, storey_mode_all, tagged,
+        )
+        if storeys is None:
+            excluded_records.append({"building_id": building_id, "stage": "recovery_pass", "blocker": "MISSING_OBSERVED_STOREY_COUNT_NO_LADDER_VALUE", "detail": ""})
+            continue
+        row, blocker, detail = build_row(
+            item, country=country, records=records, year=year, year_provenance=year_provenance,
+            storeys=int(storeys), storey_provenance=storey_tag, is_attached=attached[building_id],
+        )
+        if row is None:
+            excluded_records.append({"building_id": building_id, "stage": "recovery_pass", "blocker": f"IMPUTED_{blocker}", "detail": detail})
+            continue
+        row["imputation_provenance"] = storey_tag
+        recovered.append(row)
+    return recovered, _counter_from_records(excluded_records)
+
+
 def impute_from_neighbours(
     gdf: gpd.GeoDataFrame, base_rows: list[dict], records: list[dict], district: str,
 ) -> tuple[list[dict], Counter]:
@@ -1077,6 +1173,8 @@ def impute_from_neighbours(
         return _gb_impute_rows(gdf, records, base_rows)
     if district == "IT-BOL-GALVANI2":
         return _impute_it_rows(gdf, records, base_rows)
+    if DISTRICTS[district]["country"] in NEW_COUNTRIES:
+        return _impute_new_country_rows(district, gdf, records, base_rows)
     return _impute_es_fr_rows(district, gdf, records, base_rows)
 
 
@@ -1097,6 +1195,7 @@ def prepare(
     records = json.loads((archetypes or (ROOT / f"openubem/data/construction/tabula_archetypes_{cfg['country'].lower()}.json")).read_text(encoding="utf-8"))["records"]
     if district == "GB-LDN-STDUNSTANS": rows, exclusions = _gb_rows(gdf, records)
     elif district == "IT-BOL-GALVANI2": rows, exclusions = _it_rows(gdf, records)
+    elif cfg["country"] in NEW_COUNTRIES: rows, exclusions = new_country_rows(district, gdf, records)
     else: rows, exclusions = _mapped_rows(district, gdf, records)
     out = out.resolve(); idfs = out / "idfs"; weather_dir = out / "weather"; schedules = out / "schedules"; idfs.mkdir(parents=True, exist_ok=True); weather_dir.mkdir(exist_ok=True); schedules.mkdir(exist_ok=True)
     shutil.copy2(weather, weather_dir / weather.name)
@@ -1138,6 +1237,7 @@ def prepare(
             model_row["building_id"] = stem
             zones, outcome = _geometry(model_row, records)
             layout_reason = outcome.layout_reason
+            removed_flats = getattr(outcome, "dwellings_removed", 0)
             context = build_european_context(
                 row.osm_id, row.geometry, buildings_clean, district_median_height_m,
                 context_height_fallback_census,
@@ -1202,6 +1302,8 @@ def prepare(
                              "context_building_count": len(context),
                              "fallback_reason": fallback_reason,
                              "dwellings_used": dwellings_used, "dwellings_source": dwellings_source})
+            if _kminus1_enabled():
+                prepared[-1]["dwellings_removed"] = removed_flats or ""
         except ValueError as exc:
             geometry_exclusions.log(row.building_id, "idf_build", str(exc))
         except (RuntimeError, ZeroDivisionError, IndexError) as exc:

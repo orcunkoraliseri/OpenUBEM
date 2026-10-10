@@ -17,7 +17,7 @@ from shapely.geometry import Polygon
 from shapely import make_valid
 from shapely.ops import unary_union
 
-ROOT = pathlib.Path(r"C:\Users\o_iseri\Desktop\OpenUBEM")
+ROOT = pathlib.Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 
@@ -38,13 +38,14 @@ from scripts.run_eu_s2_district_campaign import DISTRICTS, FLOOR_TO_FLOOR_M  # n
 
 EVIDENCE = ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11"
 EU02 = ROOT / "openubem" / "outputs" / "eu02"
-PLANS3D_DIR = ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "plans3D"
+PLANS3D_DIR = ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "plans3D"
 DATE = "2026-10-01"
 TAG = f"{DATE} from the simulated IDFs"
 CIRC_COLOR = "#c98a1b"
 WHOLE_COLOR = "#5c6773"
 AREA_TOL = 0.005
 
+FOUR_SITES = frozenset({"ES-MAD-BERRUGUETE", "FR-LYO-HAUTCOEURPENTES", "GB-LDN-STDUNSTANS", "IT-BOL-GALVANI2"})
 PROBE_ID = "way/333138130"
 RESIDUAL_DIR = EVIDENCE / "division_residual_2026-09-29"
 UNDIVIDED_CSV = RESIDUAL_DIR / "undivided_excluded_2026-10-01.csv"
@@ -80,12 +81,14 @@ def unresolved_ids(district):
 
 
 def undivided_ids(district):
+    if district not in FOUR_SITES:
+        return set()
     d = pd.read_csv(UNDIVIDED_CSV, dtype=str)
     return set(d.loc[d["district"] == district, "building_id"])
 
 
 def fault_ids(district):
-    if SOURCE_TAG is None or not FAULT_CSV.exists():
+    if district not in FOUR_SITES or SOURCE_TAG is None or not FAULT_CSV.exists():
         return set()
     d = pd.read_csv(FAULT_CSV, dtype=str)
     return set(d.loc[d["district"] == district, "building_id"])
@@ -618,7 +621,7 @@ def verify_district(district):
           f"P3 parses {parse_ok}, eui keys {'YES' if p3_eui else 0}, storey list {p3_storey} of {M}; size {size:.2f} MB", flush=True)
     rng = random.Random(7)
     pool = [pl for pl, _ in plans]
-    pick = [pl for pl in pool if pl.building_id == PROBE_ID] + rng.sample(pool, 5)
+    pick = [pl for pl in pool if pl.building_id == PROBE_ID] + rng.sample(pool, min(5, len(pool)))
     for plan in pick:
         b = B[plan.building_id]
         groups = {}
@@ -641,8 +644,13 @@ def main():
     ap.add_argument("--date")
     ap.add_argument("--overlay-manifest")
     ap.add_argument("--exclude-csv")
+    ap.add_argument("--out-dir")
     args = ap.parse_args()
-    global DATE, TAG, SOURCE_TAG, UNDIVIDED_CSV, OVERLAY_CSV, EXCLUDE_CSV
+    global DATE, TAG, SOURCE_TAG, UNDIVIDED_CSV, OVERLAY_CSV, EXCLUDE_CSV, PLANS3D_DIR
+    if args.out_dir:
+        PLANS3D_DIR = pathlib.Path(args.out_dir)
+    if args.district and args.district not in FOUR_SITES and not args.source_tag:
+        sys.exit("STOP: a new site needs --source-tag")
     if args.date:
         DATE = args.date
         TAG = f"{DATE} from the simulated IDFs"
@@ -650,14 +658,14 @@ def main():
         OVERLAY_CSV = args.overlay_manifest
     if args.exclude_csv:
         EXCLUDE_CSV = args.exclude_csv
-    if args.overlay_manifest or args.exclude_csv:
+    if (args.overlay_manifest or args.exclude_csv) and (args.district is None or args.district in FOUR_SITES):
         TAG = f"{DATE} from the simulated IDFs (10-06 models + 193 fixed homes)"
     if args.source_tag:
         SOURCE_TAG = args.source_tag
         UNDIVIDED_CSV = RESIDUAL_DIR / "undivided_excluded_2026-10-05.csv"
     if args.all:
         procs = []
-        for d in sorted(DISTRICTS):
+        for d in sorted(FOUR_SITES):
             cmd = [sys.executable, __file__, "--district", d] + (["--verify"] if args.verify else [])
             if args.source_tag:
                 cmd += ["--source-tag", args.source_tag]
@@ -667,6 +675,8 @@ def main():
                 cmd += ["--overlay-manifest", args.overlay_manifest]
             if args.exclude_csv:
                 cmd += ["--exclude-csv", args.exclude_csv]
+            if args.out_dir:
+                cmd += ["--out-dir", args.out_dir]
             procs.append(subprocess.Popen(cmd))
         sys.exit(max(p.wait() for p in procs))
     if args.verify:

@@ -5,7 +5,7 @@ screening from scripts/diagnostics/f181_t03_err_screen.py verbatim. Each replica
 its own run directory. dry_run=False.
 
 Writes:
-  docs/docs_DONE/SETUP/europeanLocations/outputs/deu27_rerun_cells.csv
+  docs/docs_ACTIVE/europeanLocations/outputs/deu27_rerun_cells.csv
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ NOTICE_PATH = GSS_ROOT / "Step10_docs/docs/2026-08-26_10.1_chaining-closure-noti
 SCHEDULES_ROOT = GSS_ROOT / "Step7_docs/outputs_step7/schedules"
 
 RUN_ROOT_BASE = ROOT / "openubem/outputs/eu_certified_rerun_2026-08-28"
-OUT_DIR = ROOT / "docs/docs_DONE/SETUP/europeanLocations/outputs"
+OUT_DIR = ROOT / "docs/docs_ACTIVE/europeanLocations/outputs"
 CELLS_CSV = OUT_DIR / "deu27_rerun_cells.csv"
 
 BUILD_REFUSAL_MARKER = "S0 openings require an exterior (b=1) Wall_1 host"

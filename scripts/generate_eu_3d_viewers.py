@@ -13,11 +13,12 @@ rebuild tree) may supply the scheme name / refusal reason as annotation
 only, and only when it agrees with what the IDF's own zone kinds show.
 
 Outputs written to `openubem/outputs/3D/` and mirrored to
-`docs/docs_DONE/SETUP/europeanLocations/outputs_3D/`.
+`docs/docs_ACTIVE/europeanLocations/outputs_3D/`.
 """
 
 from __future__ import annotations
 
+import argparse
 import dataclasses
 import hashlib
 import json
@@ -29,6 +30,7 @@ import geopandas as gpd
 import pandas as pd
 
 import scripts.eu_idf_plan_reader as READER
+from scripts.cluster.harvest_eu11_district import NEW_SITES
 from scripts.eu_idf_plan_reader import BuildingPlan, ZonePlan, load_manifest, load_prepared_buildings, parse_idf_floor_zones, read_building_plan
 
 REPO_ROOT = Path("C:/Users/o_iseri/Desktop/OpenUBEM")
@@ -36,8 +38,8 @@ EU17_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-17"
 EU11_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-11"
 WIN_TAG = "_win_2026-10-06"
 MERGED_TAG = "_merged_win_2026-10-06"
-RESULTS_SUMMARY = REPO_ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "results" / "EU11_results_2026-10-08_summary.json"
-RESULTS_PER_HOME = REPO_ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "results" / "EU11_results_2026-10-08_per_home.csv"
+RESULTS_SUMMARY = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "results" / "EU11_results_2026-10-08_summary.json"
+RESULTS_PER_HOME = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "results" / "EU11_results_2026-10-08_per_home.csv"
 FIXED_DIR = EU11_ROOT / "rulebook_2026-09-30" / "partner_fixed_homes_2026-10-08"
 EU21_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-21" / "district_plans"
 
@@ -45,6 +47,9 @@ EU21_ROOT = REPO_ROOT / "openubem" / "outputs" / "eu_evidence" / "EU-21" / "dist
 # only (T03, hard rule 3): never a second source of truth for geometry.
 FAULT_CSV = EU11_ROOT / "division_residual_2026-09-29" / "geometry_fault_excluded_2026-10-06.csv"
 UNDIVIDED_CSV = EU11_ROOT / "division_residual_2026-09-29" / "undivided_excluded_2026-10-01.csv"
+RESULTS_DIR = RESULTS_PER_HOME.parent
+OUT_3D_DEFAULT = REPO_ROOT / "openubem" / "outputs" / "3D"
+MIRROR_3D_DEFAULT = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "outputs_3D"
 
 
 def _load_undivided_ids(district: str) -> set[str]:
@@ -804,6 +809,8 @@ resize();fit();legend();draw();
 </html>
 """
 
+FOUR_SITES = ("ES-MAD-BERRUGUETE", "FR-LYO-HAUTCOEURPENTES", "GB-LDN-STDUNSTANS", "IT-BOL-GALVANI2")
+
 DISTRICT_SPECS: dict[str, dict[str, Any]] = {
     "ES-MAD-BERRUGUETE": {
         "page_title": "OpenUBEM — Madrid — Berruguete",
@@ -841,7 +848,60 @@ DISTRICT_SPECS: dict[str, dict[str, Any]] = {
         "layer": "Comune di Bologna — rifter_edif_pl",
         "endpoint": "https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets/rifter_edif_pl/exports/geojson?limit=-1",
     },
+    "AT-VIE-RUDOLFSHEIM": {
+        "page_title": "OpenUBEM — Vienna — Rudolfsheim",
+        "name": "Vienna — Rudolfsheim",
+        "place": "Rudolfsheim-Fünfhaus, Vienna (AT)",
+        "crs": "EPSG:32633",
+    },
+    "CA-MTL-PLATEAU": {
+        "page_title": "OpenUBEM — Montréal — Plateau",
+        "name": "Montréal — Plateau",
+        "place": "Plateau-Mont-Royal, Montréal (CA)",
+        "crs": "EPSG:32618",
+    },
+    "FI-HEL-KALLIO": {
+        "page_title": "OpenUBEM — Helsinki — Kallio",
+        "name": "Helsinki — Kallio",
+        "place": "Kallio, Helsinki (FI)",
+        "crs": "EPSG:32635",
+    },
+    "ZA-CPT-WOODSTOCK": {
+        "page_title": "OpenUBEM — Cape Town — Woodstock",
+        "name": "Cape Town — Woodstock",
+        "place": "Woodstock, Cape Town (ZA)",
+        "crs": "EPSG:32734",
+    },
+    "HU-BUD-ERZSEBETVAROS": {
+        "page_title": "OpenUBEM — Budapest — Erzsébetváros",
+        "name": "Budapest — Erzsébetváros",
+        "place": "Erzsébetváros, Budapest (HU)",
+        "crs": "EPSG:32634",
+    },
+    "AM-EVN-NORNORK": {
+        "page_title": "OpenUBEM — Yerevan — Nor Nork",
+        "name": "Yerevan — Nor Nork",
+        "place": "Nor Nork, Yerevan (AM)",
+        "crs": "EPSG:32638",
+    },
 }
+
+
+def _resolve_spec(district: str) -> dict[str, Any]:
+    spec = dict(DISTRICT_SPECS[district])
+    if district in NEW_SITES:
+        src = json.loads((REPO_ROOT / "openubem" / "outputs" / "eu02" / district / "01_source.json").read_text(encoding="utf-8"))
+        spec["licence"] = src["licence"]
+        spec["layer"] = src["source_layer"]
+        spec["endpoint"] = src["source_endpoint"]
+    return spec
+
+
+def _load_left_out_ids(district: str, tree: Path) -> set[str]:
+    df = pd.read_csv(tree / "left_out.csv", dtype=str)
+    if "district" in df.columns:
+        df = df[df["district"] == district]
+    return set(df["building_id"])
 
 
 def _file_sha256(path: Path) -> str:
@@ -919,8 +979,8 @@ def _circulation_label(rings: tuple[tuple[tuple[float, float], ...], ...]) -> st
     return "circulation"
 
 
-def _load_eu11_eui(district: str) -> dict[str, float | None]:
-    df = pd.read_csv(RESULTS_PER_HOME, dtype={"building_id": str})
+def _load_eu11_eui(district: str, per_home_path: Path = RESULTS_PER_HOME) -> dict[str, float | None]:
+    df = pd.read_csv(per_home_path, dtype={"building_id": str})
     df = df[(df["district"] == district) & (df["has_result"].astype(str) == "True")]
     eui_by_id: dict[str, float | None] = {}
     for bid, eui in zip(df["building_id"], df["eui_heating_kwh_m2"]):
@@ -1036,13 +1096,28 @@ def _build_plan_payload(
     }
 
 
-def build_district(district: str) -> None:
-    spec = DISTRICT_SPECS[district]
+def build_district(
+    district: str,
+    tag: str | None = None,
+    out_dir_3d: Path = OUT_3D_DEFAULT,
+    mirror_dir_3d: Path = MIRROR_3D_DEFAULT,
+    results_dir: Path = RESULTS_DIR,
+) -> None:
+    new_site = district in NEW_SITES
+    if new_site and not (tag and tag.startswith("win_")):
+        raise ValueError(f"{district}: a new site needs --tag win_<date>")
+    spec = _resolve_spec(district)
     data_dir_name = f"eu_{district}_data"
     viewer_name = f"eu_{district}_viewer.html"
-
-    out_dir_3d = REPO_ROOT / "openubem" / "outputs" / "3D"
-    mirror_dir_3d = REPO_ROOT / "docs" / "docs_DONE" / "SETUP" / "europeanLocations" / "outputs_3D"
+    if new_site:
+        site_date = tag[len("win_"):]
+        site_tree_name = f"{district}_{tag}"
+        results_per_home = results_dir / f"EU22_results_{district}_{site_date}_per_home.csv"
+        results_summary = results_dir / f"EU22_results_{district}_{site_date}_summary.json"
+    else:
+        site_tree_name = f"{district}{WIN_TAG}"
+        results_per_home = RESULTS_PER_HOME
+        results_summary = RESULTS_SUMMARY
 
     target_data_dir = out_dir_3d / data_dir_name
     target_data_dir.mkdir(parents=True, exist_ok=True)
@@ -1103,7 +1178,7 @@ def build_district(district: str) -> None:
         "assumed": int((res_subset["provenance_code"] == 2).sum()),
     }
 
-    idf_evidence_root = EU11_ROOT / f"{district}{WIN_TAG}"
+    idf_evidence_root = EU11_ROOT / site_tree_name
     origin_file = idf_evidence_root / "origin_offset.json"
     off_dx = off_dy = 0.0
     if origin_file.exists():
@@ -1115,15 +1190,16 @@ def build_district(district: str) -> None:
             p, origin_xy=(p.origin_xy[0] + off_dx, p.origin_xy[1] + off_dy)
         )
     idf_root_by_id: dict[str, Path] = {bid: idf_evidence_root for bid in plans_by_id}
-    _ph = pd.read_csv(RESULTS_PER_HOME, dtype={"building_id": str})
-    _outcome_new = dict(zip(_ph.loc[_ph["district"] == district, "building_id"], _ph.loc[_ph["district"] == district, "geometry_outcome"]))
-    _fx = pd.read_csv(FIXED_DIR / "manifest_all_193.csv", dtype=str)
-    for _, _r in _fx[_fx["district"] == district].iterrows():
-        _bid = _r["building_id"]
-        _np = read_building_plan(Path(_r["idf"]), stem=_r["stem"], building_id=_bid, district=district, geometry_outcome=_outcome_new[_bid])
-        plans_by_id[_bid] = _np
-        idf_root_by_id[_bid] = FIXED_DIR / district
-    eui_by_id = _load_eu11_eui(district)
+    if not new_site:
+        _ph = pd.read_csv(RESULTS_PER_HOME, dtype={"building_id": str})
+        _outcome_new = dict(zip(_ph.loc[_ph["district"] == district, "building_id"], _ph.loc[_ph["district"] == district, "geometry_outcome"]))
+        _fx = pd.read_csv(FIXED_DIR / "manifest_all_193.csv", dtype=str)
+        for _, _r in _fx[_fx["district"] == district].iterrows():
+            _bid = _r["building_id"]
+            _np = read_building_plan(Path(_r["idf"]), stem=_r["stem"], building_id=_bid, district=district, geometry_outcome=_outcome_new[_bid])
+            plans_by_id[_bid] = _np
+            idf_root_by_id[_bid] = FIXED_DIR / district
+    eui_by_id = _load_eu11_eui(district, results_per_home)
 
     # EU-21 no-core cutter evidence (checks/status/verdict/scheme), loaded
     # once per district (T03) -- annotation only, joined on the same `bid`,
@@ -1147,7 +1223,7 @@ def build_district(district: str) -> None:
     buildings_csv_rows: list[dict[str, Any]] = []
     ruled_count = massing_count = no_idf_count = 0
     simulated_count = idf_only_count = 0
-    undivided_ids = _load_undivided_ids(district)
+    undivided_ids = _load_left_out_ids(district, idf_evidence_root) if new_site else _load_undivided_ids(district)
     undivided_count = 0
 
     for i, row in combined_gdf.iterrows():
@@ -1289,9 +1365,19 @@ def build_district(district: str) -> None:
         "undivided": undivided_count,
     }
 
+    if new_site:
+        geometry_lead = (
+            f"<b>Geometry for {n_res:,} residential buildings, read from the simulated IDFs "
+            f"({tag} tree; {undivided_count:,} homes left out because they could not be divided "
+            f"into flats correctly).</b> "
+        )
+    else:
+        geometry_lead = (
+            f"<b>Geometry for {n_res:,} residential buildings, read from the simulated IDFs "
+            f"(2026-10-06 tree; the 193 homes re-divided on 2026-10-08 from their new IDFs).</b> "
+        )
     geometry_note = (
-        f"<b>Geometry for {n_res:,} residential buildings, read from the simulated IDFs "
-        f"(2026-10-06 tree; the 193 homes re-divided on 2026-10-08 from their new IDFs).</b> "
+        geometry_lead +
         f"{simulated_count:,} were actually simulated (have an EUI, matching "
         f"<code>summary.json</code>'s <code>population_run</code>), {idf_only_count:,} have an "
         f"IDF but were never run, {no_idf_count:,} have no IDF in the tree and are shown grey. "
@@ -1352,34 +1438,59 @@ def build_district(district: str) -> None:
     n_sidecars = 0
 
     # Construct sources.json
-    _tree_rel = f"openubem/outputs/eu_evidence/EU-11/{district}{WIN_TAG}"
-    _merged_rel = f"openubem/outputs/eu_evidence/EU-11/{district}{MERGED_TAG}"
+    _tree_rel = f"openubem/outputs/eu_evidence/EU-11/{site_tree_name}"
     _manifest_name = f"{district.lower().replace('-', '_')}_manifest.csv"
-    _md5_path = idf_evidence_root / "md5_2026-10-06.txt"
-    generated_from = [
-        f"openubem/outputs/eu02/{district}/01_source.json",
-        f"openubem/outputs/eu02/{district}/02_residential_manifest.gpkg",
-        f"openubem/outputs/eu02/{district}/02_excluded_manifest.gpkg",
-        f"{_tree_rel}/prepared_buildings.csv",
-        f"{_tree_rel}/md5_2026-10-06.txt",
-        f"{_merged_rel}/{_manifest_name}",
-        "docs/docs_DONE/SETUP/europeanLocations/results/EU11_results_2026-10-08_summary.json",
-        "docs/docs_DONE/SETUP/europeanLocations/results/EU11_results_2026-10-08_per_home.csv",
-        "openubem/outputs/eu_evidence/EU-11/rulebook_2026-09-30/partner_fixed_homes_2026-10-08/manifest_all_193.csv",
-        "openubem/outputs/eu_evidence/EU-11/rulebook_2026-09-30/partner_fixed_homes_2026-10-08/exclude_all_232.csv",
-    ]
-    sha256_map = {
-        "01_source.json": _file_sha256(src_json_path),
-        "02_residential_manifest.gpkg": _file_sha256(res_gpkg_path),
-        "02_excluded_manifest.gpkg": _file_sha256(exc_gpkg_path),
-        "prepared_buildings.csv": _file_sha256(idf_evidence_root / "prepared_buildings.csv"),
-        "md5_2026-10-06.txt": _file_sha256(_md5_path),
-        _manifest_name: _file_sha256(EU11_ROOT / f"{district}{MERGED_TAG}" / _manifest_name),
-        "EU11_results_2026-10-08_summary.json": _file_sha256(RESULTS_SUMMARY),
-        "EU11_results_2026-10-08_per_home.csv": _file_sha256(RESULTS_PER_HOME),
-        "manifest_all_193.csv": _file_sha256(FIXED_DIR / "manifest_all_193.csv"),
-        "exclude_all_232.csv": _file_sha256(FIXED_DIR / "exclude_all_232.csv"),
-    }
+    if new_site:
+        _md5_name = f"md5_{site_date}.txt"
+        generated_from = [
+            f"openubem/outputs/eu02/{district}/01_source.json",
+            f"openubem/outputs/eu02/{district}/02_residential_manifest.gpkg",
+            f"openubem/outputs/eu02/{district}/02_excluded_manifest.gpkg",
+            f"{_tree_rel}/prepared_buildings.csv",
+            f"{_tree_rel}/{_md5_name}",
+            f"{_tree_rel}/{_manifest_name}",
+            f"{_tree_rel}/left_out.csv",
+            f"docs/docs_ACTIVE/europeanLocations/results/{results_summary.name}",
+            f"docs/docs_ACTIVE/europeanLocations/results/{results_per_home.name}",
+        ]
+        sha256_map = {
+            "01_source.json": _file_sha256(src_json_path),
+            "02_residential_manifest.gpkg": _file_sha256(res_gpkg_path),
+            "02_excluded_manifest.gpkg": _file_sha256(exc_gpkg_path),
+            "prepared_buildings.csv": _file_sha256(idf_evidence_root / "prepared_buildings.csv"),
+            _md5_name: _file_sha256(idf_evidence_root / _md5_name),
+            _manifest_name: _file_sha256(idf_evidence_root / _manifest_name),
+            "left_out.csv": _file_sha256(idf_evidence_root / "left_out.csv"),
+            results_summary.name: _file_sha256(results_summary),
+            results_per_home.name: _file_sha256(results_per_home),
+        }
+    else:
+        _merged_rel = f"openubem/outputs/eu_evidence/EU-11/{district}{MERGED_TAG}"
+        _md5_path = idf_evidence_root / "md5_2026-10-06.txt"
+        generated_from = [
+            f"openubem/outputs/eu02/{district}/01_source.json",
+            f"openubem/outputs/eu02/{district}/02_residential_manifest.gpkg",
+            f"openubem/outputs/eu02/{district}/02_excluded_manifest.gpkg",
+            f"{_tree_rel}/prepared_buildings.csv",
+            f"{_tree_rel}/md5_2026-10-06.txt",
+            f"{_merged_rel}/{_manifest_name}",
+            "docs/docs_ACTIVE/europeanLocations/results/EU11_results_2026-10-08_summary.json",
+            "docs/docs_ACTIVE/europeanLocations/results/EU11_results_2026-10-08_per_home.csv",
+            "openubem/outputs/eu_evidence/EU-11/rulebook_2026-09-30/partner_fixed_homes_2026-10-08/manifest_all_193.csv",
+            "openubem/outputs/eu_evidence/EU-11/rulebook_2026-09-30/partner_fixed_homes_2026-10-08/exclude_all_232.csv",
+        ]
+        sha256_map = {
+            "01_source.json": _file_sha256(src_json_path),
+            "02_residential_manifest.gpkg": _file_sha256(res_gpkg_path),
+            "02_excluded_manifest.gpkg": _file_sha256(exc_gpkg_path),
+            "prepared_buildings.csv": _file_sha256(idf_evidence_root / "prepared_buildings.csv"),
+            "md5_2026-10-06.txt": _file_sha256(_md5_path),
+            _manifest_name: _file_sha256(EU11_ROOT / f"{district}{MERGED_TAG}" / _manifest_name),
+            "EU11_results_2026-10-08_summary.json": _file_sha256(RESULTS_SUMMARY),
+            "EU11_results_2026-10-08_per_home.csv": _file_sha256(RESULTS_PER_HOME),
+            "manifest_all_193.csv": _file_sha256(FIXED_DIR / "manifest_all_193.csv"),
+            "exclude_all_232.csv": _file_sha256(FIXED_DIR / "exclude_all_232.csv"),
+        }
 
     sources_dict: dict[str, Any] = {
         "cell": district,
@@ -1435,7 +1546,7 @@ def build_district(district: str) -> None:
     index_html_path.write_text(index_html_content, encoding="utf-8")
     print(f"[{district}] Written index.html")
 
-    # Mirror to docs/docs_DONE/SETUP/europeanLocations/outputs_3D/
+    # Mirror to docs/docs_ACTIVE/europeanLocations/outputs_3D/
     mirror_dir_3d.mkdir(parents=True, exist_ok=True)
     mirror_viewer_path = mirror_dir_3d / viewer_name
     shutil.copy2(viewer_path, mirror_viewer_path)
@@ -1448,10 +1559,18 @@ def build_district(district: str) -> None:
 
 
 def main() -> None:
-    for district in DISTRICT_SPECS:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--district", action="append", choices=sorted(DISTRICT_SPECS), default=None)
+    parser.add_argument("--tag", default=None, help="win_<date> tree tag, required for a new site")
+    parser.add_argument("--out-3d", type=Path, default=OUT_3D_DEFAULT)
+    parser.add_argument("--mirror-dir", type=Path, default=MIRROR_3D_DEFAULT)
+    parser.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
+    args = parser.parse_args()
+    targets = args.district or list(FOUR_SITES)
+    for district in targets:
         print(f"\n=== Generating 3D viewer for {district} ===")
-        build_district(district)
-    print("\nAll four European district 3D viewers regenerated and mirrored successfully.")
+        build_district(district, args.tag, args.out_3d, args.mirror_dir, args.results_dir)
+    print(f"\n{len(targets)} district 3D viewer(s) regenerated and mirrored successfully.")
 
 
 if __name__ == "__main__":

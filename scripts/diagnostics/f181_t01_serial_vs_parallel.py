@@ -2,9 +2,9 @@
 
 Diagnostic only. No change under openubem/. Calls run_campaign_cell unmodified.
 Writes:
-  docs/docs_DONE/SETUP/europeanLocations/outputs/f181_t01_matrix.csv
-  docs/docs_DONE/SETUP/europeanLocations/outputs/f181_t01_summary.csv
-  docs/docs_DONE/SETUP/europeanLocations/outputs/f181_t01_selection.csv  (which cells, and why)
+  docs/docs_ACTIVE/europeanLocations/outputs/f181_t01_matrix.csv
+  docs/docs_ACTIVE/europeanLocations/outputs/f181_t01_summary.csv
+  docs/docs_ACTIVE/europeanLocations/outputs/f181_t01_selection.csv  (which cells, and why)
 """
 from __future__ import annotations
 
@@ -29,7 +29,7 @@ NOTICE_PATH = GSS_ROOT / "Step10_docs/docs/2026-08-26_10.1_chaining-closure-noti
 SCHEDULES_ROOT = GSS_ROOT / "Step7_docs/outputs_step7/schedules"
 
 BASE_RUN_ROOT = ROOT / "openubem/outputs/_tmp_f181/t01"
-OUT_DIR = ROOT / "docs/docs_DONE/SETUP/europeanLocations/outputs"
+OUT_DIR = ROOT / "docs/docs_ACTIVE/europeanLocations/outputs"
 MATRIX_CSV = OUT_DIR / "f181_t01_matrix.csv"
 SUMMARY_CSV = OUT_DIR / "f181_t01_summary.csv"
 SELECTION_CSV = OUT_DIR / "f181_t01_selection.csv"

@@ -26,18 +26,27 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
+from openubem.acquisition.european_weather import NEW_SURVEY_YEARS
+
 REPO_ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = REPO_ROOT / "openubem" / "data" / "weather" / "weather_registry.json"
 BENCHMARK_DIR = REPO_ROOT / "openubem" / "data" / "weather" / "benchmarks"
 
 PVGIS_BASE = "https://re.jrc.ec.europa.eu/api/v5_3/MRcalc"
+PVGIS_BASE_NSRDB = "https://re.jrc.ec.europa.eu/api/v5_2/MRcalc"
+NEW_FOLD_DATABASE_ORDER = (
+    ("PVGIS-SARAH3", PVGIS_BASE, "v5_3"),
+    ("PVGIS-NSRDB", PVGIS_BASE_NSRDB, "v5_2"),
+    ("PVGIS-ERA5", PVGIS_BASE, "v5_3"),
+)
 RULED_TRANSCRIBED_FOLDS = {"fr"}
 
 
-def _endpoint(latitude: float, longitude: float, year: int) -> str:
+def _endpoint(latitude: float, longitude: float, year: int, *, base: str = PVGIS_BASE, database: str | None = None) -> str:
+    extra = f"&raddatabase={database}" if database else ""
     return (
-        f"{PVGIS_BASE}?lat={latitude}&lon={longitude}&horirrad=1"
-        f"&startyear={year}&endyear={year}&outputformat=json"
+        f"{base}?lat={latitude}&lon={longitude}&horirrad=1"
+        f"&startyear={year}&endyear={year}{extra}&outputformat=json"
     )
 
 
@@ -49,8 +58,18 @@ def _candidate_years(window: str) -> list[int]:
     return list(range(first, last + 1))
 
 
-def _fetch_monthly_ghi(latitude: float, longitude: float, year: int, timeout: float) -> list[float]:
-    url = _endpoint(latitude, longitude, year)
+def _http_error_text(exc: urllib.error.HTTPError) -> str:
+    try:
+        return f"HTTP {exc.code}: {exc.read().decode('utf-8', 'replace')[:300]}"
+    except Exception:
+        return f"HTTP {exc.code}"
+
+
+def _fetch_monthly_ghi(
+    latitude: float, longitude: float, year: int, timeout: float,
+    *, base: str = PVGIS_BASE, database: str | None = None,
+) -> list[float]:
+    url = _endpoint(latitude, longitude, year, base=base, database=database)
     with urllib.request.urlopen(url, timeout=timeout) as response:
         payload = json.loads(response.read().decode("utf-8"))
 
@@ -104,6 +123,43 @@ def _benchmark_document(target: dict, year: int, values: list[float]) -> dict:
     }
 
 
+def _fetch_new_fold(target: dict, year: int, timeout: float) -> tuple[list[float], str, str, list[str]]:
+    failures: list[str] = []
+    for database, base, version in NEW_FOLD_DATABASE_ORDER:
+        try:
+            values = _fetch_monthly_ghi(
+                target["latitude"], target["longitude"], year, timeout, base=base, database=database
+            )
+        except urllib.error.HTTPError as exc:
+            failures.append(f"{database} ({version}): {_http_error_text(exc)}")
+            continue
+        except (urllib.error.URLError, ValueError, KeyError, TimeoutError) as exc:
+            failures.append(f"{database} ({version}): {type(exc).__name__}: {exc}")
+            continue
+        endpoint = _endpoint(target["latitude"], target["longitude"], year, base=base, database=database)
+        return values, database, endpoint, failures
+    raise ValueError("no PVGIS database answered: " + " | ".join(failures))
+
+
+def _new_fold_document(target: dict, year: int, values: list[float], database: str, endpoint: str, failures: list[str]) -> dict:
+    independent = database != "PVGIS-ERA5"
+    version = "v5_2" if database == "PVGIS-NSRDB" else "v5_3"
+    document = _benchmark_document(target, year, values)
+    document["source"] = (
+        f"European Commission Joint Research Centre PVGIS MRcalc ({version}), radiation database {database}"
+        + ("" if independent else "; benchmark is ERA5-derived, not independent")
+    )
+    document["source_endpoint"] = endpoint
+    document["radiation_database"] = database
+    document["independent_of_era5"] = independent
+    document["database_order"] = [name for name, _base, _version in NEW_FOLD_DATABASE_ORDER]
+    document["databases_refused_before_this_one"] = failures
+    document["candidate_year_note"] = (
+        "Survey-year benchmark (D-EU-155, 2026-10-08): one file for the MTUS survey year only."
+    )
+    return document
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--folds", nargs="*", default=["es", "uk", "it"])
@@ -130,6 +186,30 @@ def main(argv: list[str] | None = None) -> int:
             failed += 1
             continue
 
+        if fold in NEW_SURVEY_YEARS:
+            year = NEW_SURVEY_YEARS[fold]
+            destination = BENCHMARK_DIR / f"{fold}_{year}_monthly_ghi_benchmark.json"
+            if destination.exists() and not args.overwrite:
+                print(f"SKIP {fold} {year} EXISTS {destination.name}")
+                continue
+            if args.dry_run:
+                print(f"DRY_RUN {fold} {year}")
+                continue
+            try:
+                values, database, endpoint, failures = _fetch_new_fold(target, year, args.timeout)
+            except ValueError as exc:
+                print(f"FAILED {fold} {year} {exc}")
+                failed += 1
+                continue
+            document = _new_fold_document(target, year, values, database, endpoint, failures)
+            destination.write_text(
+                json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+            )
+            written += 1
+            print(f"WROTE {fold} {year} {destination.name} db={database} annual={sum(values):.2f} kWh/m2")
+            for line in failures:
+                print(f"  REFUSED {line}")
+            continue
         for year in _candidate_years(target["raw_era5_window"]):
             destination = BENCHMARK_DIR / f"{fold}_{year}_monthly_ghi_benchmark.json"
             if destination.exists() and not args.overwrite:
