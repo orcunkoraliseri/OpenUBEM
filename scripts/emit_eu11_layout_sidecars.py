@@ -10,6 +10,7 @@ Fixes:
 from __future__ import annotations
 
 import json
+import os
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -42,7 +43,7 @@ from scripts.eu_idf_plan_reader import load_prepared_buildings, read_building_pl
 from scripts.run_eu_s2_district_campaign import impute_from_neighbours
 from openubem.semantic.new_country_rules import NEW_COUNTRIES, new_country_rows
 
-REPO_ROOT = Path("C:/Users/o_iseri/Desktop/OpenUBEM")
+REPO_ROOT = Path(os.environ.get("OPENUBEM_REPO_ROOT") or "C:/Users/o_iseri/Desktop/OpenUBEM")
 FOUR_SITES = ("ES-MAD-BERRUGUETE", "FR-LYO-HAUTCOEURPENTES", "GB-LDN-STDUNSTANS", "IT-BOL-GALVANI2")
 
 
@@ -631,7 +632,10 @@ def emit_layouts_for_district(
         sidecar_out_path.parent.mkdir(parents=True, exist_ok=True)
         sidecar_out_path.write_text(json.dumps(sidecar, indent=2), encoding="utf-8")
 
-        repo_rel_path = str((dist_dir / "layouts" / rel_sidecar_file).relative_to(REPO_ROOT)).replace("\\", "/")
+        try:
+            repo_rel_path = str((dist_dir / "layouts" / rel_sidecar_file).relative_to(REPO_ROOT)).replace("\\", "/")
+        except ValueError:
+            repo_rel_path = str(dist_dir / "layouts" / rel_sidecar_file).replace("\\", "/")
         layout_paths[bid] = repo_rel_path
 
     # EU-14B T01: only the columns this emitter owns (geometry_outcome,

@@ -254,12 +254,37 @@ Allowed override keys: `u_wall_w_m2k`, `u_roof_w_m2k`, `u_floor_w_m2k`, `u_windo
 - **S8 — Harvest and results.** `python scripts/cluster/harvest_eu11_district.py --district SITE --tag win_DATE`, then `python scripts/eu22/write_results_eu22.py --site SITE --tag win_DATE`; copy results to `docs/docs_ACTIVE/europeanLocations/results/`. Gate: harvest only runs whose EnergyPlus finished ("EnergyPlus Completed Successfully" in `eplusout.end`), not on parse status alone. Test: rows = correctly divided homes; every row has a result or is listed with the reason; EUI summary per site.
 - **S9 — Viewer and side-cars for 6J.** `python -m scripts.generate_eu_3d_viewers` for the site only; copy to `docs/docs_ACTIVE/europeanLocations/outputs_3D/` byte-identical; `python -m scripts.emit_eu11_layout_sidecars --district SITE …` and `python -m scripts.cluster.export_flat_counts_4j --district SITE --tag win_DATE`. Test: viewer simulated count = results rows; side-car flat count = sum of `dwellings_used` over correctly divided homes. **Manager note 2026-10-10 (from Cape Town T08):** the side-car step takes `--evidence-root SITE=<SITE>_win_DATE tree` (it holds `left_out.csv`); the `_dw_` tree fails with `FileNotFoundError ... left_out.csv`. The post-run side-cars go to `_win_/layouts/`; leave the S5 set in `_dw_/layouts/` untouched.
 
+### 6.3 Final check and hand-off to 6J (added 2026-10-12, owner: "yes yes please")
+
+Six sites, each with its tag: `CA-MTL-PLATEAU` `win_2026-10-09`, `AM-EVN-NORNORK` `win_2026-10-09`, `ZA-CPT-WOODSTOCK` `win_2026-10-09`, `FI-HEL-KALLIO` `win_2026-10-10`, `AT-VIE-RUDOLFSHEIM` `win_2026-10-10`, `HU-BUD-ERZSEBETVAROS` `win_2026-10-10`. `TREE` = `openubem/outputs/eu_evidence/EU-11/<SITE>_<tag>/`, `DOCS` = `docs/docs_ACTIVE/europeanLocations/`. Source paths of results, viewers and side-cars are in each city plan §8 T07 and T08 entries.
+
+#### F01 — Final check list (read only; fix nothing)
+**What.** Run the lines below for every site and write one pass/fail line per check with the measured values.
+**Why.** CLAUDE.md "Finishing work": a deliverable is finished only when every artifact agrees.
+**How.** One Python script in the scratchpad, never under `docs/`. No file in `TREE`, `DOCS` or `scripts/` is changed.
+1. **Runs.** For every IDF stem in `TREE/fleet.lst`, the harvested run's `eplusout.end` contains "EnergyPlus Completed Successfully" (report count ok / total; list any other).
+2. **Results summary.** `DOCS/results/EU22_results_<SITE>_<date>_summary.json`: `homes` = rows of `_per_home.csv` = correctly divided homes in `TREE/division_classes.csv` (OK + V3) minus `left_out.csv` rows if that is the rule in T07; `homes_with_result` = non-empty heating rows; `eui_heating_kwh_m2` = sum(heating_kWh)/sum(floor_area_m2) recomputed from `_per_home.csv` (difference < 0.001); `left_out_not_correctly_divided` + `homes` = IDF count. The `.csv`/`.json` pairs carry the same numbers.
+3. **Results mirror.** Every `DOCS/results/EU22_results_<SITE>_*` file is byte-identical to the file the T07 entry names as its source (if T07 wrote straight into `DOCS/results/`, say so).
+4. **Viewer.** `DOCS/outputs_3D/eu_<SITE>_viewer.html` and `eu_<SITE>_data/` byte-identical to their generated source (`cmp`, `diff -rq`); viewer simulated count = results `homes`; per-home heating per m² in `_data/buildings.csv` equals `_per_home.csv` for every home (report max absolute difference and count of homes in one but not the other).
+5. **Plan page.** `DOCS/plans3D/PLANS_<SITE>_<date>.html` exists, byte-identical to its source, linked from `DOCS/plans3D/index.html`, has no external `http` URL, no EUI text, and its building count = IDF count.
+6. **Side-cars.** Count of side-car JSONs under `TREE/layouts/` (Budapest: nested `way/` and `relation/`) = results `homes`; sum of flats over them = sum of `dwellings_used` in `TREE/sidecar_population.csv` = sum of `dwellings_used` over the result homes in the manifest; assumed inputs are marked (`ZA` and `HU` building age, `AM` construction): report the field name and how many side-cars carry it.
+7. **Flat counts.** The `export_flat_counts_4j` output named in T08 exists and its total flats = check 6.
+8. **Manifest.** `TREE/<site>_manifest.csv`: rows, and non-empty count of `geometry_outcome` and `layout_json` (Budapest known empty from sharded side-cars; report all six).
+9. **Docs.** Each city plan §8 has T07 and T08 entries marked completed; the EUI and home count in the T07 entry equal check 2.
+10. **No UK.** No file of the six `TREE`s, viewers, plan pages or results contains `GB-` or `London`.
+**How to test.** Append ONE entry `#### F01 — Final check list — completed <date>` under §8 of this plan: a 10-line table per site (check, pass/fail, measured values), then a list of every fail. Stop and report; do not fix.
+
+#### F02 — Facts for the 6J messages (read only)
+**What.** For each site, collect what 6J asked for (`messages_GSSCanada/2026-10-08_6J_to_OpenUBEM_go_cities_and_order.md` §3): buildings in the area, homes built, homes with a result and left out, flats, data sources with their licences (from `openubem/outputs/eu_evidence/EU-22/<SITE>/` acquisition report and licence text and the city plan T01 entry), weather file and survey year, inputs assumed rather than observed, and the folder paths (results, side-cars, viewer, plan page, IDF tree).
+**How to test.** Append `#### F02 — Facts for 6J — completed <date>` under §8 with one block per site; every number cites the file it came from. Stop and report.
+
 ## 7. Stop-and-report points
 
 1. **After C01 + C02** (records tools and weather): report test lines; the manager checks the 7 EPWs and gates.
 2. **After C03 + C04** (registration, tree tools): report the 15 before/after hashes and the integrity re-run comparison. Nothing city-specific may run S3 before this point is accepted.
 3. **After C05–C08**: report; from here city plans run S3–S6 independently.
 4. Per site, after S6 (pages before runs) and after S9 (results) — in the city plans.
+5. After F01 + F02: the manager audits, has every fail fixed or ruled on, then writes and sends the 6J messages.
 
 ## 8. Progress log
 
@@ -428,3 +453,160 @@ Allowed override keys: `u_wall_w_m2k`, `u_roof_w_m2k`, `u_floor_w_m2k`, `u_windo
   - kr, ca, fi, za, hu, am: not run, ERA5 archives incomplete. Archives on disk at stop: kr 2/13, am 5/13, ca 0/13, fi 0/13, za 0/13, hu 0/13. Request ids of every job (accepted, running, or last rejected retry) per label: `openubem/outputs/eu_evidence/EU-22/weather/queued_request_ids_2026-10-09.json`. Running or accepted at stop (Seoul): 2009-01 running `eb3c7719-959e-411b-8b0f-4e329a884c23`; 2009-03 `33a11980-96fb-4eca-be52-6d7675c3e697`; 2009-04 `c3c99dce-1881-47c0-84b4-6baa32f6e9dc`; 2009-05 `664cd17f-df8c-44cf-a40c-d270ac33651b`; 2009-06 `09bd45d2-0e8e-4fee-933b-87e1f53f0efb`.
   - Tests: `pytest tests/eu22/test_weather_folds.py tests/test_eu_weather_registry.py tests/test_eu_weather_six_gates.py tests/test_eu_fold_epw_conversion.py tests/test_eu_t06_weather_promotion.py` = 36 passed (28 existing + 8 new), 0 failed. ES 2010, UK 2015, IT 2014 re-converted to a temp path: sha256 equal to the registry value for all three. The four existing registry entries equal the committed ones (only the pre-existing `docs_DONE` to `docs_ACTIVE` path edit in the Bologna `decision_record` string differs from HEAD, not mine).
 - **Notes:** the throttled downloader (`python scripts/acquire_era5_eu_folds.py --run-throttled --max-active 8 --interval 120 --fold at ...`, output `throttled_2026-10-08.log`) was left running and keeps downloading the remaining archives without any conversion; stop it by killing that Python process. Next: manager rules on Vienna gate 5 (and probably the same low-irradiance months for the other SARAH3 folds), then `python scripts/run_eu_t06_weather_promotion.py --fold <fold> [--approve-gate5-exception FOLD:YEAR MONTH...] --commit` for each fold once its 13 archives are on disk.
+
+#### F02 — Facts for 6J — completed 2026-10-12
+
+Read only; nothing changed except this entry. Source keys used in every block: `ACQ` = `openubem/outputs/eu_evidence/EU-22/<SITE>/acquisition_report.json`; `LIC` = `openubem/outputs/eu_evidence/EU-22/<SITE>/licences/`; `SUM` = `docs/docs_ACTIVE/europeanLocations/results/EU22_results_<SITE>_<date>_summary.json`; `TREE` = `openubem/outputs/eu_evidence/EU-11/<SITE>_<tag>/`; `POP` = `TREE/sidecar_population.csv` (column `dwellings_used`, summed here by script, same totals as the city-plan T08 entries); `PLAN-T0x` = the T0x entry in §8 of the city plan `PLAN_eu-new-city-<CC>-<city>-2026-10-08.md`; `WREG` = `openubem/data/weather/weather_registry.json`; `WGATE` = `openubem/outputs/eu_evidence/EU-22/weather/tmyx_<cc>_gates_2026-10-09.json`; `DW` = `TREE`'s sibling `<SITE>_dw_<date>/summary.json`. All six sites: results are space-heating demand only (SUM `metric`), over correctly divided homes only (D-EU-149 / D-EU-157). Weather for CA, FI, ZA, HU, AM is a typical-year TMYx file (D-EU-163), not the survey year, so those results are not like-for-like with the four older sites or with Vienna on weather (D-EU-163); gate 5 (monthly sun against PVGIS) failed for CA, FI, HU, AM and passed for ZA, recorded only (WGATE, D-EU-163/164). Hourly solar timing is about one hour off in Cape Town and Yerevan (FINDING 297, common plan D-EU-164). Folder paths below are relative to the repo root; `RES` = `docs/docs_ACTIVE/europeanLocations/results/EU22_results_<SITE>_<date>_{per_home,summary}.{csv,json}`, `VIEW` = `docs/docs_ACTIVE/europeanLocations/outputs_3D/eu_<SITE>_viewer.html` + `eu_<SITE>_data/`, `PAGE` = `docs/docs_ACTIVE/europeanLocations/plans3D/PLANS_<SITE>_<date>.html`, `CARS` = `TREE/layouts/`, `IDF` = `TREE/idfs/` (+ `fleet.lst`), `FLAT` = `openubem/outputs/eu_evidence/EU-11/<SITE>_merged_<tag>/flat_counts_<date>.csv`.
+
+**CA-MTL-PLATEAU (Montréal, Le Plateau-Mont-Royal)**
+- Buildings in area: 779 footprints inside the boundary, of which 725 residential, 18 non-residential, 36 unknown use (ACQ `split_counts`; 15,613 buildings borough-wide, ACQ `n_clean`). Area = census tracts 4620159.00 + 4620160.00 (ACQ `subunits`).
+- Homes built: 710 IDFs (`TREE/fleet.lst` 710; DW: 725 attempted, 710 prepared; 15 lost for `MISSING_CENSUS_UNIT_DATA`, 22 storey counts recovered by neighbour imputation). Homes with result 701; left out (not correctly divided) 9 (SUM `homes` 701, `left_out_not_correctly_divided` 9). Heating 140.90 kWh/m2 over 193,735.7 m2 (SUM). Flats: 1,797 (POP, 701 rows; FLAT 779 rows).
+- Sources and licences: Ville de Montréal "Bâtiments 2D" (2016) and "Unités d'évaluation foncière" (property roll), both CC BY 4.0 (LIC `batiment-2d_package_show.json`, `unites-evaluation-fonciere_package_show.json` field `license_title`; legal text `CC-BY-4.0_legalcode.txt`); Statistics Canada 2021 census-tract boundaries under the Open Government Licence - Canada (LIC `OGL-Canada_open.canada.ca.html`, ACQ `licence`).
+- Weather and survey year: Montréal-Trudeau (WMO 71627), TMYx 2009-2023, `openubem/data/weather/ca_montreal_tmyx_2009_2023.epw` (WREG `ca`, sha256 17f26666...6369); diary/survey year 2010 (WREG `diary_window`); annual sun balance 0.9926 (WGATE).
+- Assumed rather than observed: construction values (CA.01 to CA.06) use Swedish TABULA records as donor and survey averages for single detached homes from the CSDDRD paper, not Québec data; window U-values for CA.01 to CA.04 are `ASSUMED`; CA.06 values come from a 2012 draft of the Québec code (PLAN-T02 deviations 1 to 5); flat area for SFH/TH is the donor value 106.2 m2. Dwelling counts: 662 observed, 36 split over a lot's buildings, 2 single, 1 imputed from area (side-cars, `dwelling_count_provenance`); 4 of 725 had no roll count (ACQ `dwellings_source_counts_residential`). Storeys observed 96.55 %, year observed 97.93 % (ACQ `coverage_residential`); no side-car carries an imputed year (`construction_period_provenance` empty on 701 of 701).
+- Folders: RES, VIEW, PAGE (`PLANS_CA-MTL-PLATEAU_2026-10-09.html`), CARS (701 files), IDF, FLAT; `TREE` = `EU-11/CA-MTL-PLATEAU_win_2026-10-09/`. Speed job 1442166 (PLAN-T07).
+
+**AM-EVN-NORNORK (Yerevan, Nor Nork)**
+- Buildings in area: 2,857 footprints, of which 551 residential, 596 non-residential, 1,710 unknown use (ACQ `split_counts`). Area = 94 street blocks of the Nor Nork district, 6.81 km2 (PLAN-T01); 215 private houses excluded for lack of a period source (PLAN-T01).
+- Homes built: 551 IDFs (`TREE/fleet.lst`). Homes with result 535; left out 16 (SUM; the 16th, `way/998439490`, by owner ruling D-EU-165). Heating 48.52 kWh/m2 over 1,710,969.6 m2 (SUM). Flats: 26,318 (POP, 535 rows; FLAT 2,857 rows).
+- Sources and licences: OpenStreetMap footprints and tags, ODbL 1.0 (LIC `osm_odbl.txt`; "(c) OpenStreetMap contributors"); Armstat "RA Housing Stock and Communal Economy 2020", only counts transcribed with page numbers (`EU-22/AM-EVN-NORNORK/armstat_tables.csv`). The Armstat licence is NOT an open licence: the site footer says "By using the website, please refer to Statistical Committee RA. All rights reserved." (LIC `armstat_terms.txt`); source must be cited as Statistical Committee RA.
+- Weather and survey year: Yerevan-Zvartnots (WMO 37788), TMYx 2009-2023, `openubem/data/weather/am_yerevan_tmyx_2009_2023.epw` (WREG `am`); survey year 2008; annual sun balance 0.9846 (WGATE).
+- Assumed rather than observed: every building takes the single period AM.02 (1951-70), the district's dominant period, because Armstat has no table crossing storeys with period (PLAN-T01 deviation 3; 535 of 535 side-cars `IMPUTED_CENSUS_UNIT_CONSTRUCTION_PERIOD`); year observed 0; wall material per period is `ASSUMED` (stone AM.01, AM.02, AM.04, panel AM.03); roof, floor before 2016, window, infiltration, window share are donor BG values (PLAN-T02 deviations 1, 5); storeys: 335 observed (60.8 %), 216 imputed from neighbours (39.2 %) (PLAN-T01); flats: all 535 imputed from floor area, none observed (side-cars `DWELLINGS_USED_AREA_IMPUTED` 535).
+- Folders: RES, VIEW, PAGE (`PLANS_AM-EVN-NORNORK_2026-10-09.html`), CARS (535), IDF, FLAT; `TREE` = `EU-11/AM-EVN-NORNORK_win_2026-10-09/`. Speed job 1442163.
+
+**ZA-CPT-WOODSTOCK (Cape Town, Woodstock)**
+- Buildings in area: 572 footprints, of which 534 residential, 38 non-residential (ACQ `split_counts`); 99 sheds under 2.0 m dropped earlier (PLAN-T01). Area = 43 OSM street blocks in Woodstock, 0.570 km2 (PLAN-T01).
+- Homes built: 525 IDFs (`TREE/fleet.lst`); 9 residential buildings got no IDF (6 labelled "Mid 21st Century", 3 street-block ties) (PLAN-T03). Homes with result 524; left out 1 (`ZA-CPT-74724`) (SUM). Heating 54.15 kWh/m2 over 265,365.2 m2 (SUM). Flats: 1,036 (POP, 524 rows; FLAT 572 rows).
+- Sources and licences: City of Cape Town "2D Building Footprints Low Detail" with 2023 LiDAR height and heritage period labels: no named licence; use limitation verbatim (LIC `CCT_footprints_use_limitation.txt`): "No restrictions on the digital file for non-commercial purposes ... No part of this data may be reproduced or transmitted ... without permission from the City of Cape Town Geomatics Branch. Where the data is used as a basis for or as an insertion in a map, acknowledgment must be made to the source of such data as well as the copyright of the CCT." OpenStreetMap residential tags and roads, ODbL 1.0 (LIC `ODbL-1.0_opendatacommons.html`). Decision D-EU-160 (owner, 2026-10-09, common plan §4): 6J is the owner's own project, so giving these files to 6J is internal use, not redistribution. Conditions that stay: non-commercial use only; no public release of the City footprints (public repo, public page, open dataset) without the City Geomatics Branch's permission; every map or figure credits "City of Cape Town" as source and copyright holder.
+- Weather and survey year: Cape Town Intl (WMO 68816), TMYx 2009-2023, `openubem/data/weather/za_capetown_tmyx_2009_2023.epw` (WREG `za`, sha256 starts 5c045a95 per PLAN-T03); survey year 2010 (ACQ `survey_year`); gate 5 passed; annual sun balance 0.9930 (WGATE).
+- Assumed rather than observed: building age is not observed; it comes from the City heritage period labels (own label 474 of 534 = 88.76 %, street-block label 51 = 9.55 %, none 9 = 1.69 %, ACQ `year_split`/PLAN-T01), mapped to a reference year by a stated rule (all 524 side-cars `IMPUTED_CENSUS_UNIT_CONSTRUCTION_PERIOD`); "Early 21st Century" gives 2016, after the 2010 survey year (PLAN-T01 deviation 3). Construction: only the roof (R 3.7, ZA.03) and brick wall total R 0.42 are sourced (NHBRC tables); pre-2011 wall, roof, window, infiltration are `ASSUMED`; window share is the Spanish donor's (PLAN-T02 and amendment). Flats: 465 single, 59 imputed from area, none observed (side-cars). Storeys from LiDAR height, `max(1, round(height / 3.0))` (PLAN-T01). Residential use rests on OSM tags or OSM `landuse=residential` (357 + 177 buildings, PLAN-T01).
+- Folders: RES, VIEW, PAGE (`PLANS_ZA-CPT-WOODSTOCK_2026-10-09.html`), CARS (524), IDF, FLAT; `TREE` = `EU-11/ZA-CPT-WOODSTOCK_win_2026-10-09/`. Speed job 1442187. Internal only, never published.
+
+**FI-HEL-KALLIO (Helsinki, Kallio)**
+- Buildings in area: 900 footprints, of which 588 residential, 211 non-residential, 101 unknown use (ACQ `split_counts`; 40 of the 588 are residential by the type `Asuinrakennus` with no use code). Area = whole Kallio district plus Harju (osa-alue 121), 588 residential (PLAN-T01).
+- Homes built: 580 IDFs (`TREE/fleet.lst`); 8 residential buildings got no IDF (viewer `no_idf` 8, PLAN-T08; DW 588 attempted, 580 prepared). Homes with result 542; left out 38 (SUM). Heating 96.42 kWh/m2 over 2,322,116.1 m2 (SUM). Flats: 29,781 (POP, 542 rows; FLAT 900 rows).
+- Sources and licences: City of Helsinki "Buildings in Helsinki" (Helsingin rakennukset), Creative Commons Attribution 4.0; reference text "Source: Buildings in Helsinki. The maintainer of the dataset is Helsingin kaupunkiymparistön toimiala / Kaupunkimittauspalvelut. The dataset has been downloaded from Helsinki Region Infoshare service using the license Creative Commons Attribution 4.0." (LIC `helsinki_buildings_licence.txt`); district boundary layers from the same City of Helsinki open geoserver.
+- Weather and survey year: Helsinki-Vantaa (WMO 02974), TMYx 2009-2023, `openubem/data/weather/fi_helsinki_tmyx_2009_2023.epw` (WREG `fi`); survey year 2009; annual sun balance 0.9938 (WGATE).
+- Assumed rather than observed: year, storeys and dwelling counts are observed (98.64 %, 98.64 %, 98.30 %, ACQ `coverage_residential`; side-cars: 540 observed, 1 single, 1 imputed; no side-car carries an imputed year). Construction records use Swedish TABULA donors for areas, g-value and thermal bridges; FI.01 (up to 1975) U-values are the 1969 RIL recommendation, not a measured stock mean; the wall/roof mass class (SFH/TH light, MFH/AB heavy) for FI.01 to FI.03 is `ASSUMED`; TH and AB borrow the SFH and MFH donors (PLAN-T02 deviations 1 to 4). Flat areas from Statistics Finland 2009 (108.0, 71.1, 56.5 m2 per dwelling).
+- Folders: RES, VIEW, PAGE (`PLANS_FI-HEL-KALLIO_2026-10-11.html`), CARS (542), IDF, FLAT (`flat_counts_2026-10-10.csv`); `TREE` = `EU-11/FI-HEL-KALLIO_win_2026-10-10/`. Speed job 1451887.
+
+**AT-VIE-RUDOLFSHEIM (Vienna, Rudolfsheim-Fünfhaus)**
+- Buildings in area: 702 footprints, of which 536 residential, 49 non-residential, 117 unknown use (ACQ `exclusion_counts`). Area = Zählbezirke 1502 + 1501 of the 15th district (ACQ `units_used`; PLAN-T01).
+- Homes built: 536 IDFs (`TREE/fleet.lst`). Homes with result 517; left out 19 (SUM). Heating 77.58 kWh/m2 over 933,129.0 m2 (SUM). Flats: 10,506 (POP, 517 rows; FLAT 702 rows).
+- Sources and licences: Stadt Wien open data, all CC BY 4.0, required attribution "Datenquelle: Stadt Wien - data.wien.gv.at": building outlines `FMZKGEBOGD`, building bodies `FMZKBKMOGD`, building information points `GEBAEUDEINFOOGD`, census districts `ZAEHLBEZIRKOGD`, and Registerzählung 2023 buildings per Zählbezirk `RZ2023_GEBAEUDE_ZAEHLBEZIRKE` (LIC five `.txt` files, field `licence declared in catalogue distributions`). Weather source: ERA5 reanalysis, CDS licence cc-by (WREG `at`, `licence_text_at_download`).
+- Weather and survey year: Wien-Schwechat (WMO 11036), ERA5 converted to EPW for 2008, `openubem/data/weather/at_vienna_2007_2008_y2008.epw` (WREG `at`, sha256 4e0b116c...c010f); survey year 2008 (a real year, not typical); gate 5 passed with a documented exception for winter months (D-EU-159: Jan +21 %, Mar +17 %, Nov +15 % against SARAH3).
+- Assumed rather than observed: height and storeys are observed (100 %); year observed for only 24 of 536 buildings (4.5 %), the other 512 take the dominant construction period of their Zählbezirk from the 2023 register (PLAN-T01; side-cars: 495 `IMPUTED_CENSUS_UNIT_CONSTRUCTION_PERIOD` and 22 empty among the 517 results); dwelling counts are not observed (no open register), so flats come from floor area (side-cars: 506 imputed from area, 11 single). Construction = TABULA Austria national series, 38 records (PLAN-T02 amended); 1,722 outlines without a building id dropped, 117 buildings with no information point are "unknown" and not modelled (PLAN-T01).
+- Folders: RES, VIEW, PAGE (`PLANS_AT-VIE-RUDOLFSHEIM_2026-10-11.html`), CARS (517), IDF, FLAT (`flat_counts_2026-10-10.csv`); `TREE` = `EU-11/AT-VIE-RUDOLFSHEIM_win_2026-10-10/`. Speed job 1451888.
+
+**HU-BUD-ERZSEBETVAROS (Budapest, VII. district)**
+- Buildings in area: 1,707 footprints, of which 805 residential, 119 non-residential, 783 unknown use (OSM `building=yes`, excluded as at the other OSM sites) (ACQ `split_counts`). Area = the whole VII. kerület, one unit (PLAN-T01).
+- Homes built: 805 IDFs (`TREE/fleet.lst`). Homes with result 757; left out 48 (all `V1_divided_shape_rule_broken`, PLAN-T07) (SUM). Heating 63.36 kWh/m2 over 2,045,910.3 m2 (SUM). Flats: 30,929 (POP, 757 rows; FLAT 1,707 rows).
+- Sources and licences: OpenStreetMap buildings and boundary via Overpass, base timestamp 2026-10-09T03:35:14Z, ODbL 1.0, "(c) OpenStreetMap contributors, ODbL 1.0" (LIC `OSM_ODbL.txt`); KSH Census 2011 table 3.3.2.1, CC BY 4.0, attribution "Source: KSH, Census 2011" (LIC `KSH_census2011.txt`); KSH Census 2022 terms CC BY 4.0, consulted only, no table used (LIC `KSH_census2022_terms.txt`, ACQ `census_2022_check`). Copernicus Urban Atlas building height 2012 was NOT used: the download needs a login token (LIC `COPERNICUS_UA_BUILDING_HEIGHT_2012_not_downloaded.txt`).
+- Weather and survey year: Budapest-Ferihegy (WMO 12839), TMYx 2009-2023, `openubem/data/weather/hu_budapest_tmyx_2009_2023.epw` (WREG `hu`); survey year 2009; annual sun balance 0.9925 (WGATE).
+- Assumed rather than observed: building age: 17 buildings (2.11 %) have an OSM year, 788 take the district's census period; 89.8 % of district dwellings are from before 1946, and that class is set to 1944, so nearly all fall in HU.01 (D-EU-154 amendment; PLAN-T01; side-cars: 742 `IMPUTED_CENSUS_UNIT_CONSTRUCTION_PERIOD`, 15 empty among the 757 results). Storeys: 442 observed (54.91 %), 363 imputed from neighbours (45.09 %). Flats: all 757 imputed from floor area, none observed (side-cars). Construction = TABULA Hungary 16 records; apartment blocks 1990-2005 use the MFH record and terraces use the SFH record (substitute rule, common plan D-EU-153); the BME brochure was not compared (window U 3.50 in the workbook against 3.00 in the brochure for MFH before 1944; workbook wins, PLAN-T02).
+- Folders: RES, VIEW, PAGE (`PLANS_HU-BUD-ERZSEBETVAROS_2026-10-11.html`), CARS (757, nested `way/` and `relation/`), IDF, FLAT (`flat_counts_2026-10-10.csv`); `TREE` = `EU-11/HU-BUD-ERZSEBETVAROS_win_2026-10-10/`. Speed job 1451908.
+
+**Gaps for the manager (nothing found missing that blocks a message):**
+1. The AM-EVN-NORNORK Armstat terms are "all rights reserved, cite the Statistical Committee RA", with no open licence; the 6J message should say so rather than "open".
+2. No file records a survey year per site in one place: CA 2010, ZA 2010 (ACQ), FI 2009, HU 2009, AM 2008, AT 2008 come from common plan D-EU-155 and WREG `diary_window`/WGATE `year`.
+3. FI, AT and HU plan pages are dated 2026-10-11 (not -10), and the AT/HU/FI tags are `win_2026-10-10`; the AT `win_2026-10-09` and `dw_2026-10-09` trees are older and not the result trees.
+4. The HU TABULA brochure cross-check is still open (PLAN-T02 deviation 1).
+5. Open fails seen in the city entries (not mine to fix): the Korea weather-registry test failure `test_weather_folds.py::test_original_folds_keep_their_year_candidates`, and the Vienna and Finland no-core sweep tests flagged in the CA T08 entry.
+
+#### F01 — Final check list — completed 2026-10-12
+
+- **Method:** one read-only script, `final_check/f01_check.py` in the session scratchpad (no file in any `TREE`, `DOCS`, `openubem/outputs` or `scripts/` was changed). Harvested runs read from `%TEMP%/ubem_eu11_harvest/<SITE>_<tag>/<stem>/eplusout.end` (the `fetch_district_out` work folder named by the T07 entries); IDF stems from `TREE/fleet.lst`. Result: **60 of 60 lines PASS, 0 FAIL.**
+- **Plan wording to note (not a fail):** check 2 says `OK + V3`; the class column of `division_classes.csv` also holds `S1_one_flat_per_floor_by_data` (CA 11, ZA 3), which is a correctly divided home and is in the result. Literal OK+V3 gives CA 690 and ZA 521 (homes 701 and 524); OK+V3+S1 gives 701 and 524. AM is the case the check anticipated: OK+V3 = 536 minus the one `left_out.csv` row `way/998439490` (D-EU-165) = 535.
+- **Checks 4 and 8 wording:** `eu_<SITE>_data/buildings.csv` has no heating column (14 columns, footprint to circulation); the per-home heating per m2 sits in the viewer's embedded scene (`eui` field of each building with `ss = simulated`), so check 4 compared that against `_per_home.csv`. The harvest manifests have no `layout_json` column in any of the six sites (`geometry_outcome` is filled in all rows); the Budapest/Helsinki manifests were not written back by the sharded side-car run, which does not matter here because the column does not exist. Check 3 for results is T07 source = `openubem/outputs/eu_evidence/EU-22/<SITE>/results/`; the plan pages were written straight into `plans3D/` (T06 entries), so there is no second copy to compare.
+
+**CA-MTL-PLATEAU (win_2026-10-09) — 710 IDFs**
+
+| # | Check | Result | Measured |
+|---|---|---|---|
+| 1 | Runs | PASS | eplusout.end "EnergyPlus Completed Successfully" 710/710; other 0 |
+| 2 | Results summary | PASS | homes 701 = per_home rows 701 = OK 669 + V3 21 + S1 11 = 701 (literal OK+V3 = 690); with result 701; EUI 140.903194 = recomputed (diff 0.000000); left out 9 + homes 701 = 710 IDFs; csv/json pairs equal |
+| 3 | Results mirror | PASS | 4 of 4 files in `DOCS/results/` byte-identical to `EU-22/CA-MTL-PLATEAU/results/` |
+| 4 | Viewer | PASS | viewer html and `_data/` (3 files) identical to `openubem/outputs/3D/`; simulated 701 = homes; max abs EUI diff scene vs per_home 0.0; in one but not the other 0 / 0 |
+| 5 | Plan page | PASS | `PLANS_CA-MTL-PLATEAU_2026-10-09.html` written straight into `plans3D/`; linked in `index.html`; buildings 710 = IDF 710 (scene and header row); external http URLs 0; EUI/kWh text 0; no `eui` key |
+| 6 | Side-cars | PASS | 701 JSONs = homes; flats in JSONs = `sidecar_population.csv` = manifest dwellings_used over result homes = 1,797; assumed field: none (701 side-cars carry construction_period_provenance = null) |
+| 7 | Flat counts | PASS | `flat_counts_2026-10-09.csv` (779 rows), flats with status simulated 1,797 = check 6 |
+| 8 | Manifest | PASS | rows 710; geometry_outcome non-empty 710; layout_json column absent |
+| 9 | Docs | PASS | city plan T07 and T08 entries both marked completed; T07 states 701 homes and the EUI equal to check 2 |
+| 10 | No UK | PASS | no `GB-` and no "London" in any file of the tree, viewer, plan page, results or merged folder |
+
+**AM-EVN-NORNORK (win_2026-10-09) — 551 IDFs**
+
+| # | Check | Result | Measured |
+|---|---|---|---|
+| 1 | Runs | PASS | eplusout.end "EnergyPlus Completed Successfully" 551/551; other 0 |
+| 2 | Results summary | PASS | homes 535 = per_home rows 535 = OK 327 + V3 209 = 536 minus 1 left-out (way/998439490, D-EU-165) = 535; with result 535; EUI 48.516593 = recomputed (diff 0.000000); left out 16 + homes 535 = 551 IDFs; csv/json pairs equal |
+| 3 | Results mirror | PASS | 4 of 4 files in `DOCS/results/` byte-identical to `EU-22/AM-EVN-NORNORK/results/` |
+| 4 | Viewer | PASS | viewer html and `_data/` (3 files) identical to `openubem/outputs/3D/`; simulated 535 = homes; max abs EUI diff scene vs per_home 0.0; in one but not the other 0 / 0 |
+| 5 | Plan page | PASS | `PLANS_AM-EVN-NORNORK_2026-10-09.html` written straight into `plans3D/`; linked in `index.html`; buildings 551 = IDF 551 (scene and header row); external http URLs 0; EUI/kWh text 0; no `eui` key |
+| 6 | Side-cars | PASS | 535 JSONs = homes; flats in JSONs = `sidecar_population.csv` = manifest dwellings_used over result homes = 26,318; assumed field: construction_period_provenance = IMPUTED_CENSUS_UNIT_CONSTRUCTION_PERIOD on 535 of 535 side-cars (single period AM.02) |
+| 7 | Flat counts | PASS | `flat_counts_2026-10-09.csv` (2857 rows), flats with status simulated 26,318 = check 6 |
+| 8 | Manifest | PASS | rows 551; geometry_outcome non-empty 551; layout_json column absent |
+| 9 | Docs | PASS | city plan T07 and T08 entries both marked completed; T07 states 535 homes and the EUI equal to check 2 |
+| 10 | No UK | PASS | no `GB-` and no "London" in any file of the tree, viewer, plan page, results or merged folder |
+
+**ZA-CPT-WOODSTOCK (win_2026-10-09) — 525 IDFs**
+
+| # | Check | Result | Measured |
+|---|---|---|---|
+| 1 | Runs | PASS | eplusout.end "EnergyPlus Completed Successfully" 525/525; other 0 |
+| 2 | Results summary | PASS | homes 524 = per_home rows 524 = OK 507 + V3 14 + S1 3 = 524 (literal OK+V3 = 521); with result 524; EUI 54.151969 = recomputed (diff 0.000000); left out 1 + homes 524 = 525 IDFs; csv/json pairs equal |
+| 3 | Results mirror | PASS | 4 of 4 files in `DOCS/results/` byte-identical to `EU-22/ZA-CPT-WOODSTOCK/results/` |
+| 4 | Viewer | PASS | viewer html and `_data/` (3 files) identical to `openubem/outputs/3D/`; simulated 524 = homes; max abs EUI diff scene vs per_home 0.0; in one but not the other 0 / 0 |
+| 5 | Plan page | PASS | `PLANS_ZA-CPT-WOODSTOCK_2026-10-09.html` written straight into `plans3D/`; linked in `index.html`; buildings 525 = IDF 525 (scene and header row); external http URLs 0; EUI/kWh text 0; no `eui` key |
+| 6 | Side-cars | PASS | 524 JSONs = homes; flats in JSONs = `sidecar_population.csv` = manifest dwellings_used over result homes = 1,036; assumed field: construction_period_provenance = IMPUTED_CENSUS_UNIT_CONSTRUCTION_PERIOD on 524 of 524 side-cars |
+| 7 | Flat counts | PASS | `flat_counts_2026-10-09.csv` (572 rows), flats with status simulated 1,036 = check 6 |
+| 8 | Manifest | PASS | rows 525; geometry_outcome non-empty 525; layout_json column absent |
+| 9 | Docs | PASS | city plan T07 and T08 entries both marked completed; T07 states 524 homes and the EUI equal to check 2 |
+| 10 | No UK | PASS | no `GB-` and no "London" in any file of the tree, viewer, plan page, results or merged folder |
+
+**FI-HEL-KALLIO (win_2026-10-10) — 580 IDFs**
+
+| # | Check | Result | Measured |
+|---|---|---|---|
+| 1 | Runs | PASS | eplusout.end "EnergyPlus Completed Successfully" 580/580; other 0 |
+| 2 | Results summary | PASS | homes 542 = per_home rows 542 = OK 253 + V3 289 = 542; with result 542; EUI 96.417226 = recomputed (diff 0.000000); left out 38 + homes 542 = 580 IDFs; csv/json pairs equal |
+| 3 | Results mirror | PASS | 4 of 4 files in `DOCS/results/` byte-identical to `EU-22/FI-HEL-KALLIO/results/` |
+| 4 | Viewer | PASS | viewer html and `_data/` (3 files) identical to `openubem/outputs/3D/`; simulated 542 = homes; max abs EUI diff scene vs per_home 0.0; in one but not the other 0 / 0 |
+| 5 | Plan page | PASS | `PLANS_FI-HEL-KALLIO_2026-10-11.html` written straight into `plans3D/`; linked in `index.html`; buildings 580 = IDF 580 (scene and header row); external http URLs 0; EUI/kWh text 0; no `eui` key |
+| 6 | Side-cars | PASS | 542 JSONs = homes; flats in JSONs = `sidecar_population.csv` = manifest dwellings_used over result homes = 29,781; assumed field: none (542 side-cars carry construction_period_provenance = null) |
+| 7 | Flat counts | PASS | `flat_counts_2026-10-10.csv` (900 rows), flats with status simulated 29,781 = check 6 |
+| 8 | Manifest | PASS | rows 580; geometry_outcome non-empty 580; layout_json column absent |
+| 9 | Docs | PASS | city plan T07 and T08 entries both marked completed; T07 states 542 homes and the EUI equal to check 2 |
+| 10 | No UK | PASS | no `GB-` and no "London" in any file of the tree, viewer, plan page, results or merged folder |
+
+**AT-VIE-RUDOLFSHEIM (win_2026-10-10) — 536 IDFs**
+
+| # | Check | Result | Measured |
+|---|---|---|---|
+| 1 | Runs | PASS | eplusout.end "EnergyPlus Completed Successfully" 536/536; other 0 |
+| 2 | Results summary | PASS | homes 517 = per_home rows 517 = OK 249 + V3 268 = 517; with result 517; EUI 77.577540 = recomputed (diff 0.000000); left out 19 + homes 517 = 536 IDFs; csv/json pairs equal |
+| 3 | Results mirror | PASS | 4 of 4 files in `DOCS/results/` byte-identical to `EU-22/AT-VIE-RUDOLFSHEIM/results/` |
+| 4 | Viewer | PASS | viewer html and `_data/` (3 files) identical to `openubem/outputs/3D/`; simulated 517 = homes; max abs EUI diff scene vs per_home 0.0; in one but not the other 0 / 0 |
+| 5 | Plan page | PASS | `PLANS_AT-VIE-RUDOLFSHEIM_2026-10-11.html` written straight into `plans3D/`; linked in `index.html`; buildings 536 = IDF 536 (scene and header row); external http URLs 0; EUI/kWh text 0; no `eui` key |
+| 6 | Side-cars | PASS | 517 JSONs = homes; flats in JSONs = `sidecar_population.csv` = manifest dwellings_used over result homes = 10,506; assumed field: construction_period_provenance = IMPUTED_CENSUS_UNIT_CONSTRUCTION_PERIOD on 495 of 517 side-cars (22 null) |
+| 7 | Flat counts | PASS | `flat_counts_2026-10-10.csv` (702 rows), flats with status simulated 10,506 = check 6 |
+| 8 | Manifest | PASS | rows 536; geometry_outcome non-empty 536; layout_json column absent |
+| 9 | Docs | PASS | city plan T07 and T08 entries both marked completed; T07 states 517 homes and the EUI equal to check 2 |
+| 10 | No UK | PASS | no `GB-` and no "London" in any file of the tree, viewer, plan page, results or merged folder |
+
+**HU-BUD-ERZSEBETVAROS (win_2026-10-10) — 805 IDFs**
+
+| # | Check | Result | Measured |
+|---|---|---|---|
+| 1 | Runs | PASS | eplusout.end "EnergyPlus Completed Successfully" 805/805; other 0 |
+| 2 | Results summary | PASS | homes 757 = per_home rows 757 = OK 210 + V3 547 = 757; with result 757; EUI 63.358213 = recomputed (diff 0.000000); left out 48 + homes 757 = 805 IDFs; csv/json pairs equal |
+| 3 | Results mirror | PASS | 4 of 4 files in `DOCS/results/` byte-identical to `EU-22/HU-BUD-ERZSEBETVAROS/results/` |
+| 4 | Viewer | PASS | viewer html and `_data/` (3 files) identical to `openubem/outputs/3D/`; simulated 757 = homes; max abs EUI diff scene vs per_home 0.0; in one but not the other 0 / 0 |
+| 5 | Plan page | PASS | `PLANS_HU-BUD-ERZSEBETVAROS_2026-10-11.html` written straight into `plans3D/`; linked in `index.html`; buildings 805 = IDF 805 (scene and header row); external http URLs 0; EUI/kWh text 0; no `eui` key |
+| 6 | Side-cars | PASS | 757 JSONs = homes; flats in JSONs = `sidecar_population.csv` = manifest dwellings_used over result homes = 30,929; assumed field: construction_period_provenance = IMPUTED_CENSUS_UNIT_CONSTRUCTION_PERIOD on 742 of 757 side-cars (15 null) |
+| 7 | Flat counts | PASS | `flat_counts_2026-10-10.csv` (1707 rows), flats with status simulated 30,929 = check 6 |
+| 8 | Manifest | PASS | rows 805; geometry_outcome non-empty 805; layout_json column absent |
+| 9 | Docs | PASS | city plan T07 and T08 entries both marked completed; T07 states 757 homes and the EUI equal to check 2 |
+| 10 | No UK | PASS | no `GB-` and no "London" in any file of the tree, viewer, plan page, results or merged folder |
+
+**Fails: none.** The only items for the manager are the two wording notes above.

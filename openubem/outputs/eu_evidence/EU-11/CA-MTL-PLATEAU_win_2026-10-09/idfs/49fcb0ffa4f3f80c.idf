@@ -1,0 +1,2902 @@
+!- Windows Line endings 
+
+Version,
+    23.1;                     !- Version Identifier
+
+SimulationControl,
+    Yes,                      !- Do Zone Sizing Calculation
+    Yes,                      !- Do System Sizing Calculation
+    Yes,                      !- Do Plant Sizing Calculation
+    No,                       !- Run Simulation for Sizing Periods
+    Yes,                      !- Run Simulation for Weather File Run Periods
+    No,                       !- Do HVAC Sizing Simulation for Sizing Periods
+    1;                        !- Maximum Number of HVAC Sizing Simulation Passes
+
+Building,
+    EU S2 Campaign,           !- Name
+    0,                        !- North Axis
+    City,                     !- Terrain
+    ,                         !- Loads Convergence Tolerance Value
+    ,                         !- Temperature Convergence Tolerance Value
+    FullExterior,             !- Solar Distribution
+    ,                         !- Maximum Number of Warmup Days
+    ;                         !- Minimum Number of Warmup Days
+
+ShadowCalculation,
+    PolygonClipping,          !- Shading Calculation Method
+    Periodic,                 !- Shading Calculation Update Frequency Method
+    1;                        !- Shading Calculation Update Frequency
+
+HeatBalanceAlgorithm,
+    ConductionTransferFunction,    !- Algorithm
+    200,                      !- Surface Temperature Upper Limit
+    0.1,                      !- Minimum Surface Convection Heat Transfer Coefficient Value
+    10000000;                 !- Maximum Surface Convection Heat Transfer Coefficient Value
+
+Timestep,
+    12;                       !- Number of Timesteps per Hour
+
+Site:Location,
+    Montreal-Trudeau.Intl.AP,    !- Name
+    45.4667,                  !- Latitude
+    -73.75,                   !- Longitude
+    -5,                       !- Time Zone
+    36;                       !- Elevation
+
+SizingPeriod:WeatherFileDays,
+    AnnualSizingPeriod,       !- Name
+    1,                        !- Begin Month
+    1,                        !- Begin Day of Month
+    12,                       !- End Month
+    31,                       !- End Day of Month
+    Monday,                   !- Day of Week for Start Day
+    No,                       !- Use Weather File Daylight Saving Period
+    No;                       !- Use Weather File Rain and Snow Indicators
+
+RunPeriod,
+    RunPeriod1,               !- Name
+    1,                        !- Begin Month
+    1,                        !- Begin Day of Month
+    ,                         !- Begin Year
+    12,                       !- End Month
+    31,                       !- End Day of Month
+    ,                         !- End Year
+    Sunday,                   !- Day of Week for Start Day
+    No,                       !- Use Weather File Holidays and Special Days
+    No,                       !- Use Weather File Daylight Saving Period
+    No,                       !- Apply Weekend Holiday Rule
+    Yes,                      !- Use Weather File Rain Indicators
+    Yes;                      !- Use Weather File Snow Indicators
+
+ScheduleTypeLimits,
+    Any Number;               !- Name
+
+SCHEDULETYPELIMITS,
+    EU_Step8_AnyNumber_Wm2,    !- Name
+    ,                         !- Lower Limit Value
+    ,                         !- Upper Limit Value
+    Continuous,               !- Numeric Type
+    Dimensionless;            !- Unit Type
+
+SCHEDULE:CONSTANT,
+    EU_AlwaysOn,              !- Name
+    ,                         !- Schedule Type Limits Name
+    1;                        !- Hourly Value
+
+SCHEDULE:CONSTANT,
+    EU_CoolingOff,            !- Name
+    ,                         !- Schedule Type Limits Name
+    0;                        !- Hourly Value
+
+SCHEDULE:FILE,
+    EU_Step8_GainSchedule_49fcb0ffa4f3f80c_F0_dwelling_0_f000,    !- Name
+    EU_Step8_AnyNumber_Wm2,    !- Schedule Type Limits Name
+    ../../schedules/49fcb0ffa4f3f80c/49fcb0ffa4f3f80c_F0_dwelling_0_f000_gain.csv,    !- File Name
+    1,                        !- Column Number
+    0,                        !- Rows to Skip at Top
+    8760,                     !- Number of Hours of Data
+    Comma,                    !- Column Separator
+    No,                       !- Interpolate to Timestep
+    60,                       !- Minutes per Item
+    Yes;                      !- Adjust Schedule for Daylight Savings
+
+SCHEDULE:FILE,
+    EU_Step8_GainSchedule_49fcb0ffa4f3f80c_F1_dwelling_0_f000,    !- Name
+    EU_Step8_AnyNumber_Wm2,    !- Schedule Type Limits Name
+    ../../schedules/49fcb0ffa4f3f80c/49fcb0ffa4f3f80c_F1_dwelling_0_f000_gain.csv,    !- File Name
+    1,                        !- Column Number
+    0,                        !- Rows to Skip at Top
+    8760,                     !- Number of Hours of Data
+    Comma,                    !- Column Separator
+    No,                       !- Interpolate to Timestep
+    60,                       !- Minutes per Item
+    Yes;                      !- Adjust Schedule for Daylight Savings
+
+MATERIAL,
+    EU_InternalMass_Material,    !- Name
+    MediumRough,              !- Roughness
+    0.1,                      !- Thickness
+    1,                        !- Conductivity
+    1800,                     !- Density
+    900,                      !- Specific Heat
+    0.9,                      !- Thermal Absorptance
+    0.7,                      !- Solar Absorptance
+    0.7;                      !- Visible Absorptance
+
+MATERIAL:NOMASS,
+    EU_wall_NoMass,           !- Name
+    MediumRough,              !- Roughness
+    1.3648502411643653,       !- Thermal Resistance
+    0.9,                      !- Thermal Absorptance
+    0.7,                      !- Solar Absorptance
+    0.7;                      !- Visible Absorptance
+
+MATERIAL:NOMASS,
+    EU_roof_NoMass,           !- Name
+    MediumRough,              !- Roughness
+    2.559919982822805,        !- Thermal Resistance
+    0.9,                      !- Thermal Absorptance
+    0.7,                      !- Solar Absorptance
+    0.7;                      !- Visible Absorptance
+
+MATERIAL:NOMASS,
+    EU_floor_NoMass,          !- Name
+    MediumRough,              !- Roughness
+    1.3648502411643653,       !- Thermal Resistance
+    0.9,                      !- Thermal Absorptance
+    0.7,                      !- Solar Absorptance
+    0.7;                      !- Visible Absorptance
+
+WINDOWMATERIAL:SIMPLEGLAZINGSYSTEM,
+    EU_Window_SimpleGlazing,    !- Name
+    3.923389210166503,        !- UFactor
+    0.8,                      !- Solar Heat Gain Coefficient
+    0.8;                      !- Visible Transmittance
+
+CONSTRUCTION,
+    EU_wall_Construction,     !- Name
+    EU_wall_NoMass;           !- Outside Layer
+
+CONSTRUCTION,
+    EU_roof_Construction,     !- Name
+    EU_roof_NoMass;           !- Outside Layer
+
+CONSTRUCTION,
+    EU_floor_Construction,    !- Name
+    EU_floor_NoMass;          !- Outside Layer
+
+CONSTRUCTION,
+    EU_Window_Construction,    !- Name
+    EU_Window_SimpleGlazing;    !- Outside Layer
+
+CONSTRUCTION,
+    EU_InternalMass_Construction,    !- Name
+    EU_InternalMass_Material;    !- Outside Layer
+
+GlobalGeometryRules,
+    UpperLeftCorner,          !- Starting Vertex Position
+    CounterClockWise,         !- Vertex Entry Direction
+    World;                    !- Coordinate System
+
+ZONE,
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Name
+    0,                        !- Direction of Relative North
+    0,                        !- X Origin
+    0,                        !- Y Origin
+    0,                        !- Z Origin
+    1,                        !- Type
+    1,                        !- Multiplier
+    autocalculate,            !- Ceiling Height
+    473.57080078125,          !- Volume
+    autocalculate,            !- Floor Area
+    ,                         !- Zone Inside Convection Algorithm
+    ,                         !- Zone Outside Convection Algorithm
+    Yes;                      !- Part of Total Floor Area
+
+ZONE,
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Name
+    0,                        !- Direction of Relative North
+    0,                        !- X Origin
+    0,                        !- Y Origin
+    0,                        !- Z Origin
+    1,                        !- Type
+    1,                        !- Multiplier
+    autocalculate,            !- Ceiling Height
+    473.572265625,            !- Volume
+    autocalculate,            !- Floor Area
+    ,                         !- Zone Inside Convection Algorithm
+    ,                         !- Zone Outside Convection Algorithm
+    Yes;                      !- Part of Total Floor Area
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0001,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    464.1949999999488,        !- Vertex 1 Xcoordinate
+    602.6929999999702,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    464.1949999999488,        !- Vertex 2 Xcoordinate
+    602.6929999999702,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    465.4440000000177,        !- Vertex 3 Xcoordinate
+    601.9239999996498,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    465.4440000000177,        !- Vertex 4 Xcoordinate
+    601.9239999996498,        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0002,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    467.41500000003725,       !- Vertex 1 Xcoordinate
+    607.7589999996126,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    467.41500000003725,       !- Vertex 2 Xcoordinate
+    607.7589999996126,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    464.1949999999488,        !- Vertex 3 Xcoordinate
+    602.6929999999702,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    464.1949999999488,        !- Vertex 4 Xcoordinate
+    602.6929999999702,        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0003,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    474.1110000000335,        !- Vertex 1 Xcoordinate
+    603.597000000067,         !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    474.1110000000335,        !- Vertex 2 Xcoordinate
+    603.597000000067,         !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    467.41500000003725,       !- Vertex 3 Xcoordinate
+    607.7589999996126,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    467.41500000003725,       !- Vertex 4 Xcoordinate
+    607.7589999996126,        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0004,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    472.97199999995064,       !- Vertex 1 Xcoordinate
+    601.7489999998361,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    472.97199999995064,       !- Vertex 2 Xcoordinate
+    601.7489999998361,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    474.1110000000335,        !- Vertex 3 Xcoordinate
+    603.597000000067,         !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    474.1110000000335,        !- Vertex 4 Xcoordinate
+    603.597000000067,         !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0005,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    475.1369999999879,        !- Vertex 1 Xcoordinate
+    600.4150000000373,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    475.1369999999879,        !- Vertex 2 Xcoordinate
+    600.4150000000373,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    472.97199999995064,       !- Vertex 3 Xcoordinate
+    601.7489999998361,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    472.97199999995064,       !- Vertex 4 Xcoordinate
+    601.7489999998361,        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0006,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    476.2700000000186,        !- Vertex 1 Xcoordinate
+    602.2549999998882,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    476.2700000000186,        !- Vertex 2 Xcoordinate
+    602.2549999998882,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    475.1369999999879,        !- Vertex 3 Xcoordinate
+    600.4150000000373,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    475.1369999999879,        !- Vertex 4 Xcoordinate
+    600.4150000000373,        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0007,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    Adiabatic,                !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    NoSun,                    !- Sun Exposure
+    NoWind,                   !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    487.35999999998603,       !- Vertex 1 Xcoordinate
+    595.3619999997318,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    487.35999999998603,       !- Vertex 2 Xcoordinate
+    595.3619999997318,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    476.2700000000186,        !- Vertex 3 Xcoordinate
+    602.2549999998882,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    476.2700000000186,        !- Vertex 4 Xcoordinate
+    602.2549999998882,        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0008,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    484.2639999999665,        !- Vertex 1 Xcoordinate
+    590.3339999997988,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    484.2639999999665,        !- Vertex 2 Xcoordinate
+    590.3339999997988,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    487.35999999998603,       !- Vertex 3 Xcoordinate
+    595.3619999997318,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    487.35999999998603,       !- Vertex 4 Xcoordinate
+    595.3619999997318,        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0009,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    484.1820000000298,        !- Vertex 1 Xcoordinate
+    590.3849999997765,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    484.1820000000298,        !- Vertex 2 Xcoordinate
+    590.3849999997765,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    484.2639999999665,        !- Vertex 3 Xcoordinate
+    590.3339999997988,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    484.2639999999665,        !- Vertex 4 Xcoordinate
+    590.3339999997988,        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0010,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    483.6030000000028,        !- Vertex 1 Xcoordinate
+    589.4440000001341,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    483.6030000000028,        !- Vertex 2 Xcoordinate
+    589.4440000001341,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    484.1820000000298,        !- Vertex 3 Xcoordinate
+    590.3849999997765,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    484.1820000000298,        !- Vertex 4 Xcoordinate
+    590.3849999997765,        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0011,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    Adiabatic,                !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    NoSun,                    !- Sun Exposure
+    NoWind,                   !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    464.91299999994226,       !- Vertex 1 Xcoordinate
+    601.0609999997541,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    464.91299999994226,       !- Vertex 2 Xcoordinate
+    601.0609999997541,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    483.6030000000028,        !- Vertex 3 Xcoordinate
+    589.4440000001341,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    483.6030000000028,        !- Vertex 4 Xcoordinate
+    589.4440000001341,        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0012,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    465.4440000000177,        !- Vertex 1 Xcoordinate
+    601.9239999996498,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    465.4440000000177,        !- Vertex 2 Xcoordinate
+    601.9239999996498,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    464.91299999994226,       !- Vertex 3 Xcoordinate
+    601.0609999997541,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    464.91299999994226,       !- Vertex 4 Xcoordinate
+    601.0609999997541,        !- Vertex 4 Ycoordinate
+    3;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Floor 0001,    !- Name
+    floor,                    !- Surface Type
+    EU_floor_Construction,    !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    ground,                   !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    NoSun,                    !- Sun Exposure
+    NoWind,                   !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    476.2700000000186,        !- Vertex 1 Xcoordinate
+    602.2549999998882,        !- Vertex 1 Ycoordinate
+    0,                        !- Vertex 1 Zcoordinate
+    487.35999999998603,       !- Vertex 2 Xcoordinate
+    595.3619999997318,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    484.2639999999665,        !- Vertex 3 Xcoordinate
+    590.3339999997988,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    484.1820000000298,        !- Vertex 4 Xcoordinate
+    590.3849999997765,        !- Vertex 4 Ycoordinate
+    0,                        !- Vertex 4 Zcoordinate
+    483.6030000000028,        !- Vertex 5 Xcoordinate
+    589.4440000001341,        !- Vertex 5 Ycoordinate
+    0,                        !- Vertex 5 Zcoordinate
+    464.91299999994226,       !- Vertex 6 Xcoordinate
+    601.0609999997541,        !- Vertex 6 Ycoordinate
+    0,                        !- Vertex 6 Zcoordinate
+    465.4440000000177,        !- Vertex 7 Xcoordinate
+    601.9239999996498,        !- Vertex 7 Ycoordinate
+    0,                        !- Vertex 7 Zcoordinate
+    464.1949999999488,        !- Vertex 8 Xcoordinate
+    602.6929999999702,        !- Vertex 8 Ycoordinate
+    0,                        !- Vertex 8 Zcoordinate
+    467.41500000003725,       !- Vertex 9 Xcoordinate
+    607.7589999996126,        !- Vertex 9 Ycoordinate
+    0,                        !- Vertex 9 Zcoordinate
+    474.1110000000335,        !- Vertex 10 Xcoordinate
+    603.597000000067,         !- Vertex 10 Ycoordinate
+    0,                        !- Vertex 10 Zcoordinate
+    472.97199999995064,       !- Vertex 11 Xcoordinate
+    601.7489999998361,        !- Vertex 11 Ycoordinate
+    0,                        !- Vertex 11 Zcoordinate
+    475.1369999999879,        !- Vertex 12 Xcoordinate
+    600.4150000000373,        !- Vertex 12 Ycoordinate
+    0;                        !- Vertex 12 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0001,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    464.1949999999488,        !- Vertex 1 Xcoordinate
+    602.6929999999702,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    464.1949999999488,        !- Vertex 2 Xcoordinate
+    602.6929999999702,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    465.4440000000177,        !- Vertex 3 Xcoordinate
+    601.9239999996498,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    465.4440000000177,        !- Vertex 4 Xcoordinate
+    601.9239999996498,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0002,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    467.41500000003725,       !- Vertex 1 Xcoordinate
+    607.7589999996126,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    467.41500000003725,       !- Vertex 2 Xcoordinate
+    607.7589999996126,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    464.1949999999488,        !- Vertex 3 Xcoordinate
+    602.6929999999702,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    464.1949999999488,        !- Vertex 4 Xcoordinate
+    602.6929999999702,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0003,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    474.1110000000335,        !- Vertex 1 Xcoordinate
+    603.597000000067,         !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    474.1110000000335,        !- Vertex 2 Xcoordinate
+    603.597000000067,         !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    467.41500000003725,       !- Vertex 3 Xcoordinate
+    607.7589999996126,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    467.41500000003725,       !- Vertex 4 Xcoordinate
+    607.7589999996126,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0004,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    472.97199999995064,       !- Vertex 1 Xcoordinate
+    601.7489999998361,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    472.97199999995064,       !- Vertex 2 Xcoordinate
+    601.7489999998361,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    474.1110000000335,        !- Vertex 3 Xcoordinate
+    603.597000000067,         !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    474.1110000000335,        !- Vertex 4 Xcoordinate
+    603.597000000067,         !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0005,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    475.1369999999879,        !- Vertex 1 Xcoordinate
+    600.4150000000373,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    475.1369999999879,        !- Vertex 2 Xcoordinate
+    600.4150000000373,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    472.97199999995064,       !- Vertex 3 Xcoordinate
+    601.7489999998361,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    472.97199999995064,       !- Vertex 4 Xcoordinate
+    601.7489999998361,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0006,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    476.2700000000186,        !- Vertex 1 Xcoordinate
+    602.2549999998882,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    476.2700000000186,        !- Vertex 2 Xcoordinate
+    602.2549999998882,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    475.1369999999879,        !- Vertex 3 Xcoordinate
+    600.4150000000373,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    475.1369999999879,        !- Vertex 4 Xcoordinate
+    600.4150000000373,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0007,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    Adiabatic,                !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    NoSun,                    !- Sun Exposure
+    NoWind,                   !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    487.35999999998603,       !- Vertex 1 Xcoordinate
+    595.3619999997318,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    487.35999999998603,       !- Vertex 2 Xcoordinate
+    595.3619999997318,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    476.2700000000186,        !- Vertex 3 Xcoordinate
+    602.2549999998882,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    476.2700000000186,        !- Vertex 4 Xcoordinate
+    602.2549999998882,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0008,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    484.2639999999665,        !- Vertex 1 Xcoordinate
+    590.3339999997988,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    484.2639999999665,        !- Vertex 2 Xcoordinate
+    590.3339999997988,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    487.35999999998603,       !- Vertex 3 Xcoordinate
+    595.3619999997318,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    487.35999999998603,       !- Vertex 4 Xcoordinate
+    595.3619999997318,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0009,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    484.1820000000298,        !- Vertex 1 Xcoordinate
+    590.3849999997765,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    484.1820000000298,        !- Vertex 2 Xcoordinate
+    590.3849999997765,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    484.2639999999665,        !- Vertex 3 Xcoordinate
+    590.3339999997988,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    484.2639999999665,        !- Vertex 4 Xcoordinate
+    590.3339999997988,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0010,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    483.6030000000028,        !- Vertex 1 Xcoordinate
+    589.4440000001341,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    483.6030000000028,        !- Vertex 2 Xcoordinate
+    589.4440000001341,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    484.1820000000298,        !- Vertex 3 Xcoordinate
+    590.3849999997765,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    484.1820000000298,        !- Vertex 4 Xcoordinate
+    590.3849999997765,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0011,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    Adiabatic,                !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    NoSun,                    !- Sun Exposure
+    NoWind,                   !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    464.91299999994226,       !- Vertex 1 Xcoordinate
+    601.0609999997541,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    464.91299999994226,       !- Vertex 2 Xcoordinate
+    601.0609999997541,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    483.6030000000028,        !- Vertex 3 Xcoordinate
+    589.4440000001341,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    483.6030000000028,        !- Vertex 4 Xcoordinate
+    589.4440000001341,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0012,    !- Name
+    wall,                     !- Surface Type
+    EU_wall_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    SunExposed,               !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    465.4440000000177,        !- Vertex 1 Xcoordinate
+    601.9239999996498,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    465.4440000000177,        !- Vertex 2 Xcoordinate
+    601.9239999996498,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    464.91299999994226,       !- Vertex 3 Xcoordinate
+    601.0609999997541,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    464.91299999994226,       !- Vertex 4 Xcoordinate
+    601.0609999997541,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Roof 0001,    !- Name
+    roof,                     !- Surface Type
+    EU_roof_Construction,     !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    outdoors,                 !- Outside Boundary Condition
+    ,                         !- Outside Boundary Condition Object
+    NoSun,                    !- Sun Exposure
+    WindExposed,              !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    484.2639999999665,        !- Vertex 1 Xcoordinate
+    590.3339999997988,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    487.35999999998603,       !- Vertex 2 Xcoordinate
+    595.3619999997318,        !- Vertex 2 Ycoordinate
+    6,                        !- Vertex 2 Zcoordinate
+    476.2700000000186,        !- Vertex 3 Xcoordinate
+    602.2549999998882,        !- Vertex 3 Ycoordinate
+    6,                        !- Vertex 3 Zcoordinate
+    475.1369999999879,        !- Vertex 4 Xcoordinate
+    600.4150000000373,        !- Vertex 4 Ycoordinate
+    6,                        !- Vertex 4 Zcoordinate
+    472.97199999995064,       !- Vertex 5 Xcoordinate
+    601.7489999998361,        !- Vertex 5 Ycoordinate
+    6,                        !- Vertex 5 Zcoordinate
+    474.1110000000335,        !- Vertex 6 Xcoordinate
+    603.597000000067,         !- Vertex 6 Ycoordinate
+    6,                        !- Vertex 6 Zcoordinate
+    467.41500000003725,       !- Vertex 7 Xcoordinate
+    607.7589999996126,        !- Vertex 7 Ycoordinate
+    6,                        !- Vertex 7 Zcoordinate
+    464.1949999999488,        !- Vertex 8 Xcoordinate
+    602.6929999999702,        !- Vertex 8 Ycoordinate
+    6,                        !- Vertex 8 Zcoordinate
+    465.4440000000177,        !- Vertex 9 Xcoordinate
+    601.9239999996498,        !- Vertex 9 Ycoordinate
+    6,                        !- Vertex 9 Zcoordinate
+    464.91299999994226,       !- Vertex 10 Xcoordinate
+    601.0609999997541,        !- Vertex 10 Ycoordinate
+    6,                        !- Vertex 10 Zcoordinate
+    483.6030000000028,        !- Vertex 11 Xcoordinate
+    589.4440000001341,        !- Vertex 11 Ycoordinate
+    6,                        !- Vertex 11 Zcoordinate
+    484.1820000000298,        !- Vertex 12 Xcoordinate
+    590.3849999997765,        !- Vertex 12 Ycoordinate
+    6;                        !- Vertex 12 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Ceiling 0001_1,    !- Name
+    ceiling,                  !- Surface Type
+    EU_floor_Construction,    !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    Surface,                  !- Outside Boundary Condition
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Floor 0001_1,    !- Outside Boundary Condition Object
+    NoSun,                    !- Sun Exposure
+    NoWind,                   !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    484.2639999999665,        !- Vertex 1 Xcoordinate
+    590.3339999997988,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    487.3599999998696,        !- Vertex 2 Xcoordinate
+    595.3619999997318,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    476.2700000000186,        !- Vertex 3 Xcoordinate
+    602.2549999998882,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    475.13699999963865,       !- Vertex 4 Xcoordinate
+    600.4150000000373,        !- Vertex 4 Ycoordinate
+    3,                        !- Vertex 4 Zcoordinate
+    472.9719999996014,        !- Vertex 5 Xcoordinate
+    601.7489999998361,        !- Vertex 5 Ycoordinate
+    3,                        !- Vertex 5 Zcoordinate
+    474.1110000000335,        !- Vertex 6 Xcoordinate
+    603.597000000067,         !- Vertex 6 Ycoordinate
+    3,                        !- Vertex 6 Zcoordinate
+    467.41500000003725,       !- Vertex 7 Xcoordinate
+    607.7589999996126,        !- Vertex 7 Ycoordinate
+    3,                        !- Vertex 7 Zcoordinate
+    464.19499999983236,       !- Vertex 8 Xcoordinate
+    602.6929999999702,        !- Vertex 8 Ycoordinate
+    3,                        !- Vertex 8 Zcoordinate
+    465.44399999966845,       !- Vertex 9 Xcoordinate
+    601.9239999996498,        !- Vertex 9 Ycoordinate
+    3,                        !- Vertex 9 Zcoordinate
+    464.9129999997094,        !- Vertex 10 Xcoordinate
+    601.0609999997541,        !- Vertex 10 Ycoordinate
+    3,                        !- Vertex 10 Zcoordinate
+    483.60299999965355,       !- Vertex 11 Xcoordinate
+    589.4440000001341,        !- Vertex 11 Ycoordinate
+    3,                        !- Vertex 11 Zcoordinate
+    484.1820000000298,        !- Vertex 12 Xcoordinate
+    590.3849999997765,        !- Vertex 12 Ycoordinate
+    3;                        !- Vertex 12 Zcoordinate
+
+BUILDINGSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Floor 0001_1,    !- Name
+    floor,                    !- Surface Type
+    EU_floor_Construction,    !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    ,                         !- Space Name
+    Surface,                  !- Outside Boundary Condition
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Ceiling 0001_1,    !- Outside Boundary Condition Object
+    NoSun,                    !- Sun Exposure
+    NoWind,                   !- Wind Exposure
+    autocalculate,            !- View Factor to Ground
+    autocalculate,            !- Number of Vertices
+    476.2700000000186,        !- Vertex 1 Xcoordinate
+    602.2549999998882,        !- Vertex 1 Ycoordinate
+    3,                        !- Vertex 1 Zcoordinate
+    487.3599999998696,        !- Vertex 2 Xcoordinate
+    595.3619999997318,        !- Vertex 2 Ycoordinate
+    3,                        !- Vertex 2 Zcoordinate
+    484.2639999999665,        !- Vertex 3 Xcoordinate
+    590.3339999997988,        !- Vertex 3 Ycoordinate
+    3,                        !- Vertex 3 Zcoordinate
+    484.1820000000298,        !- Vertex 4 Xcoordinate
+    590.3849999997765,        !- Vertex 4 Ycoordinate
+    3,                        !- Vertex 4 Zcoordinate
+    483.60299999965355,       !- Vertex 5 Xcoordinate
+    589.4440000001341,        !- Vertex 5 Ycoordinate
+    3,                        !- Vertex 5 Zcoordinate
+    464.9129999997094,        !- Vertex 6 Xcoordinate
+    601.0609999997541,        !- Vertex 6 Ycoordinate
+    3,                        !- Vertex 6 Zcoordinate
+    465.44399999966845,       !- Vertex 7 Xcoordinate
+    601.9239999996498,        !- Vertex 7 Ycoordinate
+    3,                        !- Vertex 7 Zcoordinate
+    464.19499999983236,       !- Vertex 8 Xcoordinate
+    602.6929999999702,        !- Vertex 8 Ycoordinate
+    3,                        !- Vertex 8 Zcoordinate
+    467.41500000003725,       !- Vertex 9 Xcoordinate
+    607.7589999996126,        !- Vertex 9 Ycoordinate
+    3,                        !- Vertex 9 Zcoordinate
+    474.1110000000335,        !- Vertex 10 Xcoordinate
+    603.597000000067,         !- Vertex 10 Ycoordinate
+    3,                        !- Vertex 10 Zcoordinate
+    472.9719999996014,        !- Vertex 11 Xcoordinate
+    601.7489999998361,        !- Vertex 11 Ycoordinate
+    3,                        !- Vertex 11 Zcoordinate
+    475.13699999963865,       !- Vertex 12 Xcoordinate
+    600.4150000000373,        !- Vertex 12 Ycoordinate
+    3;                        !- Vertex 12 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0001_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0001,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    464.58417036838364,       !- Vertex 1 Xcoordinate
+    602.4533907016739,        !- Vertex 1 Ycoordinate
+    2.0652433104425034,       !- Vertex 1 Zcoordinate
+    464.58417036838364,       !- Vertex 2 Xcoordinate
+    602.4533907016739,        !- Vertex 2 Ycoordinate
+    0.9347566895574968,       !- Vertex 2 Zcoordinate
+    465.05482963158283,       !- Vertex 3 Xcoordinate
+    602.1636092979461,        !- Vertex 3 Ycoordinate
+    0.9347566895574968,       !- Vertex 3 Zcoordinate
+    465.05482963158283,       !- Vertex 4 Xcoordinate
+    602.1636092979461,        !- Vertex 4 Ycoordinate
+    2.0652433104425034;       !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0002_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0002,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    466.4116944865091,        !- Vertex 1 Xcoordinate
+    606.1805075369775,        !- Vertex 1 Ycoordinate
+    2.0652433104425034,       !- Vertex 1 Zcoordinate
+    466.4116944865091,        !- Vertex 2 Xcoordinate
+    606.1805075369775,        !- Vertex 2 Ycoordinate
+    0.9347566895574968,       !- Vertex 2 Zcoordinate
+    465.19830551336054,       !- Vertex 3 Xcoordinate
+    604.2714924626052,        !- Vertex 3 Ycoordinate
+    0.9347566895574968,       !- Vertex 3 Zcoordinate
+    465.19830551336054,       !- Vertex 4 Xcoordinate
+    604.2714924626052,        !- Vertex 4 Ycoordinate
+    2.0652433104425034;       !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0003_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0003,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    472.0246230689809,        !- Vertex 1 Xcoordinate
+    604.893819113262,         !- Vertex 1 Ycoordinate
+    2.0652433104425034,       !- Vertex 1 Zcoordinate
+    472.0246230689809,        !- Vertex 2 Xcoordinate
+    604.893819113262,         !- Vertex 2 Ycoordinate
+    0.9347566895574968,       !- Vertex 2 Zcoordinate
+    469.5013769310899,        !- Vertex 3 Xcoordinate
+    606.4621808854863,        !- Vertex 3 Ycoordinate
+    0.9347566895574968,       !- Vertex 3 Zcoordinate
+    469.5013769310899,        !- Vertex 4 Xcoordinate
+    606.4621808854863,        !- Vertex 4 Ycoordinate
+    2.0652433104425034;       !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0004_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0004,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    473.3268959565321,        !- Vertex 1 Xcoordinate
+    602.3248101212084,        !- Vertex 1 Ycoordinate
+    2.0652433104425034,       !- Vertex 1 Zcoordinate
+    473.3268959565321,        !- Vertex 2 Xcoordinate
+    602.3248101212084,        !- Vertex 2 Ycoordinate
+    0.9347566895574968,       !- Vertex 2 Zcoordinate
+    473.7561040435685,        !- Vertex 3 Xcoordinate
+    603.021189879626,         !- Vertex 3 Ycoordinate
+    0.9347566895574968,       !- Vertex 3 Zcoordinate
+    473.7561040435685,        !- Vertex 4 Xcoordinate
+    603.021189879626,         !- Vertex 4 Ycoordinate
+    2.0652433104425034;       !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0005_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0005,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    474.4624172556214,        !- Vertex 1 Xcoordinate
+    600.8306551417336,        !- Vertex 1 Ycoordinate
+    2.0652433104425034,       !- Vertex 1 Zcoordinate
+    474.4624172556214,        !- Vertex 2 Xcoordinate
+    600.8306551417336,        !- Vertex 2 Ycoordinate
+    0.9347566895574968,       !- Vertex 2 Zcoordinate
+    473.64658274431713,       !- Vertex 3 Xcoordinate
+    601.3333448590711,        !- Vertex 3 Ycoordinate
+    0.9347566895574968,       !- Vertex 3 Zcoordinate
+    473.64658274431713,       !- Vertex 4 Xcoordinate
+    601.3333448590711,        !- Vertex 4 Ycoordinate
+    2.0652433104425034;       !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0006_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0006,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    475.91697355697397,       !- Vertex 1 Xcoordinate
+    601.6816825633869,        !- Vertex 1 Ycoordinate
+    2.0652433104425034,       !- Vertex 1 Zcoordinate
+    475.91697355697397,       !- Vertex 2 Xcoordinate
+    601.6816825633869,        !- Vertex 2 Ycoordinate
+    0.9347566895574968,       !- Vertex 2 Zcoordinate
+    475.49002644314896,       !- Vertex 3 Xcoordinate
+    600.9883174365386,        !- Vertex 3 Ycoordinate
+    0.9347566895574968,       !- Vertex 3 Zcoordinate
+    475.49002644314896,       !- Vertex 4 Xcoordinate
+    600.9883174365386,        !- Vertex 4 Ycoordinate
+    2.0652433104425034;       !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0008_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0008,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    485.22866890358273,       !- Vertex 1 Xcoordinate
+    591.9006522111595,        !- Vertex 1 Ycoordinate
+    2.0652433104425034,       !- Vertex 1 Zcoordinate
+    485.22866890358273,       !- Vertex 2 Xcoordinate
+    591.9006522111595,        !- Vertex 2 Ycoordinate
+    0.9347566895574968,       !- Vertex 2 Zcoordinate
+    486.3953310963698,        !- Vertex 3 Xcoordinate
+    593.7953477874398,        !- Vertex 3 Ycoordinate
+    0.9347566895574968,       !- Vertex 3 Zcoordinate
+    486.3953310963698,        !- Vertex 4 Xcoordinate
+    593.7953477874398,        !- Vertex 4 Ycoordinate
+    2.0652433104425034;       !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0010_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0010,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    483.7834080411121,        !- Vertex 1 Xcoordinate
+    589.7372020147741,        !- Vertex 1 Ycoordinate
+    2.0652433104425034,       !- Vertex 1 Zcoordinate
+    483.7834080411121,        !- Vertex 2 Xcoordinate
+    589.7372020147741,        !- Vertex 2 Ycoordinate
+    0.9347566895574968,       !- Vertex 2 Zcoordinate
+    484.00159195892047,       !- Vertex 3 Xcoordinate
+    590.0917979851365,        !- Vertex 3 Ycoordinate
+    0.9347566895574968,       !- Vertex 3 Zcoordinate
+    484.00159195892047,       !- Vertex 4 Xcoordinate
+    590.0917979851365,        !- Vertex 4 Ycoordinate
+    2.0652433104425034;       !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0012_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 0 Wall 0012,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    465.2785480659222,        !- Vertex 1 Xcoordinate
+    601.6551016587764,        !- Vertex 1 Ycoordinate
+    2.0652433104425034,       !- Vertex 1 Zcoordinate
+    465.2785480659222,        !- Vertex 2 Xcoordinate
+    601.6551016587764,        !- Vertex 2 Ycoordinate
+    0.9347566895574968,       !- Vertex 2 Zcoordinate
+    465.07845193403773,       !- Vertex 3 Xcoordinate
+    601.3298983406276,        !- Vertex 3 Ycoordinate
+    0.9347566895574968,       !- Vertex 3 Zcoordinate
+    465.07845193403773,       !- Vertex 4 Xcoordinate
+    601.3298983406276,        !- Vertex 4 Ycoordinate
+    2.0652433104425034;       !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0001_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0001,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    464.58417036838364,       !- Vertex 1 Xcoordinate
+    602.4533907016739,        !- Vertex 1 Ycoordinate
+    5.065243310442503,        !- Vertex 1 Zcoordinate
+    464.58417036838364,       !- Vertex 2 Xcoordinate
+    602.4533907016739,        !- Vertex 2 Ycoordinate
+    3.9347566895574966,       !- Vertex 2 Zcoordinate
+    465.05482963158283,       !- Vertex 3 Xcoordinate
+    602.1636092979461,        !- Vertex 3 Ycoordinate
+    3.9347566895574966,       !- Vertex 3 Zcoordinate
+    465.05482963158283,       !- Vertex 4 Xcoordinate
+    602.1636092979461,        !- Vertex 4 Ycoordinate
+    5.065243310442503;        !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0002_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0002,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    466.4116944865091,        !- Vertex 1 Xcoordinate
+    606.1805075369775,        !- Vertex 1 Ycoordinate
+    5.065243310442503,        !- Vertex 1 Zcoordinate
+    466.4116944865091,        !- Vertex 2 Xcoordinate
+    606.1805075369775,        !- Vertex 2 Ycoordinate
+    3.9347566895574966,       !- Vertex 2 Zcoordinate
+    465.19830551336054,       !- Vertex 3 Xcoordinate
+    604.2714924626052,        !- Vertex 3 Ycoordinate
+    3.9347566895574966,       !- Vertex 3 Zcoordinate
+    465.19830551336054,       !- Vertex 4 Xcoordinate
+    604.2714924626052,        !- Vertex 4 Ycoordinate
+    5.065243310442503;        !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0003_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0003,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    472.0246230689809,        !- Vertex 1 Xcoordinate
+    604.893819113262,         !- Vertex 1 Ycoordinate
+    5.065243310442503,        !- Vertex 1 Zcoordinate
+    472.0246230689809,        !- Vertex 2 Xcoordinate
+    604.893819113262,         !- Vertex 2 Ycoordinate
+    3.9347566895574966,       !- Vertex 2 Zcoordinate
+    469.5013769310899,        !- Vertex 3 Xcoordinate
+    606.4621808854863,        !- Vertex 3 Ycoordinate
+    3.9347566895574966,       !- Vertex 3 Zcoordinate
+    469.5013769310899,        !- Vertex 4 Xcoordinate
+    606.4621808854863,        !- Vertex 4 Ycoordinate
+    5.065243310442503;        !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0004_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0004,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    473.3268959565321,        !- Vertex 1 Xcoordinate
+    602.3248101212084,        !- Vertex 1 Ycoordinate
+    5.065243310442503,        !- Vertex 1 Zcoordinate
+    473.3268959565321,        !- Vertex 2 Xcoordinate
+    602.3248101212084,        !- Vertex 2 Ycoordinate
+    3.9347566895574966,       !- Vertex 2 Zcoordinate
+    473.7561040435685,        !- Vertex 3 Xcoordinate
+    603.021189879626,         !- Vertex 3 Ycoordinate
+    3.9347566895574966,       !- Vertex 3 Zcoordinate
+    473.7561040435685,        !- Vertex 4 Xcoordinate
+    603.021189879626,         !- Vertex 4 Ycoordinate
+    5.065243310442503;        !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0005_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0005,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    474.4624172556214,        !- Vertex 1 Xcoordinate
+    600.8306551417336,        !- Vertex 1 Ycoordinate
+    5.065243310442503,        !- Vertex 1 Zcoordinate
+    474.4624172556214,        !- Vertex 2 Xcoordinate
+    600.8306551417336,        !- Vertex 2 Ycoordinate
+    3.9347566895574966,       !- Vertex 2 Zcoordinate
+    473.64658274431713,       !- Vertex 3 Xcoordinate
+    601.3333448590711,        !- Vertex 3 Ycoordinate
+    3.9347566895574966,       !- Vertex 3 Zcoordinate
+    473.64658274431713,       !- Vertex 4 Xcoordinate
+    601.3333448590711,        !- Vertex 4 Ycoordinate
+    5.065243310442503;        !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0006_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0006,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    475.91697355697397,       !- Vertex 1 Xcoordinate
+    601.6816825633869,        !- Vertex 1 Ycoordinate
+    5.065243310442503,        !- Vertex 1 Zcoordinate
+    475.91697355697397,       !- Vertex 2 Xcoordinate
+    601.6816825633869,        !- Vertex 2 Ycoordinate
+    3.9347566895574966,       !- Vertex 2 Zcoordinate
+    475.49002644314896,       !- Vertex 3 Xcoordinate
+    600.9883174365386,        !- Vertex 3 Ycoordinate
+    3.9347566895574966,       !- Vertex 3 Zcoordinate
+    475.49002644314896,       !- Vertex 4 Xcoordinate
+    600.9883174365386,        !- Vertex 4 Ycoordinate
+    5.065243310442503;        !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0008_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0008,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    485.22866890358273,       !- Vertex 1 Xcoordinate
+    591.9006522111595,        !- Vertex 1 Ycoordinate
+    5.065243310442503,        !- Vertex 1 Zcoordinate
+    485.22866890358273,       !- Vertex 2 Xcoordinate
+    591.9006522111595,        !- Vertex 2 Ycoordinate
+    3.9347566895574966,       !- Vertex 2 Zcoordinate
+    486.3953310963698,        !- Vertex 3 Xcoordinate
+    593.7953477874398,        !- Vertex 3 Ycoordinate
+    3.9347566895574966,       !- Vertex 3 Zcoordinate
+    486.3953310963698,        !- Vertex 4 Xcoordinate
+    593.7953477874398,        !- Vertex 4 Ycoordinate
+    5.065243310442503;        !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0010_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0010,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    483.7834080411121,        !- Vertex 1 Xcoordinate
+    589.7372020147741,        !- Vertex 1 Ycoordinate
+    5.065243310442503,        !- Vertex 1 Zcoordinate
+    483.7834080411121,        !- Vertex 2 Xcoordinate
+    589.7372020147741,        !- Vertex 2 Ycoordinate
+    3.9347566895574966,       !- Vertex 2 Zcoordinate
+    484.00159195892047,       !- Vertex 3 Xcoordinate
+    590.0917979851365,        !- Vertex 3 Ycoordinate
+    3.9347566895574966,       !- Vertex 3 Zcoordinate
+    484.00159195892047,       !- Vertex 4 Xcoordinate
+    590.0917979851365,        !- Vertex 4 Ycoordinate
+    5.065243310442503;        !- Vertex 4 Zcoordinate
+
+FENESTRATIONSURFACE:DETAILED,
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0012_Win,    !- Name
+    Window,                   !- Surface Type
+    EU_Window_Construction,    !- Construction Name
+    Block 49fcb0ffa4f3f80c_0 Storey 1 Wall 0012,    !- Building Surface Name
+    ,                         !- Outside Boundary Condition Object
+    autocalculate,            !- View Factor to Ground
+    ,                         !- Frame and Divider Name
+    1,                        !- Multiplier
+    autocalculate,            !- Number of Vertices
+    465.2785480659222,        !- Vertex 1 Xcoordinate
+    601.6551016587764,        !- Vertex 1 Ycoordinate
+    5.065243310442503,        !- Vertex 1 Zcoordinate
+    465.2785480659222,        !- Vertex 2 Xcoordinate
+    601.6551016587764,        !- Vertex 2 Ycoordinate
+    3.9347566895574966,       !- Vertex 2 Zcoordinate
+    465.07845193403773,       !- Vertex 3 Xcoordinate
+    601.3298983406276,        !- Vertex 3 Ycoordinate
+    3.9347566895574966,       !- Vertex 3 Zcoordinate
+    465.07845193403773,       !- Vertex 4 Xcoordinate
+    601.3298983406276,        !- Vertex 4 Ycoordinate
+    5.065243310442503;        !- Vertex 4 Zcoordinate
+
+INTERNALMASS,
+    49fcb0ffa4f3f80c_F0_dwelling_0_EU_InternalMass,    !- Name
+    EU_InternalMass_Construction,    !- Construction Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone or ZoneList Name
+    ,                         !- Space or SpaceList Name
+    157.85700449757388;       !- Surface Area
+
+INTERNALMASS,
+    49fcb0ffa4f3f80c_F1_dwelling_0_EU_InternalMass,    !- Name
+    EU_InternalMass_Construction,    !- Construction Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone or ZoneList Name
+    ,                         !- Space or SpaceList Name
+    157.85700449757388;       !- Surface Area
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT010657_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    500.59179076505825,       !- Vertex 1 Xcoordinate
+    562.0152256600559,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    500.59179076505825,       !- Vertex 2 Xcoordinate
+    562.0152256600559,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    488.31087232148275,       !- Vertex 3 Xcoordinate
+    569.593751790002,         !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    488.31087232148275,       !- Vertex 4 Xcoordinate
+    569.593751790002,         !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT010657_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    488.31087232148275,       !- Vertex 1 Xcoordinate
+    569.593751790002,         !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    488.31087232148275,       !- Vertex 2 Xcoordinate
+    569.593751790002,         !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    491.6276124684373,        !- Vertex 3 Xcoordinate
+    574.9682469014078,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    491.6276124684373,        !- Vertex 4 Xcoordinate
+    574.9682469014078,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT010657_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    491.6276124684373,        !- Vertex 1 Xcoordinate
+    574.9682469014078,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    491.6276124684373,        !- Vertex 2 Xcoordinate
+    574.9682469014078,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    503.90823812398594,       !- Vertex 3 Xcoordinate
+    567.3893398782238,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    503.90823812398594,       !- Vertex 4 Xcoordinate
+    567.3893398782238,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT010657_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    503.90823812398594,       !- Vertex 1 Xcoordinate
+    567.3893398782238,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    503.90823812398594,       !- Vertex 2 Xcoordinate
+    567.3893398782238,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    500.59179076505825,       !- Vertex 3 Xcoordinate
+    562.0152256600559,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    500.59179076505825,       !- Vertex 4 Xcoordinate
+    562.0152256600559,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT004929_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    494.8462648479035,        !- Vertex 1 Xcoordinate
+    580.0157965309918,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    494.8462648479035,        !- Vertex 2 Xcoordinate
+    580.0157965309918,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    515.4716086011613,        !- Vertex 3 Xcoordinate
+    567.2580081550404,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    515.4716086011613,        !- Vertex 4 Xcoordinate
+    567.2580081550404,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT004929_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    515.4716086011613,        !- Vertex 1 Xcoordinate
+    567.2580081550404,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    515.4716086011613,        !- Vertex 2 Xcoordinate
+    567.2580081550404,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    512.2655130797066,        !- Vertex 3 Xcoordinate
+    562.0747569333762,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    512.2655130797066,        !- Vertex 4 Xcoordinate
+    562.0747569333762,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT004929_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    512.2655130797066,        !- Vertex 1 Xcoordinate
+    562.0747569333762,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    512.2655130797066,        !- Vertex 2 Xcoordinate
+    562.0747569333762,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    491.63986526592635,       !- Vertex 3 Xcoordinate
+    574.8324811067432,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    491.63986526592635,       !- Vertex 4 Xcoordinate
+    574.8324811067432,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT004929_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    491.63986526592635,       !- Vertex 1 Xcoordinate
+    574.8324811067432,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    491.63986526592635,       !- Vertex 2 Xcoordinate
+    574.8324811067432,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    494.8462648479035,        !- Vertex 3 Xcoordinate
+    580.0157965309918,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    494.8462648479035,        !- Vertex 4 Xcoordinate
+    580.0157965309918,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT015027_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    508.7695448936429,        !- Vertex 1 Xcoordinate
+    571.4035638105124,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    508.7695448936429,        !- Vertex 2 Xcoordinate
+    571.4035638105124,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    494.9089210171951,        !- Vertex 3 Xcoordinate
+    579.9767883317545,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    494.9089210171951,        !- Vertex 4 Xcoordinate
+    579.9767883317545,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT015027_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    494.9089210171951,        !- Vertex 1 Xcoordinate
+    579.9767883317545,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    494.9089210171951,        !- Vertex 2 Xcoordinate
+    579.9767883317545,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    498.1152905415511,        !- Vertex 3 Xcoordinate
+    585.1600551614538,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    498.1152905415511,        !- Vertex 4 Xcoordinate
+    585.1600551614538,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT015027_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    498.1152905415511,        !- Vertex 1 Xcoordinate
+    585.1600551614538,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    498.1152905415511,        !- Vertex 2 Xcoordinate
+    585.1600551614538,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    511.9756103566615,        !- Vertex 3 Xcoordinate
+    576.5867664376274,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    511.9756103566615,        !- Vertex 4 Xcoordinate
+    576.5867664376274,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT015027_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    511.9756103566615,        !- Vertex 1 Xcoordinate
+    576.5867664376274,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    511.9756103566615,        !- Vertex 2 Xcoordinate
+    576.5867664376274,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    508.7695448936429,        !- Vertex 3 Xcoordinate
+    571.4035638105124,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    508.7695448936429,        !- Vertex 4 Xcoordinate
+    571.4035638105124,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT009002_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    455.9155189158628,        !- Vertex 1 Xcoordinate
+    589.7890666071326,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    455.9155189158628,        !- Vertex 2 Xcoordinate
+    589.7890666071326,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    477.48055737582035,       !- Vertex 3 Xcoordinate
+    576.3854272486642,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    477.48055737582035,       !- Vertex 4 Xcoordinate
+    576.3854272486642,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT009002_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    477.48055737582035,       !- Vertex 1 Xcoordinate
+    576.3854272486642,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    477.48055737582035,       !- Vertex 2 Xcoordinate
+    576.3854272486642,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    473.9412358383415,        !- Vertex 3 Xcoordinate
+    570.6910331295803,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    473.9412358383415,        !- Vertex 4 Xcoordinate
+    570.6910331295803,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT009002_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    473.9412358383415,        !- Vertex 1 Xcoordinate
+    570.6910331295803,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    473.9412358383415,        !- Vertex 2 Xcoordinate
+    570.6910331295803,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    452.3766482844949,        !- Vertex 3 Xcoordinate
+    584.0946177924052,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    452.3766482844949,        !- Vertex 4 Xcoordinate
+    584.0946177924052,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT009002_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    452.3766482844949,        !- Vertex 1 Xcoordinate
+    584.0946177924052,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    452.3766482844949,        !- Vertex 2 Xcoordinate
+    584.0946177924052,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    455.9155189158628,        !- Vertex 3 Xcoordinate
+    589.7890666071326,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    455.9155189158628,        !- Vertex 4 Xcoordinate
+    589.7890666071326,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT018987_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    501.8684453390306,        !- Vertex 1 Xcoordinate
+    590.0045694671571,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    501.8684453390306,        !- Vertex 2 Xcoordinate
+    590.0045694671571,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    512.7191136502661,        !- Vertex 3 Xcoordinate
+    583.292824473232,         !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    512.7191136502661,        !- Vertex 4 Xcoordinate
+    583.292824473232,         !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT018987_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    512.7191136502661,        !- Vertex 1 Xcoordinate
+    583.292824473232,         !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    512.7191136502661,        !- Vertex 2 Xcoordinate
+    583.292824473232,         !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    509.5130549009191,        !- Vertex 3 Xcoordinate
+    578.1096460688859,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    509.5130549009191,        !- Vertex 4 Xcoordinate
+    578.1096460688859,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT018987_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    509.5130549009191,        !- Vertex 1 Xcoordinate
+    578.1096460688859,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    509.5130549009191,        !- Vertex 2 Xcoordinate
+    578.1096460688859,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    498.66236750234384,       !- Vertex 3 Xcoordinate
+    584.8214063225314,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    498.66236750234384,       !- Vertex 4 Xcoordinate
+    584.8214063225314,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT018987_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    498.66236750234384,       !- Vertex 1 Xcoordinate
+    584.8214063225314,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    498.66236750234384,       !- Vertex 2 Xcoordinate
+    584.8214063225314,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    501.8684453390306,        !- Vertex 3 Xcoordinate
+    590.0045694671571,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    501.8684453390306,        !- Vertex 4 Xcoordinate
+    590.0045694671571,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT005671_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    477.46281664143316,       !- Vertex 1 Xcoordinate
+    576.3966794824228,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    477.46281664143316,       !- Vertex 2 Xcoordinate
+    576.3966794824228,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    455.9728006918449,        !- Vertex 3 Xcoordinate
+    589.7536889761686,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    455.9728006918449,        !- Vertex 4 Xcoordinate
+    589.7536889761686,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT005671_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    455.9728006918449,        !- Vertex 1 Xcoordinate
+    589.7536889761686,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    455.9728006918449,        !- Vertex 2 Xcoordinate
+    589.7536889761686,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    459.83338204352185,       !- Vertex 3 Xcoordinate
+    595.9657363248989,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    459.83338204352185,       !- Vertex 4 Xcoordinate
+    595.9657363248989,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT005671_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    459.83338204352185,       !- Vertex 1 Xcoordinate
+    595.9657363248989,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    459.83338204352185,       !- Vertex 2 Xcoordinate
+    595.9657363248989,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    481.32339799019974,       !- Vertex 3 Xcoordinate
+    582.6087268246338,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    481.32339799019974,       !- Vertex 4 Xcoordinate
+    582.6087268246338,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT005671_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    481.32339799019974,       !- Vertex 1 Xcoordinate
+    582.6087268246338,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    481.32339799019974,       !- Vertex 2 Xcoordinate
+    582.6087268246338,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    477.46281664143316,       !- Vertex 3 Xcoordinate
+    576.3966794824228,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    477.46281664143316,       !- Vertex 4 Xcoordinate
+    576.3966794824228,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT012596_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    505.07827161229216,       !- Vertex 1 Xcoordinate
+    595.1855412581936,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    505.07827161229216,       !- Vertex 2 Xcoordinate
+    595.1855412581936,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    515.9452306437306,        !- Vertex 3 Xcoordinate
+    588.4635626152158,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    515.9452306437306,        !- Vertex 4 Xcoordinate
+    588.4635626152158,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT012596_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    515.9452306437306,        !- Vertex 1 Xcoordinate
+    588.4635626152158,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    515.9452306437306,        !- Vertex 2 Xcoordinate
+    588.4635626152158,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    512.7386184831848,        !- Vertex 3 Xcoordinate
+    583.2807861380279,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    512.7386184831848,        !- Vertex 4 Xcoordinate
+    583.2807861380279,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT012596_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    512.7386184831848,        !- Vertex 1 Xcoordinate
+    583.2807861380279,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    512.7386184831848,        !- Vertex 2 Xcoordinate
+    583.2807861380279,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    501.8726540290518,        !- Vertex 3 Xcoordinate
+    590.0019696084782,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    501.8726540290518,        !- Vertex 4 Xcoordinate
+    590.0019696084782,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT012596_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    501.8726540290518,        !- Vertex 1 Xcoordinate
+    590.0019696084782,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    501.8726540290518,        !- Vertex 2 Xcoordinate
+    590.0019696084782,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    505.07827161229216,       !- Vertex 3 Xcoordinate
+    595.1855412581936,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    505.07827161229216,       !- Vertex 4 Xcoordinate
+    595.1855412581936,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT013199_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    480.05570739367977,       !- Vertex 1 Xcoordinate
+    583.3968209177256,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    480.05570739367977,       !- Vertex 2 Xcoordinate
+    583.3968209177256,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    459.8958416432142,        !- Vertex 3 Xcoordinate
+    595.9271404445171,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    459.8958416432142,        !- Vertex 4 Xcoordinate
+    595.9271404445171,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT013199_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    459.8958416432142,        !- Vertex 1 Xcoordinate
+    595.9271404445171,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    459.8958416432142,        !- Vertex 2 Xcoordinate
+    595.9271404445171,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    463.5966961545637,        !- Vertex 3 Xcoordinate
+    601.8800847753882,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    463.5966961545637,        !- Vertex 4 Xcoordinate
+    601.8800847753882,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT013199_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    463.5966961545637,        !- Vertex 1 Xcoordinate
+    601.8800847753882,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    463.5966961545637,        !- Vertex 2 Xcoordinate
+    601.8800847753882,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    483.7565619063098,        !- Vertex 3 Xcoordinate
+    589.3497652541846,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    483.7565619063098,        !- Vertex 4 Xcoordinate
+    589.3497652541846,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT013199_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    483.7565619063098,        !- Vertex 1 Xcoordinate
+    589.3497652541846,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    483.7565619063098,        !- Vertex 2 Xcoordinate
+    589.3497652541846,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    480.05570739367977,       !- Vertex 3 Xcoordinate
+    583.3968209177256,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    480.05570739367977,       !- Vertex 4 Xcoordinate
+    583.3968209177256,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT003954_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    432.4145677239867,        !- Vertex 1 Xcoordinate
+    607.6252975547686,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    432.4145677239867,        !- Vertex 2 Xcoordinate
+    607.6252975547686,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    453.1742918320233,        !- Vertex 3 Xcoordinate
+    594.7225200701505,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    453.1742918320233,        !- Vertex 4 Xcoordinate
+    594.7225200701505,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT003954_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    453.1742918320233,        !- Vertex 1 Xcoordinate
+    594.7225200701505,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    453.1742918320233,        !- Vertex 2 Xcoordinate
+    594.7225200701505,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    448.13042045012116,       !- Vertex 3 Xcoordinate
+    586.6072612917051,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    448.13042045012116,       !- Vertex 4 Xcoordinate
+    586.6072612917051,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT003954_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    448.13042045012116,       !- Vertex 1 Xcoordinate
+    586.6072612917051,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    448.13042045012116,       !- Vertex 2 Xcoordinate
+    586.6072612917051,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    427.37069634208456,       !- Vertex 3 Xcoordinate
+    599.5100387763232,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    427.37069634208456,       !- Vertex 4 Xcoordinate
+    599.5100387763232,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT003954_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    427.37069634208456,       !- Vertex 1 Xcoordinate
+    599.5100387763232,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    427.37069634208456,       !- Vertex 2 Xcoordinate
+    599.5100387763232,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    432.4145677239867,        !- Vertex 3 Xcoordinate
+    607.6252975547686,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    432.4145677239867,        !- Vertex 4 Xcoordinate
+    607.6252975547686,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT014043-0_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    479.0005354597233,        !- Vertex 1 Xcoordinate
+    608.8114252202213,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    479.0005354597233,        !- Vertex 2 Xcoordinate
+    608.8114252202213,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    491.46081858698744,       !- Vertex 3 Xcoordinate
+    601.0668185856193,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    491.46081858698744,       !- Vertex 4 Xcoordinate
+    601.0668185856193,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT014043-0_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    491.46081858698744,       !- Vertex 1 Xcoordinate
+    601.0668185856193,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    491.46081858698744,       !- Vertex 2 Xcoordinate
+    601.0668185856193,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    487.7606811686419,        !- Vertex 3 Xcoordinate
+    595.1136145954952,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    487.7606811686419,        !- Vertex 4 Xcoordinate
+    595.1136145954952,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT014043-0_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    487.7606811686419,        !- Vertex 1 Xcoordinate
+    595.1136145954952,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    487.7606811686419,        !- Vertex 2 Xcoordinate
+    595.1136145954952,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    475.30082682031207,       !- Vertex 3 Xcoordinate
+    602.8578769089654,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    475.30082682031207,       !- Vertex 4 Xcoordinate
+    602.8578769089654,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT014043-0_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    475.30082682031207,       !- Vertex 1 Xcoordinate
+    602.8578769089654,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    475.30082682031207,       !- Vertex 2 Xcoordinate
+    602.8578769089654,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    479.0005354597233,        !- Vertex 3 Xcoordinate
+    608.8114252202213,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    479.0005354597233,        !- Vertex 4 Xcoordinate
+    608.8114252202213,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT019277-0_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    437.834011384286,         !- Vertex 1 Xcoordinate
+    616.097943931818,         !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    437.834011384286,         !- Vertex 2 Xcoordinate
+    616.097943931818,         !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    456.38422187638935,       !- Vertex 3 Xcoordinate
+    604.5685914251953,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    456.38422187638935,       !- Vertex 4 Xcoordinate
+    604.5685914251953,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT019277-0_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    456.38422187638935,       !- Vertex 1 Xcoordinate
+    604.5685914251953,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    456.38422187638935,       !- Vertex 2 Xcoordinate
+    604.5685914251953,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    451.0755119890673,        !- Vertex 3 Xcoordinate
+    596.0271155945957,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    451.0755119890673,        !- Vertex 4 Xcoordinate
+    596.0271155945957,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT019277-0_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    451.0755119890673,        !- Vertex 1 Xcoordinate
+    596.0271155945957,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    451.0755119890673,        !- Vertex 2 Xcoordinate
+    596.0271155945957,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    432.52530149696395,       !- Vertex 3 Xcoordinate
+    607.5564681021497,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    432.52530149696395,       !- Vertex 4 Xcoordinate
+    607.5564681021497,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT019277-0_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    432.52530149696395,       !- Vertex 1 Xcoordinate
+    607.5564681021497,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    432.52530149696395,       !- Vertex 2 Xcoordinate
+    607.5564681021497,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    437.834011384286,         !- Vertex 3 Xcoordinate
+    616.097943931818,         !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    437.834011384286,         !- Vertex 4 Xcoordinate
+    616.097943931818,         !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT017786_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    476.1641791401198,        !- Vertex 1 Xcoordinate
+    619.647542744875,         !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    476.1641791401198,        !- Vertex 2 Xcoordinate
+    619.647542744875,         !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    495.4642975634197,        !- Vertex 3 Xcoordinate
+    607.4442379483953,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    495.4642975634197,        !- Vertex 4 Xcoordinate
+    607.4442379483953,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT017786_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    495.4642975634197,        !- Vertex 1 Xcoordinate
+    607.4442379483953,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    495.4642975634197,        !- Vertex 2 Xcoordinate
+    607.4442379483953,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    491.3796815284295,        !- Vertex 3 Xcoordinate
+    600.9841398019344,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    491.3796815284295,        !- Vertex 4 Xcoordinate
+    600.9841398019344,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT017786_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    491.3796815284295,        !- Vertex 1 Xcoordinate
+    600.9841398019344,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    491.3796815284295,        !- Vertex 2 Xcoordinate
+    600.9841398019344,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    472.07870673038997,       !- Vertex 3 Xcoordinate
+    613.1878353841603,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    472.07870673038997,       !- Vertex 4 Xcoordinate
+    613.1878353841603,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT017786_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    472.07870673038997,       !- Vertex 1 Xcoordinate
+    613.1878353841603,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    472.07870673038997,       !- Vertex 2 Xcoordinate
+    613.1878353841603,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    476.1641791401198,        !- Vertex 3 Xcoordinate
+    619.647542744875,         !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    476.1641791401198,        !- Vertex 4 Xcoordinate
+    619.647542744875,         !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT004454_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    508.2945421237964,        !- Vertex 1 Xcoordinate
+    600.362519685179,         !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    508.2945421237964,        !- Vertex 2 Xcoordinate
+    600.362519685179,         !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    519.2185949817067,        !- Vertex 3 Xcoordinate
+    593.6051393654197,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    519.2185949817067,        !- Vertex 4 Xcoordinate
+    593.6051393654197,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT004454_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    519.2185949817067,        !- Vertex 1 Xcoordinate
+    593.6051393654197,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    519.2185949817067,        !- Vertex 2 Xcoordinate
+    593.6051393654197,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    516.011811614735,         !- Vertex 3 Xcoordinate
+    588.4224261417985,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    516.011811614735,         !- Vertex 4 Xcoordinate
+    588.4224261417985,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT004454_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    516.011811614735,         !- Vertex 1 Xcoordinate
+    588.4224261417985,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    516.011811614735,         !- Vertex 2 Xcoordinate
+    588.4224261417985,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    505.0889942890499,        !- Vertex 3 Xcoordinate
+    595.1788186356425,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    505.0889942890499,        !- Vertex 4 Xcoordinate
+    595.1788186356425,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46205-LOT004454_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    505.0889942890499,        !- Vertex 1 Xcoordinate
+    595.1788186356425,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    505.0889942890499,        !- Vertex 2 Xcoordinate
+    595.1788186356425,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    508.2945421237964,        !- Vertex 3 Xcoordinate
+    600.362519685179,         !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    508.2945421237964,        !- Vertex 4 Xcoordinate
+    600.362519685179,         !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT022280_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    451.2582932258956,        !- Vertex 1 Xcoordinate
+    607.7544656964019,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    451.2582932258956,        !- Vertex 2 Xcoordinate
+    607.7544656964019,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    437.9420413194457,        !- Vertex 3 Xcoordinate
+    616.0305688548833,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    437.9420413194457,        !- Vertex 4 Xcoordinate
+    616.0305688548833,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT022280_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    437.9420413194457,        !- Vertex 1 Xcoordinate
+    616.0305688548833,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    437.9420413194457,        !- Vertex 2 Xcoordinate
+    616.0305688548833,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    443.25118513719644,       !- Vertex 3 Xcoordinate
+    624.5720504606143,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    443.25118513719644,       !- Vertex 4 Xcoordinate
+    624.5720504606143,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT022280_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    443.25118513719644,       !- Vertex 1 Xcoordinate
+    624.5720504606143,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    443.25118513719644,       !- Vertex 2 Xcoordinate
+    624.5720504606143,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    456.56702253071126,       !- Vertex 3 Xcoordinate
+    616.2959727691486,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    456.56702253071126,       !- Vertex 4 Xcoordinate
+    616.2959727691486,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT022280_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    456.56702253071126,       !- Vertex 1 Xcoordinate
+    616.2959727691486,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    456.56702253071126,       !- Vertex 2 Xcoordinate
+    616.2959727691486,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    451.2582932258956,        !- Vertex 3 Xcoordinate
+    607.7544656964019,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    451.2582932258956,        !- Vertex 4 Xcoordinate
+    607.7544656964019,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT020172_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    495.3448451026343,        !- Vertex 1 Xcoordinate
+    607.5197658166289,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    495.3448451026343,        !- Vertex 2 Xcoordinate
+    607.5197658166289,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    475.3125447058119,        !- Vertex 3 Xcoordinate
+    620.1858667982742,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    475.3125447058119,        !- Vertex 4 Xcoordinate
+    620.1858667982742,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT020172_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    475.3125447058119,        !- Vertex 1 Xcoordinate
+    620.1858667982742,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    475.3125447058119,        !- Vertex 2 Xcoordinate
+    620.1858667982742,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    479.3458069363842,        !- Vertex 3 Xcoordinate
+    626.5647454094142,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    479.3458069363842,        !- Vertex 4 Xcoordinate
+    626.5647454094142,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT020172_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    479.3458069363842,        !- Vertex 1 Xcoordinate
+    626.5647454094142,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    479.3458069363842,        !- Vertex 2 Xcoordinate
+    626.5647454094142,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    499.3781073332066,        !- Vertex 3 Xcoordinate
+    613.8986444277689,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    499.3781073332066,        !- Vertex 4 Xcoordinate
+    613.8986444277689,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-LOT020172_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    499.3781073332066,        !- Vertex 1 Xcoordinate
+    613.8986444277689,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    499.3781073332066,        !- Vertex 2 Xcoordinate
+    613.8986444277689,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    495.3448451026343,        !- Vertex 3 Xcoordinate
+    607.5197658166289,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    495.3448451026343,        !- Vertex 4 Xcoordinate
+    607.5197658166289,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-NOLOT-0_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    478.5764176341472,        !- Vertex 1 Xcoordinate
+    627.5935738608241,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    478.5764176341472,        !- Vertex 2 Xcoordinate
+    627.5935738608241,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    499.37880754319485,       !- Vertex 3 Xcoordinate
+    615.2077232301235,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    499.37880754319485,       !- Vertex 4 Xcoordinate
+    615.2077232301235,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-NOLOT-0_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    499.37880754319485,       !- Vertex 1 Xcoordinate
+    615.2077232301235,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    499.37880754319485,       !- Vertex 2 Xcoordinate
+    615.2077232301235,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    495.6381156074349,        !- Vertex 3 Xcoordinate
+    608.9251242792234,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    495.6381156074349,        !- Vertex 4 Xcoordinate
+    608.9251242792234,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-NOLOT-0_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    495.6381156074349,        !- Vertex 1 Xcoordinate
+    608.9251242792234,        !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    495.6381156074349,        !- Vertex 2 Xcoordinate
+    608.9251242792234,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    474.83572569827083,       !- Vertex 3 Xcoordinate
+    621.310974909924,         !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    474.83572569827083,       !- Vertex 4 Xcoordinate
+    621.310974909924,         !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46090-NOLOT-0_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    474.83572569827083,       !- Vertex 1 Xcoordinate
+    621.310974909924,         !- Vertex 1 Ycoordinate
+    6,                        !- Vertex 1 Zcoordinate
+    474.83572569827083,       !- Vertex 2 Xcoordinate
+    621.310974909924,         !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    478.5764176341472,        !- Vertex 3 Xcoordinate
+    627.5935738608241,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    478.5764176341472,        !- Vertex 4 Xcoordinate
+    627.5935738608241,        !- Vertex 4 Ycoordinate
+    6;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT003977_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    461.8557066718349,        !- Vertex 1 Xcoordinate
+    613.0087064513937,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    461.8557066718349,        !- Vertex 2 Xcoordinate
+    613.0087064513937,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    443.3867938424228,        !- Vertex 3 Xcoordinate
+    624.4873438579962,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    443.3867938424228,        !- Vertex 4 Xcoordinate
+    624.4873438579962,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT003977_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    443.3867938424228,        !- Vertex 1 Xcoordinate
+    624.4873438579962,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    443.3867938424228,        !- Vertex 2 Xcoordinate
+    624.4873438579962,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    448.6958816209808,        !- Vertex 3 Xcoordinate
+    633.0284427618608,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    448.6958816209808,        !- Vertex 4 Xcoordinate
+    633.0284427618608,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT003977_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    448.6958816209808,        !- Vertex 1 Xcoordinate
+    633.0284427618608,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    448.6958816209808,        !- Vertex 2 Xcoordinate
+    633.0284427618608,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    467.16430080053397,       !- Vertex 3 Xcoordinate
+    621.5502017447725,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    467.16430080053397,       !- Vertex 4 Xcoordinate
+    621.5502017447725,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT003977_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    467.16430080053397,       !- Vertex 1 Xcoordinate
+    621.5502017447725,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    467.16430080053397,       !- Vertex 2 Xcoordinate
+    621.5502017447725,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    461.8557066718349,        !- Vertex 3 Xcoordinate
+    613.0087064513937,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    461.8557066718349,        !- Vertex 4 Xcoordinate
+    613.0087064513937,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT018218_1,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    454.0739828119986,        !- Vertex 1 Xcoordinate
+    641.9122528815642,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    454.0739828119986,        !- Vertex 2 Xcoordinate
+    641.9122528815642,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    474.0867442039307,        !- Vertex 3 Xcoordinate
+    629.5234991069883,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    474.0867442039307,        !- Vertex 4 Xcoordinate
+    629.5234991069883,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT018218_2,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    474.0867442039307,        !- Vertex 1 Xcoordinate
+    629.5234991069883,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    474.0867442039307,        !- Vertex 2 Xcoordinate
+    629.5234991069883,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    468.60814696736634,       !- Vertex 3 Xcoordinate
+    620.6733870478347,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    468.60814696736634,       !- Vertex 4 Xcoordinate
+    620.6733870478347,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT018218_3,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    468.60814696736634,       !- Vertex 1 Xcoordinate
+    620.6733870478347,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    468.60814696736634,       !- Vertex 2 Xcoordinate
+    620.6733870478347,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    448.5953855754342,        !- Vertex 3 Xcoordinate
+    633.0621408233419,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    448.5953855754342,        !- Vertex 4 Xcoordinate
+    633.0621408233419,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+SHADING:SITE:DETAILED,
+    shade_CA-MTL-46153-LOT018218_4,    !- Name
+    ,                         !- Transmittance Schedule Name
+    autocalculate,            !- Number of Vertices
+    448.5953855754342,        !- Vertex 1 Xcoordinate
+    633.0621408233419,        !- Vertex 1 Ycoordinate
+    9,                        !- Vertex 1 Zcoordinate
+    448.5953855754342,        !- Vertex 2 Xcoordinate
+    633.0621408233419,        !- Vertex 2 Ycoordinate
+    0,                        !- Vertex 2 Zcoordinate
+    454.0739828119986,        !- Vertex 3 Xcoordinate
+    641.9122528815642,        !- Vertex 3 Ycoordinate
+    0,                        !- Vertex 3 Zcoordinate
+    454.0739828119986,        !- Vertex 4 Xcoordinate
+    641.9122528815642,        !- Vertex 4 Ycoordinate
+    9;                        !- Vertex 4 Zcoordinate
+
+OTHEREQUIPMENT,
+    EU_Step8_InternalGain_49fcb0ffa4f3f80c_F0_dwelling_0_f000,    !- Name
+    Electricity,              !- Fuel Type
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone or ZoneList or Space or SpaceList Name
+    EU_Step8_GainSchedule_49fcb0ffa4f3f80c_F0_dwelling_0_f000,    !- Schedule Name
+    Watts/Area,               !- Design Level Calculation Method
+    ,                         !- Design Level
+    1,                        !- Power per Zone Floor Area
+    ,                         !- Power per Person
+    0,                        !- Fraction Latent
+    0,                        !- Fraction Radiant
+    0,                        !- Fraction Lost
+    0,                        !- Carbon Dioxide Generation Rate
+    EU_Step8_InternalGains;    !- EndUse Subcategory
+
+OTHEREQUIPMENT,
+    EU_Step8_InternalGain_49fcb0ffa4f3f80c_F1_dwelling_0_f000,    !- Name
+    Electricity,              !- Fuel Type
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone or ZoneList or Space or SpaceList Name
+    EU_Step8_GainSchedule_49fcb0ffa4f3f80c_F1_dwelling_0_f000,    !- Schedule Name
+    Watts/Area,               !- Design Level Calculation Method
+    ,                         !- Design Level
+    1,                        !- Power per Zone Floor Area
+    ,                         !- Power per Person
+    0,                        !- Fraction Latent
+    0,                        !- Fraction Radiant
+    0,                        !- Fraction Lost
+    0,                        !- Carbon Dioxide Generation Rate
+    EU_Step8_InternalGains;    !- EndUse Subcategory
+
+ZONEVENTILATION:DESIGNFLOWRATE,
+    EU_ConstantAir_49fcb0ffa4f3f80c_F0_dwelling_0,    !- Name
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone or ZoneList or Space or SpaceList Name
+    EU_AlwaysOn,              !- Schedule Name
+    AirChanges/Hour,          !- Design Flow Rate Calculation Method
+    ,                         !- Design Flow Rate
+    ,                         !- Flow Rate per Floor Area
+    ,                         !- Flow Rate per Person
+    0.860309441265426,        !- Air Changes per Hour
+    Natural,                  !- Ventilation Type
+    0,                        !- Fan Pressure Rise
+    1,                        !- Fan Total Efficiency
+    1,                        !- Constant Term Coefficient
+    0,                        !- Temperature Term Coefficient
+    0,                        !- Velocity Term Coefficient
+    0,                        !- Velocity Squared Term Coefficient
+    -100,                     !- Minimum Indoor Temperature
+    ,                         !- Minimum Indoor Temperature Schedule Name
+    100,                      !- Maximum Indoor Temperature
+    ,                         !- Maximum Indoor Temperature Schedule Name
+    -100,                     !- Delta Temperature
+    ,                         !- Delta Temperature Schedule Name
+    -100,                     !- Minimum Outdoor Temperature
+    ,                         !- Minimum Outdoor Temperature Schedule Name
+    100,                      !- Maximum Outdoor Temperature
+    ,                         !- Maximum Outdoor Temperature Schedule Name
+    40;                       !- Maximum Wind Speed
+
+ZONEVENTILATION:DESIGNFLOWRATE,
+    EU_ConstantAir_49fcb0ffa4f3f80c_F1_dwelling_0,    !- Name
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone or ZoneList or Space or SpaceList Name
+    EU_AlwaysOn,              !- Schedule Name
+    AirChanges/Hour,          !- Design Flow Rate Calculation Method
+    ,                         !- Design Flow Rate
+    ,                         !- Flow Rate per Floor Area
+    ,                         !- Flow Rate per Person
+    0.860309441265426,        !- Air Changes per Hour
+    Natural,                  !- Ventilation Type
+    0,                        !- Fan Pressure Rise
+    1,                        !- Fan Total Efficiency
+    1,                        !- Constant Term Coefficient
+    0,                        !- Temperature Term Coefficient
+    0,                        !- Velocity Term Coefficient
+    0,                        !- Velocity Squared Term Coefficient
+    -100,                     !- Minimum Indoor Temperature
+    ,                         !- Minimum Indoor Temperature Schedule Name
+    100,                      !- Maximum Indoor Temperature
+    ,                         !- Maximum Indoor Temperature Schedule Name
+    -100,                     !- Delta Temperature
+    ,                         !- Delta Temperature Schedule Name
+    -100,                     !- Minimum Outdoor Temperature
+    ,                         !- Minimum Outdoor Temperature Schedule Name
+    100,                      !- Maximum Outdoor Temperature
+    ,                         !- Maximum Outdoor Temperature Schedule Name
+    40;                       !- Maximum Wind Speed
+
+HVACTEMPLATE:THERMOSTAT,
+    EU_HeatOnly_49fcb0ffa4f3f80c_F0_dwelling_0,    !- Name
+    ,                         !- Heating Setpoint Schedule Name
+    20,                       !- Constant Heating Setpoint
+    ,                         !- Cooling Setpoint Schedule Name
+    50;                       !- Constant Cooling Setpoint
+
+HVACTEMPLATE:THERMOSTAT,
+    EU_HeatOnly_49fcb0ffa4f3f80c_F1_dwelling_0,    !- Name
+    ,                         !- Heating Setpoint Schedule Name
+    20,                       !- Constant Heating Setpoint
+    ,                         !- Cooling Setpoint Schedule Name
+    50;                       !- Constant Cooling Setpoint
+
+HVACTEMPLATE:ZONE:IDEALLOADSAIRSYSTEM,
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone Name
+    EU_HeatOnly_49fcb0ffa4f3f80c_F0_dwelling_0,    !- Template Thermostat Name
+    EU_AlwaysOn,              !- System Availability Schedule Name
+    50,                       !- Maximum Heating Supply Air Temperature
+    13,                       !- Minimum Cooling Supply Air Temperature
+    0.0156,                   !- Maximum Heating Supply Air Humidity Ratio
+    0.0077,                   !- Minimum Cooling Supply Air Humidity Ratio
+    NoLimit,                  !- Heating Limit
+    ,                         !- Maximum Heating Air Flow Rate
+    ,                         !- Maximum Sensible Heating Capacity
+    NoLimit,                  !- Cooling Limit
+    ,                         !- Maximum Cooling Air Flow Rate
+    ,                         !- Maximum Total Cooling Capacity
+    EU_AlwaysOn,              !- Heating Availability Schedule Name
+    EU_CoolingOff,            !- Cooling Availability Schedule Name
+    ConstantSensibleHeatRatio,    !- Dehumidification Control Type
+    0.7,                      !- Cooling Sensible Heat Ratio
+    60,                       !- Dehumidification Setpoint
+    None,                     !- Humidification Control Type
+    30,                       !- Humidification Setpoint
+    None,                     !- Outdoor Air Method
+    0.00944,                  !- Outdoor Air Flow Rate per Person
+    0.0,                      !- Outdoor Air Flow Rate per Zone Floor Area
+    0,                        !- Outdoor Air Flow Rate per Zone
+    ,                         !- Design Specification Outdoor Air Object Name
+    None,                     !- Demand Controlled Ventilation Type
+    NoEconomizer,             !- Outdoor Air Economizer Type
+    None,                     !- Heat Recovery Type
+    0.70,                     !- Sensible Heat Recovery Effectiveness
+    0.65;                     !- Latent Heat Recovery Effectiveness
+
+HVACTEMPLATE:ZONE:IDEALLOADSAIRSYSTEM,
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone Name
+    EU_HeatOnly_49fcb0ffa4f3f80c_F1_dwelling_0,    !- Template Thermostat Name
+    EU_AlwaysOn,              !- System Availability Schedule Name
+    50,                       !- Maximum Heating Supply Air Temperature
+    13,                       !- Minimum Cooling Supply Air Temperature
+    0.0156,                   !- Maximum Heating Supply Air Humidity Ratio
+    0.0077,                   !- Minimum Cooling Supply Air Humidity Ratio
+    NoLimit,                  !- Heating Limit
+    ,                         !- Maximum Heating Air Flow Rate
+    ,                         !- Maximum Sensible Heating Capacity
+    NoLimit,                  !- Cooling Limit
+    ,                         !- Maximum Cooling Air Flow Rate
+    ,                         !- Maximum Total Cooling Capacity
+    EU_AlwaysOn,              !- Heating Availability Schedule Name
+    EU_CoolingOff,            !- Cooling Availability Schedule Name
+    ConstantSensibleHeatRatio,    !- Dehumidification Control Type
+    0.7,                      !- Cooling Sensible Heat Ratio
+    60,                       !- Dehumidification Setpoint
+    None,                     !- Humidification Control Type
+    30,                       !- Humidification Setpoint
+    None,                     !- Outdoor Air Method
+    0.00944,                  !- Outdoor Air Flow Rate per Person
+    0.0,                      !- Outdoor Air Flow Rate per Zone Floor Area
+    0,                        !- Outdoor Air Flow Rate per Zone
+    ,                         !- Design Specification Outdoor Air Object Name
+    None,                     !- Demand Controlled Ventilation Type
+    NoEconomizer,             !- Outdoor Air Economizer Type
+    None,                     !- Heat Recovery Type
+    0.70,                     !- Sensible Heat Recovery Effectiveness
+    0.65;                     !- Latent Heat Recovery Effectiveness
+
+SIZING:ZONE,
+    49fcb0ffa4f3f80c_F0_dwelling_0,    !- Zone or ZoneList Name
+    SupplyAirTemperature,     !- Zone Cooling Design Supply Air Temperature Input Method
+    13,                       !- Zone Cooling Design Supply Air Temperature
+    ,                         !- Zone Cooling Design Supply Air Temperature Difference
+    SupplyAirTemperature,     !- Zone Heating Design Supply Air Temperature Input Method
+    50,                       !- Zone Heating Design Supply Air Temperature
+    ,                         !- Zone Heating Design Supply Air Temperature Difference
+    0.008,                    !- Zone Cooling Design Supply Air Humidity Ratio
+    0.008,                    !- Zone Heating Design Supply Air Humidity Ratio
+    ,                         !- Design Specification Outdoor Air Object Name
+    ,                         !- Zone Heating Sizing Factor
+    ,                         !- Zone Cooling Sizing Factor
+    DesignDay,                !- Cooling Design Air Flow Method
+    0,                        !- Cooling Design Air Flow Rate
+    0.000762,                 !- Cooling Minimum Air Flow per Zone Floor Area
+    0,                        !- Cooling Minimum Air Flow
+    0.2,                      !- Cooling Minimum Air Flow Fraction
+    DesignDay,                !- Heating Design Air Flow Method
+    0,                        !- Heating Design Air Flow Rate
+    0.002032,                 !- Heating Maximum Air Flow per Zone Floor Area
+    0.1415762,                !- Heating Maximum Air Flow
+    0.3,                      !- Heating Maximum Air Flow Fraction
+    ,                         !- Design Specification Zone Air Distribution Object Name
+    No,                       !- Account for Dedicated Outdoor Air System
+    NeutralSupplyAir,         !- Dedicated Outdoor Air System Control Strategy
+    autosize,                 !- Dedicated Outdoor Air Low Setpoint Temperature for Design
+    autosize,                 !- Dedicated Outdoor Air High Setpoint Temperature for Design
+    Sensible Load Only No Latent Load,    !- Zone Load Sizing Method
+    HumidityRatioDifference,    !- Zone Latent Cooling Design Supply Air Humidity Ratio Input Method
+    ,                         !- Zone Dehumidification Design Supply Air Humidity Ratio
+    0.005,                    !- Zone Cooling Design Supply Air Humidity Ratio Difference
+    HumidityRatioDifference,    !- Zone Latent Heating Design Supply Air Humidity Ratio Input Method
+    ,                         !- Zone Humidification Design Supply Air Humidity Ratio
+    0.005;                    !- Zone Humidification Design Supply Air Humidity Ratio Difference
+
+SIZING:ZONE,
+    49fcb0ffa4f3f80c_F1_dwelling_0,    !- Zone or ZoneList Name
+    SupplyAirTemperature,     !- Zone Cooling Design Supply Air Temperature Input Method
+    13,                       !- Zone Cooling Design Supply Air Temperature
+    ,                         !- Zone Cooling Design Supply Air Temperature Difference
+    SupplyAirTemperature,     !- Zone Heating Design Supply Air Temperature Input Method
+    50,                       !- Zone Heating Design Supply Air Temperature
+    ,                         !- Zone Heating Design Supply Air Temperature Difference
+    0.008,                    !- Zone Cooling Design Supply Air Humidity Ratio
+    0.008,                    !- Zone Heating Design Supply Air Humidity Ratio
+    ,                         !- Design Specification Outdoor Air Object Name
+    ,                         !- Zone Heating Sizing Factor
+    ,                         !- Zone Cooling Sizing Factor
+    DesignDay,                !- Cooling Design Air Flow Method
+    0,                        !- Cooling Design Air Flow Rate
+    0.000762,                 !- Cooling Minimum Air Flow per Zone Floor Area
+    0,                        !- Cooling Minimum Air Flow
+    0.2,                      !- Cooling Minimum Air Flow Fraction
+    DesignDay,                !- Heating Design Air Flow Method
+    0,                        !- Heating Design Air Flow Rate
+    0.002032,                 !- Heating Maximum Air Flow per Zone Floor Area
+    0.1415762,                !- Heating Maximum Air Flow
+    0.3,                      !- Heating Maximum Air Flow Fraction
+    ,                         !- Design Specification Zone Air Distribution Object Name
+    No,                       !- Account for Dedicated Outdoor Air System
+    NeutralSupplyAir,         !- Dedicated Outdoor Air System Control Strategy
+    autosize,                 !- Dedicated Outdoor Air Low Setpoint Temperature for Design
+    autosize,                 !- Dedicated Outdoor Air High Setpoint Temperature for Design
+    Sensible Load Only No Latent Load,    !- Zone Load Sizing Method
+    HumidityRatioDifference,    !- Zone Latent Cooling Design Supply Air Humidity Ratio Input Method
+    ,                         !- Zone Dehumidification Design Supply Air Humidity Ratio
+    0.005,                    !- Zone Cooling Design Supply Air Humidity Ratio Difference
+    HumidityRatioDifference,    !- Zone Latent Heating Design Supply Air Humidity Ratio Input Method
+    ,                         !- Zone Humidification Design Supply Air Humidity Ratio
+    0.005;                    !- Zone Humidification Design Supply Air Humidity Ratio Difference
+
+OUTPUT:VARIABLE,
+    *,                        !- Key Value
+    Zone Ideal Loads Zone Total Heating Energy,    !- Variable Name
+    Hourly;                   !- Reporting Frequency
+
+OUTPUT:SQLITE,
+    SimpleAndTabular,         !- Option Type
+    UseOutputControlTableStyle;    !- Unit Conversion for Tabular Data

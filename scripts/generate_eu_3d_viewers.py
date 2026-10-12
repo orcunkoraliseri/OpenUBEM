@@ -90,7 +90,15 @@ def _read_tree(district: str, root: Path) -> list[BuildingPlan]:
         if not path.exists() or outcome is None:
             continue
         kw = dict(stem=row["stem"], building_id=row["building_id"], district=district, geometry_outcome=outcome)
-        plans.append(_read_fault_plan(path, **kw) if row["building_id"] in fault_ids else read_building_plan(path, **kw))
+        if row["building_id"] in fault_ids:
+            plans.append(_read_fault_plan(path, **kw))
+            continue
+        try:
+            plans.append(read_building_plan(path, **kw))
+        except ValueError as exc:
+            if district in FOUR_SITES or "has no floor surface" not in str(exc):
+                raise
+            plans.append(_read_fault_plan(path, **kw))
     return plans
 
 

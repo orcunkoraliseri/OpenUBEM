@@ -21,6 +21,9 @@ fi
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "$HERE/../.." && pwd)"
 EV="$REPO/openubem/outputs/eu_evidence/EU-11/division_fix_2026-10-10"
+EU11="$REPO/openubem/outputs/eu_evidence/EU-11"
+IDD_SRC="${EU22_IDD_SRC:-/c/EnergyPlusV23-1-0/Energy+.idd}"
+IDD_MD5="2f3e8a1b51a4c375c31a720ad6c39f58"
 SITES="FI-HEL-KALLIO AT-VIE-RUDOLFSHEIM HU-BUD-ERZSEBETVAROS"
 NAME="eu22_fix_2026-10-10"
 REMOTE_HOST="o_iseri@speed.encs.concordia.ca"
@@ -37,13 +40,19 @@ say() {
 for f in ids_combined.csv $(for s in $SITES; do echo "ids_$s.csv"; done); do
   [ -f "$EV/$f" ] || { echo "ERROR: missing $EV/$f" >&2; exit 1; }
 done
-for f in eu22_fix_env.sbatch eu22_fix_array.sbatch; do
+for f in eu22_fix_env.sbatch eu22_fix_array.sbatch eu22_sidecar_array.sbatch; do
   [ -f "$HERE/$f" ] || { echo "ERROR: missing $HERE/$f" >&2; exit 1; }
 done
 for s in $SITES; do
   [ -f "$REPO/openubem/outputs/eu02/$s/02_residential_manifest.gpkg" ] || { echo "ERROR: missing eu02 manifest for $s" >&2; exit 1; }
   [ -f "$REPO/openubem/outputs/eu_evidence/EU-22/$s/acquisition_report.json" ] || { echo "ERROR: missing acquisition_report.json for $s" >&2; exit 1; }
+  slug="$(printf '%s' "$s" | tr 'A-Z-' 'a-z_')"
+  for f in prepared_buildings.csv "${slug}_manifest.csv"; do
+    [ -f "$EU11/${s}_dw_2026-10-10/$f" ] || { echo "ERROR: missing $EU11/${s}_dw_2026-10-10/$f" >&2; exit 1; }
+  done
 done
+[ -f "$IDD_SRC" ] || { echo "ERROR: missing EnergyPlus 23.1 IDD $IDD_SRC (set EU22_IDD_SRC)" >&2; exit 1; }
+[ "$(md5sum "$IDD_SRC" | cut -d' ' -f1)" = "$IDD_MD5" ] || { echo "ERROR: $IDD_SRC md5 is not $IDD_MD5" >&2; exit 1; }
 
 if [ "$DRY" -eq 1 ]; then
   WORK="$DRYDIR"
@@ -65,7 +74,21 @@ for s in $SITES; do
 done
 cp "$EV"/ids_combined.csv "$PKG/"
 for s in $SITES; do cp "$EV/ids_$s.csv" "$PKG/"; done
-cp "$HERE/eu22_fix_env.sbatch" "$HERE/eu22_fix_array.sbatch" "$PKG/"
+cp "$HERE/eu22_fix_env.sbatch" "$HERE/eu22_fix_array.sbatch" "$HERE/eu22_sidecar_array.sbatch" "$PKG/"
+cp "$IDD_SRC" "$PKG/Energy+.idd"
+for s in $SITES; do
+  slug="$(printf '%s' "$s" | tr 'A-Z-' 'a-z_')"
+  DW="$EU11/${s}_dw_2026-10-10"
+  IN="$PKG/sidecar_in/$s"
+  mkdir -p "$IN/idfs"
+  cp "$DW/prepared_buildings.csv" "$DW/${slug}_manifest.csv" "$IN/"
+  awk -F, 'NR==FNR { gsub("\r", ""); ids[$1] = 1; next } FNR > 1 && ($1 in ids) { print $2 }' "$EV/ids_$s.csv" "$DW/prepared_buildings.csv" > "$WORK/stems_$s.txt"
+  while IFS= read -r stem; do
+    [ -f "$DW/idfs/$stem.idf" ] || { echo "ERROR: missing $DW/idfs/$stem.idf" >&2; exit 1; }
+    cp "$DW/idfs/$stem.idf" "$IN/idfs/"
+  done < "$WORK/stems_$s.txt"
+  rm -f "$WORK/stems_$s.txt"
+done
 (cd "$REPO" && uv export --frozen --no-dev --no-hashes --no-emit-project --quiet) | grep -v '^ *#' > "$PKG/requirements_eu22.txt"
 
 N=$(( $(grep -c '' "$PKG/ids_combined.csv") - 1 ))

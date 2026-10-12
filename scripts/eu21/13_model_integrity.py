@@ -298,10 +298,19 @@ def top_floor_area(parsed):
     return total, uncovered
 
 
+def flats_expected(ctx):
+    removed = ctx.get("dwellings_removed")
+    try:
+        removed = 0 if removed is None or pd.isna(removed) or str(removed).strip() == "" else int(float(removed))
+    except (TypeError, ValueError):
+        removed = 0
+    return int(ctx["dwellings_used"]) - removed
+
+
 def expected_dwellings_per_storey(ctx, n_storeys):
     alloc = allocate_european_dwellings(
         archetype_id=ctx["archetype_id"], building_type=ctx["building_type"],
-        n_apartment=ctx["dwellings_used"], n_storey=n_storeys, plate_area_m2=float(ctx["footprint_area_m2"]),
+        n_apartment=flats_expected(ctx), n_storey=n_storeys, plate_area_m2=float(ctx["footprint_area_m2"]),
     )
     counts = [f.dwelling_count for f in alloc.floor_allocations]
     expected = []
@@ -493,8 +502,10 @@ def evaluate(parsed, ctx):
     r["levels_data"] = ctx.get("levels_data", "")
     r["sidecar_overlap_m2"] = ctx.get("sidecar_overlap_m2", "")
     r["dwellings_used"] = ctx["dwellings_used"]
+    if flats_expected(ctx) != int(ctx["dwellings_used"]):
+        r["dwellings_removed"] = int(ctx["dwellings_used"]) - flats_expected(ctx)
     whole_only = not idx and any(z.endswith("_whole") for z in zones)
-    r["I8_literal"] = _flag(len(idx) == int(ctx["dwellings_used"])) if ctx["divided"] and not whole_only else ""
+    r["I8_literal"] = _flag(len(idx) == flats_expected(ctx)) if ctx["divided"] and not whole_only else ""
     if ctx["divided"] and not whole_only:
         if ref is not None:
             basis, r["I8_storey_basis"] = ref, "ref"
@@ -508,7 +519,7 @@ def evaluate(parsed, ctx):
             width = max(len(expected), len(actual))
             exp_p = expected + [0] * (width - len(expected))
             act_p = actual + [0] * (width - len(actual))
-            ok8 = exp_p == act_p and sum(counts) == int(ctx["dwellings_used"]) and total == int(ctx["dwellings_used"])
+            ok8 = exp_p == act_p and sum(counts) == flats_expected(ctx) and total == flats_expected(ctx)
             r["I8_value"] = ";".join(str(x) for x in act_p)
             r["I8_expected"] = ";".join(str(x) for x in exp_p)
             r["I8_pass"] = _flag(ok8)
@@ -771,6 +782,8 @@ def _district_contexts(code, tree, ref_tree):
             ctx["building_id"] = bid
             ctx["prepared_floor_area_m2"] = float(src["floor_area_m2"])
             ctx["dwellings_used"] = int(src["dwellings_used"])
+            if "dwellings_removed" in src.index:
+                ctx["dwellings_removed"] = src["dwellings_removed"]
             ctx["divided"] = str(src["geometry_outcome"]).startswith("DWELLING_LAYOUT_EMITTED")
             ctx["archetype_id"] = src["archetype_id"]
             ctx["building_type"] = src["building_type"]

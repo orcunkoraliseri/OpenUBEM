@@ -367,3 +367,22 @@ def test_reference_from_catastro_sidecar():
     assert r["storeys_ref"] == 4
     assert r["I1_pass"] is True
     assert r["sidecar_overlap_m2"] == 250.0
+
+
+def test_i8_compares_with_dwellings_used_minus_removed():
+    text = make_idf(storeys=3)
+    base = ctx(storeys=3, dwellings=4)
+    assert run(text, dict(base))["I8_pass"] is False
+    removed = dict(base, dwellings_removed=3)
+    r = run(text, removed)
+    assert r["I8_pass"] is True and r["I8_expected"] == "1;1;1" and r["I8_literal"] is True
+    assert r["dwellings_used"] == 4 and r["dwellings_removed"] == 3
+
+
+@pytest.mark.parametrize("empty", ["", float("nan"), None, " "])
+def test_i8_empty_removed_is_unchanged(empty):
+    text = make_idf(storeys=3)
+    base = run(text, ctx(storeys=3, dwellings=4))
+    r = run(text, dict(ctx(storeys=3, dwellings=4), dwellings_removed=empty))
+    assert r["I8_pass"] is base["I8_pass"] and r["I8_value"] == base["I8_value"] and r["I8_expected"] == base["I8_expected"]
+    assert "dwellings_removed" not in r

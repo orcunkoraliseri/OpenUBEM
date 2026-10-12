@@ -53,6 +53,7 @@ FAULT_CSV = RESIDUAL_DIR / "geometry_fault_excluded_2026-10-06.csv"
 SOURCE_TAG = None
 PREP = {}
 FAULT_TEXT = "left out of results: broken shell (FINDING 291)"
+NO_FLOOR_ZONE_HOMES = []
 UNDIVIDED_COLOR = (232, 60, 200)
 M08.COLOR["UNDIVIDED"] = UNDIVIDED_COLOR
 M08.LEGEND_LABELS["UNDIVIDED"] = "Not divided — not simulated"
@@ -137,8 +138,16 @@ def read_all_tag(district):
         kw = dict(stem=row["stem"], building_id=row["building_id"], district=district, geometry_outcome=row["geometry_outcome"])
         if row["building_id"] in fault_ids(district):
             plan = read_fault_plan(path, **kw)
-        else:
+        elif district in FOUR_SITES:
             plan = read_building_plan(path, **kw)
+        else:
+            try:
+                plan = read_building_plan(path, **kw)
+            except ValueError as exc:
+                if "has no floor surface" not in str(exc):
+                    raise
+                plan = read_fault_plan(path, **kw)
+                NO_FLOOR_ZONE_HOMES.append(row["building_id"])
         if row["building_id"] not in ovl:
             plan = dataclasses.replace(plan, origin_xy=(plan.origin_xy[0] + dx, plan.origin_xy[1] + dy))
         plans.append((plan, "ovl" if row["building_id"] in ovl else "win"))
@@ -534,7 +543,7 @@ def build_district(district):
     dst.write_text(page, encoding="utf-8")
     nogeom = sum(1 for p in plates if not p["geom_ok"])
     print(f"{district}: {n} buildings, PASS {c.get('PASS', 0)}, FAIL {c.get('FAIL', 0)}, GENERIC {c.get('GENERIC', 0)}, "
-          f"ERROR {c.get('ERROR', 0)}, UNDIVIDED {c.get('UNDIVIDED', 0)}, UNRESOLVED {c.get('UNRESOLVED', 0)}, overlay {sum(1 for p in plates if p['src'] == 'ovl')}, t06f {n_t06f}, no gpkg geometry {nogeom}, {dst.stat().st_size / 1048576:.2f} MB, {wall} s", flush=True)
+          f"ERROR {c.get('ERROR', 0)}, UNDIVIDED {c.get('UNDIVIDED', 0)}, UNRESOLVED {c.get('UNRESOLVED', 0)}, overlay {sum(1 for p in plates if p['src'] == 'ovl')}, t06f {n_t06f}, no gpkg geometry {nogeom}, no-floor-zone homes {NO_FLOOR_ZONE_HOMES}, {dst.stat().st_size / 1048576:.2f} MB, {wall} s", flush=True)
 
 
 def _scene_view(p):
