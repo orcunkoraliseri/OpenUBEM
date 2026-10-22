@@ -34,6 +34,8 @@
 > `carbon_t_c2`). Unchanged by the seven-items plan. 172.41 / 981,720 is superseded; every quote in
 > `docs/` carries the "(three rulings)" marker.
 >
+> ⚠ superseded 2026-10-21: restated at 154.10 kWh/m² / 1,037,572 t over 8,139 buildings (hot water counted once, D-IMP-05; see docs/docs_ACTIVE/IMP/PLAN_paper-improvement-implementation-2026-10-21.md T13).
+>
 > **What stays outside the figure (known limitations, recipes in the debug reference):** 6 buildings
 > crash in the production `auto` mode — 4 `la_rural` Warehouses (sizing divergence), 1 `la_rural`
 > Warehouse (non-convex shading), 1 `la_centre` SecondarySchool (runaway plant; completes with

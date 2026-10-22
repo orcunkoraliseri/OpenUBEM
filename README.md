@@ -30,7 +30,7 @@ Give OpenUBEM a neighbourhood (address, coordinate, bounding box, or OSM XML exp
 10. [Test Suite](#test-suite)
 11. [Requirements & Installation](#requirements--installation)
 12. [Quick Start](#quick-start)
-13. [European Locations](#european-locations)
+13. [European & International Locations](#european--international-locations)
 14. [Status & Validation](#status--validation)
 15. [Documentation Map](#documentation-map)
 16. [License](#license)
@@ -472,7 +472,7 @@ docs/                              # Specifications, plans, validation records
 ├── docs_EXPLANATION/              #   Plain-language explainers (start here)
 ├── docs_REPORTS/                  #   Final arc reports
 ├── docs_VALIDATION/               #   Frozen per-cell validation results
-├── docs_ACTIVE/                   #   Live work: open-items register, plans
+├── docs_ACTIVE/                   #   Live work: European & international locations
 ├── docs_DONE/                     #   Closed arc records
 ├── docs_TODO/                     #   Parked tracks
 └── PROJECT_CHECKLIST.md           #   Master progress tracker
@@ -596,7 +596,7 @@ Rules that are non-negotiable on the Concordia *Speed* cluster and generalise we
 
 ## Test Suite
 
-150 test modules cover all pipeline stages, the imputation framework, the European locations arc (51 modules), the microclimate stage and the viewer.
+206 test modules cover all pipeline stages, the imputation framework, the European & international locations work (about 85 modules, including `tests/eu22/`), the microclimate stage and the viewer.
 
 ```bash
 pytest -q -n 8 tests/                     # the suite baseline; always scope to tests/ (pytest-xdist, ~7 min)
@@ -609,7 +609,7 @@ pytest tests/test_building_classifier.py  # single module
 
 Markers: `slow` (integration tests that hit the network or take significant time); `energyplus` (requires EnergyPlus 23.1 installed).
 
-Latest full run of the scoped suite: **0 failed · 2,345 passed · 55 skipped · 0 errors** (2026-08-28). Every skip names the open item it waits on; a skip is tracked as a debt, not counted as a pass — **cite the enumerated 55-skip list, never the bare count**, since a count alone cannot identify the one skip that flipped to a pass.
+Latest full run of the scoped suite (2026-09-30, `-n 8`): **2,757 passed · 111 skipped · 40 failed · 4 errors**. 20 of the failures were fixed right after (8 stale golden answers, 10 from a missing folder default, 2 from an abort flag); the rest are European-arc geometry and viewer tests, each with a named cause. Per-file list: T01 entry of `docs/docs_DONE/openings/implemenation/previous/PLAN_tests-and-crashes-2026-09-30.md`. Cite that list, never the bare count.
 
 Golden fixtures (GeoPackage files, EnergyPlus SQL, labelled classifier exams) live in `tests/fixtures/`.
 
@@ -718,32 +718,38 @@ py -3 scripts/run_step6_microclimate.py --run-dir my_neighbourhood/results
 
 ---
 
-## European Locations
+## European & International Locations
 
-The pipeline runs outside North America. Four European residential districts are modelled end to end, with country-specific archetypes and a dwelling-level zoning path that does not exist in the U.S. cells.
+The pipeline runs outside the United States. **Ten residential districts in ten countries, on four continents,** are modelled end to end, each with its own national building stock data, weather and archetypes, and a dwelling-level zoning path (every building divided into its flats) that the U.S. cells do not use.
 
-| District | Country | Buildings | Status |
-|---|---|---|---|
-| `FR-LYO-HAUTCOEURPENTES` — Lyon, Haut-Cœur / Pentes | France | 509 | ✅ published |
-| `GB-LDN-STDUNSTANS` — London, St Dunstan's | United Kingdom | 706 | ✅ published |
-| `ES-MAD-BERRUGUETE` — Madrid, Berruguete | Spain | 1,175 | ✅ published |
-| `IT-BOL-GALVANI2` — Bologna, Galvani 2 | Italy | 1,211 | ⏳ simulating |
+**District results** — heating only, *pooled*: total simulated heating energy ÷ total simulated floor area, over the correctly divided buildings only.
+
+| District | Country | Buildings in result | Left out | Heating EUI (kWh/m²) | Vintage |
+|---|---|---|---|---|---|
+| `ES-MAD-BERRUGUETE` — Madrid, Berruguete | Spain | 1,119 | see below | **68.774** | 2026-10-08 |
+| `FR-LYO-HAUTCOEURPENTES` — Lyon, Haut-Cœur / Pentes | France | 501 | see below | **57.810** | 2026-10-08 |
+| `GB-LDN-STDUNSTANS` — London, St Dunstan's | United Kingdom | 1,215 | see below | **68.307** | 2026-10-08 |
+| `IT-BOL-GALVANI2` — Bologna, Galvani 2 | Italy | 1,035 | see below | **58.164** | 2026-10-08 ❄ |
+| `CA-MTL-PLATEAU` — Montréal, Le Plateau-Mont-Royal | Canada | 701 | 9 | **140.903** | 2026-10-09 |
+| `AM-EVN-NORNORK` — Yerevan, Nor Nork | Armenia | 535 | 16 | **48.517** | 2026-10-09 |
+| `ZA-CPT-WOODSTOCK` — Cape Town, Woodstock | South Africa | 524 | 1 | **54.152** | 2026-10-09 🔒 |
+| `FI-HEL-KALLIO` — Helsinki, Kallio | Finland | 542 | 38 | **96.417** | 2026-10-10 |
+| `AT-VIE-RUDOLFSHEIM` — Vienna, Rudolfsheim-Fünfhaus | Austria | 517 | 19 | **77.578** | 2026-10-10 |
+| `HU-BUD-ERZSEBETVAROS` — Budapest, VII. district | Hungary | 757 | 48 | **63.358** | 2026-10-10 |
+
+- **The first four districts pool to 62.626 kWh/m² over 3,870 buildings** (2026-10-08). 232 buildings across the four are left out because their flats could not be divided by the rules; the rules were deliberately not loosened further (owner ruling, 2026-10-08).
+- ❄ **Bologna is frozen**: a partner session is re-running it with its own household diaries, and nothing in the Bologna files changes until that run reports done.
+- 🔒 **Cape Town is internal only**: the City of Cape Town footprint data carries a non-commercial, no-redistribution condition, so its floor-plan page and 3D viewer are not published.
+- **The numbers describe each district, not a ranking.** Each district has its own weather station, survey year and construction data, so a gap between two countries mixes climate, stock and data source.
+- **Superseded figures, never quote them:** the 2026-09-07 set (e.g. London 120.06 over 706) and the 2026-10-06 set (four-district pool 59.661 over 4,087). The 2026-10-08 set is not like-for-like with 2026-10-06: it keeps only correctly divided buildings.
 
 **What is different from the U.S. path:**
 
-- **Archetypes come from TABULA / EPISCOPE**, per country and construction period, instead of the DOE/ASHRAE reference set.
-- **Weather is `TMYx.2009-2023`** for every fold — the only window covering all fieldwork periods — with the station chosen by scoring candidates against TABULA's own monthly temperatures, not by nearest-distance.
-- **Buildings are divided into dwellings, not floors.** A ruled grid regularizes the footprint, allocates up to 12 dwellings per floor, and branches on morphology (L-shape, U/T-shape, multi-wing) with a habitability retry. Where the ruled grid refuses — the reason is recorded per building (`L_SHAPE_DECOMPOSITION_FAILED`, `DWELLING_DENSITY_EXCEEDS_RULED_GRID_GT_12`, `REGULARIZATION_AREA_DELTA_GT_2PCT`) — the building falls back to one undivided zone per storey and is badged as such in the viewer. Refusals are shown, never hidden.
-
-**Published numbers** (pooled: total simulated energy ÷ total simulated floor area):
-
-| District | Pooled EUI | Population |
-|---|---|---|
-| Lyon | **69.595307 kWh/m²** | 505 of 509 buildings |
-| London | **120.064327 kWh/m²** | 706 of 706 buildings |
-| Madrid | **80.694006 kWh/m²** | 1,166 of 1,175 buildings |
-
-Every quoted figure names its population. A building whose EUI was carried from a different IDF than the one finally simulated is never published as a result: it is marked `pending_resimulation` with blank result columns until it is re-simulated.
+- **Archetypes come from TABULA / EPISCOPE**, per country and construction period, instead of the DOE/ASHRAE reference set. Where a country has no TABULA series, a stated donor country fills the gap (e.g. Swedish records for Montréal, Bulgarian records for Yerevan), and every borrowed or assumed value is marked as such in the per-building records.
+- **Building data come from open national or city registers** where they exist (Ville de Montréal, City of Helsinki, Stadt Wien, the Hungarian census for Budapest, and others) and from OpenStreetMap otherwise; the licence of every source is kept beside its evidence.
+- **Weather:** Montréal, Yerevan, Cape Town, Helsinki and Budapest use `TMYx.2009-2023`, with the station chosen by scoring candidates against measured monthly temperatures, not by nearest distance. Madrid, Lyon, London, Bologna and Vienna use one real year from ERA5 reanalysis (Madrid 2010, Lyon 2023, London 2015, Bologna 2014, Vienna 2008).
+- **Buildings are divided into dwellings, not floors.** A ruled grid regularizes the footprint, allocates the flats on each floor, and branches on morphology (L-shape, U/T-shape, multi-wing), with no circulation core zone. A building whose division breaks a shape rule is **left out of the result and listed with its reason**, never silently merged or hidden.
+- **Every district has a floor-plan page and a 3D viewer** drawn from the same simulated models the numbers came from (except Cape Town, see above).
 
 **Definition of done, per district.** A district is not published until five measured checks pass, reported pass/fail rather than summarised:
 
@@ -753,40 +759,67 @@ Every quoted figure names its population. A building whose EUI was carried from 
 4. The viewer's EUI join matches the manifest exactly, and the `docs_ACTIVE` mirror is byte-identical.
 5. Every superseded figure still in the docs carries an explicit supersession marker.
 
-Evidence trees: `openubem/outputs/eu_evidence/` (per campaign, per district). Working state and findings: `docs/docs_ACTIVE/europeanLocations/`.
+**Where things are:**
+
+| You want… | Look in |
+|---|---|
+| Results per district (summary + per building) | `docs/docs_ACTIVE/europeanLocations/results/` (`EU11_results_2026-10-08_*`, `EU22_results_<SITE>_*`) |
+| Floor-plan pages for every district | `docs/docs_ACTIVE/europeanLocations/plans3D/` (start at `index.html`) |
+| 3D viewers | `docs/docs_ACTIVE/europeanLocations/outputs_3D/` |
+| One page over all cities | `docs/docs_ACTIVE/europeanLocations/ALL_CITIES_2026-10-12.html` |
+| Plain-language brief, checklist, full state | `BRIEF_european_locations_v5.md`, `CHECKLIST_european_locations_v5.md`, `STATE_european_locations_v5.md` in the same folder |
+| Division rules | `docs/docs_ACTIVE/europeanLocations/rules/` |
+| Evidence trees (IDFs, side-cars, licences) | `openubem/outputs/eu_evidence/` (`EU-11/`, `EU-22/`) |
+| Messages with the partner sessions | `docs/docs_ACTIVE/europeanLocations/messages_GSSCanada/` |
 
 ---
 
 ## Status & Validation
 
-Validated at neighbourhood scale across **three U.S. cities** against independent measured-energy benchmarks. All gates are report-only, never tuned to pass.
+Validated at neighbourhood scale across **three U.S. cities** against independent measured-energy benchmarks. All gates are report-only, never tuned to pass. **Zero fitted parameters.**
 
-**Validation matrix: 12 cells, 8,160 buildings.** Four density cells (centre / urban / suburban / rural) in each of **New York City, Los Angeles, and Austin**, simulated end-to-end. **8,154 of 8,160 buildings succeeded (99.93%)**; the six failures are geometry defects in `la_rural` / `la_urban`, documented rather than dropped silently.
+**Validation matrix: 12 cells, 8,160 buildings.** Four density cells (centre / urban / suburban / rural) in each of **New York City, Los Angeles, and Austin**, simulated end-to-end.
 
-**Adopted baseline, "Phase-E full realism":** DOE-aligned archetype thresholds (E-R3-3) + 10 archetype-specific HVAC system families + physically modelled DHW, cooking, refrigeration and elevators. The former CBECS reconstruction overlay is **retired**. **Zero fitted parameters.**
+**Adopted fleet figure (adopted 2026-10-21; 2026-09-30 three-rulings set, hot water counted once, D-IMP-05):**
 
 | Metric | Result |
 |---|---|
-| Fleet EUI | **153.8231 kWh/m²**, *pooled*: total simulated energy ÷ total simulated floor area over 8,153 buildings (restated 2026-08-19; **157.1 and 158.0 are superseded and must not be quoted**) |
-| City-Overall vs. measured | NYC **−31.3%** · LA **−3.6%** · Austin **−30.5%** (LL84 / EBEWE / CBECS proxy) |
-| Archetype-level R² | NYC **0.877** · LA **0.902** · Austin **0.723** |
+| Fleet EUI | **154.10 kWh/m²**, *pooled*: total simulated energy ÷ total simulated floor area over **8,139 buildings** |
+| Fleet carbon | **1,037,572 t CO₂e** on the same 8,139 buildings |
+| Buildings outside the figure | 21 of 8,160, each with a recorded reason (6 crash in the production mode, see below) |
+| City-Overall vs. measured | NYC **−29.8%** · LA **−3.2%** · Austin **−29.4%** (LL84 / EBEWE / CBECS proxy; scored on the adopted figure, 2026-10-21; n 3,738 / 2,309 / 1,442) |
+| Archetype-level R² | NYC **0.882** · LA **0.900** · Austin **0.715** (same basis; n 3,260 / 553 / 1,476) |
 | National CBECS 2018 | scored across all three census regions (mid-Atlantic, Pacific, West-South-Central) |
-| EnergyPlus success | 8,154 / 8,160 |
+
+**How the figure got here.** Each step fixed a real error; none was a tuning step.
+
+| Date | Fleet EUI (kWh/m²) | Buildings | What changed |
+|---|---|---|---|
+| 2026-08-19 | 153.8231 | 8,153 | Donor screen for unknown-use buildings — superseded |
+| 2026-09-10 | 153.95 | 8,139 | Full fleet re-simulation with fixed zone volumes, floor multipliers and emission factors — superseded |
+| 2026-09-30 | 172.41 | 8,139 | Full re-parse: district-heated hot water now counted, a cooking/refrigeration double count removed — superseded |
+| 2026-09-30 | 171.38 | 8,139 | Three rulings: 488 buildings get their typical floor count, cooking loads fixed — superseded |
+| **2026-10-21** | **154.10** | **8,139** | **Hot water counted once (D-IMP-05) — adopted** |
+
+Never difference two rows without stating both populations; 153.8231 and 153.95 are over different buildings.
+
+**The open-items programme (closed 2026-10-08).** Every defect, doubt or caveat found along the way was logged as an open item, measured, and then fixed or ruled a known limitation by the owner. **73 items were opened and all 73 are retired; none is open.** The register is `docs/docs_DONE/openings/INVESTIGATION_open-items-register-II.md` (the first register is in its `DONE/` subfolder); fixes, measurements and decisions per item are in `docs/docs_DONE/openings/extra/`; the published-numbers and open-items boards are in `docs/docs_DONE/openings/reporting/`.
 
 **How to read the under-prediction.** The earlier Phase-D2 baseline reported city-overall accuracy within ±9%, but part of that agreement came from a post-hoc reconstruction overlay that silently carried a residual "Other" category (process loads, miscellaneous plug loads). Phase-E replaced the overlay with physics, which makes the remaining gap visible instead of absorbed. Closing it would mean fitting office plug loads to CBECS, which breaks the zero-fitted-parameters rule, so it is recorded as an accepted residual, not silently corrected. The distribution shape (R²) is strong; the mean level is biased low; both numbers are published together.
 
 **Known limitations, stated plainly:**
 
-- **The published fleet figure is not yet end-to-end reproducible from `HEAD`.** The adopted run came from a working tree whose elevator wiring was never committed. The wiring has since been restored and regenerates the elevator column exactly, but a separate window-geometry re-randomisation defect (mechanism fixed 2026-08-17) means the confirming third fleet re-run has not been done. `153.8231 kWh/m²` is correct and complete for the run that produced it; the provenance caveat stays live until that re-run lands.
-- **The fleet figure is not volume-correct.** 91.64% of zones carry a 10 m³ volume stub; the effect is about **+1.0 kWh/m²**, which is *not* in the published number. `154.8` was measured but is **not adopted**.
-- **District heating is absent from the total.** Measured at **19.47 kWh/m² (12.7%)** over an 8,144-building census, 70% of it concentrated on 116 `SuperTall`/`Tall` buildings — an archetype effect, never a flat offset. The code fix exists; the restatement was ruled **not adopted** (2026-08-22) because it lands on a different population and carbon does not follow it. Never difference the restated value against `153.8231`.
+- **6 buildings crash in the production `auto` mode** and are not in the figure: 5 `la_rural` warehouses (4 sizing divergence, 1 non-convex shading) and 1 `la_centre` secondary school (runaway plant temperature; it completes with a different zone-air solver, which is not adopted for one building). No tested variant cures the warehouses.
+- **2 `nyc_centre` buildings complete but are not counted**: the storey reader undercounts floors repeated by a multiplier.
+- **A harvest must count a run only when it also completed**: the parser reports `success` on a crashed run's partial `.sql`.
+- **The city-level comparisons above are now scored on the adopted figure** (154.10 kWh/m² over 8,139 buildings, 2026-10-21); the earlier 2026-08-19-baseline scores (−31.3 / −3.6 / −30.5 %) are superseded.
 - **`layout_assign` is not certified for fleet EUI reporting**: see [Simulation Resolution Modes](#simulation-resolution-modes).
 - **Step 6 (UTCI) is not validated against measurement** and is deliberately excluded from `05_results.*`.
 - **Distribution-shape gates** (CV(RMSE), KS) are structural for an archetype-deterministic UBEM, reported for transparency rather than used as pass/fail.
 
 Earlier single-city milestone: a 483-building Boston neighbourhood reached 100% simulation success with CBECS gates passing.
 
-> Detailed validation methodology, per-cell results, and the full record live under `docs/docs_VALIDATION/`, `docs/docs_REPORTS/`, and `docs/PROJECT_CHECKLIST.md`.
+> Detailed validation methodology, per-cell results, and the full record live under `docs/docs_VALIDATION/`, `docs/docs_REPORTS/`, `docs/docs_DONE/openings/`, and `docs/PROJECT_CHECKLIST.md`.
 
 ---
 
@@ -801,7 +834,10 @@ Earlier single-city milestone: a 483-building Boston neighbourhood reached 100% 
 | Results by topic (classification, HVAC/service loads, resolution) | `docs/docs_EXPLANATION/Results/` |
 | The Phase-E final validation report | `docs/docs_REPORTS/REPORT_phaseE_final.md` |
 | The binding design specs | `docs/docs_main/` (cross-cutting) + `docs/docs_stepN/` (per step) |
-| Current project status and open items | `docs/PROJECT_CHECKLIST.md` and `docs/docs_DONE/openings/` |
+| Current project status | `docs/PROJECT_CHECKLIST.md` |
+| The closed open-items register (73 items, all retired) | `docs/docs_DONE/openings/INVESTIGATION_open-items-register-II.md` |
+| European & international districts: state, results, plans | `docs/docs_ACTIVE/europeanLocations/` (start with `BRIEF_european_locations_v5.md`) |
+| Known errors and their fixes | `docs/docs_EXPLANATION/OpenUBEM_debug_References.md` |
 | Cluster runbook | `scripts/cluster/README.md` |
 
 ---

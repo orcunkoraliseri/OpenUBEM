@@ -1,4 +1,4 @@
-"""Phase-E DHW emitter: WaterHeater:Mixed + WaterUse:Equipment/Connections (T09, D7).
+"""Phase-E DHW emitter: standalone WaterHeater:Mixed (T09, D7).
 
 Deviation: uses Site:WaterMainsTemperature CorrelationFromWeatherFile instead of
 Correlation with per-city inputs — avoids EPW-path city detection and is more accurate.
@@ -60,7 +60,7 @@ def _sched_constant_once(idf, name, value):
 
 
 def assign_dhw(idf, row, zones):
-    """Emit standalone WaterHeater:Mixed + WaterUse:Equipment/Connections (D7).
+    """Emit one standalone WaterHeater:Mixed (D7); no WaterUse objects.
 
     Returns the sorted geometry-default provenance tokens (T03); they are also
     appended in place to ``row['data_quality_flag']``. The table-driven no_dhw /
@@ -101,12 +101,6 @@ def assign_dhw(idf, row, zones):
     _sched_constant_once(idf, "OpenUBEM_DHW_Setpoint", 60.0)
     flow_sched = f"OpenUBEM_DHW_FlowFrac_{arch}"
     _sched_constant_once(idf, flow_sched, round(avg_frac, 6))
-    _sched_constant_once(
-        idf, "OpenUBEM_DHW_SensibleFrac", _DHW_DATA["_zone_gain"]["sensible_fraction"]
-    )
-    _sched_constant_once(
-        idf, "OpenUBEM_DHW_LatentFrac", _DHW_DATA["_zone_gain"]["latent_fraction"]
-    )
 
     # WaterHeater:Mixed — standalone (Peak_Use_Flow_Rate mode, no PlantLoop nodes)
     # Capacity: size to heat peak flow from 5 °C mains floor to setpoint (standalone can't autosize)
@@ -129,23 +123,5 @@ def assign_dhw(idf, row, zones):
     wh.Peak_Use_Flow_Rate = peak_flow_m3_s
     wh.Use_Flow_Rate_Fraction_Schedule_Name = flow_sched
     wh.EndUse_Subcategory = "DHW"
-
-    # WaterUse:Equipment — zone heat-gain split 0.20 sensible / 0.05 latent (D7)
-    wu_name = f"DHW_WaterUse_{arch}"
-    wu = idf.newidfobject("WATERUSE:EQUIPMENT")
-    wu.Name = wu_name
-    wu.EndUse_Subcategory = "DHW"
-    wu.Peak_Flow_Rate = peak_flow_m3_s
-    wu.Flow_Rate_Fraction_Schedule_Name = flow_sched
-    wu.Target_Temperature_Schedule_Name = "OpenUBEM_DHW_Setpoint"
-    wu.Zone_Name = zone_name
-    wu.Sensible_Fraction_Schedule_Name = "OpenUBEM_DHW_SensibleFrac"
-    wu.Latent_Fraction_Schedule_Name = "OpenUBEM_DHW_LatentFrac"
-
-    # WaterUse:Connections — standalone mode (blank node names)
-    wc = idf.newidfobject("WATERUSE:CONNECTIONS")
-    wc.Name = f"DHW_WaterConn_{arch}"
-    wc.Hot_Water_Supply_Temperature_Schedule_Name = "OpenUBEM_DHW_Setpoint"
-    wc.Water_Use_Equipment_1_Name = wu_name
 
     return sorted(flags)

@@ -43,13 +43,24 @@ HVAC_METERS: tuple[str, ...] = (
     "Elevators:InteriorEquipment:Electricity",
 )
 
+DISTRICT_HOT_WATER_METER = "WaterSystems:DistrictHeating"
 
-def write_outputs(idf: GeomIDF, trim_hourly: bool = False) -> None:
+HOURLY_METERS: tuple[str, ...] = (
+    "Electricity:Facility",
+    "NaturalGas:Facility",
+    *HVAC_METERS,
+    DISTRICT_HOT_WATER_METER,
+)
+
+
+def write_outputs(idf: GeomIDF, trim_hourly: bool = False, hourly_meters: bool = False) -> None:
     """Emit the standard output object set per DESIGN §3I (fact #26).
 
     trim_hourly=True: skip per-zone hourly Output:Variable and HTML table objects.
     All 9 end-uses remain readable from RunPeriod meters. Use for large many-zone
     fleets (fast_zone city sweeps) where hourly zone data would create >100 GB SQL.
+    hourly_meters=True: one extra Hourly OUTPUT:METER per name in HOURLY_METERS, after the
+    RunPeriod meters (IMP T15). Default output is unchanged.
     """
     if not trim_hourly:
         for var_name, freq in STANDARD_OUTPUTS:
@@ -76,6 +87,15 @@ def write_outputs(idf: GeomIDF, trim_hourly: bool = False) -> None:
         except eppy.bunch_subclass.BadEPFieldError:
             obj.Name = meter
         obj.Reporting_Frequency = "RunPeriod"
+
+    if hourly_meters:
+        for meter in HOURLY_METERS:
+            obj = idf.newidfobject("OUTPUT:METER")
+            try:
+                obj.Key_Name = meter
+            except eppy.bunch_subclass.BadEPFieldError:
+                obj.Name = meter
+            obj.Reporting_Frequency = "Hourly"
 
     if not trim_hourly:
         idf.newidfobject("OUTPUTCONTROL:TABLE:STYLE", Column_Separator="HTML")

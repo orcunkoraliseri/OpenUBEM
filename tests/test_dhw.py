@@ -195,13 +195,14 @@ class TestDHWEmitter:
         assign_dhw(idf, row, [z])
         assert not idf.idfobjects["WATERHEATER:MIXED"]
 
-    def test_water_use_equipment_emitted(self):
+    def test_one_water_heater_no_water_use_objects(self):
         idf = _fresh_idf()
         z = _simple_zone(idf)
         row = pd.Series({"archetype_id": "FullServiceRestaurant", "footprint_area_m2": 400.0})
         assign_dhw(idf, row, [z])
-        assert len(idf.idfobjects["WATERUSE:EQUIPMENT"]) == 1
-        assert len(idf.idfobjects["WATERUSE:CONNECTIONS"]) == 1
+        assert len(idf.idfobjects["WATERHEATER:MIXED"]) == 1
+        assert len(idf.idfobjects["WATERUSE:EQUIPMENT"]) == 0
+        assert len(idf.idfobjects["WATERUSE:CONNECTIONS"]) == 0
 
     def test_mains_temp_emitted_once(self):
         idf = _fresh_idf()

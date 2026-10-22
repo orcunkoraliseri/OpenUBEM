@@ -401,7 +401,7 @@ def test_load_conservation_across_modes(tmp_path):
                 "People_per_Floor_Area", zone_key, "Number_of_People_Calculation_Method", za,
             ),
         }
-        wu_counts[mode] = len(idf.idfobjects["WATERUSE:EQUIPMENT"])
+        wu_counts[mode] = (len(idf.idfobjects["WATERHEATER:MIXED"]), len(idf.idfobjects["WATERUSE:EQUIPMENT"]))
 
     # F11: 1-floor → Σ zone_area = footprint in all modes → identical totals
     rel_tol = 1e-6
@@ -413,10 +413,10 @@ def test_load_conservation_across_modes(tmp_path):
                 f"F11 violation: {metric} total differs — floor={r:.4f}, {mode}={v:.4f}"
             )
 
-    # F13: absolute process load (WaterUse:Equipment) pinned to zones[0] → exactly once per mode
+    # F13: absolute process load (one water heater, no water-use objects) pinned to zones[0] → exactly once per mode
     for mode in ("building", "floor", "fast_zone"):
-        assert wu_counts[mode] == 1, (
-            f"F13 violation: WaterUse:Equipment count should be 1 in mode={mode!r}, got {wu_counts[mode]}"
+        assert wu_counts[mode] == (1, 0), (
+            f"F13 violation: (WaterHeater:Mixed, WaterUse:Equipment) counts should be (1, 0) in mode={mode!r}, got {wu_counts[mode]}"
         )
 
 
@@ -512,7 +512,8 @@ def test_load_conservation_across_modes_multifloor(tmp_path):
         cook_gas = [g for g in idf.idfobjects["GASEQUIPMENT"] if g.Name.startswith("Cooking_Gas_")]
         cook_elec = [e for e in idf.idfobjects["ELECTRICEQUIPMENT"] if e.Name.startswith("Cooking_Elec_")]
         refrig = [e for e in idf.idfobjects["ELECTRICEQUIPMENT"] if e.Name.startswith("Refrig_Lumped_")]
-        wu = idf.idfobjects["WATERUSE:EQUIPMENT"]
+        wu = idf.idfobjects["WATERHEATER:MIXED"]
+        assert len(idf.idfobjects["WATERUSE:EQUIPMENT"]) == 0
         assert len(cook_gas) == 1 and len(cook_elec) == 1 and len(refrig) == 1 and len(wu) == 1, (
             f"mode={mode!r}: expected exactly one each of cooking-gas/cooking-elec/refrig/dhw, "
             f"got {len(cook_gas)}/{len(cook_elec)}/{len(refrig)}/{len(wu)}"
@@ -521,7 +522,7 @@ def test_load_conservation_across_modes_multifloor(tmp_path):
             "cook_gas": float(cook_gas[0].Power_per_Zone_Floor_Area) * _mult_area(idf, za),
             "cook_elec": float(cook_elec[0].Watts_per_Zone_Floor_Area) * _mult_area(idf, za),
             "refrig": float(refrig[0].Design_Level),
-            "dhw": float(wu[0].Peak_Flow_Rate),
+            "dhw": float(wu[0].Peak_Use_Flow_Rate),
         }
 
     # 5-floor → Σ zone_area / floor_area_m2 = footprint × 5 in all three modes → identical totals.
