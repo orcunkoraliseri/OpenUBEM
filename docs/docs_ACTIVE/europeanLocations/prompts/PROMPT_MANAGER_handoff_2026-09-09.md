@@ -10,7 +10,18 @@
 
 ---
 
-## 🟢 START HERE — fresh manager session, updated 2026-10-12 16:37 local (handover to a new session; read only this box first)
+## 🟢 START HERE — fresh manager session, updated 2026-10-24 local (handover to a new session; read only this box first)
+
+**2026-10-24 — FINDING 299: SHARED WALLS DEPEND ON CPU TYPE (4J Step 5, peer gsscanada-d7).** The node test was a geometry-only rebuild of 8 buildings, each built 3 times per node, with no code changed. Logs: `/speed-scratch/o_iseri/4J_esit/add09/logs/4J_esit_add09_s5_nodetest_*`, files under `/speed-scratch/o_iseri/4J_esit/nodetest_add09/`.
+- Rebuilds on the same node are bit-identical, and the hash seed has no effect.
+- Coordinates before `extrude_geometry` are identical on Intel speed-20 (AVX-512) and AMD speed-37 (no AVX-512).
+- Wall pairing in `intersect_match` (`openubem/idf/surfaces.py:928`) differs in 7 of the 8 buildings.
+- Each rebuild matches the campaign run made on the same CPU type, wall for wall.
+- Consequence: published numbers stand, but a rebuild reproduces them only on the same CPU type.
+
+Told d7: pin the truth run and all sources of a city to one CPU type, keep the code frozen, and write only to new folders while Bologna is frozen. A code-side fix (rounding before matching) changes every city, so it needs an owner ruling; raise it only after 4J's "Bologna done". Next free D-EU-170 / FINDING 300.
+
+**2026-10-24 — VIENNA TYPICAL-YEAR FILE ADDED FOR 6J (D-EU-169; supersedes the 16:37 entry below on IDs only).** Owner: "yes, add the Vienna file and answer 6J". The TMYx file 6J fetched on 10-19 is registered (`at` entry, `tmyx_*` keys; the pinned ERA5 file is unchanged); gates pass, audited (Vienna plan §8 Step W). Answer to 6J's 10-16 question 3 (yes, models can point to the file) written at `messages_GSSCanada/2026-10-24_OpenUBEM_to_6J_vienna_tmyx_answer.md`; 6J's session (gsscanada-8e) was not reachable, so **send it the path when it is back**. Registry tests: 3 failures already present before this change (the `kr` entry). Still the only other open step: 4J's "Bologna done", then the Bologna 6J copy. Next free D-EU-170 / FINDING 299.
 
 **2026-10-12 16:37 — 6J SIX-CITIES UPDATE COMPLETE; SESSION CLOSED BY OWNER.** The new-cities delivery to 6J is finished: six cities simulated and checked (60/60), 6J's five questions answered, both follow-ups closed. Only leftover: the Bologna 6J copy. 4J's session is also closed while its Speed runs go on; its "Bologna done" message will come only after the owner reopens 4J. **A new manager session starts here:** wait for that message, then make the Bologna 6J copy and send 6J (gsscanada-8e) the path. Owner's open calls unchanged (Seoul leftovers, Yerevan Armstat licence, Budapest brochure check). Next free D-EU-169 / FINDING 299.
 
