@@ -3,7 +3,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Python-3.10%2B-blue?style=flat-square&logo=python" alt="Python Version" />
   <img src="https://img.shields.io/badge/EnergyPlus-23.1%2B-green?style=flat-square" alt="EnergyPlus" />
-  <img src="https://img.shields.io/badge/License-Apache%202.0-yellow?style=flat-square" alt="License" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0_%7C_MIT-yellow?style=flat-square" alt="License: Apache 2.0 or MIT" /></a>
   <img src="https://img.shields.io/badge/Coverage-US%20%2B%2010%20Global%20Sites-orange?style=flat-square" alt="Global Coverage" />
   <img src="https://img.shields.io/badge/Status-Validated-brightgreen?style=flat-square" alt="Validation" />
 </p>
@@ -169,5 +169,11 @@ Other essential resources:
 
 ## License
 
-OpenUBEM is released under the **Apache 2.0 License**. See [LICENSE](LICENSE) for details.
-All external geographic data (OpenStreetMap, Cadastre registers) respect their respective attribution and licensing rules.
+OpenUBEM is dual-licensed under either:
+
+* **[Apache License, Version 2.0](LICENSE-APACHE)** ([http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
+* **[MIT License](LICENSE-MIT)** ([http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
+
+at your option. See [LICENSE](LICENSE) for the full dual-licensing terms and third-party data attributions.
+
+All external geographic data (OpenStreetMap, Cadastre registers, European regional portals) respect their respective attribution and licensing rules.
