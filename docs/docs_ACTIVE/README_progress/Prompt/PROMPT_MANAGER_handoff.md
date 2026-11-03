@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-03  
 **Repository:** [https://github.com/orcunkoraliseri/OpenUBEM](https://github.com/orcunkoraliseri/OpenUBEM)  
-**Latest Remote Commit:** `82693b257e0f592d35f4196db54f60dd5885fbec` (branch: `main`)  
+**Latest Remote Commit:** `97327da2a16bbc9beb268777a99b5f21ea790646` (branch: `main`)  
 **Workspace Root:** `/Users/orcunkoraliseri/Desktop/OpenUBEM`  
 
 ---
@@ -26,7 +26,7 @@ Current Project Status:
 3. 18 high-resolution 3D neighbourhood axonometrics (structural height + EnergyPlus heating EUI heatmaps) have been rendered across 9 European/international sites and published to docs/images/neighbourhoods/ on GitHub main.
 4. A full suite of publication-ready image generation prompts in 3 styles (§2.1, §2.2, §2.3) is documented in docs/docs_ACTIVE/README_progress/prompt_graphical_abstract_3d.md.
 5. Dual-licensing under Apache 2.0 OR MIT is established across the repository (`LICENSE`, `LICENSE-APACHE`, `LICENSE-MIT`, and `pyproject.toml` SPDX metadata), including explicit attributions for third-party geographic data (OpenStreetMap ODbL, national Cadastre registers).
-6. All updates are live on GitHub (commit 82693b2).
+6. All updates are live on GitHub (commit 97327da).
 
 Ask the user which priority they want to tackle today (e.g., setting up GitHub Pages for live 3D WebGL viewers, paper/journal graphic submissions, or monitoring European simulation campaigns).
 ```
