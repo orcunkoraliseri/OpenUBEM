@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-03  
 **Repository:** [https://github.com/orcunkoraliseri/OpenUBEM](https://github.com/orcunkoraliseri/OpenUBEM)  
-**Latest Remote Commit:** `3f65861709b8727509521ce481cde2013bc9644a` (branch: `main`)  
+**Latest Remote Commit:** `82693b257e0f592d35f4196db54f60dd5885fbec` (branch: `main`)  
 **Workspace Root:** `/Users/orcunkoraliseri/Desktop/OpenUBEM`  
 
 ---
@@ -25,7 +25,8 @@ Current Project Status:
 2. The original 64 KB technical reference is preserved intact at docs/docs_ACTIVE/README_progress/README_v1.md.
 3. 18 high-resolution 3D neighbourhood axonometrics (structural height + EnergyPlus heating EUI heatmaps) have been rendered across 9 European/international sites and published to docs/images/neighbourhoods/ on GitHub main.
 4. A full suite of publication-ready image generation prompts in 3 styles (§2.1, §2.2, §2.3) is documented in docs/docs_ACTIVE/README_progress/prompt_graphical_abstract_3d.md.
-5. All updates are live on GitHub (commit 3f65861).
+5. Dual-licensing under Apache 2.0 OR MIT is established across the repository (`LICENSE`, `LICENSE-APACHE`, `LICENSE-MIT`, and `pyproject.toml` SPDX metadata), including explicit attributions for third-party geographic data (OpenStreetMap ODbL, national Cadastre registers).
+6. All updates are live on GitHub (commit 82693b2).
 
 Ask the user which priority they want to tackle today (e.g., setting up GitHub Pages for live 3D WebGL viewers, paper/journal graphic submissions, or monitoring European simulation campaigns).
 ```
@@ -149,11 +150,29 @@ Developed an automated headless rendering script leveraging Google Chrome (`/App
 
 ---
 
+### Phase 7: Apache-2.0 & MIT Dual-Licensing Architecture & Deployment
+- **Context**: The repository had an unlinked reference to `LICENSE` in `README.md` and was showing no active license detection on GitHub. The project required formalizing permissive licensing while accommodating both patent/contributor protections (Apache 2.0) and broad developer compatibility (MIT).
+- **Dual-Licensing Strategy**:
+  - Implemented the industry-standard **Apache-2.0 OR MIT** disjunctive dual license (identical to the model used by Rust, Tokio, and uv).
+  - Authored [`LICENSE-APACHE`](file:///Users/orcunkoraliseri/Desktop/OpenUBEM/LICENSE-APACHE) with official 2004 Apache 2.0 text and OpenUBEM copyright notice.
+  - Authored [`LICENSE-MIT`](file:///Users/orcunkoraliseri/Desktop/OpenUBEM/LICENSE-MIT) with 2026 copyright notice.
+  - Authored root [`LICENSE`](file:///Users/orcunkoraliseri/Desktop/OpenUBEM/LICENSE) explaining user choice, inbound contribution terms, and upstream geographic data licensing.
+  - Detailed third-party data licenses: OpenStreetMap (ODbL 1.0), national cadastral portals (IGN France, Sedecatastro Spain, UK OS, Stadt Wien, Ville de Montréal), ERA5/ECMWF Copernicus, and EnergyPlus BSD-3.
+  - Configured [`pyproject.toml`](file:///Users/orcunkoraliseri/Desktop/OpenUBEM/pyproject.toml) with PEP 621 SPDX identifier `license = { text = "Apache-2.0 OR MIT" }` and PyPI classifiers.
+  - Updated [`README.md`](file:///Users/orcunkoraliseri/Desktop/OpenUBEM/README.md) and mirror [`README_v2.md`](file:///Users/orcunkoraliseri/Desktop/OpenUBEM/docs/docs_ACTIVE/README_progress/README_v2.md) with interactive license badges and explicit dual links.
+  - Atomically committed and pushed directly to GitHub `main` (commit `82693b2`).
+
+---
+
 ## 3. Complete File & Directory Map
 
 ```text
 /Users/orcunkoraliseri/Desktop/OpenUBEM/
 ├── README.md                                          <-- Live GitHub landing page (v2)
+├── LICENSE                                            <-- Master dual-licensing declaration & attributions
+├── LICENSE-APACHE                                     <-- Apache 2.0 full text & copyright
+├── LICENSE-MIT                                        <-- MIT full text & copyright
+├── pyproject.toml                                     <-- Project metadata & dual-license classifiers
 ├── docs/
 │   ├── images/
 │   │   ├── openubem_graphical_abstract_3d.jpg         <-- 3D Pipeline Hero Graphic
