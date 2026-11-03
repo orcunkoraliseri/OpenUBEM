@@ -1,0 +1,259 @@
+{
+  "evidence_scope": "es_gb_it_attribute_source_coverage_probe_only",
+  "measured_at_utc": "2026-08-27T22:40:00Z",
+  "ruling": "D-EU-22 Option F1 (owner-authorised live retrieval of the three D-EU-10 attribute sources over the three study bboxes)",
+  "modelled_on": "openubem/outputs/eu_evidence/EU-04/fr_bdtopo_year_availability_diagnosis.json",
+  "protocol_as_ruled": [
+    "count features returned by the official attribute service inside each study bbox",
+    "measure construction-year (or EPC age-band) completeness on those features",
+    "measure the effective spatial join rate against the existing EU-02 footprints"
+  ],
+  "live_probe": {
+    "performed": true,
+    "ingest_performed": false,
+    "simulation_performed": false,
+    "note": "measurement only - nothing was written into openubem/data or into any manifest"
+  },
+  "sites": {
+    "ES-MAD-BERRUGUETE": {
+      "ruled_attribute_source": "Madrid Catastro INSPIRE BU (D-EU-10, MVP:1236)",
+      "bbox_wgs84_lon_lat": [
+        -3.7110117,
+        40.454341,
+        -3.6986955,
+        40.4638012
+      ],
+      "bbox_projected_epsg": 25830,
+      "wfs_endpoint_tried": "https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx",
+      "wfs_outcome": "HTTP 400 'No se puede procesar su peticion' is returned to the LITERAL curl/* User-Agent and to nothing else. Measured 2026-08-27 on one URL across four clients: curl/8.5.0 -> 400; python-requests/2.32.3 -> 200; a custom OpenUBEM/1.0 -> 200; an EMPTY User-Agent -> 200. It is a curl blocklist, not a browser check - which is why the parallel requests-based probe of the same endpoint never saw the gate and this shell-based probe always did. ListStoredQueries returns GetBuildingByParcel, GetFeatureById, GetBuildingPartByParcel, GetOtherBuildingByParcel, GetAllConstructionByParcel - every STORED query is keyed on a cadastral reference - but an AD HOC TYPENAMES=bu:Building + BBOX GetFeature DOES work, requiring the ',urn:ogc:def:crs:EPSG::4326' suffix and lat,lon axis order (TYPENAME singular is rejected). This probe used the ATOM bulk route instead, which is equally valid.",
+      "route_used": "INSPIRE ATOM bulk download service",
+      "atom_feed": "https://www.catastro.hacienda.gob.es/INSPIRE/buildings/28/ES.SDGC.bu.atom_28.xml",
+      "download_url": "https://www.catastro.hacienda.gob.es/INSPIRE/Buildings/28/28900-MADRID/A.ES.SDGC.BU.28900.zip",
+      "download_bytes": 105185640,
+      "member_parsed": "A.ES.SDGC.BU.28900.building.gml",
+      "member_bytes": 611358711,
+      "host_note": "www.catastro.minhap.es no longer connects (HTTP 000); www.catastro.hacienda.gob.es is the live host",
+      "municipality_features_scanned": 124341,
+      "features_in_study_bbox": 2121,
+      "year_field": "bu-core2d:dateOfConstruction/DateOfEvent/beginning",
+      "year_non_null": 2116,
+      "year_completeness_pct": 99.76,
+      "year_min": 1876,
+      "year_max": 2025,
+      "unknown_year_encoding": "--01-01T00:00:00 (5 of 2121 features)",
+      "current_use_histogram": {
+        "1_residential": 1915,
+        "3_industrial": 75,
+        "4_2_retail": 46,
+        "4_1_office": 42,
+        "4_3_publicServices": 36,
+        "NULL": 7
+      },
+      "residential_use_features": 1915,
+      "residential_use_features_with_year": 1915,
+      "number_of_dwellings_non_null": 2121,
+      "number_of_dwellings_gt_zero": 1940,
+      "number_of_floors_above_ground_on_Building": 0,
+      "number_of_floors_note": "numberOfFloorsAboveGround is empty on bu-ext2d:Building; it lives on BuildingPart (A.ES.SDGC.BU.28900.buildingpart.gml, 2053438840 bytes), which was NOT fetched in this probe",
+      "spatial_join": {
+        "footprints_in_eu02_manifest": 1194,
+        "join_method_primary": "representative point of the OSM footprint within a Catastro Building polygon, EPSG:25830",
+        "matched_rep_point_within": 1179,
+        "matched_rep_point_within_pct": 98.74,
+        "matched_and_year_bearing": 1179,
+        "matched_intersects_year_bearing": 1192,
+        "matched_intersects_pct": 99.83
+      },
+      "two_signal_potential": {
+        "note": "the 302 typed French rows came from DERIVED_BDTOPO_TWO_SIGNAL (year + dwelling count in one source). Madrid carries the SAME two signals.",
+        "matched_footprints_with_year_AND_dwelling_count": 1179,
+        "dwellings_eq_1": 220,
+        "dwellings_2_to_4": 174,
+        "dwellings_ge_5": 757,
+        "dwellings_eq_0": 28,
+        "caution": "dwellings==1 is a CANDIDATE single-family signal, not a confirmed SFH; in a dense Madrid barrio a one-dwelling cadastral building may be an annex or a converted commercial parcel. Verifying it is ingestion work, not this probe."
+      },
+      "tabula_es_period_bands_over_matched": {
+        "<=1900": 12,
+        "1901-1940": 276,
+        "1941-1960": 252,
+        "1961-1980": 203,
+        "1981-2007": 355,
+        ">=2008": 81
+      },
+      "verdict": "COVERAGE_CONFIRMED"
+    },
+    "GB-LDN-STDUNSTANS": {
+      "ruled_attribute_source": "London MHCLG EPC + OS Open UPRN (D-EU-10, MVP:1236)",
+      "bbox_wgs84_lon_lat": [
+        -0.0497224,
+        51.5127676,
+        -0.033969,
+        51.5239304
+      ],
+      "epc_endpoint_tried": "https://epc.opendatacommunities.org/api/v1/domestic/search",
+      "epc_outcome": "the whole epc.opendatacommunities.org host is RETIRED - every path 301-redirects to https://get-energy-performance-data.communities.gov.uk/ ; /api/v1/domestic/search on the new host is HTTP 404",
+      "epc_access_gate": "the new service's /data-access-options offers 'download files' and 'developer API'; both land on /guidance/energy-certificate-data-apis, which states 'You need to sign in or create an account with GOV.UK One Login to receive a bearer token'. /login/authorize redirects to https://oidc.account.gov.uk/authorize",
+      "epc_open_bulk_route_exists": false,
+      "features_in_study_bbox": null,
+      "year_completeness_pct": null,
+      "join_surface_measured_from_disk": {
+        "footprints_in_eu02_manifest": 1242,
+        "footprints_carrying_a_postcode": 1176,
+        "postcode_pct": 94.69,
+        "why_it_matters": "postcode is exactly the key the EPC domestic search API takes, so the join surface for London already exists on disk; only the credential is missing",
+        "uprn_join": {
+          "method": "UPRN point within OSM footprint, EPSG:27700",
+          "footprints_containing_at_least_one_uprn": 1219,
+          "footprints_pct": 98.15,
+          "with_1m_buffer": 1231,
+          "with_1m_buffer_pct": 99.11,
+          "uprns_falling_inside_a_footprint": 6838,
+          "meaning": "the EPC join key is present on 98.15 percent of London footprints; the ONLY missing piece is the EPC bearer token"
+        }
+      },
+      "os_open_uprn": {
+        "endpoint": "https://api.os.uk/downloads/v1/products/OpenUPRN/downloads?area=GB&format=CSV&redirect",
+        "file": "osopenuprn_202608_csv.zip",
+        "bytes": 618494417,
+        "md5": "2f023512afc378cd7b9351b24ccf1a34",
+        "auth_required": false,
+        "carries_construction_year": false,
+        "role": "identity + coordinates only; it is the join key to EPC, never a year source",
+        "downloaded": true,
+        "member_parsed": "osopenuprn_202608.csv",
+        "member_bytes": 2271141910,
+        "total_uprn_rows_gb": 41629393,
+        "uprns_in_study_bbox_padded_0p0005deg": 16151
+      },
+      "verdict": "CREDENTIAL_BLOCKED - join surface MEASURED and intact (98.15 percent), year data withheld behind GOV.UK One Login"
+    },
+    "IT-BOL-GALVANI2": {
+      "ruled_attribute_source": "Bologna Comune DBT + SACE + ISTAT tract materials (D-EU-10, MVP:1236)",
+      "bbox_wgs84_lon_lat": [
+        11.3396829,
+        44.48460665,
+        11.35782811,
+        44.49219776
+      ],
+      "catalogue_searched": "https://opendata.comune.bologna.it/api/explore/v2.1/catalog/datasets",
+      "catalogue_hits": {
+        "edific": 12,
+        "censimento": 15,
+        "istat": 12,
+        "anno costruzione": 0,
+        "sace": 0,
+        "dbt": 0
+      },
+      "rifter_edif_pl": {
+        "records": 40621,
+        "fields": [
+          "partkey",
+          "codfab",
+          "foglio",
+          "mappale",
+          "perimetro",
+          "area_ogg",
+          "tipologia",
+          "data_istit",
+          "data_varia",
+          "geo_point_2d",
+          "geo_shape"
+        ],
+        "construction_year_field": null,
+        "note": "data_istit / data_varia are record-management dates (row instituted / row amended), not construction dates"
+      },
+      "c_a944ctc_edifici_pl": {
+        "records": 65744,
+        "fields": [
+          "codice_ogg",
+          "data_istit",
+          "data_varia",
+          "noteogg",
+          "perimetro",
+          "descrizion",
+          "quota_gron",
+          "quota_pied",
+          "altezza_gr",
+          "volume",
+          "origine",
+          "area_ogg"
+        ],
+        "construction_year_field": null
+      },
+      "other_endpoints_tried": {
+        "https://servizigis.regione.emilia-romagna.it/wfs/dbtr_edifici": "HTTP 401 - authentication required",
+        "https://sitmappe.comune.bologna.it/geoserver/wfs": "HTTP 503 - service unavailable"
+      },
+      "manifest_surplus_keys_on_disk": [
+        "perimetro",
+        "area_ogg",
+        "data_istit",
+        "data_varia",
+        "geo_point_2d",
+        "partkey",
+        "foglio",
+        "mappale"
+      ],
+      "istat_note": "the census layers the portal does publish (sezioni-di-censimento 2001/2011/2021) are TRACT-level statistics. An ISTAT epoch distribution per tract is a statistical prior, not an observed per-building year, and cannot satisfy MISSING_OBSERVED_YEAR_BUILT.",
+      "verdict": "NO_PER_BUILDING_YEAR_IN_ANY_OPEN_SOURCE"
+    }
+  },
+  "second_blocker_unchanged": {
+    "statement": "the typology blocker measured under D-EU-21 is untouched by this probe",
+    "IT": "1220 of 1220 rows carry UNMAPPABLE_RESIDENTIAL_TYPE; Italy contributes ZERO to S3 whatever happens to the year",
+    "ES": "Madrid supplies the same two signals France used, so the ES typology blocker is the one this probe can plausibly lift",
+    "GB": "unmeasured - blocked behind the same credential"
+  },
+  "consequence": "Coverage is CONFIRMED for Spain and only Spain. S3 is a FR + ES binational sample - the outcome the D-EU-22 routing calls for when coverage is demonstrated for some sites and not others. GB is one owner action (a GOV.UK One Login account) away from being measurable and is NOT a data absence: its join key is measured intact at 98.15 percent of footprints. IT is out on typology regardless of the year.",
+  "sfh_ceiling": {
+    "before": "n=7 single-family houses, France only",
+    "after_if_ES_ingested": "up to 220 additional single-dwelling candidates in Madrid alone",
+    "status": "CANDIDATE COUNT, not a verified SFH count - see two_signal_potential.caution"
+  },
+  "not_claimed": [
+    "no ingestion adapter was written and no manifest was rebuilt",
+    "no building was promoted to layout-ready and no S3 sample was formed",
+    "the Catastro BuildingPart file (2.05 GB, floors and heights) was NOT fetched",
+    "the 220 single-dwelling Madrid candidates were NOT verified as true SFH",
+    "London EPC coverage and London year completeness are UNMEASURED, not zero",
+    "no Bologna year was recovered and none is claimed to exist",
+    "nothing in openubem/data was modified",
+    "the London UPRN join rate was measured, but no EPC record was retrieved, so London year completeness stays UNMEASURED"
+  ],
+  "independent_corroboration": {
+    "note": "a PARALLEL session measured the same ruling over the same bboxes by a different route (tiled ad hoc WFS bbox instead of the ATOM bulk download). Both artefacts are kept; neither supersedes the other.",
+    "other_artefacts": [
+      "openubem/outputs/eu_evidence/EU-04/D-EU-22/es_catastro_coverage_probe.json",
+      "openubem/outputs/eu_evidence/EU-04/D-EU-22/gb_it_coverage_probe.json",
+      "openubem/outputs/eu_evidence/EU-04/D-EU-22/layout_contract_ceiling.json"
+    ],
+    "agreement": {
+      "es_features_in_bbox": {
+        "this_probe_atom_envelope_filter": 2121,
+        "parallel_probe_wfs_bbox": 2084,
+        "explanation": "both are envelope tests; this one filters on the feature's own gml:Envelope and slightly over-includes"
+      },
+      "es_residential_features": {
+        "this_probe": 1915,
+        "parallel_probe": 1883
+      },
+      "es_join_to_1194_footprints": {
+        "this_probe_rep_point_within": 1179,
+        "this_probe_intersects": 1192,
+        "parallel_probe_intersects_largest_overlap": 1183
+      },
+      "verdict": "the two measurements corroborate: ES coverage ~99 percent and the join ~98-99 percent by every predicate tried"
+    },
+    "gate_reconciled": "the two sessions recorded contradictory things about this endpoint because they used different HTTP clients. Re-measured across four User-Agents, both records are explained by a curl blocklist. The disagreement between two parallel probes is what produced the sharper fact."
+  },
+  "superseded_conclusion": "a THIRD ceiling was measured by that parallel session AFTER this probe closed and is NOT reflected in the numbers above: the ruled layout contract accepts only 63 of Madrid's 1,194 footprints and 204 of the 4,186 across all four sites, which is roughly four times tighter than the attribute ceiling this probe measured. That was raised as decision request D-EU-23 and RULED the same day, Option G1: S3 = 96 in MIXED MODE - dwelling-partitioned wherever the EU-04 contract emits, the ruled one_zone_per_floor fallback everywhere else, with the layout axis and the simulation axis in separate columns and printed in every S3 acceptance panel - and the FR + ES ingestion this probe routed to is AUTHORISED on that basis (Lyon + Madrid). The geometry contract was NOT reopened; G2 and G3 were refused. Standing caveat: S3's headline 96 does not imply dwelling-level geometry and no S3 result may be quoted without its partitioned / massing split. Nothing measured here is withdrawn - attribute coverage is still confirmed for Spain - but 'S3 is FR + ES' is not yet 'S3 is formable'.",
+  "downstream_ruling": {
+    "decision": "D-EU-23",
+    "ruled": "2026-08-27",
+    "option": "G1 - S3 = 96, mixed mode, layout axis and simulation axis never collapsed",
+    "record": "docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_D-EU-23_s3_geometry_mode_2026-08-27.md",
+    "effect_on_this_probe": "none of the coverage numbers above are withdrawn; the FR + ES routing this probe produced is now authorised to be executed",
+    "ingestion_authorised": true
+  }
+}

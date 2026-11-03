@@ -1,0 +1,876 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#F4F6F8; --sheet:#FFFFFF; --sheet-2:#EDF0F4;
+  --ink:#14181D; --ink-2:#49515B; --muted:#79828D;
+  --rule:#D9DEE4; --rule-soft:#E7EBF0;
+  --accent:#2C5D8A; --accent-soft:#E1EAF3;
+  --alert:#9E3C2C; --alert-soft:#F5E4E0;
+  --ok:#2C6549; --ok-soft:#DFEDE5;
+  --plan-ground:#FBFCFD; --plan-line:#6D7883; --plan-label:#2A323B;
+  --d1:#C6D8E6; --d2:#CDE0DE; --d3:#D7E3D4; --d4:#E6E3CE;
+  --d5:#EFDDC7; --d6:#F0D4C7; --d7:#E5CCD3; --d8:#D3CCDF;
+  --shadow:0 1px 1px rgba(20,24,29,.04), 0 12px 28px -22px rgba(20,24,29,.5);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#0E1115; --sheet:#161A20; --sheet-2:#1D222A;
+    --ink:#E5EAF0; --ink-2:#AFB8C3; --muted:#7B848F;
+    --rule:#262D36; --rule-soft:#1E242B;
+    --accent:#82AEDA; --accent-soft:#182635;
+    --alert:#DF8271; --alert-soft:#2E1A16;
+    --ok:#71C097; --ok-soft:#152A21;
+    --plan-ground:#12161B; --plan-line:#7C8792; --plan-label:#DCE2E9;
+    --d1:#22323F; --d2:#23393A; --d3:#2B3A2F; --d4:#3A3830;
+    --d5:#41362A; --d6:#412C26; --d7:#3A2A30; --d8:#2E2A3C;
+    --shadow:0 1px 1px rgba(0,0,0,.5), 0 12px 28px -22px rgba(0,0,0,.9);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0E1115; --sheet:#161A20; --sheet-2:#1D222A;
+  --ink:#E5EAF0; --ink-2:#AFB8C3; --muted:#7B848F;
+  --rule:#262D36; --rule-soft:#1E242B;
+  --accent:#82AEDA; --accent-soft:#182635;
+  --alert:#DF8271; --alert-soft:#2E1A16;
+  --ok:#71C097; --ok-soft:#152A21;
+  --plan-ground:#12161B; --plan-line:#7C8792; --plan-label:#DCE2E9;
+  --d1:#22323F; --d2:#23393A; --d3:#2B3A2F; --d4:#3A3830;
+  --d5:#41362A; --d6:#412C26; --d7:#3A2A30; --d8:#2E2A3C;
+  --shadow:0 1px 1px rgba(0,0,0,.5), 0 12px 28px -22px rgba(0,0,0,.9);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font:400 16px/1.6 "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1180px; margin:0 auto; padding:56px 24px 96px}
+h1,h2,h3{font-family:"Archivo", ui-sans-serif, system-ui, sans-serif; text-wrap:balance; margin:0}
+h1{font-size:clamp(30px,4.2vw,44px); font-weight:700; letter-spacing:-.02em; line-height:1.1}
+h2{font-size:22px; font-weight:600; letter-spacing:-.01em}
+h3{font-size:17px; font-weight:600}
+p{margin:0}
+code, .mono{font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:.86em}
+code{background:var(--sheet-2); padding:.1em .38em; border-radius:3px; color:var(--ink-2)}
+.eyebrow{
+  font-family:"IBM Plex Mono", monospace; font-size:11px; font-weight:500;
+  letter-spacing:.16em; text-transform:uppercase; color:var(--muted);
+}
+.lede{font-size:18px; color:var(--ink-2); max-width:66ch}
+.stack{display:flex; flex-direction:column; gap:14px}
+
+header.mast{display:flex; flex-direction:column; gap:18px; padding-bottom:28px; border-bottom:2px solid var(--ink)}
+.mast .meta{display:flex; flex-wrap:wrap; gap:8px 22px; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--muted)}
+
+.tally{display:grid; grid-template-columns:repeat(auto-fit,minmax(168px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); margin:34px 0 0}
+.tally div{background:var(--sheet); padding:16px 18px; display:flex; flex-direction:column; gap:5px}
+.tally .k{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.tally .v{font-family:"Archivo",sans-serif; font-size:27px; font-weight:600; letter-spacing:-.02em; font-variant-numeric:tabular-nums}
+.tally .n{font-size:13px; color:var(--ink-2); line-height:1.45}
+
+section.block{margin-top:56px}
+.rulehead{display:flex; align-items:baseline; gap:14px; padding-bottom:10px; border-bottom:1px solid var(--ink); margin-bottom:22px}
+.rulehead .num{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--accent); font-weight:600}
+
+.callout{border:1px solid var(--rule); border-left:3px solid var(--accent); background:var(--sheet); padding:20px 22px; display:flex; flex-direction:column; gap:12px}
+.callout.warn{border-left-color:var(--alert)}
+.opts{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; margin-top:4px}
+.opt{border:1px solid var(--rule); background:var(--sheet-2); padding:16px 18px; display:flex; flex-direction:column; gap:8px}
+.opt .t{font-family:"Archivo",sans-serif; font-weight:600; font-size:15px}
+.opt.rec{border-color:var(--ok); background:var(--ok-soft)}
+.tag{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.1em; text-transform:uppercase; padding:3px 7px; border:1px solid currentColor; border-radius:2px}
+.tag.ok{color:var(--ok)} .tag.bad{color:var(--alert)} .tag.acc{color:var(--accent)}
+
+.sheet{background:var(--sheet); border:1px solid var(--rule); box-shadow:var(--shadow); margin-top:26px}
+.titleblock{display:flex; flex-wrap:wrap; gap:14px 26px; align-items:flex-end; justify-content:space-between; padding:18px 22px; border-bottom:1px solid var(--ink)}
+.titleblock .id{font-family:"IBM Plex Mono",monospace; font-size:17px; font-weight:600; color:var(--ink)}
+.titleblock .sub{font-size:13px; color:var(--muted)}
+.specs{display:flex; flex-wrap:wrap; gap:6px 20px; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.specs b{color:var(--ink); font-weight:600}
+
+.plans{display:grid; grid-template-columns:1fr 1fr; gap:1px; background:var(--rule)}
+@media (max-width:820px){ .plans{grid-template-columns:1fr} }
+.pane{background:var(--sheet); padding:18px 20px 20px; display:flex; flex-direction:column; gap:12px}
+.panehead{display:flex; align-items:center; gap:10px; justify-content:space-between; flex-wrap:wrap}
+.panehead .lbl{font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+.figs{display:flex; flex-wrap:wrap; gap:14px}
+.fig{flex:1 1 220px; min-width:0; display:flex; flex-direction:column; gap:7px}
+.fig .cap{font-family:"IBM Plex Mono",monospace; font-size:11px; color:var(--muted); line-height:1.5}
+.fig .cap b{color:var(--ink-2)}
+svg.plan{width:100%; height:auto; display:block; background:var(--plan-ground); border:1px solid var(--rule-soft)}
+
+.readout{display:flex; flex-wrap:wrap; gap:4px 18px; font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-2); font-variant-numeric:tabular-nums}
+.readout span b{color:var(--ink)}
+.failbox{padding:26px 22px; background:var(--alert-soft); border:1px dashed var(--alert); display:flex; flex-direction:column; gap:10px}
+.failbox .tok{font-family:"IBM Plex Mono",monospace; font-size:13px; font-weight:600; color:var(--alert)}
+.note{font-size:13.5px; color:var(--ink-2); padding:14px 22px; border-top:1px solid var(--rule-soft); background:var(--sheet)}
+.note b{color:var(--ink)}
+
+.legend{display:flex; flex-wrap:wrap; gap:8px 22px; align-items:center; margin-top:18px; font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--muted)}
+.swatch{display:inline-flex; align-items:center; gap:7px}
+.swatch i{width:15px; height:15px; display:inline-block; border:1px solid var(--plan-line)}
+
+footer{margin-top:64px; padding-top:22px; border-top:1px solid var(--rule); font-size:13px; color:var(--muted); display:flex; flex-direction:column; gap:8px}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+@media (prefers-reduced-motion:no-preference){ .sheet{transition:box-shadow .2s ease} }
+</style>
+
+<style>
+ol.ladder{list-style:none;counter-reset:l;margin:0;padding:0;border:1px solid var(--rule);background:var(--rule);display:flex;flex-direction:column;gap:1px}
+ol.ladder li{counter-increment:l;background:var(--sheet);padding:11px 18px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink-2)}
+ol.ladder li::before{content:counter(l,decimal-leading-zero);color:var(--accent);font-weight:600;min-width:22px}
+ol.ladder li code{background:none;padding:0}
+ol.ladder li b{font-family:"Archivo",sans-serif;font-size:14px;color:var(--ink);margin-left:auto}
+ol.ladder li em{font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums;min-width:46px;text-align:right}
+table.cov{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;background:var(--sheet);border:1px solid var(--rule)}
+table.cov th{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);text-align:right;padding:12px 14px;border-bottom:1px solid var(--ink);font-weight:500}
+table.cov th:first-child{text-align:left}
+table.cov td{padding:10px 14px;text-align:right;border-bottom:1px solid var(--rule-soft);font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink-2)}
+table.cov td.g{text-align:left;font-family:"Archivo",sans-serif;font-weight:600;color:var(--ink)}
+table.cov td.bad{color:var(--alert)}
+table.cov td.gap{color:var(--ink);font-weight:600}
+table.cov tfoot td{border-top:1px solid var(--ink);border-bottom:none;color:var(--ink);font-weight:600;background:var(--sheet-2)}
+.pane .lbl{font-family:"IBM Plex Mono",monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:4px}
+.pane p{font-size:14px;line-height:1.55;color:var(--ink-2)}
+.pane p b{color:var(--ink)}
+.specs .tag{align-self:center}
+.wrap>section.block>article.sheet:first-of-type{margin-top:0}
+@media (max-width:820px){table.cov th:nth-child(3),table.cov td:nth-child(3){display:none}}
+table.cov th .sub2{display:block;font-size:9.5px;letter-spacing:.06em;text-transform:none;color:var(--muted);font-weight:400;opacity:.85;margin-top:2px}
+.fig .cap.plan-cap b{color:var(--ink)}
+.zonebar{display:flex;gap:3px;margin-top:2px}
+ol.flow{list-style:none;margin:0;padding:0;counter-reset:none}
+ol.flow>li.fstep{display:flex;gap:11px;position:relative;padding:0 0 13px 0}
+ol.flow>li.fstep:last-child{padding-bottom:0}
+ol.flow>li.fstep::before{content:"";position:absolute;left:10.5px;top:22px;bottom:0;width:1px;background:var(--rule)}
+ol.flow>li.fstep:last-child::before{display:none}
+ol.flow .s{flex:0 0 22px;height:22px;border-radius:50%;background:var(--sheet-2);border:1px solid var(--rule);
+  color:var(--ink-2);font-family:"IBM Plex Mono",monospace;font-size:11px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;position:relative;z-index:1}
+ol.flow>li.shared .s{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+ol.flow .fbody{flex:1 1 auto;padding-top:1px}
+ol.flow .act{display:block;font-family:"Archivo",sans-serif;font-weight:600;font-size:13px;
+  color:var(--ink);letter-spacing:.005em;margin-bottom:3px}
+ol.flow>li.shared .act{color:var(--accent)}
+ol.flow .expr{margin:0 0 4px 0;font-size:12.5px}
+ol.flow .expr code{font-size:11.5px}
+ol.flow ul{margin:0;padding:0;list-style:none}
+ol.flow ul li{position:relative;padding-left:12px;font-size:13.5px;line-height:1.5;color:var(--ink-2);margin-bottom:2px}
+ol.flow ul li::before{content:"";position:absolute;left:2px;top:8.5px;width:4px;height:4px;border-radius:50%;background:var(--rule)}
+ol.flow ul li b{color:var(--ink)}
+.zonebar i{height:9px;flex:1 1 auto;display:block;border:1px solid var(--plan-line)}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+<header class="mast">
+  <div class="stack">
+    <span class="eyebrow">EU-20 &middot; morphology census &middot; the group version of RULES_dwelling_layout_scheme_2026-08-28</span>
+    <h1>Dwelling Plans Grouped</h1>
+    <p class="lede">Every residential building in the four districts was scanned and sorted into eleven shape groups
+    before any layout was attempted. This sheet states the filter that defines each group, the floor type assigned
+    to it &mdash; circulation element and thermal zones &mdash; and how far that group still is from the 95&nbsp;%
+    bar. The 2026-08-28 scheme document is unchanged; this one sits beside it.</p>
+  </div>
+  <div class="meta">
+    <span>2026-09-01</span>
+    <span>census: openubem/outputs/eu_evidence/EU-20/morphology_census.csv &middot; 2544 rows</span>
+    <span>additive &mdash; nothing in the 2026-08-28 rules was edited</span>
+  </div>
+</header>
+
+<div class="tally">
+  <div><span class="k">Buildings scanned</span><span class="v">2544</span><span class="n">every residential building in Madrid, Lyon, London and Bologna</span></div>
+  <div><span class="k">Groups</span><span class="v">11</span><span class="n">ordered first&#8209;match &mdash; every building lands in exactly one</span></div>
+  <div><span class="k">With a real floor plan</span><span class="v" style="color:var(--alert)">541</span><span class="n">21.3&thinsp;% &mdash; the rest simulate as one massing box per floor</span></div>
+  <div><span class="k">The bar</span><span class="v" style="color:var(--ok)">2417</span><span class="n">95&nbsp;% floor assignment, before any simulation</span></div>
+  <div><span class="k">Gap</span><span class="v">1876</span><span class="n">buildings that still need a floor type that holds</span></div>
+  <div><span class="k">Largest group</span><span class="v">637</span><span class="n">Sliver &mdash; plates under 8&nbsp;m wide, a quarter of the fleet</span></div>
+</div>
+
+<section class="block">
+  <div class="rulehead"><span class="num">FILTER</span><h2>The ladder &mdash; eleven rules, first match wins</h2></div>
+  <p class="lede" style="margin-bottom:16px">Order is the rule. A courtyard is tested before width, width before
+  regularity, regularity before re&#8209;entrance, and re&#8209;entrance last by count of reflex vertices. Every test
+  is dimensionless except the 8.0&nbsp;m plate depth, which is a habitability constant rather than a local
+  convention &mdash; that is what lets the ladder carry to countries the database has not reached yet.</p>
+  <ol class="ladder"><li><code>n_interior_rings &ge; 1</code><b>Courtyard</b><em>362</em></li><li><code>min_rot_rect_w_m &lt; 8.0</code><b>Sliver</b><em>637</em></li><li><code>rectangularity &ge; 0.90 and aspect_ratio &lt; 1.5</code><b>Square</b><em>220</em></li><li><code>rectangularity &ge; 0.90 and 1.5 &le; aspect_ratio &lt; 2.0</code><b>Rectangle</b><em>109</em></li><li><code>rectangularity &ge; 0.90 and 2.0 &le; aspect_ratio &lt; 3.0</code><b>Corridor rectangle</b><em>94</em></li><li><code>rectangularity &ge; 0.90 and aspect_ratio &ge; 3.0</code><b>Slab</b><em>28</em></li><li><code>n_edges_ge_15pct_perimeter &le; 3 and reflex_count == 0</code><b>Triangle or trapezoid</b><em>54</em></li><li><code>reflex_count == 0 and rectangularity &lt; 0.90</code><b>Parallelogram</b><em>87</em></li><li><code>reflex_count == 1</code><b>L shape</b><em>259</em></li><li><code>reflex_count == 2</code><b>U or T shape</b><em>269</em></li><li><code>reflex_count &ge; 3</code><b>Complex multi-wing</b><em>425</em></li></ol>
+  <p class="lede" style="margin-top:14px">The last rule has no alternative below it: <b>Complex multi&#8209;wing</b>
+  is terminal and takes everything the ten above declined. No building can leave the ladder unclassified.</p>
+</section>
+
+<section class="block">
+  <div class="rulehead"><span class="num">COVERAGE</span><h2>How far each group is from 95&nbsp;%</h2></div>
+  <p class="lede" style="margin-bottom:14px"><b>&ldquo;Real floor plan&rdquo; means the building is cut into
+  separate flats and a circulation core, floor by floor, and that partition survives into the energy model.</b>
+  A building without one is not skipped &mdash; it is simulated as a single empty box per floor, one thermal zone,
+  no interior walls, no core. It still produces a number; that number just cannot describe flats. The goal is that
+  <b>95&nbsp;%</b> of the 2,544 buildings carry a real plan. Today 541 do.</p>
+  <table class="cov">
+    <thead><tr><th>Shape group</th><th>Buildings<br><span class="sub2">in the 4 districts</span></th>
+      <th>Share of<br><span class="sub2">all buildings</span></th>
+      <th>Real floor plan<br><span class="sub2">today</span></th>
+      <th>Of the group<br><span class="sub2">that works</span></th>
+      <th>Needed<br><span class="sub2">to reach 95&nbsp;%</span></th>
+      <th>Still missing</th></tr></thead>
+    <tbody><tr><td class="g">Courtyard</td><td>362</td><td>14.2&thinsp;%</td><td>47</td><td class="bad">13.0&thinsp;%</td><td>344</td><td class="gap">297</td></tr><tr><td class="g">Sliver</td><td>637</td><td>25.0&thinsp;%</td><td>216</td><td class="">33.9&thinsp;%</td><td>606</td><td class="gap">390</td></tr><tr><td class="g">Square</td><td>220</td><td>8.6&thinsp;%</td><td>64</td><td class="">29.1&thinsp;%</td><td>209</td><td class="gap">145</td></tr><tr><td class="g">Rectangle</td><td>109</td><td>4.3&thinsp;%</td><td>23</td><td class="bad">21.1&thinsp;%</td><td>104</td><td class="gap">81</td></tr><tr><td class="g">Corridor rectangle</td><td>94</td><td>3.7&thinsp;%</td><td>28</td><td class="">29.8&thinsp;%</td><td>90</td><td class="gap">62</td></tr><tr><td class="g">Slab</td><td>28</td><td>1.1&thinsp;%</td><td>10</td><td class="">35.7&thinsp;%</td><td>27</td><td class="gap">17</td></tr><tr><td class="g">Triangle or trapezoid</td><td>54</td><td>2.1&thinsp;%</td><td>18</td><td class="">33.3&thinsp;%</td><td>52</td><td class="gap">34</td></tr><tr><td class="g">Parallelogram</td><td>87</td><td>3.4&thinsp;%</td><td>20</td><td class="bad">23.0&thinsp;%</td><td>83</td><td class="gap">63</td></tr><tr><td class="g">L shape</td><td>259</td><td>10.2&thinsp;%</td><td>34</td><td class="bad">13.1&thinsp;%</td><td>247</td><td class="gap">213</td></tr><tr><td class="g">U or T shape</td><td>269</td><td>10.6&thinsp;%</td><td>39</td><td class="bad">14.5&thinsp;%</td><td>256</td><td class="gap">217</td></tr><tr><td class="g">Complex multi-wing</td><td>425</td><td>16.7&thinsp;%</td><td>42</td><td class="bad">9.9&thinsp;%</td><td>404</td><td class="gap">362</td></tr></tbody>
+    <tfoot><tr><td class="g">Fleet</td><td>2544</td><td>100.0&thinsp;%</td><td>541</td><td>21.3&thinsp;%</td><td>2417</td><td class="gap">1876</td></tr></tfoot>
+  </table>
+  <div class="callout warn" style="margin-top:22px">
+    <p><b>The share with a real plan is nearly flat across the taxonomy</b> &mdash; 9.9&nbsp;% for Complex multi&#8209;wing,
+    35.7&nbsp;% for Slab, and every group in between. If shape alone decided the outcome the spread would be far
+    wider. Recorded as <code>FINDING&nbsp;222</code>: morphology is the second problem, not the first.</p>
+    <p>The first problem is <code>FINDING&nbsp;221</code>. Roughly 939 buildings across the fleet compute a sound
+    floor plan and then lose it, because the IDF writer demotes them to one massing box per floor when geomeppy&rsquo;s
+    clipper fails on its own intermediate geometry. Those plans exist; they are simply discarded. Recovering them is
+    worth more than any new shape rule &mdash; on Lyon it moved the district from 35.4&nbsp;% to 66.0&nbsp;% on its
+    own, without a single new scheme.</p>
+  </div>
+</section>
+
+<section class="block" id="LAW">
+  <div class="rulehead"><span class="num">LAW</span><h2>What is true on every floor plan, in every group</h2></div>
+  <p class="lede" style="margin-bottom:16px">Nine clauses hold across all eleven groups, not one at a time. Six
+  are coded, checked and capped &mdash; the owner fixed the last two numbers at <code>CP-2</code>, 2026-09-02. The
+  last three, <code>D-EU-73</code>, <code>D-EU-75</code> and <code>D-EU-76</code>, are not themselves checked:
+  they constrain how the cutter draws, and <code>D-EU-71</code>/<code>C9</code> and
+  <code>D-EU-72</code>/<code>C10</code> measure the result.</p>
+  <p class="lede" style="margin-bottom:14px"><b>Already law, restated.</b> Exactly one circulation zone per plate
+  (<code>SLIVER</code> excepted, zero); flats and circulation cover at least 99.9&nbsp;% of the plate; drawn
+  dwellings equal claimed dwellings; every zone is a simple polygon &mdash; no hole, no zone inside another; at most
+  40 corner points per zone. <code>D-EU-64</code>.</p>
+  <p class="lede" style="margin-bottom:14px"><b><code>D-EU-69</code> &mdash; every flat sees the outer
+  fa&ccedil;ade.</b> Owner, 2026-09-02: &ldquo;every flat needs exposure to the sunlight and especially to the outer
+  facade exposures, courtyard exposure is not enough.&rdquo; At least 2.50&nbsp;m of the flat&rsquo;s boundary lies
+  on the plate&rsquo;s <b>outer</b> perimeter. A courtyard, a light&#8209;well or any interior void does not count.
+  Measured by <code>C6</code>, which reads <code>footprint.exterior</code> only.</p>
+  <p class="lede" style="margin-bottom:14px">Owner, 2026-09-02: &ldquo;no need to sunlight exposure for
+  corridors.&rdquo; The corridor may be entirely interior &mdash; the second clause of <code>D-EU-69</code>.</p>
+  <p class="lede" style="margin-bottom:14px"><b><code>D-EU-70</code> &mdash; the corridor reaches every flat.</b>
+  Owner, 2026-09-02: &ldquo;corridor needs to touch to every flat zones.&rdquo; The single circulation zone shares
+  at least <code>ACCESS_MIN_M</code> (1.00&nbsp;m) of boundary with every dwelling zone; no flat is reached through
+  another flat. Measured by <code>C8</code>, promoted to a hard check in T03.</p>
+  <div class="callout">
+    <p><b><code>D-EU-71</code> &mdash; the corridor stays simple.</b> One band of near&#8209;constant width; no
+    spurs, no blobs. Threshold fixed by the owner 2026-09-02 at <code>CP-2</code>: <b>at most 16 corner
+    points</b>. Owner: &ldquo;if possible it can be lower than that, because mostly corridors are simple
+    shapes.&rdquo; Not 12: the reference plate <code>i_shape_linear_gallery</code> (sheet 05, the corridor the
+    owner praised) reads 15 corner points, so a cap of 12 would condemn the very shape the law is written to
+    protect. Measured by <code>C9</code>. <code>R2</code>, the effective width
+    <code>2&middot;area / perimeter</code> compared against <code>CORRIDOR_W</code> = 1.80&nbsp;m, remains a
+    reading only.</p>
+  </div>
+  <div class="callout" style="margin-top:14px">
+    <p><b><code>D-EU-72</code> &mdash; no narrow leftover space.</b> No zone is a sliver too thin to inhabit.
+    Threshold fixed by the owner 2026-09-02 at <code>CP-2</code>: <b>no zone narrower than 2.00&nbsp;m</b>,
+    measured as the largest width that still fits inside the zone. Measured by <code>C10</code>.</p>
+  </div>
+  <div class="callout" style="margin-top:14px">
+    <p><b><code>D-EU-73</code> &mdash; how a corridor is drawn.</b> Stated by the owner 2026-09-02 from three
+    annotated images (<code>Screenshot_30.png</code>, <code>Screenshot_31.png</code>, and a hand&#8209;redrawn
+    <code>L_SHAPE</code>/multi&#8209;wing plate). In the first two a red box replaces a stepped, branched corridor
+    with a single straight rectangle. In the third the owner redraws the whole plate: three flats, each one entire
+    limb of the footprint with outer fa&ccedil;ade on three sides, and a short central red band at the waist where
+    the limbs meet. Owner&rsquo;s words: &ldquo;red boundaries shows that we can propose simpler
+    corridors&rdquo;; &ldquo;corridor can be central, the flat zones needs to be exposed to the outside facades,
+    and simple design&rdquo;; &ldquo;the F2 proposal of yours was too complicated&rdquo;.</p>
+    <p><b>(a) One limb, one flat.</b> Each arm, wing or lobe of the footprint becomes one whole flat. A limb is
+    never split lengthwise, and a flat never spans two limbs. This is what gives every flat outer fa&ccedil;ade on
+    three sides (<code>D-EU-69</code>), and it is decided before any corridor is drawn.</p>
+    <p><b>(b) Central band, shortest that works.</b> The circulation zone is one straight rectangle of constant
+    width <code>CORRIDOR_W</code> placed at the plate&rsquo;s <b>waist</b> &mdash; the junction where the limbs
+    meet, or the mid&#8209;span of a single limb &mdash; bearing chosen so it touches every flat
+    (<code>D-EU-70</code>). It is sized to the <b>minimum</b> length that achieves that, never run end to end for
+    its own sake. The core sits against it.</p>
+    <p><b>(c) No spur.</b> The corridor never branches to reach a flat the band does not already touch. If a flat
+    is out of reach, the band moves or changes bearing, or a flat boundary moves; a stub is never added.</p>
+    <p><b>(d) No step.</b> The band&rsquo;s two long edges are straight and parallel between its ends. A corner
+    appears only where the outer boundary or a flat boundary clips an end.</p>
+    <p><b>(e) Chain, not tree.</b> Where one band provably cannot touch every flat &mdash; a courtyard ring, four
+    or more limbs &mdash; the circulation is a <b>chain of straight bands joined end to end</b>, each obeying
+    (b)&ndash;(d). The joints are the only added corners. Never a T, never a cross, never a comb.</p>
+    <p><b>(f) Corner budget.</b> 4 corner points per band, at most 2 more per clipped end, 4 more per additional
+    band in the chain. This is what <code>D-EU-71</code>&rsquo;s cap of 16 is rationing: one straight band costs
+    4&ndash;6, a two&#8209;band chain 8&ndash;10, a four&#8209;band courtyard ring 14&ndash;16.</p>
+    <p class="lede" style="margin:10px 0 0"><b>(e) and (f) are superseded by <code>D-EU-75</code>, owner
+    2026-09-02.</b> There is no chain and no ring: one plate, one band. Clauses (a)&ndash;(d) stand unchanged.</p>
+    <p><code>D-EU-73</code> is a <b>cutter law, not a check</b>: it says how the drawing is produced, where
+    <code>D-EU-71</code> and <code>C9</code> only measure the result. It is written into this document by this
+    plan (T07); the cutter itself is not touched. Reference cases: TEST_01 <code>L_SHAPE</code> example 2 (Bologna
+    29718), <code>R1</code> = 23 today and 4&ndash;6 under (a)&ndash;(b); and the owner&rsquo;s redrawn plate,
+    where three limbs give three flats and one short waist band replaces a corridor that had been threaded through
+    the middle of a flat.</p>
+  </div>
+  <div class="callout" style="margin-top:14px">
+    <p><b><code>D-EU-75</code> &mdash; one corridor, one rectangle, any bearing.</b> Stated by the owner
+    2026-09-02 from four redrawn sheets &mdash; <code>01&nbsp;Courtyard</code>, <code>09&nbsp;L&nbsp;shape</code>,
+    <code>10&nbsp;U&nbsp;or&nbsp;T&nbsp;shape</code>, <code>11&nbsp;Complex&nbsp;multi&#8209;wing</code>:
+    &ldquo;if needed update the corridor rule, simple, centered, less point to generate corridors.&rdquo; On every
+    one of the four &mdash; a three&#8209;wing plate, an L, a U and a courtyard ring alike &mdash; the owner draws
+    the same object: <b>one single straight rectangle</b>, short, near the middle, at whatever bearing suits the
+    plate. On <code>11&nbsp;Complex&nbsp;multi&#8209;wing</code> the owner also draws the topology bare: three
+    circles F1, F2, F3, and one circle marked <i>corridor</i> touching all three. That is the whole plan.</p>
+    <p><b>(a) Exactly one band, in every group.</b> The circulation zone is a single straight rectangle for the
+    whole plate, however many limbs the footprint has. <b>This supersedes <code>D-EU-73</code> (e).</b> There is
+    no chain, no ring, no second band and no gallery. Where one band cannot touch every flat, the flat boundaries
+    move or the plate refuses &mdash; a second band is not the answer.</p>
+    <p><b>(b) Free bearing.</b> The band is not bound to the plate&rsquo;s axis, nor to any limb&rsquo;s axis. Its
+    bearing is chosen from the footprint&rsquo;s own edge directions, and the bearing that touches every flat with
+    the shortest band wins. The owner&rsquo;s rectangles lie diagonally across the L and U plates for exactly this
+    reason: the façade they follow is not the bounding box.</p>
+    <p><b>(c) Centred and short.</b> Placed where the flats meet, sized to the minimum length that touches them
+    all. <code>D-EU-73</code> (b) unchanged &mdash; now with the bearing free instead of pinned.</p>
+    <p><b>(d) Corner budget, restated.</b> One band is 4 corner points, at most 2 more per clipped end &mdash;
+    <b>6 at most</b>, against <code>D-EU-71</code>&rsquo;s cap of 16. The 8&ndash;16 budget <code>D-EU-73</code>
+    (f) allowed for chains and rings is withdrawn with (a).</p>
+  </div>
+  <div class="callout" style="margin-top:14px">
+    <p><b><code>D-EU-76</code> &mdash; no absurd small space.</b> Owner, 2026-09-02, on sheet
+    <code>05&nbsp;Corridor&nbsp;rectangle</code> (Madrid <code>way/435927693</code>), ringing the stepped nubs
+    along the corridor&rsquo;s edge in red: &ldquo;never create this kind of small absurd spaces, every flat zone
+    single zone and if there are these kind of spaces insert to the closest space, corridor.&rdquo;</p>
+    <p><b>(a) Every flat is one zone.</b> One single polygon per dwelling. A flat that comes out of the cut in two
+    or more pieces is not a flat: the largest piece is the flat, every other piece is a leftover.</p>
+    <p><b>(b) Every leftover is absorbed.</b> A leftover is merged into the zone it shares the most boundary with
+    &mdash; a flat, or the corridor. Nothing is left standing as a fragment and nothing is dropped: coverage stays
+    at <code>D-EU-64</code>&rsquo;s 99.9&nbsp;%.</p>
+    <p><b>(c) Thin means leftover only when it is a fragment.</b> A sliver narrower than <code>D-EU-72</code>&rsquo;s
+    2.00&nbsp;m is absorbed under (b). A <b>whole flat</b> that thin is a cut that failed, and is reported by
+    <code>C10</code> &mdash; never quietly merged away.</p>
+  </div>
+</section>
+
+<section class="block">
+  <div class="rulehead"><span class="num">GLOBAL</span><h2>Global rules &mdash; they hold in all eleven groups</h2></div>
+  <p class="lede" style="margin-bottom:16px">These are not per&#8209;group schemes. They bind every plate in the
+  taxonomy at once, and a plan that breaks one is wrong whatever its group. The first three are the owner&rsquo;s
+  own statement of them; the rest were fixed earlier in the same arc and are listed with the check that measures
+  each.</p>
+  <div class="callout">
+    <p><b>1 &mdash; Nothing narrower than 2&nbsp;m.</b> No zone anywhere in the plan may be thinner than
+    <b>2.00&nbsp;m</b> &mdash; not a flat, not the corridor, not a leftover strip, in width or in length. A space
+    below that is not a room; it is an artefact of the cut. <span style="font-size:13px;color:var(--muted)">Law <code>D-EU-72</code>, measured by
+    check <code>C10</code>.</span></p>
+    <p><b>2 &mdash; The corridor is central, and it touches every flat.</b> One circulation zone, placed where the
+    flats meet rather than pushed to an edge, and every single flat opens onto it. A flat the corridor does not
+    reach has no front door. <span style="font-size:13px;color:var(--muted)">Laws <code>D-EU-70</code> and <code>D-EU-73</code>&thinsp;(b), measured
+    by check <code>C8</code> at 1.00&nbsp;m of contact.</span></p>
+    <p><b>3 &mdash; Every flat reaches the outer fa&ccedil;ade, for daylight.</b> Each dwelling must hold a real
+    length of the building&rsquo;s outside wall. <b>A courtyard fa&ccedil;ade does not count</b> &mdash; an inner
+    ring alone is not daylight. <span style="font-size:13px;color:var(--muted)">Law <code>D-EU-69</code>, measured by check <code>C6</code> at
+    2.50&nbsp;m of outer fa&ccedil;ade.</span></p>
+  </div>
+  <div class="callout" style="margin-top:14px">
+    <p class="lede" style="margin:0 0 10px"><b>Also global, fixed earlier in this arc.</b></p>
+    <p><b>4 &mdash; Every flat is one single zone.</b> One dwelling, one polygon. A flat that comes out of the cut
+    in pieces is not a flat: the largest piece is the flat and every leftover is merged into the neighbour it
+    shares the most boundary with &mdash; a flat, or the corridor. No small absurd spaces are ever left standing.
+    <span style="font-size:13px;color:var(--muted)">Law <code>D-EU-76</code>, owner 2026&#8209;09&#8209;02; measured by checks <code>C2</code> and
+    <code>C4</code>.</span></p>
+    <p><b>5 &mdash; The corridor stays simple: at most 16 corner points.</b> A circulation zone that needs more
+    corners than that is a drawing failure, not a corridor. <span style="font-size:13px;color:var(--muted)">Law <code>D-EU-71</code>, measured by
+    check <code>C9</code>.</span></p>
+    <p><b>6 &mdash; The plan fills the plate.</b> Flats plus corridor plus cores cover at least <b>99.9&nbsp;%</b>
+    of the footprint: no gaps, no overlaps, nothing dropped. <span style="font-size:13px;color:var(--muted)">Law <code>D-EU-64</code>, measured by
+    check <code>C1</code>.</span></p>
+    <p><b>7 &mdash; Cores attach to the corridor, they never extend it.</b> A stair or lift core hangs off the
+    circulation zone; it may not be used to lengthen it or to reach a flat the corridor itself cannot reach.
+    <span style="font-size:13px;color:var(--muted)">Law <code>D-EU-67</code>.</span></p>
+  </div>
+</section>
+
+<section class="block"><div class="rulehead"><span class="num">GROUPS</span><h2>The eleven groups, each with its floor type</h2></div>
+
+<article class="sheet" id="COURTYARD">
+  <div class="titleblock">
+    <div class="stack" style="gap:4px">
+      <span class="id">01 &nbsp; Courtyard</span>
+      <span class="sub">362 buildings &middot; 14.2&thinsp;% of the fleet &middot; Madrid <b>120</b> &middot; Lyon <b>13</b> &middot; London <b>0</b> &middot; Bologna <b>229</b></span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
+    </div>
+    <div class="specs"><span class="tag ok">rule in force</span><span><b>47</b> with a real plan</span><span><b>13.0&thinsp;%</b> of the group</span></div>
+  </div>
+  <div class="plans">
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Footprint &rarr; floor plan &mdash; one and the same building</span>
+        <span class="lbl">Madrid &middot; relation/12713026</span></div>
+      <div class="figs">
+        <div class="fig"><svg class="plan" viewBox="-25.19 -21.46 51.25 43.92" role="img" aria-label="Courtyard floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="bcourtyard" width="1.20" height="1.20" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="1.20" stroke="var(--plan-line)" stroke-width="0.17" opacity=".55"/></pattern></defs><path d="M9.07,5.45L-9.04,15.69L-10.84,12.52L-12.20,10.07L-13.99,6.80L-16.85,1.68L-18.42,-1.13L-6.85,-6.49L10.87,-14.68L13.66,-9.91L19.29,-0.32L9.07,5.45Z M-5.70,5.71L2.84,0.67L5.01,4.35L10.69,1.01L7.40,-4.64L-7.71,2.31L-5.70,5.71Z" fill="none" stroke="var(--plan-line)" stroke-width="0.36" stroke-linejoin="round" fill-rule="evenodd"/><g stroke="var(--plan-line)" stroke-width="0.22"><line x1="-22.63" y1="20.27" x2="-12.63" y2="20.27"/><line x1="-22.63" y1="19.76" x2="-22.63" y2="20.78"/><line x1="-12.63" y1="19.76" x2="-12.63" y2="20.78"/></g><text x="-17.63" y="19.24" font-family="IBM Plex Mono, monospace" font-size="1.03" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap"><b>1 &middot; the plate as surveyed.</b> 3 storeys &middot;
+          8 dwellings declared &middot; 501&nbsp;m&sup2; &middot;
+          aspect 1.69 &middot; rect. 0.80 &middot;
+          reflex 0 &middot; rings 1</p></div>
+        <div class="fig"><svg class="plan" viewBox="-25.19 -21.46 51.25 43.92" role="img" aria-label="Courtyard floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="hcourtyard" width="1.20" height="1.20" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="1.20" stroke="var(--plan-line)" stroke-width="0.17" opacity=".55"/></pattern></defs><path d="M10.87,-14.69L13.66,-9.91L17.42,-3.50L11.68,-0.87L8.13,-6.96L8.86,-7.30L7.85,-9.48L5.67,-8.47L6.67,-6.29L-0.28,-3.10L-2.72,-8.40L10.87,-14.69Z" fill="var(--d1)" stroke="var(--plan-line)" stroke-width="0.15" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-13.99,6.80L-16.85,1.68L-18.42,-1.13L-6.85,-6.49L-2.72,-8.40L-0.28,-3.10L-10.10,1.42L-11.10,-0.76L-13.28,0.25L-12.28,2.43L-10.27,1.50L-9.51,2.80L-7.56,1.91L-7.44,2.18L-7.71,2.31L-6.21,4.84L-5.94,5.44L-12.96,8.67L-13.99,6.80Z" fill="var(--d2)" stroke="var(--plan-line)" stroke-width="0.15" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-12.96,8.67L-5.94,5.44L-5.03,7.40L2.21,3.14L4.37,6.82L13.15,1.65L11.68,-0.87L17.42,-3.50L19.29,-0.32L9.07,5.45L-9.04,15.69L-10.84,12.52L-12.20,10.07L-12.96,8.67Z" fill="var(--d3)" stroke="var(--plan-line)" stroke-width="0.15" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-6.21,4.84L-5.70,5.71L2.85,0.67L5.01,4.35L10.69,1.01L7.40,-4.64L-7.44,2.18L-7.56,1.91L-9.51,2.80L-10.27,1.50L-12.28,2.43L-13.28,0.25L-11.10,-0.76L-10.10,1.42L6.67,-6.29L5.67,-8.47L7.85,-9.48L8.86,-7.30L8.13,-6.96L13.15,1.65L4.37,6.82L2.21,3.14L-5.03,7.40L-6.21,4.84Z" fill="var(--sheet-2)" stroke="var(--plan-line)" stroke-width="0.15"/><path d="M-6.21,4.84L-5.70,5.71L2.85,0.67L5.01,4.35L10.69,1.01L7.40,-4.64L-7.44,2.18L-7.56,1.91L-9.51,2.80L-10.27,1.50L-12.28,2.43L-13.28,0.25L-11.10,-0.76L-10.10,1.42L6.67,-6.29L5.67,-8.47L7.85,-9.48L8.86,-7.30L8.13,-6.96L13.15,1.65L4.37,6.82L2.21,3.14L-5.03,7.40L-6.21,4.84Z" fill="url(#hcourtyard)" stroke="none"/><path d="M9.07,5.45L-9.04,15.69L-10.84,12.52L-12.20,10.07L-13.99,6.80L-16.85,1.68L-18.42,-1.13L-6.85,-6.49L10.87,-14.68L13.66,-9.91L19.29,-0.32L9.07,5.45Z M-5.70,5.71L2.84,0.67L5.01,4.35L10.69,1.01L7.40,-4.64L-7.71,2.31L-5.70,5.71Z" fill="none" stroke="var(--plan-line)" stroke-width="0.36" stroke-linejoin="round" fill-rule="evenodd"/><text x="7.90" y="-7.03" font-family="IBM Plex Mono, monospace" font-size="1.97" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F1</text><text x="-9.62" y="0.43" font-family="IBM Plex Mono, monospace" font-size="1.97" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F2</text><text x="0.32" y="7.78" font-family="IBM Plex Mono, monospace" font-size="1.97" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F3</text><text x="2.21" y="0.73" font-family="IBM Plex Mono, monospace" font-size="1.22" fill="var(--muted)" text-anchor="middle">core</text><g stroke="var(--plan-line)" stroke-width="0.22"><line x1="-22.63" y1="20.27" x2="-12.63" y2="20.27"/><line x1="-22.63" y1="19.76" x2="-22.63" y2="20.78"/><line x1="-12.63" y1="19.76" x2="-12.63" y2="20.78"/></g><text x="-17.63" y="19.24" font-family="IBM Plex Mono, monospace" font-size="1.03" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap plan-cap"><b>2 &middot; the floor plan the rule produces.</b> 3 flats (<code>F1</code>&hellip;<code>F3</code>) + a <b>100&nbsp;m&sup2;</b> circulation core (20&nbsp;% of the plate). Cut on the very same plate by <code>courtyard_cores_gallery</code> &mdash; the rule in force today &mdash; at <b>3</b> flats per floor, the group median, repeated on each of ~5 storeys. Every square metre of the plate outside the core belongs to a flat: the drawing leaves no unassigned space.</p></div>
+      </div>
+      <div class="readout">
+        <span>median area <b>375</b>&nbsp;m&sup2;</span>
+        <span>plate <b>17.2&times;30.6</b>&nbsp;m</span>
+        <span>aspect <b>1.73</b></span>
+        <span>rect. <b>0.768</b></span>
+        <span>reflex <b>0</b></span>
+        <span>storeys <b>5</b></span>
+        <span>dwellings <b>16</b></span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      <ol class="flow"><li class="fstep"><span class="s">1</span><div class="fbody"><span class="act">Match &mdash; does the plate enter this group?</span><p class="expr"><code>n_interior_rings &ge; 1</code></p><ul><li>ladder step <b>1 of 11</b> &mdash; tested before everything else</li><li>the footprint encloses at least one interior void</li><li>a ring plate breaks any grid that assumes a solid plate</li></ul></div></li><li class="fstep"><span class="s">2</span><div class="fbody"><span class="act">Read the plate</span><ul><li>median <b>375&nbsp;m&sup2;</b> of built band around a 23.5&nbsp;m&sup2; void</li><li>the band, not the bounding box, is what gets cut</li></ul></div></li><li class="fstep"><span class="s">3</span><div class="fbody"><span class="act">Place the circulation first</span><ul><li><b>D-EU-67</b>: up to four corner stair cores at the void are joined into <b>one</b> circulation zone by the gallery band, not left as separate cores</li><li>the gallery is <b>1.80&nbsp;m</b> wide and <b>open on one side</b>, so the joined zone is one outline and not a ring</li><li>a void under <code>COURTYARD_MIN_VOID_SIDE&nbsp;=&nbsp;6.0&nbsp;m</code> is not a courtyard at all (<b>DD-7</b>): the plate is cut by its exterior&rsquo;s own group instead, the void left on a party wall</li></ul></div></li><li class="fstep"><span class="s">4</span><div class="fbody"><span class="act">Cut the flats</span><ul><li><b>k</b> sector cuts radiating from the void, equal area</li><li>every flat keeps its street facade</li></ul></div></li><li class="fstep shared"><span class="s">5</span><div class="fbody"><span class="act">Absorb what is left over</span><ul><li>the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is</li><li>every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so a margin running past two flats splits at the line between them instead of going whole to one</li><li>a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head</li><li>a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares the most wall with: a thermal zone is one room, not a room plus a tail</li><li>the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut and offset uses square corners, so no staircase of centimetre steps survives into the drawing</li><li><b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is one outline, and neither a plan nor EnergyPlus can state a hole in it</li></ul></div></li><li class="fstep shared"><span class="s">6</span><div class="fbody"><span class="act">Close &mdash; accept only if</span><ul><li>flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned</li><li><b>exactly one</b> circulation zone on the plate (Sliver: none)</li><li>the <b>drawn</b> flat count equals the <b>claimed</b> flat count</li><li>each flat is one connected room, no two zones overlap, and no zone carries a spike into another</li><li>every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one writes straight out as a single floor surface</li></ul></div></li><li class="fstep"><span class="s">7</span><div class="fbody"><span class="act">Scheme that does it</span><ul><li><code>courtyard_gallery_ring</code> &mdash; S5, new, drawn opposite</li><li>then <code>courtyard_perimeter_band</code> (S1)</li><li>today <code>courtyard_wing_unfold</code>, which refuses on this plate (<code>INTERIOR_RING_COURTYARD_UNFOLD_FAILED</code>)</li></ul></div></li></ol>
+    </div>
+  </div>
+  <p class="note"><b>Refuses when.</b> Band depth after subtracting the void falls below <code>NARROW_FOOTPRINT_THRESHOLD_M = 8.0</code> &mdash; the plate cannot hold a habitable room and a facade at once.</p>
+</article>
+<article class="sheet" id="SLIVER">
+  <div class="titleblock">
+    <div class="stack" style="gap:4px">
+      <span class="id">02 &nbsp; Sliver</span>
+      <span class="sub">637 buildings &middot; 25.0&thinsp;% of the fleet &middot; Madrid <b>180</b> &middot; Lyon <b>56</b> &middot; London <b>9</b> &middot; Bologna <b>392</b></span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
+    </div>
+    <div class="specs"><span class="tag ok">rule in force</span><span><b>216</b> with a real plan</span><span><b>33.9&thinsp;%</b> of the group</span></div>
+  </div>
+  <div class="plans">
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Footprint &rarr; floor plan &mdash; one and the same building</span>
+        <span class="lbl">Lyon &middot; BATIMENT0000000240880050_part0</span></div>
+      <div class="figs">
+        <div class="fig"><svg class="plan" viewBox="-11.58 -7.57 22.93 15.23" role="img" aria-label="Sliver floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="bsliver" width="0.54" height="0.54" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.54" stroke="var(--plan-line)" stroke-width="0.08" opacity=".55"/></pattern></defs><path d="M-6.77,-0.26L-6.27,-3.16L-5.87,-3.16L6.94,-2.55L6.34,3.25L-4.17,2.65L-7.17,2.25L-6.77,-0.26Z" fill="none" stroke="var(--plan-line)" stroke-width="0.16" stroke-linejoin="round" fill-rule="evenodd"/><g stroke="var(--plan-line)" stroke-width="0.10"><line x1="-10.44" y1="6.90" x2="-0.44" y2="6.90"/><line x1="-10.44" y1="6.67" x2="-10.44" y2="7.13"/><line x1="-0.44" y1="6.67" x2="-0.44" y2="7.13"/></g><text x="-5.44" y="6.44" font-family="IBM Plex Mono, monospace" font-size="0.46" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap"><b>1 &middot; the plate as surveyed.</b> 4 storeys &middot;
+          1 dwellings declared &middot; 77&nbsp;m&sup2; &middot;
+          aspect 2.37 &middot; rect. 0.95 &middot;
+          reflex 0 &middot; rings 0</p></div>
+        <div class="fig"><svg class="plan" viewBox="-11.58 -7.57 22.93 15.23" role="img" aria-label="Sliver floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="hsliver" width="0.54" height="0.54" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.54" stroke="var(--plan-line)" stroke-width="0.08" opacity=".55"/></pattern></defs><path d="M0.18,-2.87L-0.15,2.88L-4.17,2.65L-7.17,2.25L-6.77,-0.26L-6.27,-3.16L-5.87,-3.16L0.18,-2.87Z" fill="var(--d1)" stroke="var(--plan-line)" stroke-width="0.07" stroke-linejoin="round" fill-rule="evenodd"/><path d="M6.34,3.25L-0.15,2.88L0.18,-2.87L6.94,-2.56L6.34,3.25Z" fill="var(--d2)" stroke="var(--plan-line)" stroke-width="0.07" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-6.77,-0.26L-6.27,-3.16L-5.87,-3.16L6.94,-2.55L6.34,3.25L-4.17,2.65L-7.17,2.25L-6.77,-0.26Z" fill="none" stroke="var(--plan-line)" stroke-width="0.16" stroke-linejoin="round" fill-rule="evenodd"/><text x="-3.34" y="0.14" font-family="IBM Plex Mono, monospace" font-size="0.88" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F1</text><text x="3.34" y="0.45" font-family="IBM Plex Mono, monospace" font-size="0.88" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F2</text><g stroke="var(--plan-line)" stroke-width="0.10"><line x1="-10.44" y1="6.90" x2="-0.44" y2="6.90"/><line x1="-10.44" y1="6.67" x2="-10.44" y2="7.13"/><line x1="-0.44" y1="6.67" x2="-0.44" y2="7.13"/></g><text x="-5.44" y="6.44" font-family="IBM Plex Mono, monospace" font-size="0.46" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap plan-cap"><b>2 &middot; the floor plan the rule produces.</b> 2 flats (<code>F1</code>&hellip;<code>F2</code>) + no separate core at this count &mdash; each wing is reached from its own stair. Cut on the very same plate by <code>row_house_depth_bands</code> &mdash; the rule in force today &mdash; at <b>2</b> flats per floor, the group median, repeated on each of ~4 storeys. The group median is 1 flat per floor; drawn at 2 so the cut is visible. Every square metre of the plate outside the core belongs to a flat: the drawing leaves no unassigned space.</p></div>
+      </div>
+      <div class="readout">
+        <span>median area <b>77</b>&nbsp;m&sup2;</span>
+        <span>plate <b>5.9&times;13.7</b>&nbsp;m</span>
+        <span>aspect <b>2.44</b></span>
+        <span>rect. <b>0.907</b></span>
+        <span>reflex <b>0</b></span>
+        <span>storeys <b>4</b></span>
+        <span>dwellings <b>5</b></span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      <ol class="flow"><li class="fstep"><span class="s">1</span><div class="fbody"><span class="act">Match &mdash; does the plate enter this group?</span><p class="expr"><code>min_rot_rect_w_m &lt; 8.0</code></p><ul><li>ladder step <b>2</b> &mdash; before any regularity test</li><li>minimum rotated width under the 8.0&nbsp;m habitable-depth constant</li><li>a strip this thin defeats every grid rule downstream</li></ul></div></li><li class="fstep"><span class="s">2</span><div class="fbody"><span class="act">Read the plate</span><ul><li>median <b>77&nbsp;m&sup2;</b>, 5.9&nbsp;&times;&nbsp;13.7&nbsp;m, four denoised vertices</li><li>largest group in the fleet: <b>637</b> buildings, a quarter of everything</li></ul></div></li><li class="fstep"><span class="s">3</span><div class="fbody"><span class="act">Place the circulation first</span><ul><li><b>none</b> &mdash; the one group where zero is the right number</li><li>direct street entry, a private stair inside each dwelling</li><li>a shared corridor would consume the whole depth</li></ul></div></li><li class="fstep"><span class="s">4</span><div class="fbody"><span class="act">Cut the flats</span><ul><li><b>k</b> depth bands across the strip, equal area</li><li>the plan opposite still shows the small core the in-force grid drops; under <code>row_house_depth_bands</code> that area returns to the flats</li></ul></div></li><li class="fstep shared"><span class="s">5</span><div class="fbody"><span class="act">Absorb what is left over</span><ul><li>the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is</li><li>every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so a margin running past two flats splits at the line between them instead of going whole to one</li><li>a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head</li><li>a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares the most wall with: a thermal zone is one room, not a room plus a tail</li><li>the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut and offset uses square corners, so no staircase of centimetre steps survives into the drawing</li><li><b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is one outline, and neither a plan nor EnergyPlus can state a hole in it</li></ul></div></li><li class="fstep shared"><span class="s">6</span><div class="fbody"><span class="act">Close &mdash; accept only if</span><ul><li>flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned</li><li><b>exactly one</b> circulation zone on the plate (Sliver: none)</li><li>the <b>drawn</b> flat count equals the <b>claimed</b> flat count</li><li>each flat is one connected room, no two zones overlap, and no zone carries a spike into another</li><li>every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one writes straight out as a single floor surface</li></ul></div></li><li class="fstep"><span class="s">7</span><div class="fbody"><span class="act">Scheme that does it</span><ul><li><code>row_house_depth_bands</code> &mdash; S2, new</li><li>today <code>narrow_plate_corridor_free</code></li></ul></div></li></ol>
+    </div>
+  </div>
+  <p class="note"><b>Refuses when.</b> A band narrower than 3.0&nbsp;m across the long axis &mdash; below any national minimum room dimension.</p>
+</article>
+<article class="sheet" id="SQUARE">
+  <div class="titleblock">
+    <div class="stack" style="gap:4px">
+      <span class="id">03 &nbsp; Square</span>
+      <span class="sub">220 buildings &middot; 8.6&thinsp;% of the fleet &middot; Madrid <b>109</b> &middot; Lyon <b>52</b> &middot; London <b>15</b> &middot; Bologna <b>44</b></span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
+    </div>
+    <div class="specs"><span class="tag ok">rule in force</span><span><b>64</b> with a real plan</span><span><b>29.1&thinsp;%</b> of the group</span></div>
+  </div>
+  <div class="plans">
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Footprint &rarr; floor plan &mdash; one and the same building</span>
+        <span class="lbl">London &middot; way/388460386</span></div>
+      <div class="figs">
+        <div class="fig"><svg class="plan" viewBox="-10.90 -10.15 21.81 20.31" role="img" aria-label="Square floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="bsquare" width="0.51" height="0.51" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.51" stroke="var(--plan-line)" stroke-width="0.07" opacity=".55"/></pattern></defs><path d="M6.59,-5.64L6.57,-3.99L6.43,3.89L6.40,5.84L-6.59,5.64L-6.41,-5.84L6.59,-5.64Z" fill="none" stroke="var(--plan-line)" stroke-width="0.15" stroke-linejoin="round" fill-rule="evenodd"/><g stroke="var(--plan-line)" stroke-width="0.09"><line x1="-9.81" y1="9.14" x2="0.19" y2="9.14"/><line x1="-9.81" y1="8.92" x2="-9.81" y2="9.36"/><line x1="0.19" y1="8.92" x2="0.19" y2="9.36"/></g><text x="-4.81" y="8.70" font-family="IBM Plex Mono, monospace" font-size="0.44" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap"><b>1 &middot; the plate as surveyed.</b> 3 storeys &middot;
+          17 dwellings declared &middot; 149&nbsp;m&sup2; &middot;
+          aspect 1.13 &middot; rect. 1.00 &middot;
+          reflex 0 &middot; rings 0</p></div>
+        <div class="fig"><svg class="plan" viewBox="-10.90 -10.15 21.81 20.31" role="img" aria-label="Square floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="hsquare" width="0.51" height="0.51" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.51" stroke="var(--plan-line)" stroke-width="0.07" opacity=".55"/></pattern></defs><path d="M0.09,-5.74L0.02,-1.50L-1.47,-1.52L-1.52,1.47L-0.02,1.50L-0.09,5.74L-6.59,5.64L-6.41,-5.84L0.09,-5.74Z" fill="var(--d1)" stroke="var(--plan-line)" stroke-width="0.07" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-0.09,5.74L-0.02,1.50L1.47,1.52L1.52,-1.47L0.02,-1.50L0.09,-5.74L6.59,-5.64L6.57,-3.99L6.43,3.89L6.40,5.84L-0.09,5.74Z" fill="var(--d2)" stroke="var(--plan-line)" stroke-width="0.07" stroke-linejoin="round" fill-rule="evenodd"/><path d="M1.47,1.52L-1.52,1.47L-1.47,-1.52L1.52,-1.47L1.47,1.52Z" fill="var(--sheet-2)" stroke="var(--plan-line)" stroke-width="0.07"/><path d="M1.47,1.52L-1.52,1.47L-1.47,-1.52L1.52,-1.47L1.47,1.52Z" fill="url(#hsquare)" stroke="none"/><path d="M6.59,-5.64L6.57,-3.99L6.43,3.89L6.40,5.84L-6.59,5.64L-6.41,-5.84L6.59,-5.64Z" fill="none" stroke="var(--plan-line)" stroke-width="0.15" stroke-linejoin="round" fill-rule="evenodd"/><text x="-3.41" y="0.24" font-family="IBM Plex Mono, monospace" font-size="0.84" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F1</text><text x="3.41" y="0.34" font-family="IBM Plex Mono, monospace" font-size="0.84" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F2</text><text x="-0.00" y="0.25" font-family="IBM Plex Mono, monospace" font-size="0.52" fill="var(--muted)" text-anchor="middle">core</text><g stroke="var(--plan-line)" stroke-width="0.09"><line x1="-9.81" y1="9.14" x2="0.19" y2="9.14"/><line x1="-9.81" y1="8.92" x2="-9.81" y2="9.36"/><line x1="0.19" y1="8.92" x2="0.19" y2="9.36"/></g><text x="-4.81" y="8.70" font-family="IBM Plex Mono, monospace" font-size="0.44" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap plan-cap"><b>2 &middot; the floor plan the rule produces.</b> 2 flats (<code>F1</code>&hellip;<code>F2</code>) + a <b>9&nbsp;m&sup2;</b> circulation core (6&nbsp;% of the plate). Cut on the very same plate by <code>ruled_grid_2x1</code> &mdash; the rule in force today &mdash; at <b>2</b> flats per floor, the group median, repeated on each of ~4 storeys. Every square metre of the plate outside the core belongs to a flat: the drawing leaves no unassigned space.</p></div>
+      </div>
+      <div class="readout">
+        <span>median area <b>150</b>&nbsp;m&sup2;</span>
+        <span>plate <b>11.8&times;13.9</b>&nbsp;m</span>
+        <span>aspect <b>1.20</b></span>
+        <span>rect. <b>0.964</b></span>
+        <span>reflex <b>0</b></span>
+        <span>storeys <b>4</b></span>
+        <span>dwellings <b>8</b></span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      <ol class="flow"><li class="fstep"><span class="s">1</span><div class="fbody"><span class="act">Match &mdash; does the plate enter this group?</span><p class="expr"><code>rectangularity &ge; 0.90 and aspect_ratio &lt; 1.5</code></p><ul><li>ladder step <b>3</b> &mdash; first of the regularity tests</li><li>fills its own minimum rotated rectangle to 0.90 or better</li><li>aspect under 1.5: close to equilateral, the classic point block</li></ul></div></li><li class="fstep"><span class="s">2</span><div class="fbody"><span class="act">Read the plate</span><ul><li>median <b>150&nbsp;m&sup2;</b>, 11.8&nbsp;&times;&nbsp;13.9&nbsp;m, rectangularity 0.964</li><li>the cleanest plate in the taxonomy</li></ul></div></li><li class="fstep"><span class="s">3</span><div class="fbody"><span class="act">Place the circulation first</span><ul><li>one central core at <code>CORE_FRACTION_OF_PLATE = 0.06</code> of the plate</li><li>inside the plate, never against the outer wall</li></ul></div></li><li class="fstep"><span class="s">4</span><div class="fbody"><span class="act">Cut the flats</span><ul><li><b>k</b> flats on an <b>N&times;M</b> grid around the core, each running out to the outer wall</li><li><b>DD-3</b>: at k&nbsp;&ge;&nbsp;5, <code>ceil(k/M)</code> equal-area columns &times; M rows, cut by a straight corridor</li><li><b>DD-6</b>: M&nbsp;&isin;&nbsp;{1,2}, whichever gives the smaller max/min aspect ratio, every flat &ge;&nbsp;3.0&nbsp;m wide</li><li>no loading clears the 3.0&nbsp;m floor &rarr; <code>BAND_LT_3M</code></li></ul></div></li><li class="fstep shared"><span class="s">5</span><div class="fbody"><span class="act">Absorb what is left over</span><ul><li>the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is</li><li>every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so a margin running past two flats splits at the line between them instead of going whole to one</li><li>a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head</li><li>a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares the most wall with: a thermal zone is one room, not a room plus a tail</li><li>the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut and offset uses square corners, so no staircase of centimetre steps survives into the drawing</li><li><b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is one outline, and neither a plan nor EnergyPlus can state a hole in it</li></ul></div></li><li class="fstep shared"><span class="s">6</span><div class="fbody"><span class="act">Close &mdash; accept only if</span><ul><li>flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned</li><li><b>exactly one</b> circulation zone on the plate (Sliver: none)</li><li>the <b>drawn</b> flat count equals the <b>claimed</b> flat count</li><li>each flat is one connected room, no two zones overlap, and no zone carries a spike into another</li><li>every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one writes straight out as a single floor surface</li></ul></div></li><li class="fstep"><span class="s">7</span><div class="fbody"><span class="act">Scheme that does it</span><ul><li><code>point_block_grid</code> &rarr; <code>ruled_grid_NxM</code></li></ul></div></li></ol>
+    </div>
+  </div>
+  <p class="note"><b>Refuses when.</b> More than <code>RULED_GRID_MAX_DWELLINGS_PER_FLOOR = 12</code> declared dwellings on one storey. (D-EU-65, 2026-09-01; was 8 until then)</p>
+</article>
+<article class="sheet" id="RECTANGLE">
+  <div class="titleblock">
+    <div class="stack" style="gap:4px">
+      <span class="id">04 &nbsp; Rectangle</span>
+      <span class="sub">109 buildings &middot; 4.3&thinsp;% of the fleet &middot; Madrid <b>44</b> &middot; Lyon <b>29</b> &middot; London <b>9</b> &middot; Bologna <b>27</b></span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
+    </div>
+    <div class="specs"><span class="tag ok">rule in force</span><span><b>23</b> with a real plan</span><span><b>21.1&thinsp;%</b> of the group</span></div>
+  </div>
+  <div class="plans">
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Footprint &rarr; floor plan &mdash; one and the same building</span>
+        <span class="lbl">Madrid &middot; way/435399154</span></div>
+      <div class="figs">
+        <div class="fig"><svg class="plan" viewBox="-11.31 -14.12 22.65 28.63" role="img" aria-label="Rectangle floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="brectangle" width="0.67" height="0.67" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.67" stroke="var(--plan-line)" stroke-width="0.10" opacity=".55"/></pattern></defs><path d="M-3.96,9.63L-5.09,1.30L-6.42,-8.57L4.09,-9.23L6.46,8.15L-3.96,9.63Z" fill="none" stroke="var(--plan-line)" stroke-width="0.20" stroke-linejoin="round" fill-rule="evenodd"/><g stroke="var(--plan-line)" stroke-width="0.12"><line x1="-10.18" y1="13.08" x2="-0.18" y2="13.08"/><line x1="-10.18" y1="12.80" x2="-10.18" y2="13.37"/><line x1="-0.18" y1="12.80" x2="-0.18" y2="13.37"/></g><text x="-5.18" y="12.51" font-family="IBM Plex Mono, monospace" font-size="0.57" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap"><b>1 &middot; the plate as surveyed.</b> 3 storeys &middot;
+          10 dwellings declared &middot; 189&nbsp;m&sup2; &middot;
+          aspect 1.75 &middot; rect. 0.98 &middot;
+          reflex 0 &middot; rings 0</p></div>
+        <div class="fig"><svg class="plan" viewBox="-11.31 -14.12 22.65 28.63" role="img" aria-label="Rectangle floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="hrectangle" width="0.67" height="0.67" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.67" stroke="var(--plan-line)" stroke-width="0.10" opacity=".55"/></pattern></defs><path d="M1.44,-1.89L-1.89,-1.44L-1.67,0.23L-5.17,0.70L-6.42,-8.57L-1.21,-8.90L4.09,-9.23L5.25,-0.71L1.67,-0.22L1.44,-1.89Z" fill="var(--d1)" stroke="var(--plan-line)" stroke-width="0.09" stroke-linejoin="round" fill-rule="evenodd"/><path d="M0.23,1.67L1.89,1.44L1.67,-0.22L5.25,-0.71L6.46,8.15L1.21,8.90L0.23,1.67Z" fill="var(--d2)" stroke="var(--plan-line)" stroke-width="0.09" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-1.44,1.90L0.23,1.67L1.21,8.90L-3.96,9.63L-5.09,1.30L-5.17,0.70L-1.67,0.23L-1.44,1.90Z" fill="var(--d3)" stroke="var(--plan-line)" stroke-width="0.09" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-1.44,1.90L-1.89,-1.44L1.44,-1.89L1.89,1.44L-1.44,1.90Z" fill="var(--sheet-2)" stroke="var(--plan-line)" stroke-width="0.09"/><path d="M-1.44,1.90L-1.89,-1.44L1.44,-1.89L1.89,1.44L-1.44,1.90Z" fill="url(#hrectangle)" stroke="none"/><path d="M-3.96,9.63L-5.09,1.30L-6.42,-8.57L4.09,-9.23L6.46,8.15L-3.96,9.63Z" fill="none" stroke="var(--plan-line)" stroke-width="0.20" stroke-linejoin="round" fill-rule="evenodd"/><text x="-0.67" y="-4.30" font-family="IBM Plex Mono, monospace" font-size="1.10" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F1</text><text x="3.37" y="4.67" font-family="IBM Plex Mono, monospace" font-size="1.10" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F2</text><text x="-2.06" y="5.43" font-family="IBM Plex Mono, monospace" font-size="1.10" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F3</text><text x="0.00" y="0.33" font-family="IBM Plex Mono, monospace" font-size="0.68" fill="var(--muted)" text-anchor="middle">core</text><g stroke="var(--plan-line)" stroke-width="0.12"><line x1="-10.18" y1="13.08" x2="-0.18" y2="13.08"/><line x1="-10.18" y1="12.80" x2="-10.18" y2="13.37"/><line x1="-0.18" y1="12.80" x2="-0.18" y2="13.37"/></g><text x="-5.18" y="12.51" font-family="IBM Plex Mono, monospace" font-size="0.57" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap plan-cap"><b>2 &middot; the floor plan the rule produces.</b> 3 flats (<code>F1</code>&hellip;<code>F3</code>) + a <b>11&nbsp;m&sup2;</b> circulation core (6&nbsp;% of the plate). Cut on the very same plate by <code>ruled_grid_2x2</code> &mdash; the rule in force today &mdash; at <b>3</b> flats per floor, the group median, repeated on each of ~4 storeys. Every square metre of the plate outside the core belongs to a flat: the drawing leaves no unassigned space.</p></div>
+      </div>
+      <div class="readout">
+        <span>median area <b>189</b>&nbsp;m&sup2;</span>
+        <span>plate <b>10.8&times;18.6</b>&nbsp;m</span>
+        <span>aspect <b>1.71</b></span>
+        <span>rect. <b>0.961</b></span>
+        <span>reflex <b>0</b></span>
+        <span>storeys <b>4</b></span>
+        <span>dwellings <b>15</b></span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      <ol class="flow"><li class="fstep"><span class="s">1</span><div class="fbody"><span class="act">Match &mdash; does the plate enter this group?</span><p class="expr"><code>rectangularity &ge; 0.90 and 1.5 &le; aspect_ratio &lt; 2.0</code></p><ul><li>ladder step <b>4</b></li><li>regular, and elongated but still short</li><li>the 2.0 line is the engine&rsquo;s own <code>LINEAR_GALLERY_ASPECT_THRESHOLD</code>, not this taxonomy&rsquo;s choice</li></ul></div></li><li class="fstep"><span class="s">2</span><div class="fbody"><span class="act">Read the plate</span><ul><li>median <b>189&nbsp;m&sup2;</b>, 10.8&nbsp;&times;&nbsp;18.6&nbsp;m, aspect 1.71</li><li>four denoised vertices in every district</li></ul></div></li><li class="fstep"><span class="s">3</span><div class="fbody"><span class="act">Place the circulation first</span><ul><li>one core on the short axis</li><li>still a core, not a corridor: below aspect 2.0 one core reaches every flat</li></ul></div></li><li class="fstep"><span class="s">4</span><div class="fbody"><span class="act">Cut the flats</span><ul><li><b>k</b> flats on an <b>N&times;M</b> grid, N along the length, each running to the end wall</li><li><b>DD-3</b>: at k&nbsp;&ge;&nbsp;5, <code>ceil(k/M)</code> equal-area columns &times; M rows, cut by a straight corridor</li><li><b>DD-6</b>: M&nbsp;&isin;&nbsp;{1,2}, whichever gives the smaller max/min aspect ratio, every flat &ge;&nbsp;3.0&nbsp;m wide</li><li>no loading clears the 3.0&nbsp;m floor &rarr; <code>BAND_LT_3M</code></li></ul></div></li><li class="fstep shared"><span class="s">5</span><div class="fbody"><span class="act">Absorb what is left over</span><ul><li>the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is</li><li>every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so a margin running past two flats splits at the line between them instead of going whole to one</li><li>a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head</li><li>a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares the most wall with: a thermal zone is one room, not a room plus a tail</li><li>the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut and offset uses square corners, so no staircase of centimetre steps survives into the drawing</li><li><b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is one outline, and neither a plan nor EnergyPlus can state a hole in it</li></ul></div></li><li class="fstep shared"><span class="s">6</span><div class="fbody"><span class="act">Close &mdash; accept only if</span><ul><li>flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned</li><li><b>exactly one</b> circulation zone on the plate (Sliver: none)</li><li>the <b>drawn</b> flat count equals the <b>claimed</b> flat count</li><li>each flat is one connected room, no two zones overlap, and no zone carries a spike into another</li><li>every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one writes straight out as a single floor surface</li></ul></div></li><li class="fstep"><span class="s">7</span><div class="fbody"><span class="act">Scheme that does it</span><ul><li><code>ruled_grid_NxM</code></li></ul></div></li></ol>
+    </div>
+  </div>
+  <p class="note"><b>Refuses when.</b> More than 8 declared dwellings on one storey.</p>
+</article>
+<article class="sheet" id="CORRIDOR_RECTANGLE">
+  <div class="titleblock">
+    <div class="stack" style="gap:4px">
+      <span class="id">05 &nbsp; Corridor rectangle</span>
+      <span class="sub">94 buildings &middot; 3.7&thinsp;% of the fleet &middot; Madrid <b>40</b> &middot; Lyon <b>10</b> &middot; London <b>8</b> &middot; Bologna <b>36</b></span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
+    </div>
+    <div class="specs"><span class="tag ok">rule in force</span><span><b>28</b> with a real plan</span><span><b>29.8&thinsp;%</b> of the group</span></div>
+  </div>
+  <div class="plans">
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Footprint &rarr; floor plan &mdash; one and the same building</span>
+        <span class="lbl">Bologna &middot; 30800</span></div>
+      <div class="figs">
+        <div class="fig"><svg class="plan" viewBox="-14.00 -18.94 27.53 36.85" role="img" aria-label="Corridor rectangle floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="bcorridor_rectangle" width="0.86" height="0.86" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.86" stroke="var(--plan-line)" stroke-width="0.12" opacity=".55"/></pattern></defs><path d="M7.96,-10.90L2.16,12.34L-8.43,10.49L-7.73,8.49L-5.46,-0.03L-3.57,-7.16L-1.42,-6.71L-0.44,-10.24L-2.70,-10.87L-2.04,-13.37L7.96,-10.90Z" fill="none" stroke="var(--plan-line)" stroke-width="0.26" stroke-linejoin="round" fill-rule="evenodd"/><g stroke="var(--plan-line)" stroke-width="0.16"><line x1="-12.62" y1="16.07" x2="-2.62" y2="16.07"/><line x1="-12.62" y1="15.70" x2="-12.62" y2="16.44"/><line x1="-2.62" y1="15.70" x2="-2.62" y2="16.44"/></g><text x="-7.62" y="15.33" font-family="IBM Plex Mono, monospace" font-size="0.74" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap"><b>1 &middot; the plate as surveyed.</b> 6 storeys &middot;
+          16 dwellings declared &middot; 244&nbsp;m&sup2; &middot;
+          aspect 2.31 &middot; rect. 0.92 &middot;
+          reflex 2 &middot; rings 0</p></div>
+        <div class="fig"><svg class="plan" viewBox="-14.00 -18.94 27.53 36.85" role="img" aria-label="Corridor rectangle floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="hcorridor_rectangle" width="0.86" height="0.86" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.86" stroke="var(--plan-line)" stroke-width="0.12" opacity=".55"/></pattern></defs><path d="M4.95,-6.27L4.92,-6.14L-1.15,-7.66L-0.43,-10.24L-2.69,-10.87L-2.04,-13.37L7.96,-10.90L6.70,-5.83L4.95,-6.27Z" fill="var(--d1)" stroke="var(--plan-line)" stroke-width="0.11" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-1.15,-7.66L4.92,-6.14L3.72,-1.33L-4.57,-3.39L-3.56,-7.16L-1.42,-6.71L-1.15,-7.66Z" fill="var(--d2)" stroke="var(--plan-line)" stroke-width="0.11" stroke-linejoin="round" fill-rule="evenodd"/><path d="M3.72,-1.33L3.66,-1.09L2.68,-1.33L1.75,2.38L2.73,2.63L2.58,3.24L-5.78,1.16L-5.46,-0.03L-4.57,-3.39L3.72,-1.33Z" fill="var(--d3)" stroke="var(--plan-line)" stroke-width="0.11" stroke-linejoin="round" fill-rule="evenodd"/><path d="M1.45,7.78L-6.98,5.68L-5.78,1.16L2.58,3.24L1.45,7.78Z" fill="var(--d4)" stroke="var(--plan-line)" stroke-width="0.11" stroke-linejoin="round" fill-rule="evenodd"/><path d="M1.45,7.78L1.44,7.80L3.19,8.24L3.19,8.22L2.16,12.34L-8.43,10.49L-7.72,8.49L-6.98,5.68L1.45,7.78Z" fill="var(--d5)" stroke="var(--plan-line)" stroke-width="0.11" stroke-linejoin="round" fill-rule="evenodd"/><path d="M3.19,8.24L1.44,7.80L2.73,2.63L1.75,2.38L2.68,-1.33L3.66,-1.09L4.95,-6.27L6.70,-5.83L5.47,-0.89L5.41,-0.65L4.48,3.06L4.33,3.68L3.19,8.24Z" fill="var(--sheet-2)" stroke="var(--plan-line)" stroke-width="0.11"/><path d="M3.19,8.24L1.44,7.80L2.73,2.63L1.75,2.38L2.68,-1.33L3.66,-1.09L4.95,-6.27L6.70,-5.83L5.47,-0.89L5.41,-0.65L4.48,3.06L4.33,3.68L3.19,8.24Z" fill="url(#hcorridor_rectangle)" stroke="none"/><path d="M7.96,-10.90L2.16,12.34L-8.43,10.49L-7.73,8.49L-5.46,-0.03L-3.57,-7.16L-1.42,-6.71L-0.44,-10.24L-2.70,-10.87L-2.04,-13.37L7.96,-10.90Z" fill="none" stroke="var(--plan-line)" stroke-width="0.26" stroke-linejoin="round" fill-rule="evenodd"/><text x="2.84" y="-9.12" font-family="IBM Plex Mono, monospace" font-size="1.42" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F1</text><text x="0.34" y="-4.13" font-family="IBM Plex Mono, monospace" font-size="1.42" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F2</text><text x="-1.41" y="0.33" font-family="IBM Plex Mono, monospace" font-size="1.42" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F3</text><text x="-2.18" y="4.95" font-family="IBM Plex Mono, monospace" font-size="1.42" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F4</text><text x="-2.64" y="9.65" font-family="IBM Plex Mono, monospace" font-size="1.42" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F5</text><text x="3.89" y="1.37" font-family="IBM Plex Mono, monospace" font-size="0.88" fill="var(--muted)" text-anchor="middle">core</text><g stroke="var(--plan-line)" stroke-width="0.16"><line x1="-12.62" y1="16.07" x2="-2.62" y2="16.07"/><line x1="-12.62" y1="15.70" x2="-12.62" y2="16.44"/><line x1="-2.62" y1="15.70" x2="-2.62" y2="16.44"/></g><text x="-7.62" y="15.33" font-family="IBM Plex Mono, monospace" font-size="0.74" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap plan-cap"><b>2 &middot; the floor plan the rule produces.</b> 5 flats (<code>F1</code>&hellip;<code>F5</code>) + a <b>30&nbsp;m&sup2;</b> circulation core (12&nbsp;% of the plate). Cut on the very same plate by <code>i_shape_linear_gallery</code> &mdash; the rule in force today &mdash; at <b>5</b> flats per floor, the group median, repeated on each of ~4 storeys. Every square metre of the plate outside the core belongs to a flat: the drawing leaves no unassigned space.</p></div>
+      </div>
+      <div class="readout">
+        <span>median area <b>245</b>&nbsp;m&sup2;</span>
+        <span>plate <b>10.7&times;25.3</b>&nbsp;m</span>
+        <span>aspect <b>2.32</b></span>
+        <span>rect. <b>0.957</b></span>
+        <span>reflex <b>0</b></span>
+        <span>storeys <b>4</b></span>
+        <span>dwellings <b>12</b></span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      <ol class="flow"><li class="fstep"><span class="s">1</span><div class="fbody"><span class="act">Match &mdash; does the plate enter this group?</span><p class="expr"><code>rectangularity &ge; 0.90 and 2.0 &le; aspect_ratio &lt; 3.0</code></p><ul><li>ladder step <b>5</b> &mdash; group added 2026-09-01</li><li>regular, and elongated past the corridor threshold</li><li>the engine already routes this plate to a corridor (<code>LENGTH_OVER_WIDTH_GE_2</code>); the taxonomy had no row for it, so an elongated plate was reported beside a square one</li></ul></div></li><li class="fstep"><span class="s">2</span><div class="fbody"><span class="act">Read the plate</span><ul><li>median <b>245&nbsp;m&sup2;</b>, 10.7&nbsp;&times;&nbsp;25.3&nbsp;m, aspect 2.32</li><li>a rectangle carried by one long facade, not two short ones</li></ul></div></li><li class="fstep"><span class="s">3</span><div class="fbody"><span class="act">Place the circulation first</span><ul><li>one <b>1.80&nbsp;m corridor</b> along the long axis, as a slab has</li><li>no central core: past aspect 2.0 one core stops reaching every unit</li></ul></div></li><li class="fstep"><span class="s">4</span><div class="fbody"><span class="act">Cut the flats</span><ul><li><b>k</b> flats off the corridor: <b>DD-3</b> equal-area columns, single-loaded (M&nbsp;=&nbsp;1) by design &mdash; a corridor rectangle&rsquo;s core is already the corridor, not a second row</li><li>each column still needs &ge;&nbsp;3.0&nbsp;m width (the same <b>DD-6</b> floor), else <code>BAND_LT_3M</code></li></ul></div></li><li class="fstep shared"><span class="s">5</span><div class="fbody"><span class="act">Absorb what is left over</span><ul><li>the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is</li><li>every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so a margin running past two flats splits at the line between them instead of going whole to one</li><li>a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head</li><li>a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares the most wall with: a thermal zone is one room, not a room plus a tail</li><li>the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut and offset uses square corners, so no staircase of centimetre steps survives into the drawing</li><li><b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is one outline, and neither a plan nor EnergyPlus can state a hole in it</li></ul></div></li><li class="fstep shared"><span class="s">6</span><div class="fbody"><span class="act">Close &mdash; accept only if</span><ul><li>flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned</li><li><b>exactly one</b> circulation zone on the plate (Sliver: none)</li><li>the <b>drawn</b> flat count equals the <b>claimed</b> flat count</li><li>each flat is one connected room, no two zones overlap, and no zone carries a spike into another</li><li>every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one writes straight out as a single floor surface</li></ul></div></li><li class="fstep"><span class="s">7</span><div class="fbody"><span class="act">Scheme that does it</span><ul><li><code>i_shape_linear_gallery</code></li><li>drawn at 3 flats/floor, not the group median of 2 &mdash; at 2 the scheme is a plain bisection with no corridor at all</li></ul></div></li></ol>
+    </div>
+  </div>
+  <p class="note"><b>Refuses when.</b> Depth below 8.0&nbsp;m &mdash; re-routed to <code>narrow_plate_corridor_free</code>, same as Slab.</p>
+</article>
+<article class="sheet" id="SLAB">
+  <div class="titleblock">
+    <div class="stack" style="gap:4px">
+      <span class="id">06 &nbsp; Slab</span>
+      <span class="sub">28 buildings &middot; 1.1&thinsp;% of the fleet &middot; Madrid <b>10</b> &middot; Lyon <b>2</b> &middot; London <b>6</b> &middot; Bologna <b>10</b></span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
+    </div>
+    <div class="specs"><span class="tag ok">rule in force</span><span><b>10</b> with a real plan</span><span><b>35.7&thinsp;%</b> of the group</span></div>
+  </div>
+  <div class="plans">
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Footprint &rarr; floor plan &mdash; one and the same building</span>
+        <span class="lbl">Madrid &middot; way/435637791</span></div>
+      <div class="figs">
+        <div class="fig"><svg class="plan" viewBox="-15.79 -22.48 31.56 44.75" role="img" aria-label="Slab floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="bslab" width="1.04" height="1.04" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="1.04" stroke="var(--plan-line)" stroke-width="0.15" opacity=".55"/></pattern></defs><path d="M9.54,15.90L-1.80,16.04L-9.56,-16.25L-6.24,-16.10L-3.69,-15.98L1.89,-15.73L5.76,0.27L9.54,15.90Z" fill="none" stroke="var(--plan-line)" stroke-width="0.31" stroke-linejoin="round" fill-rule="evenodd"/><g stroke="var(--plan-line)" stroke-width="0.19"><line x1="-14.21" y1="20.03" x2="-4.21" y2="20.03"/><line x1="-14.21" y1="19.58" x2="-14.21" y2="20.47"/><line x1="-4.21" y1="19.58" x2="-4.21" y2="20.47"/></g><text x="-9.21" y="19.13" font-family="IBM Plex Mono, monospace" font-size="0.89" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap"><b>1 &middot; the plate as surveyed.</b> 5 storeys &middot;
+          8 dwellings declared &middot; 363&nbsp;m&sup2; &middot;
+          aspect 3.23 &middot; rect. 0.92 &middot;
+          reflex 0 &middot; rings 0</p></div>
+        <div class="fig"><svg class="plan" viewBox="-15.79 -22.48 31.56 44.75" role="img" aria-label="Slab floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="hslab" width="1.04" height="1.04" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="1.04" stroke="var(--plan-line)" stroke-width="0.15" opacity=".55"/></pattern></defs><path d="M-3.69,-15.98L1.89,-15.73L3.06,-10.88L-4.54,-9.05L-4.56,-9.13L-6.31,-8.71L-6.29,-8.63L-7.65,-8.30L-9.56,-16.25L-6.24,-16.10L-3.69,-15.98Z" fill="var(--d1)" stroke="var(--plan-line)" stroke-width="0.13" stroke-linejoin="round" fill-rule="evenodd"/><path d="M4.61,-4.48L-3.00,-2.65L-4.54,-9.05L3.06,-10.88L4.61,-4.48Z" fill="var(--d2)" stroke="var(--plan-line)" stroke-width="0.13" stroke-linejoin="round" fill-rule="evenodd"/><path d="M5.76,0.27L6.15,1.91L-1.47,3.74L-1.78,2.45L-0.71,2.20L-1.64,-1.69L-2.71,-1.44L-3.00,-2.65L4.61,-4.48L5.76,0.27Z" fill="var(--d3)" stroke="var(--plan-line)" stroke-width="0.13" stroke-linejoin="round" fill-rule="evenodd"/><path d="M7.70,8.30L0.07,10.13L-1.47,3.74L6.15,1.91L7.70,8.30Z" fill="var(--d4)" stroke="var(--plan-line)" stroke-width="0.13" stroke-linejoin="round" fill-rule="evenodd"/><path d="M7.70,8.30L9.54,15.90L-1.80,16.04L-3.04,10.88L-4.57,4.49L-6.11,-1.90L-7.65,-8.30L-6.29,-8.63L-4.75,-2.23L-4.46,-1.01L-5.53,-0.76L-4.60,3.13L-3.53,2.87L-3.22,4.17L-1.68,10.55L-1.68,10.57L0.07,10.15L0.07,10.13L7.70,8.30Z" fill="var(--d5)" stroke="var(--plan-line)" stroke-width="0.13" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-4.60,3.13L-5.53,-0.76L-4.46,-1.01L-6.31,-8.71L-4.56,-9.13L-2.71,-1.44L-1.64,-1.69L-0.71,2.20L-1.78,2.45L0.07,10.15L-1.68,10.57L-3.53,2.87L-4.60,3.13Z" fill="var(--sheet-2)" stroke="var(--plan-line)" stroke-width="0.13"/><path d="M-4.60,3.13L-5.53,-0.76L-4.46,-1.01L-6.31,-8.71L-4.56,-9.13L-2.71,-1.44L-1.64,-1.69L-0.71,2.20L-1.78,2.45L0.07,10.15L-1.68,10.57L-3.53,2.87L-4.60,3.13Z" fill="url(#hslab)" stroke="none"/><path d="M9.54,15.90L-1.80,16.04L-9.56,-16.25L-6.24,-16.10L-3.69,-15.98L1.89,-15.73L5.76,0.27L9.54,15.90Z" fill="none" stroke="var(--plan-line)" stroke-width="0.31" stroke-linejoin="round" fill-rule="evenodd"/><text x="-3.51" y="-12.17" font-family="IBM Plex Mono, monospace" font-size="1.72" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F1</text><text x="0.03" y="-6.18" font-family="IBM Plex Mono, monospace" font-size="1.72" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F2</text><text x="1.88" y="0.15" font-family="IBM Plex Mono, monospace" font-size="1.72" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F3</text><text x="3.11" y="6.61" font-family="IBM Plex Mono, monospace" font-size="1.72" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F4</text><text x="1.49" y="10.52" font-family="IBM Plex Mono, monospace" font-size="1.72" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F5</text><text x="-3.12" y="1.24" font-family="IBM Plex Mono, monospace" font-size="1.07" fill="var(--muted)" text-anchor="middle">core</text><g stroke="var(--plan-line)" stroke-width="0.19"><line x1="-14.21" y1="20.03" x2="-4.21" y2="20.03"/><line x1="-14.21" y1="19.58" x2="-14.21" y2="20.47"/><line x1="-4.21" y1="19.58" x2="-4.21" y2="20.47"/></g><text x="-9.21" y="19.13" font-family="IBM Plex Mono, monospace" font-size="0.89" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap plan-cap"><b>2 &middot; the floor plan the rule produces.</b> 5 flats (<code>F1</code>&hellip;<code>F5</code>) + a <b>44&nbsp;m&sup2;</b> circulation core (12&nbsp;% of the plate). Cut on the very same plate by <code>i_shape_linear_gallery</code> &mdash; the rule in force today &mdash; at <b>5</b> flats per floor, the group median, repeated on each of ~4 storeys. Every square metre of the plate outside the core belongs to a flat: the drawing leaves no unassigned space.</p></div>
+      </div>
+      <div class="readout">
+        <span>median area <b>367</b>&nbsp;m&sup2;</span>
+        <span>plate <b>10.1&times;37.9</b>&nbsp;m</span>
+        <span>aspect <b>3.77</b></span>
+        <span>rect. <b>0.960</b></span>
+        <span>reflex <b>0</b></span>
+        <span>storeys <b>4</b></span>
+        <span>dwellings <b>12</b></span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      <ol class="flow"><li class="fstep"><span class="s">1</span><div class="fbody"><span class="act">Match &mdash; does the plate enter this group?</span><p class="expr"><code>rectangularity &ge; 0.90 and aspect_ratio &ge; 3.0</code></p><ul><li>ladder step <b>6</b></li><li>regular and long</li><li>rarest group at 28 buildings, but the one where circulation geometry matters most</li></ul></div></li><li class="fstep"><span class="s">2</span><div class="fbody"><span class="act">Read the plate</span><ul><li>median <b>367&nbsp;m&sup2;</b>, 10.1&nbsp;&times;&nbsp;37.9&nbsp;m</li><li>the six London slabs reach 60&nbsp;m long at aspect 6.2</li></ul></div></li><li class="fstep"><span class="s">3</span><div class="fbody"><span class="act">Place the circulation first</span><ul><li>one <b>1.80&nbsp;m corridor</b> running the whole length</li><li>one corridor however long the slab is &mdash; never a second</li></ul></div></li><li class="fstep"><span class="s">4</span><div class="fbody"><span class="act">Cut the flats</span><ul><li><b>k</b> flats in a line off the corridor: <b>DD-3</b> equal-area columns, single-loaded (M&nbsp;=&nbsp;1) &mdash; the whole point of a slab is one row</li><li>each column still needs &ge;&nbsp;3.0&nbsp;m width (the same <b>DD-6</b> floor), else <code>BAND_LT_3M</code></li></ul></div></li><li class="fstep shared"><span class="s">5</span><div class="fbody"><span class="act">Absorb what is left over</span><ul><li>the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is</li><li>every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so a margin running past two flats splits at the line between them instead of going whole to one</li><li>a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head</li><li>a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares the most wall with: a thermal zone is one room, not a room plus a tail</li><li>the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut and offset uses square corners, so no staircase of centimetre steps survives into the drawing</li><li><b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is one outline, and neither a plan nor EnergyPlus can state a hole in it</li></ul></div></li><li class="fstep shared"><span class="s">6</span><div class="fbody"><span class="act">Close &mdash; accept only if</span><ul><li>flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned</li><li><b>exactly one</b> circulation zone on the plate (Sliver: none)</li><li>the <b>drawn</b> flat count equals the <b>claimed</b> flat count</li><li>each flat is one connected room, no two zones overlap, and no zone carries a spike into another</li><li>every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one writes straight out as a single floor surface</li></ul></div></li><li class="fstep"><span class="s">7</span><div class="fbody"><span class="act">Scheme that does it</span><ul><li><code>i_shape_linear_gallery</code></li><li>drawn at 3 flats/floor for the same reason as Corridor rectangle</li></ul></div></li></ol>
+    </div>
+  </div>
+  <p class="note"><b>Refuses when.</b> Fewer than 3 declared dwellings per floor &mdash; a corridor serving two flats is not a corridor.</p>
+</article>
+<article class="sheet" id="TRIANGLE">
+  <div class="titleblock">
+    <div class="stack" style="gap:4px">
+      <span class="id">07 &nbsp; Triangle or trapezoid</span>
+      <span class="sub">54 buildings &middot; 2.1&thinsp;% of the fleet &middot; Madrid <b>34</b> &middot; Lyon <b>7</b> &middot; London <b>2</b> &middot; Bologna <b>11</b></span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
+    </div>
+    <div class="specs"><span class="tag acc">scheme proposed</span><span><b>18</b> with a real plan</span><span><b>33.3&thinsp;%</b> of the group</span></div>
+  </div>
+  <div class="plans">
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Footprint &rarr; floor plan &mdash; one and the same building</span>
+        <span class="lbl">Madrid &middot; way/435449627</span></div>
+      <div class="figs">
+        <div class="fig"><svg class="plan" viewBox="-11.37 -16.16 22.95 31.25" role="img" aria-label="Triangle or trapezoid floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="btriangle" width="0.73" height="0.73" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.73" stroke="var(--plan-line)" stroke-width="0.10" opacity=".55"/></pattern></defs><path d="M6.48,9.99L-0.80,9.39L-6.26,8.98L-4.78,-10.20L4.18,-11.05L5.93,4.96L6.48,9.99Z" fill="none" stroke="var(--plan-line)" stroke-width="0.22" stroke-linejoin="round" fill-rule="evenodd"/><g stroke="var(--plan-line)" stroke-width="0.14"><line x1="-10.22" y1="13.53" x2="-0.22" y2="13.53"/><line x1="-10.22" y1="13.22" x2="-10.22" y2="13.84"/><line x1="-0.22" y1="13.22" x2="-0.22" y2="13.84"/></g><text x="-5.22" y="12.91" font-family="IBM Plex Mono, monospace" font-size="0.63" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap"><b>1 &middot; the plate as surveyed.</b> 4 storeys &middot;
+          11 dwellings declared &middot; 218&nbsp;m&sup2; &middot;
+          aspect 1.63 &middot; rect. 0.82 &middot;
+          reflex 0 &middot; rings 0</p></div>
+        <div class="fig"><svg class="plan" viewBox="-11.37 -16.16 22.95 31.25" role="img" aria-label="Triangle or trapezoid floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="htriangle" width="0.73" height="0.73" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.73" stroke="var(--plan-line)" stroke-width="0.10" opacity=".55"/></pattern></defs><path d="M5.47,0.71L1.78,0.42L1.92,-1.38L-1.69,-1.66L-1.82,0.14L-5.56,-0.14L-4.78,-10.20L4.18,-11.05L5.47,0.71Z" fill="var(--d1)" stroke="var(--plan-line)" stroke-width="0.09" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-1.82,0.14L-1.97,1.95L1.64,2.23L1.78,0.42L5.47,0.71L5.93,4.96L6.48,9.99L-0.80,9.39L-6.26,8.98L-5.56,-0.14L-1.82,0.14Z" fill="var(--d2)" stroke="var(--plan-line)" stroke-width="0.09" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-1.97,1.95L-1.69,-1.66L1.92,-1.38L1.64,2.23L-1.97,1.95Z" fill="var(--sheet-2)" stroke="var(--plan-line)" stroke-width="0.09"/><path d="M-1.97,1.95L-1.69,-1.66L1.92,-1.38L1.64,2.23L-1.97,1.95Z" fill="url(#htriangle)" stroke="none"/><path d="M6.48,9.99L-0.80,9.39L-6.26,8.98L-4.78,-10.20L4.18,-11.05L5.93,4.96L6.48,9.99Z" fill="none" stroke="var(--plan-line)" stroke-width="0.22" stroke-linejoin="round" fill-rule="evenodd"/><text x="-0.04" y="-4.86" font-family="IBM Plex Mono, monospace" font-size="1.20" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F1</text><text x="0.05" y="5.64" font-family="IBM Plex Mono, monospace" font-size="1.20" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F2</text><text x="-0.02" y="0.65" font-family="IBM Plex Mono, monospace" font-size="0.75" fill="var(--muted)" text-anchor="middle">core</text><g stroke="var(--plan-line)" stroke-width="0.14"><line x1="-10.22" y1="13.53" x2="-0.22" y2="13.53"/><line x1="-10.22" y1="13.22" x2="-10.22" y2="13.84"/><line x1="-0.22" y1="13.22" x2="-0.22" y2="13.84"/></g><text x="-5.22" y="12.91" font-family="IBM Plex Mono, monospace" font-size="0.63" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap plan-cap"><b>2 &middot; the floor plan the rule produces.</b> 2 flats (<code>F1</code>&hellip;<code>F2</code>) + a <b>13&nbsp;m&sup2;</b> circulation core (6&nbsp;% of the plate). Cut on the very same plate by <code>ruled_grid_2x1</code> &mdash; the proposed rule, not yet in the engine &mdash; at <b>2</b> flats per floor, the group median, repeated on each of ~4 storeys. Every square metre of the plate outside the core belongs to a flat: the drawing leaves no unassigned space.</p></div>
+      </div>
+      <div class="readout">
+        <span>median area <b>216</b>&nbsp;m&sup2;</span>
+        <span>plate <b>11.6&times;22.7</b>&nbsp;m</span>
+        <span>aspect <b>1.82</b></span>
+        <span>rect. <b>0.823</b></span>
+        <span>reflex <b>0</b></span>
+        <span>storeys <b>4</b></span>
+        <span>dwellings <b>11</b></span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      <ol class="flow"><li class="fstep"><span class="s">1</span><div class="fbody"><span class="act">Match &mdash; does the plate enter this group?</span><p class="expr"><code>n_edges_ge_15pct_perimeter &le; 3 and reflex_count == 0</code></p><ul><li>ladder step <b>7</b> &mdash; first test that is not about regularity</li><li>no reflex corner, and three or fewer <em>long</em> edges (under 15&nbsp;% of the perimeter does not count)</li><li>a true triangle lands here, and so does a plate whose fourth side is a short blunt end</li></ul></div></li><li class="fstep"><span class="s">2</span><div class="fbody"><span class="act">Read the plate</span><ul><li>median <b>216&nbsp;m&sup2;</b>, rectangularity 0.823</li><li>only 8 of the 54 are carried by two long edges &mdash; mostly tapered trapezoids, not points</li></ul></div></li><li class="fstep"><span class="s">3</span><div class="fbody"><span class="act">Place the circulation first</span><ul><li><b>DD-2</b>: one core at the plate&rsquo;s <b>centroid</b>, not the incentre &mdash; the convex cutter has no wedge geometry to centre on</li></ul></div></li><li class="fstep"><span class="s">4</span><div class="fbody"><span class="act">Cut the flats</span><ul><li>equal-area <b>columns</b> in the plate&rsquo;s own minimum-rotated-rectangle frame, cut by <code>cut_convex()</code></li><li>one straight row line through the centroid splits the columns top/bottom, not wedges radiating from a corner</li></ul></div></li><li class="fstep shared"><span class="s">5</span><div class="fbody"><span class="act">Absorb what is left over</span><ul><li>the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is</li><li>every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so a margin running past two flats splits at the line between them instead of going whole to one</li><li>a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head</li><li>a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares the most wall with: a thermal zone is one room, not a room plus a tail</li><li>the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut and offset uses square corners, so no staircase of centimetre steps survives into the drawing</li><li><b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is one outline, and neither a plan nor EnergyPlus can state a hole in it</li></ul></div></li><li class="fstep shared"><span class="s">6</span><div class="fbody"><span class="act">Close &mdash; accept only if</span><ul><li>flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned</li><li><b>exactly one</b> circulation zone on the plate (Sliver: none)</li><li>the <b>drawn</b> flat count equals the <b>claimed</b> flat count</li><li>each flat is one connected room, no two zones overlap, and no zone carries a spike into another</li><li>every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one writes straight out as a single floor surface</li></ul></div></li><li class="fstep"><span class="s">7</span><div class="fbody"><span class="act">Scheme that does it</span><ul><li><code>regularized_envelope_grid</code> &mdash; S4, new</li></ul></div></li></ol>
+    </div>
+  </div>
+  <p class="note"><b>Refuses when.</b> Sharpest corner under 25&deg; and the tip wedge below 6&nbsp;m&sup2; &mdash; the plate is a leftover, not a dwelling.</p>
+</article>
+<article class="sheet" id="TRAPEZOID">
+  <div class="titleblock">
+    <div class="stack" style="gap:4px">
+      <span class="id">08 &nbsp; Parallelogram</span>
+      <span class="sub">87 buildings &middot; 3.4&thinsp;% of the fleet &middot; Madrid <b>74</b> &middot; Lyon <b>7</b> &middot; London <b>1</b> &middot; Bologna <b>5</b></span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
+    </div>
+    <div class="specs"><span class="tag acc">scheme proposed</span><span><b>20</b> with a real plan</span><span><b>23.0&thinsp;%</b> of the group</span></div>
+  </div>
+  <div class="plans">
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Footprint &rarr; floor plan &mdash; one and the same building</span>
+        <span class="lbl">Madrid &middot; way/941927214</span></div>
+      <div class="figs">
+        <div class="fig"><svg class="plan" viewBox="-13.06 -11.01 26.61 22.14" role="img" aria-label="Parallelogram floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="btrapezoid" width="0.62" height="0.62" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.62" stroke="var(--plan-line)" stroke-width="0.09" opacity=".55"/></pattern></defs><path d="M8.83,4.81L-5.15,6.42L-8.34,-5.24L4.74,-6.29L7.94,2.37L8.83,4.81Z" fill="none" stroke="var(--plan-line)" stroke-width="0.19" stroke-linejoin="round" fill-rule="evenodd"/><g stroke="var(--plan-line)" stroke-width="0.12"><line x1="-11.73" y1="10.03" x2="-1.73" y2="10.03"/><line x1="-11.73" y1="9.76" x2="-11.73" y2="10.29"/><line x1="-1.73" y1="9.76" x2="-1.73" y2="10.29"/></g><text x="-6.73" y="9.49" font-family="IBM Plex Mono, monospace" font-size="0.53" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap"><b>1 &middot; the plate as surveyed.</b> 5 storeys &middot;
+          14 dwellings declared &middot; 159&nbsp;m&sup2; &middot;
+          aspect 1.33 &middot; rect. 0.84 &middot;
+          reflex 0 &middot; rings 0</p></div>
+        <div class="fig"><svg class="plan" viewBox="-13.06 -11.01 26.61 22.14" role="img" aria-label="Parallelogram floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="htrapezoid" width="0.62" height="0.62" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.62" stroke="var(--plan-line)" stroke-width="0.09" opacity=".55"/></pattern></defs><path d="M8.83,4.81L0.63,5.75L0.14,1.54L1.68,1.36L1.32,-1.71L-0.21,-1.53L-0.71,-5.86L4.74,-6.29L7.94,2.37L8.83,4.81Z" fill="var(--d1)" stroke="var(--plan-line)" stroke-width="0.08" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-0.21,-1.53L-1.75,-1.35L-1.39,1.71L0.14,1.54L0.63,5.75L-5.15,6.42L-8.34,-5.24L-0.71,-5.86L-0.21,-1.53Z" fill="var(--d2)" stroke="var(--plan-line)" stroke-width="0.08" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-1.75,-1.35L1.32,-1.71L1.68,1.36L-1.39,1.71L-1.75,-1.35Z" fill="var(--sheet-2)" stroke="var(--plan-line)" stroke-width="0.08"/><path d="M-1.75,-1.35L1.32,-1.71L1.68,1.36L-1.39,1.71L-1.75,-1.35Z" fill="url(#htrapezoid)" stroke="none"/><path d="M8.83,4.81L-5.15,6.42L-8.34,-5.24L4.74,-6.29L7.94,2.37L8.83,4.81Z" fill="none" stroke="var(--plan-line)" stroke-width="0.19" stroke-linejoin="round" fill-rule="evenodd"/><text x="3.63" y="0.35" font-family="IBM Plex Mono, monospace" font-size="1.02" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F1</text><text x="-3.63" y="0.35" font-family="IBM Plex Mono, monospace" font-size="1.02" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F2</text><text x="-0.04" y="0.31" font-family="IBM Plex Mono, monospace" font-size="0.63" fill="var(--muted)" text-anchor="middle">core</text><g stroke="var(--plan-line)" stroke-width="0.12"><line x1="-11.73" y1="10.03" x2="-1.73" y2="10.03"/><line x1="-11.73" y1="9.76" x2="-11.73" y2="10.29"/><line x1="-1.73" y1="9.76" x2="-1.73" y2="10.29"/></g><text x="-6.73" y="9.49" font-family="IBM Plex Mono, monospace" font-size="0.53" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap plan-cap"><b>2 &middot; the floor plan the rule produces.</b> 2 flats (<code>F1</code>&hellip;<code>F2</code>) + a <b>10&nbsp;m&sup2;</b> circulation core (6&nbsp;% of the plate). Cut on the very same plate by <code>ruled_grid_2x1</code> &mdash; the proposed rule, not yet in the engine &mdash; at <b>2</b> flats per floor, the group median, repeated on each of ~4 storeys. Every square metre of the plate outside the core belongs to a flat: the drawing leaves no unassigned space.</p></div>
+      </div>
+      <div class="readout">
+        <span>median area <b>157</b>&nbsp;m&sup2;</span>
+        <span>plate <b>11.9&times;16.4</b>&nbsp;m</span>
+        <span>aspect <b>1.39</b></span>
+        <span>rect. <b>0.863</b></span>
+        <span>reflex <b>0</b></span>
+        <span>storeys <b>4</b></span>
+        <span>dwellings <b>8</b></span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      <ol class="flow"><li class="fstep"><span class="s">1</span><div class="fbody"><span class="act">Match &mdash; does the plate enter this group?</span><p class="expr"><code>reflex_count == 0 and rectangularity &lt; 0.90</code></p><ul><li>ladder step <b>8</b></li><li>no reflex corner, but rectangularity under 0.90</li><li>four long edges skewed off square &mdash; the catch-all for convex plates no grid fits squarely</li></ul></div></li><li class="fstep"><span class="s">2</span><div class="fbody"><span class="act">Read the plate</span><ul><li>median <b>157&nbsp;m&sup2;</b>, 11.9&nbsp;&times;&nbsp;16.4&nbsp;m, rect. 0.863, aspect 1.39</li><li>all 87 carry four long edges, 65 have exactly four vertices</li><li>overwhelmingly a Madrid group: 74 of 87</li></ul></div></li><li class="fstep"><span class="s">3</span><div class="fbody"><span class="act">Place the circulation first</span><ul><li>one core on the regularised rectangle</li></ul></div></li><li class="fstep"><span class="s">4</span><div class="fbody"><span class="act">Cut the flats</span><ul><li><b>k</b> flats cut on the regularised rectangle, then clipped back to the true outline</li><li>each flat is then grown into the skew slivers the rectangle missed, so regularising costs no floor area</li></ul></div></li><li class="fstep shared"><span class="s">5</span><div class="fbody"><span class="act">Absorb what is left over</span><ul><li>the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is</li><li>every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so a margin running past two flats splits at the line between them instead of going whole to one</li><li>a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head</li><li>a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares the most wall with: a thermal zone is one room, not a room plus a tail</li><li>the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut and offset uses square corners, so no staircase of centimetre steps survives into the drawing</li><li><b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is one outline, and neither a plan nor EnergyPlus can state a hole in it</li></ul></div></li><li class="fstep shared"><span class="s">6</span><div class="fbody"><span class="act">Close &mdash; accept only if</span><ul><li>flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned</li><li><b>exactly one</b> circulation zone on the plate (Sliver: none)</li><li>the <b>drawn</b> flat count equals the <b>claimed</b> flat count</li><li>each flat is one connected room, no two zones overlap, and no zone carries a spike into another</li><li>every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one writes straight out as a single floor surface</li></ul></div></li><li class="fstep"><span class="s">7</span><div class="fbody"><span class="act">Scheme that does it</span><ul><li><code>regularized_envelope_grid</code> &mdash; S4, new</li></ul></div></li></ol>
+    </div>
+  </div>
+  <p class="note"><b>Refuses when.</b> Residual outside the inscribed rectangle above 0.35 of the plate &mdash; the regularisation would be a fiction.</p>
+</article>
+<article class="sheet" id="L_SHAPE">
+  <div class="titleblock">
+    <div class="stack" style="gap:4px">
+      <span class="id">09 &nbsp; L shape</span>
+      <span class="sub">259 buildings &middot; 10.2&thinsp;% of the fleet &middot; Madrid <b>112</b> &middot; Lyon <b>51</b> &middot; London <b>6</b> &middot; Bologna <b>90</b></span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
+    </div>
+    <div class="specs"><span class="tag ok">rule in force</span><span><b>34</b> with a real plan</span><span><b>13.1&thinsp;%</b> of the group</span></div>
+  </div>
+  <div class="plans">
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Footprint &rarr; floor plan &mdash; one and the same building</span>
+        <span class="lbl">Madrid &middot; way/434869413</span></div>
+      <div class="figs">
+        <div class="fig"><svg class="plan" viewBox="-10.99 -16.14 21.73 31.59" role="img" aria-label="L shape floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="bl_shape" width="0.74" height="0.74" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.74" stroke="var(--plan-line)" stroke-width="0.11" opacity=".55"/></pattern></defs><path d="M2.87,10.31L-5.86,9.73L-4.89,5.07L-2.98,-4.08L-1.55,-10.91L5.61,-11.01L5.47,-8.39L4.31,-8.42L3.61,0.06L2.87,10.31Z" fill="none" stroke="var(--plan-line)" stroke-width="0.22" stroke-linejoin="round" fill-rule="evenodd"/><g stroke="var(--plan-line)" stroke-width="0.14"><line x1="-9.90" y1="13.87" x2="0.10" y2="13.87"/><line x1="-9.90" y1="13.55" x2="-9.90" y2="14.18"/><line x1="0.10" y1="13.55" x2="0.10" y2="14.18"/></g><text x="-4.90" y="13.24" font-family="IBM Plex Mono, monospace" font-size="0.63" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap"><b>1 &middot; the plate as surveyed.</b> 5 storeys &middot;
+          14 dwellings declared &middot; 158&nbsp;m&sup2; &middot;
+          aspect 2.54 &middot; rect. 0.82 &middot;
+          reflex 1 &middot; rings 0</p></div>
+        <div class="fig"><svg class="plan" viewBox="-10.99 -16.14 21.74 31.59" role="img" aria-label="L shape floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="hl_shape" width="0.74" height="0.74" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.74" stroke="var(--plan-line)" stroke-width="0.11" opacity=".55"/></pattern></defs><path d="M5.61,-11.01L5.47,-8.39L4.31,-8.42L3.62,0.06L3.56,0.82L1.48,0.53L1.70,-1.00L-1.36,-1.42L-1.57,0.10L-3.79,-0.20L-2.98,-4.08L-1.55,-10.91L1.52,-10.96L5.61,-11.01Z" fill="var(--d1)" stroke="var(--plan-line)" stroke-width="0.09" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-1.57,0.10L-1.78,1.63L-0.26,1.84L-1.40,10.03L-5.86,9.73L-4.89,5.07L-3.79,-0.20L-1.57,0.10Z" fill="var(--d2)" stroke="var(--plan-line)" stroke-width="0.09" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-0.26,1.84L1.27,2.06L1.48,0.53L3.56,0.82L2.87,10.31L-1.40,10.03L-0.26,1.84Z" fill="var(--d3)" stroke="var(--plan-line)" stroke-width="0.09" stroke-linejoin="round" fill-rule="evenodd"/><path d="M1.70,-1.00L1.27,2.06L-1.78,1.63L-1.36,-1.42L1.70,-1.00Z" fill="var(--sheet-2)" stroke="var(--plan-line)" stroke-width="0.09"/><path d="M1.70,-1.00L1.27,2.06L-1.78,1.63L-1.36,-1.42L1.70,-1.00Z" fill="url(#hl_shape)" stroke="none"/><path d="M2.87,10.31L-5.86,9.73L-4.89,5.07L-2.98,-4.08L-1.55,-10.91L5.61,-11.01L5.47,-8.39L4.31,-8.42L3.61,0.06L2.87,10.31Z" fill="none" stroke="var(--plan-line)" stroke-width="0.22" stroke-linejoin="round" fill-rule="evenodd"/><text x="0.91" y="-5.19" font-family="IBM Plex Mono, monospace" font-size="1.22" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F1</text><text x="-2.92" y="5.77" font-family="IBM Plex Mono, monospace" font-size="1.22" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F2</text><text x="1.27" y="6.20" font-family="IBM Plex Mono, monospace" font-size="1.22" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F3</text><text x="-0.04" y="0.68" font-family="IBM Plex Mono, monospace" font-size="0.75" fill="var(--muted)" text-anchor="middle">core</text><g stroke="var(--plan-line)" stroke-width="0.14"><line x1="-9.90" y1="13.87" x2="0.10" y2="13.87"/><line x1="-9.90" y1="13.55" x2="-9.90" y2="14.18"/><line x1="0.10" y1="13.55" x2="0.10" y2="14.18"/></g><text x="-4.90" y="13.24" font-family="IBM Plex Mono, monospace" font-size="0.63" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap plan-cap"><b>2 &middot; the floor plan the rule produces.</b> 3 flats (<code>F1</code>&hellip;<code>F3</code>) + a <b>10&nbsp;m&sup2;</b> circulation core (6&nbsp;% of the plate). Cut on the very same plate by <code>wing_fallback_convex</code> &mdash; the rule in force today &mdash; at <b>3</b> flats per floor, the group median, repeated on each of ~5 storeys. Every square metre of the plate outside the core belongs to a flat: the drawing leaves no unassigned space.</p></div>
+      </div>
+      <div class="readout">
+        <span>median area <b>203</b>&nbsp;m&sup2;</span>
+        <span>plate <b>12.9&times;20.3</b>&nbsp;m</span>
+        <span>aspect <b>1.44</b></span>
+        <span>rect. <b>0.766</b></span>
+        <span>reflex <b>1</b></span>
+        <span>storeys <b>5</b></span>
+        <span>dwellings <b>14</b></span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      <ol class="flow"><li class="fstep"><span class="s">1</span><div class="fbody"><span class="act">Match &mdash; does the plate enter this group?</span><p class="expr"><code>reflex_count == 1</code></p><ul><li>ladder step <b>9</b> &mdash; first of the three re-entrant groups</li><li>exactly one reflex vertex: one elbow, two wings</li></ul></div></li><li class="fstep"><span class="s">2</span><div class="fbody"><span class="act">Read the plate</span><ul><li>median <b>203&nbsp;m&sup2;</b>, six denoised vertices, hull deficit 0.097</li></ul></div></li><li class="fstep"><span class="s">3</span><div class="fbody"><span class="act">Place the circulation first</span><ul><li><b>DD-5</b>: the corridor reaches into each wing from the elbow rather than the wing being refused for its length</li><li>each wing&rsquo;s corridor spans only from the <b>first</b> served cut or junction to the <b>last</b></li><li><b>DD-8</b>: a one-flat leaf wing gets a short <b>1.5&nbsp;m</b> landing stub, not a full corridor</li><li>the strip left along the short wing is <b>not</b> a second core &mdash; it goes to the flat it touches</li></ul></div></li><li class="fstep"><span class="s">4</span><div class="fbody"><span class="act">Cut the flats</span><ul><li><b>k</b> flats per wing, in proportion to wing area, each absorbing the leftover against its own outer wall</li><li><b>fallback</b>: a wing split into more than <code>MAX_WING_PIECES&nbsp;=&nbsp;14</code> pieces, or into fewer than two wings, is cut whole by <code>cut_convex()</code> on its own MRR frame instead of being refused</li></ul></div></li><li class="fstep shared"><span class="s">5</span><div class="fbody"><span class="act">Absorb what is left over</span><ul><li>the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is</li><li>every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so a margin running past two flats splits at the line between them instead of going whole to one</li><li>a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head</li><li>a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares the most wall with: a thermal zone is one room, not a room plus a tail</li><li>the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut and offset uses square corners, so no staircase of centimetre steps survives into the drawing</li><li><b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is one outline, and neither a plan nor EnergyPlus can state a hole in it</li></ul></div></li><li class="fstep shared"><span class="s">6</span><div class="fbody"><span class="act">Close &mdash; accept only if</span><ul><li>flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned</li><li><b>exactly one</b> circulation zone on the plate (Sliver: none)</li><li>the <b>drawn</b> flat count equals the <b>claimed</b> flat count</li><li>each flat is one connected room, no two zones overlap, and no zone carries a spike into another</li><li>every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one writes straight out as a single floor surface</li></ul></div></li><li class="fstep"><span class="s">7</span><div class="fbody"><span class="act">Scheme that does it</span><ul><li><code>l_shape_decomposition</code></li><li>falls to <code>wing_spine_decomposition</code> (S3) when one core cannot reach both wings</li></ul></div></li></ol>
+    </div>
+  </div>
+  <p class="note"><b>Refuses when.</b> A wing shorter than 6.0&nbsp;m after the elbow is cut away &mdash; it is a bay window, not a wing.</p>
+</article>
+<article class="sheet" id="U_OR_T_SHAPE">
+  <div class="titleblock">
+    <div class="stack" style="gap:4px">
+      <span class="id">10 &nbsp; U or T shape</span>
+      <span class="sub">269 buildings &middot; 10.6&thinsp;% of the fleet &middot; Madrid <b>115</b> &middot; Lyon <b>31</b> &middot; London <b>8</b> &middot; Bologna <b>115</b></span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
+    </div>
+    <div class="specs"><span class="tag acc">scheme proposed</span><span><b>39</b> with a real plan</span><span><b>14.5&thinsp;%</b> of the group</span></div>
+  </div>
+  <div class="plans">
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Footprint &rarr; floor plan &mdash; one and the same building</span>
+        <span class="lbl">Bologna &middot; 30399</span></div>
+      <div class="figs">
+        <div class="fig"><svg class="plan" viewBox="-12.16 -10.36 22.70 20.67" role="img" aria-label="U or T shape floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="bu_or_t_shape" width="0.53" height="0.53" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.53" stroke="var(--plan-line)" stroke-width="0.08" opacity=".55"/></pattern></defs><path d="M-7.76,-0.16L-7.21,-0.89L-6.38,-2.01L-4.77,-0.82L-3.54,0.10L-2.95,-0.87L-2.51,-1.77L-1.57,-1.25L1.90,-5.97L6.16,-3.14L4.94,-1.10L0.85,5.92L-5.94,1.46L-7.18,0.35L-7.76,-0.16Z" fill="none" stroke="var(--plan-line)" stroke-width="0.16" stroke-linejoin="round" fill-rule="evenodd"/><g stroke="var(--plan-line)" stroke-width="0.10"><line x1="-11.02" y1="9.28" x2="-1.02" y2="9.28"/><line x1="-11.02" y1="9.05" x2="-11.02" y2="9.51"/><line x1="-1.02" y1="9.05" x2="-1.02" y2="9.51"/></g><text x="-6.02" y="8.83" font-family="IBM Plex Mono, monospace" font-size="0.45" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap"><b>1 &middot; the plate as surveyed.</b> 5 storeys &middot;
+          16 dwellings declared &middot; 72&nbsp;m&sup2; &middot;
+          aspect 1.00 &middot; rect. 0.65 &middot;
+          reflex 2 &middot; rings 0</p></div>
+        <div class="fig"><svg class="plan" viewBox="-12.16 -10.36 22.70 20.67" role="img" aria-label="U or T shape floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="hu_or_t_shape" width="0.53" height="0.53" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.53" stroke="var(--plan-line)" stroke-width="0.08" opacity=".55"/></pattern></defs><path d="M1.90,-5.97L6.16,-3.14L4.94,-1.10L3.42,1.51L1.98,0.72L3.18,-1.33L1.11,-2.54L-0.06,-0.56L-0.96,-1.09L-1.04,-0.95L-1.57,-1.25L1.90,-5.97Z" fill="var(--d1)" stroke="var(--plan-line)" stroke-width="0.07" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-1.57,-1.25L-1.04,-0.95L-1.30,-0.51L-0.66,-0.13L-1.24,0.87L-1.12,0.94L-2.68,3.61L-5.94,1.46L-7.18,0.35L-7.76,-0.16L-7.21,-0.89L-6.38,-2.01L-3.54,0.10L-2.95,-0.87L-2.51,-1.77L-2.04,-1.51L-1.57,-1.25Z" fill="var(--d2)" stroke="var(--plan-line)" stroke-width="0.07" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-0.46,-0.02L0.25,0.40L0.53,-0.08L0.54,-0.09L0.93,0.14L1.96,0.74L1.98,0.72L3.42,1.51L0.85,5.92L-2.68,3.61L-1.12,0.94L-1.05,0.98L-0.46,-0.02Z" fill="var(--d3)" stroke="var(--plan-line)" stroke-width="0.07" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-1.30,-0.51L-0.96,-1.09L-0.06,-0.56L1.11,-2.54L3.18,-1.33L1.96,0.74L0.54,-0.09L0.25,0.40L-0.46,-0.02L-1.05,0.98L-1.24,0.87L-0.66,-0.13L-1.30,-0.51Z" fill="var(--sheet-2)" stroke="var(--plan-line)" stroke-width="0.07"/><path d="M-1.30,-0.51L-0.96,-1.09L-0.06,-0.56L1.11,-2.54L3.18,-1.33L1.96,0.74L0.54,-0.09L0.25,0.40L-0.46,-0.02L-1.05,0.98L-1.24,0.87L-0.66,-0.13L-1.30,-0.51Z" fill="url(#hu_or_t_shape)" stroke="none"/><path d="M-7.76,-0.16L-7.21,-0.89L-6.38,-2.01L-4.77,-0.82L-3.54,0.10L-2.95,-0.87L-2.51,-1.77L-1.57,-1.25L1.90,-5.97L6.16,-3.14L4.94,-1.10L0.85,5.92L-5.94,1.46L-7.18,0.35L-7.76,-0.16Z" fill="none" stroke="var(--plan-line)" stroke-width="0.16" stroke-linejoin="round" fill-rule="evenodd"/><text x="2.64" y="-2.20" font-family="IBM Plex Mono, monospace" font-size="0.87" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F1</text><text x="-3.97" y="0.87" font-family="IBM Plex Mono, monospace" font-size="0.87" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F2</text><text x="0.36" y="3.02" font-family="IBM Plex Mono, monospace" font-size="0.87" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F3</text><text x="1.14" y="-0.50" font-family="IBM Plex Mono, monospace" font-size="0.54" fill="var(--muted)" text-anchor="middle">core</text><g stroke="var(--plan-line)" stroke-width="0.10"><line x1="-11.02" y1="9.28" x2="-1.02" y2="9.28"/><line x1="-11.02" y1="9.05" x2="-11.02" y2="9.51"/><line x1="-1.02" y1="9.05" x2="-1.02" y2="9.51"/></g><text x="-6.02" y="8.83" font-family="IBM Plex Mono, monospace" font-size="0.45" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap plan-cap"><b>2 &middot; the floor plan the rule produces.</b> 3 flats (<code>F1</code>&hellip;<code>F3</code>) + a <b>7&nbsp;m&sup2;</b> circulation core (10&nbsp;% of the plate). Cut on the very same plate by <code>l_shape_decomposition</code> &mdash; the proposed rule, not yet in the engine &mdash; at <b>3</b> flats per floor, the group median, repeated on each of ~5 storeys. Every square metre of the plate outside the core belongs to a flat: the drawing leaves no unassigned space.</p></div>
+      </div>
+      <div class="readout">
+        <span>median area <b>239</b>&nbsp;m&sup2;</span>
+        <span>plate <b>13.6&times;22.0</b>&nbsp;m</span>
+        <span>aspect <b>1.55</b></span>
+        <span>rect. <b>0.770</b></span>
+        <span>reflex <b>2</b></span>
+        <span>storeys <b>5</b></span>
+        <span>dwellings <b>16</b></span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      <ol class="flow"><li class="fstep"><span class="s">1</span><div class="fbody"><span class="act">Match &mdash; does the plate enter this group?</span><p class="expr"><code>reflex_count == 2</code></p><ul><li>ladder step <b>10</b></li><li>exactly two reflex vertices: a connecting run with two arms</li><li>U and T are the same problem, so they share a group</li></ul></div></li><li class="fstep"><span class="s">2</span><div class="fbody"><span class="act">Read the plate</span><ul><li>median <b>239&nbsp;m&sup2;</b>, 13.6&nbsp;&times;&nbsp;22.0&nbsp;m, eight denoised vertices, hull deficit 0.117</li></ul></div></li><li class="fstep"><span class="s">3</span><div class="fbody"><span class="act">Place the circulation first</span><ul><li><b>DD-5</b>: the spine corridor <b>reaches into</b> a long arm rather than the plate being refused for it</li><li>the corridor in each arm spans only from the <b>first</b> served cut or junction to the <b>last</b> &mdash; no corridor runs past the last-served flat</li><li><b>DD-8</b>: a one-flat leaf arm gets a short <b>1.5&nbsp;m</b> landing stub, not a full corridor</li></ul></div></li><li class="fstep"><span class="s">4</span><div class="fbody"><span class="act">Cut the flats</span><ul><li><b>k</b> flats assigned per wing</li><li>each flat takes the pocket at its own arm end</li></ul></div></li><li class="fstep shared"><span class="s">5</span><div class="fbody"><span class="act">Absorb what is left over</span><ul><li>the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is</li><li>every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so a margin running past two flats splits at the line between them instead of going whole to one</li><li>a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head</li><li>a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares the most wall with: a thermal zone is one room, not a room plus a tail</li><li>the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut and offset uses square corners, so no staircase of centimetre steps survives into the drawing</li><li><b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is one outline, and neither a plan nor EnergyPlus can state a hole in it</li></ul></div></li><li class="fstep shared"><span class="s">6</span><div class="fbody"><span class="act">Close &mdash; accept only if</span><ul><li>flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned</li><li><b>exactly one</b> circulation zone on the plate (Sliver: none)</li><li>the <b>drawn</b> flat count equals the <b>claimed</b> flat count</li><li>each flat is one connected room, no two zones overlap, and no zone carries a spike into another</li><li>every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one writes straight out as a single floor surface</li></ul></div></li><li class="fstep"><span class="s">7</span><div class="fbody"><span class="act">Scheme that does it</span><ul><li><code>wing_spine_decomposition</code> &mdash; S3, new</li></ul></div></li></ol>
+    </div>
+  </div>
+  <p class="note"><b>Refuses when.</b> An arm longer than 15&nbsp;m from the spine core &mdash; refuse the plate rather than add a second core.</p>
+</article>
+<article class="sheet" id="COMPLEX_MULTI_WING">
+  <div class="titleblock">
+    <div class="stack" style="gap:4px">
+      <span class="id">11 &nbsp; Complex multi-wing</span>
+      <span class="sub">425 buildings &middot; 16.7&thinsp;% of the fleet &middot; Madrid <b>123</b> &middot; Lyon <b>39</b> &middot; London <b>18</b> &middot; Bologna <b>245</b></span>
+      <span class="sub"><a href="#LAW">The global law applies to this sheet as well &mdash; see LAW.</a></span>
+    </div>
+    <div class="specs"><span class="tag acc">scheme proposed</span><span><b>42</b> with a real plan</span><span><b>9.9&thinsp;%</b> of the group</span></div>
+  </div>
+  <div class="plans">
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Footprint &rarr; floor plan &mdash; one and the same building</span>
+        <span class="lbl">Madrid &middot; way/432405451</span></div>
+      <div class="figs">
+        <div class="fig"><svg class="plan" viewBox="-13.73 -14.26 27.50 28.56" role="img" aria-label="Complex multi-wing floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="bcomplex_multi_wing" width="0.67" height="0.67" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.67" stroke="var(--plan-line)" stroke-width="0.10" opacity=".55"/></pattern></defs><path d="M3.58,9.25L2.86,8.80L2.51,9.42L1.12,8.58L1.55,7.97L-6.80,2.68L-7.22,3.31L-8.56,2.45L-8.13,1.84L-8.85,1.39L-3.44,-9.38L-0.60,-7.58L6.29,-3.23L8.88,-1.60L3.58,9.25Z" fill="none" stroke="var(--plan-line)" stroke-width="0.20" stroke-linejoin="round" fill-rule="evenodd"/><g stroke="var(--plan-line)" stroke-width="0.12"><line x1="-12.36" y1="12.87" x2="-2.36" y2="12.87"/><line x1="-12.36" y1="12.58" x2="-12.36" y2="13.15"/><line x1="-2.36" y1="12.58" x2="-2.36" y2="13.15"/></g><text x="-7.36" y="12.30" font-family="IBM Plex Mono, monospace" font-size="0.57" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap"><b>1 &middot; the plate as surveyed.</b> 3 storeys &middot;
+          9 dwellings declared &middot; 178&nbsp;m&sup2; &middot;
+          aspect 1.25 &middot; rect. 0.88 &middot;
+          reflex 4 &middot; rings 0</p></div>
+        <div class="fig"><svg class="plan" viewBox="-13.73 -14.26 27.50 28.56" role="img" aria-label="Complex multi-wing floor plan" preserveAspectRatio="xMidYMid meet"><defs><pattern id="hcomplex_multi_wing" width="0.67" height="0.67" patternTransform="rotate(45)" patternUnits="userSpaceOnUse"><line x1="0" y1="0" x2="0" y2="0.67" stroke="var(--plan-line)" stroke-width="0.10" opacity=".55"/></pattern></defs><path d="M3.24,-5.15L0.87,-1.39L-0.52,-2.26L-1.39,-0.88L-6.19,-3.91L-3.44,-9.38L-0.60,-7.58L3.24,-5.15Z" fill="var(--d1)" stroke="var(--plan-line)" stroke-width="0.09" stroke-linejoin="round" fill-rule="evenodd"/><path d="M-8.56,2.45L-8.13,1.84L-8.85,1.39L-6.19,-3.91L-1.39,-0.88L-2.26,0.51L-0.88,1.38L-3.16,4.99L-6.80,2.68L-7.22,3.31L-8.56,2.45Z" fill="var(--d2)" stroke="var(--plan-line)" stroke-width="0.09" stroke-linejoin="round" fill-rule="evenodd"/><path d="M3.58,9.25L2.87,8.80L2.51,9.42L1.12,8.59L1.55,7.97L-3.16,4.99L-0.88,1.38L0.50,2.25L2.25,-0.51L0.87,-1.39L3.24,-5.15L6.29,-3.23L8.88,-1.60L6.19,3.91L3.58,9.25Z" fill="var(--d3)" stroke="var(--plan-line)" stroke-width="0.09" stroke-linejoin="round" fill-rule="evenodd"/><path d="M0.50,2.25L-2.26,0.51L-0.52,-2.26L2.25,-0.51L0.50,2.25Z" fill="var(--sheet-2)" stroke="var(--plan-line)" stroke-width="0.09"/><path d="M0.50,2.25L-2.26,0.51L-0.52,-2.26L2.25,-0.51L0.50,2.25Z" fill="url(#hcomplex_multi_wing)" stroke="none"/><path d="M3.58,9.25L2.86,8.80L2.51,9.42L1.12,8.58L1.55,7.97L-6.80,2.68L-7.22,3.31L-8.56,2.45L-8.13,1.84L-8.85,1.39L-3.44,-9.38L-0.60,-7.58L6.29,-3.23L8.88,-1.60L3.58,9.25Z" fill="none" stroke="var(--plan-line)" stroke-width="0.20" stroke-linejoin="round" fill-rule="evenodd"/><text x="-1.66" y="-4.49" font-family="IBM Plex Mono, monospace" font-size="1.10" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F1</text><text x="-4.85" y="1.04" font-family="IBM Plex Mono, monospace" font-size="1.10" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F2</text><text x="3.19" y="2.60" font-family="IBM Plex Mono, monospace" font-size="1.10" font-weight="500" fill="var(--plan-label)" text-anchor="middle">F3</text><text x="-0.01" y="0.33" font-family="IBM Plex Mono, monospace" font-size="0.68" fill="var(--muted)" text-anchor="middle">core</text><g stroke="var(--plan-line)" stroke-width="0.12"><line x1="-12.36" y1="12.87" x2="-2.36" y2="12.87"/><line x1="-12.36" y1="12.58" x2="-12.36" y2="13.15"/><line x1="-2.36" y1="12.58" x2="-2.36" y2="13.15"/></g><text x="-7.36" y="12.30" font-family="IBM Plex Mono, monospace" font-size="0.57" fill="var(--muted)" text-anchor="middle">10 m</text></svg>
+          <p class="cap plan-cap"><b>2 &middot; the floor plan the rule produces.</b> 3 flats (<code>F1</code>&hellip;<code>F3</code>) + a <b>11&nbsp;m&sup2;</b> circulation core (6&nbsp;% of the plate). Cut on the very same plate by <code>wing_fallback_convex</code> &mdash; the proposed rule, not yet in the engine &mdash; at <b>3</b> flats per floor, the group median, repeated on each of ~5 storeys. Every square metre of the plate outside the core belongs to a flat: the drawing leaves no unassigned space.</p></div>
+      </div>
+      <div class="readout">
+        <span>median area <b>306</b>&nbsp;m&sup2;</span>
+        <span>plate <b>15.7&times;28.4</b>&nbsp;m</span>
+        <span>aspect <b>1.67</b></span>
+        <span>rect. <b>0.709</b></span>
+        <span>reflex <b>4</b></span>
+        <span>storeys <b>5</b></span>
+        <span>dwellings <b>16</b></span>
+      </div>
+    </div>
+    <div class="pane">
+      <div class="panehead"><span class="lbl">Floor type assigned to this group &mdash; step by step</span>
+        <span class="lbl">steps 5 and 6 are the same on every sheet</span></div>
+      <ol class="flow"><li class="fstep"><span class="s">1</span><div class="fbody"><span class="act">Match &mdash; does the plate enter this group?</span><p class="expr"><code>reflex_count &ge; 3</code></p><ul><li>ladder step <b>11</b> &mdash; terminal, takes everything the ten above declined</li><li>three or more reflex vertices</li><li>there is no rule below it, so it must never fail</li></ul></div></li><li class="fstep"><span class="s">2</span><div class="fbody"><span class="act">Read the plate</span><ul><li>median <b>306&nbsp;m&sup2;</b>, 16 raw vertices, 12 after denoising, hull deficit 0.203</li><li>425 buildings, second-largest group, and the worst served today at 9.9&nbsp;% with a plan</li></ul></div></li><li class="fstep"><span class="s">3</span><div class="fbody"><span class="act">Place the circulation first</span><ul><li><b>DD-5</b>: the corridor reaches into each wing from the main spine rather than the wing being refused for its length</li><li>each wing&rsquo;s corridor spans only from the <b>first</b> served cut or junction to the <b>last</b></li><li><b>DD-8</b>: a one-flat leaf wing gets a short <b>1.5&nbsp;m</b> landing stub, not a full corridor</li><li>edge pockets on the smaller wings go to the flats beside them, never to extra cores</li></ul></div></li><li class="fstep"><span class="s">4</span><div class="fbody"><span class="act">Cut the flats</span><ul><li>split at each reflex vertex, sharpest first, extending one of its two edges into a straight cut, repeated until every wing is convex</li><li><b>fallback</b>: a wing split into more than <code>MAX_WING_PIECES&nbsp;=&nbsp;14</code> pieces, or into fewer than two wings, is cut whole by <code>cut_convex()</code> on its own MRR frame instead of being refused</li></ul></div></li><li class="fstep shared"><span class="s">5</span><div class="fbody"><span class="act">Absorb what is left over</span><ul><li>the wall between two flats is <b>one straight line</b>, wall to wall &mdash; the cut is drawn, not grown, so no dogleg is left where two claims met. A wall that genuinely bends round a wing is kept as it is</li><li>every leftover pocket goes to the <b>flat that holds most of its wall</b>, claimed in 0.20&nbsp;m steps, so a margin running past two flats splits at the line between them instead of going whole to one</li><li>a ribbon <b>along</b> the core, under a metre wide, is folded <b>into the core</b> &mdash; but only if it does not widen the band: a block across the end of a corridor is narrow too, and folding it draws a wide head</li><li>a flat that comes out as two lobes joined by a neck gives the <b>smaller lobe to the neighbour</b> it shares the most wall with: a thermal zone is one room, not a room plus a tail</li><li>the <b>outer wall is surveyed</b> and is never redrawn &mdash; a jagged edge there is the building. Every cut and offset uses square corners, so no staircase of centimetre steps survives into the drawing</li><li><b>no zone encloses another.</b> A flat that closes round the core, or a gallery that runs the whole way round a courtyard, is cut open and the piece handed to the neighbour that holds its wall: a zone floor is one outline, and neither a plan nor EnergyPlus can state a hole in it</li></ul></div></li><li class="fstep shared"><span class="s">6</span><div class="fbody"><span class="act">Close &mdash; accept only if</span><ul><li>flats + circulation = footprint, <b>100&nbsp;%</b> &mdash; no square metre left unassigned</li><li><b>exactly one</b> circulation zone on the plate (Sliver: none)</li><li>the <b>drawn</b> flat count equals the <b>claimed</b> flat count</li><li>each flat is one connected room, no two zones overlap, and no zone carries a spike into another</li><li>every zone is a <b>simple outline</b> &mdash; no hole, nothing enclosed, 4 to 21 points &mdash; so each one writes straight out as a single floor surface</li></ul></div></li><li class="fstep"><span class="s">7</span><div class="fbody"><span class="act">Scheme that does it</span><ul><li><code>wing_spine_decomposition</code> &mdash; S3, new, applied recursively</li></ul></div></li></ol>
+    </div>
+  </div>
+  <p class="note"><b>Refuses when.</b> Opening at d&nbsp;=&nbsp;4.0&nbsp;m yields no plate at all &mdash; the footprint is noise, not a building.</p>
+</article>
+</section>
+
+<section class="block">
+  <div class="rulehead"><span class="num">READ</span><h2>How to read a group sheet</h2></div>
+  <p class="lede" style="margin-bottom:8px">Every sheet is one real building from that group &mdash; a representative,
+  not a sketch, with its district and id in the corner. <b>Drawing&nbsp;1 is the plate as surveyed.</b>
+  <b>Drawing&nbsp;2 is the same plate after the group&rsquo;s rule has cut it</b>: each coloured cell is one flat and
+  one thermal zone, the hatched cell is the circulation core, and the heavy outline is the original footprint, never
+  modified. Both drawings were produced by the layout engine itself, not drawn by hand. Right of them is the rule in
+  words: what defines the group, what the plate is, where circulation goes, how many zones a floor ends up with, and
+  the named scheme. The line at the foot of each sheet is the refusal condition &mdash; the case the rule declines
+  rather than guesses.</p>
+  <p class="lede" style="margin-bottom:8px">Each plan is cut at the group&rsquo;s <b>median flats per floor</b> and
+  repeats unchanged on every storey. Real buildings in the group carry more or fewer; the rule is the same, only the
+  count changes. Above <code>8</code> flats on one floor the rule refuses outright.</p>
+  <div class="legend">
+    <span class="swatch"><i style="background:var(--d1)"></i> one flat = one thermal zone (heated)</span>
+    <span class="swatch"><i style="background:var(--sheet-2)"></i> circulation core &mdash; stair/lift or 1.80&nbsp;m corridor (unheated)</span>
+    <span>heavy outline = the real footprint, unmodified</span>
+    <span>scale bar = 10&nbsp;m</span>
+    <span class="tag ok">rule in force</span> <span>coded and running today</span>
+    <span class="tag acc">scheme proposed</span> <span>written, not yet proven against the suite</span>
+  </div>
+</section>
+
+<footer>
+  <p><b>What this is.</b> The first step of the pipeline, written down: scan every building, sort it into a group, and
+  only then assign a floor type. It replaces nothing &mdash;
+  <code>RULES_dwelling_layout_scheme_2026-08-28.html</code> is frozen and still governs the two schemes it documents.
+  The four new schemes named here (S1 courtyard perimeter band, S2 row-house depth bands, S3 wing spine
+  decomposition, S4 regularized envelope grid) exist in <code>openubem/geometry/european_residential.py</code> but
+  have not yet been proven against the test suite.</p>
+  <p><b>What this is not.</b> Not an energy result. No EnergyPlus run stands behind any number on this page, and
+  <code>D-EU-55</code> forbids one without the owner&rsquo;s own instruction. The counts are geometry and declared
+  dwelling counts only.</p>
+  <p class="mono" style="color:var(--muted)">census: openubem/outputs/eu_evidence/EU-20/morphology_census.csv &middot;
+  groups: EU-20/morphology_groups.csv &middot; representatives: EU-20/representatives.json &middot;
+  classifier: scripts/eu20_morphology_atlas.py:204 &middot; language: figure_4_2_dwelling_layout_schemes.svg</p>
+</footer>
+</div>
+</body>
+</html>

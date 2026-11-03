@@ -1,0 +1,131 @@
+{
+  "schema_version": "step8-gate-report/1.0",
+  "source_campaign_manifest": "openubem/outputs/eu_evidence/EU-04/s2_campaign_manifest.csv",
+  "source_cell_manifests": "openubem/outputs/eu_evidence/EU-08/s2_cell_manifests/",
+  "n_cells_scored": 31,
+  "severity": "hard",
+  "pre_submission_gate_ids": [
+    "G8.0",
+    "G8.8",
+    "G8.9",
+    "G8.14",
+    "G8.16"
+  ],
+  "gates": {
+    "G8.0": {
+      "status": "VACUOUS",
+      "raw_function_result": false,
+      "population": "cells with sensitivity_f>0: 0 of 31",
+      "reason": "G8.0 checks that every non-zero-f cell has a successful matching f=0 control. All 31 S2 cells are f=0 (this plan's own boundary forbids synthesizing f>0 cells, MVP_european_locations.md:593), so the checked population is empty. The raw function result is driven entirely by the empty dependency-digest cache (see G8.9), not by this specific check."
+    },
+    "G8.8": {
+      "status": "VACUOUS",
+      "raw_function_result": false,
+      "population": "archetype groups with >1 distinct sensitivity_f: 0 of 14",
+      "reason": "G8.8 checks that emitted schedule checksums differ BY f-level within one archetype. S2 has only f=0, so no archetype has more than one f-level to compare. 14 archetypes are shared by more than one of the 31 buildings at the *same* f=0 level, which by construction (build_step8_gain_series returns the same constant series at f=0 regardless of building) makes their checksums equal; the raw function reads this as 'not differing' but that reflects the multi-building, single-f-level population G8.8 was not designed to score, not an f-level defect."
+    },
+    "G8.9": {
+      "status": "VACUOUS",
+      "raw_function_result": false,
+      "population": "cache_records: 0 of 31 expected",
+      "reason": "G8.9 checks that every cache record's dependency_digest matches its manifest. scripts/run_eu_s2_campaign.py implements no resumable-cache layer (it runs every building fresh); cache_records is empty and the T03 manifests carry no dependency_digest field, so the checked population is empty."
+    },
+    "G8.14": {
+      "status": "VACUOUS",
+      "raw_function_result": false,
+      "population": "manifests with populated cell_id/platform/created_utc: 31 of 31 (real, non-empty)",
+      "reason": "G8.14's own manifest-completeness check passes over the real 31-manifest population (every manifest has non-empty cell_id/platform/created_utc and a self-consistent cell_id). The composite raw result above is False only because evaluate_pre_submission_gates multiplies every gate by the same prerequisites_ok, which is False due to the empty cache-record population (G8.9) -- a shared precondition, not an independent G8.14 defect."
+    },
+    "G8.16": {
+      "status": "VACUOUS",
+      "raw_function_result": false,
+      "population": "manifests with a non-null held_out_country: 0 of 31",
+      "reason": "G8.16 checks that a manifest names its matching held-out fold/country in the form '<fold>_held_out'. S2 is not a LOCO held-out experiment (no held-out fold has been assigned to the FR/Lyon site by GSSCanada, MVP_european_locations.md:591-594); held_out_country is uniformly null across all 31 manifests, so the population this check needs is single-valued (all-null) rather than exercised."
+    },
+    "G8.1": {
+      "status": "VACUOUS",
+      "population": "re-run pairs (same cell executed twice): 0 of 31",
+      "reason": "G8.1-G8.4 compare a cell's monthly/hourly output against a re-run of itself (REPRODUCIBILITY_DISCLAIMER, step8_gates.py:550). T02 executed each of the 31 buildings exactly once; no building was re-run, so no reproducibility pair exists."
+    },
+    "G8.2": {
+      "status": "VACUOUS",
+      "population": "re-run pairs (same cell executed twice): 0 of 31",
+      "reason": "G8.1-G8.4 compare a cell's monthly/hourly output against a re-run of itself (REPRODUCIBILITY_DISCLAIMER, step8_gates.py:550). T02 executed each of the 31 buildings exactly once; no building was re-run, so no reproducibility pair exists."
+    },
+    "G8.3": {
+      "status": "VACUOUS",
+      "population": "re-run pairs (same cell executed twice): 0 of 31",
+      "reason": "G8.1-G8.4 compare a cell's monthly/hourly output against a re-run of itself (REPRODUCIBILITY_DISCLAIMER, step8_gates.py:550). T02 executed each of the 31 buildings exactly once; no building was re-run, so no reproducibility pair exists."
+    },
+    "G8.4": {
+      "status": "VACUOUS",
+      "population": "re-run pairs (same cell executed twice): 0 of 31",
+      "reason": "G8.1-G8.4 compare a cell's monthly/hourly output against a re-run of itself (REPRODUCIBILITY_DISCLAIMER, step8_gates.py:550). T02 executed each of the 31 buildings exactly once; no building was re-run, so no reproducibility pair exists."
+    },
+    "G8.5": {
+      "status": "VACUOUS",
+      "population": "named external comparison series available: 0 of 31",
+      "reason": "G8.5/G8.6 require a named comparison_series (step8_gates.py:618) distinct from the modelled series. S2 has one modelled hourly heating series per building and no independent measured or duplicate-run comparison series, so no valid pair exists."
+    },
+    "G8.6": {
+      "status": "VACUOUS",
+      "population": "named external comparison series available: 0 of 31",
+      "reason": "G8.5/G8.6 require a named comparison_series (step8_gates.py:618) distinct from the modelled series. S2 has one modelled hourly heating series per building and no independent measured or duplicate-run comparison series, so no valid pair exists."
+    },
+    "G8.7": {
+      "status": "VACUOUS",
+      "population": "FR archetypes with a declared as-modelled EUI band: 0 of 14",
+      "reason": "G8.7 requires an as_modelled_band_kwh_m2 tuple per archetype (step8_gates.py:646). No such band has been derived or ruled for the FR TABULA registry in this arc (openubem/data/construction/tabula_archetypes_fr.json carries q_w_nd_kwh_m2a for DHW only, no heating EUI band); fabricating one is forbidden, so the check has no input to run against."
+    },
+    "G8.10": {
+      "status": "VACUOUS",
+      "population": "buildings with >=1 declared Output:Meter in eplusout.mdd: 0 of 31",
+      "reason": "G8.10 reconciles a selected total against non-zero end-use meter components. The S2 IDFs request no Output:Meter object at all (only a single 'Zone Ideal Loads Zone Total Heating Energy' Output:Variable); heating-only extraction bypasses the meter system entirely, so no meter population exists."
+    },
+    "G8.11": {
+      "status": "VACUOUS",
+      "population": "buildings with >=1 declared Output:Meter in eplusout.mdd: 0 of 31",
+      "reason": "Same empty Output:Meter population as G8.10 -- no requested meter names to look up."
+    },
+    "G8.12": {
+      "status": "PASS",
+      "population": "dwelling/zone gain schedules audited: 103 (across 31 buildings)",
+      "reason": "103/103 saved Schedule:File checksum+path and OtherEquipment consumer assignment matched."
+    },
+    "G8.13": {
+      "status": "PASS",
+      "population": "dwelling/zone gain schedules audited: 103 (across 31 buildings)",
+      "reason": "103/103 saved Schedule:File objects audited with correct field index 7; all 103 use Interpolate to Timestep = No."
+    },
+    "G8.15": {
+      "status": "FAIL",
+      "population": "buildings scored: 31 of 31; buildings with severe/fatal: 0",
+      "reason": "No approved_warning_kinds list has been ruled for this arc, so evaluate_warning_gate was run with an empty approval set (the honest, non-fabricated default). 31/31 buildings carry at least one untriaged warning kind. Distinct warning kinds observed across all 31 buildings: ['calculated design cooling load for zone', 'gethtsurfacedata', 'getvertices', 'indicated zone volume <', 'managesizing', 'processscheduleinput']. Severe/fatal count is 0/31 for all buildings (matches T02's own manifest columns). This is a genuine, measured FAIL of the triage step, not a physics or geometry failure: no warning-kind approval review has been performed for S2."
+    }
+  },
+  "summary": {
+    "PASS": [
+      "G8.12",
+      "G8.13"
+    ],
+    "FAIL": [
+      "G8.15"
+    ],
+    "VACUOUS": [
+      "G8.0",
+      "G8.1",
+      "G8.10",
+      "G8.11",
+      "G8.14",
+      "G8.16",
+      "G8.2",
+      "G8.3",
+      "G8.4",
+      "G8.5",
+      "G8.6",
+      "G8.7",
+      "G8.8",
+      "G8.9"
+    ]
+  }
+}

@@ -1,0 +1,1098 @@
+"""Step-5 Module 13: SQL extraction, zone resolution, EUI, and IOD (DESIGN §3A-§3D).
+Phase-D (§0.1 authorized deviation): _EUI_VARS rewired to metered HVAC end-uses (T05).
+Phase-E (T13): extended METER_QUERY with pumps/DHW/cooking/refrigeration meters;
+_compute_eui adds pumps_eui, dhw_eui, cooking_eui, refrigeration_eui; D9 total includes all 9 end-uses.
+Authorized deviation: DESIGN_step-3...md:H3/§3I — cooling/heating now from RunPeriod meters
+(Cooling:Electricity, Heating:Electricity+NaturalGas) instead of ideal-loads thermal variables.
+
+OPEN-46 (T05, 2026-08-12): elevators restored as a 10th reported end-use, GUARDED.
+The reporting path is additive: when the Elevators:InteriorEquipment:Electricity meter is
+present the elevator kWh is de-folded out of equipment into its own column; when it is
+absent the column reads 0.0 and equipment is left untouched, so total_eui_kwh_m2 is
+bit-identical to the 9-way total for every SQL written before this change.
+"""
+from __future__ import annotations
+
+import csv
+import re
+import sqlite3
+import warnings
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+from openubem import config
+from openubem.geometry.footprint import derive_num_floors
+
+# ── §3A constants (DESIGN lines 45-57) ───────────────────────────────────────
+HOURLY_QUERY = """
+SELECT d.KeyValue       AS key_value,
+       d.Name           AS variable_name,
+       d.Units          AS units,
+       t.Month, t.Day, t.Hour,
+       r.Value          AS value
+FROM   ReportData r
+JOIN   ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
+JOIN   Time t                 ON r.TimeIndex = t.TimeIndex
+WHERE  d.ReportingFrequency = 'Hourly'
+"""
+
+# T13 (Phase-E): RunPeriod meter query — all end-use meters.
+METER_QUERY = """
+SELECT d.Name AS meter_name,
+       r.Value AS value_j
+FROM   ReportData r
+JOIN   ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
+WHERE  d.ReportingFrequency = 'Run Period'
+  AND  d.Name IN ('Cooling:Electricity', 'Heating:Electricity',
+                  'Heating:NaturalGas', 'Fans:Electricity',
+                  'Pumps:Electricity',
+                  'WaterSystems:NaturalGas', 'WaterSystems:Electricity',
+                  'InteriorEquipment:NaturalGas',
+                  'Refrigeration:Electricity',
+                  'Elevators:InteriorEquipment:Electricity')
+"""
+
+# OPEN-46 T05: the ElectricEquipment subcategory meter emitted by openubem/idf/elevators.py.
+_ELEVATOR_METER = "Elevators:InteriorEquipment:Electricity"
+
+# OPEN-61 T01: a PSEUDO-METER key, not an EnergyPlus meter name — no such meter exists in any
+# .sql on disk (plan F1). Populated from the ABUPS "End Uses" table (F2), not from METER_QUERY.
+_DISTRICT_HEATING_KEY = "WaterSystems:DistrictHeating"
+
+# OPEN-64 T03: all fourteen ABUPS "District Heating" End Uses rows, each mapped to its own
+# pseudo-meter key. "Water Systems" reuses _DISTRICT_HEATING_KEY (OPEN-61, unchanged).
+_DISTRICT_HEATING_ROWS: dict[str, str] = {
+    "Heating": "Heating:DistrictHeating",
+    "Cooling": "Cooling:DistrictHeating",
+    "Interior Lighting": "InteriorLighting:DistrictHeating",
+    "Exterior Lighting": "ExteriorLighting:DistrictHeating",
+    "Interior Equipment": "InteriorEquipment:DistrictHeating",
+    "Exterior Equipment": "ExteriorEquipment:DistrictHeating",
+    "Fans": "Fans:DistrictHeating",
+    "Pumps": "Pumps:DistrictHeating",
+    "Heat Rejection": "HeatRejection:DistrictHeating",
+    "Humidification": "Humidification:DistrictHeating",
+    "Heat Recovery": "HeatRecovery:DistrictHeating",
+    "Water Systems": _DISTRICT_HEATING_KEY,
+    "Refrigeration": "Refrigeration:DistrictHeating",
+    "Generators": "Generators:DistrictHeating",
+}
+
+J_TO_KWH = 1.0 / 3.6e6
+
+# ── §3B zone regex (DESIGN lines 78-81) ──────────────────────────────────────
+# PERIM\d* handles EnergyPlus perimeter-core sub-zones (perim1…perim4).
+# IDEAL LOADS AIR SYSTEM suffix is stripped before matching (see _strip_ideal_loads).
+ZONE_RX = re.compile(
+    r"^(?:BLOCK\s+)?(?P<osm_id>.+?)_F(?P<floor>\d+)_(?P<label>WHOLE|CORE|PERIM\d*)"
+    r"(?:\s+STOREY\s+\d+)?$"
+)
+
+# EnergyPlus appends this suffix to Zone Ideal Loads key values.
+_IDEAL_LOADS_SUFFIX = re.compile(r"\s+IDEAL LOADS AIR SYSTEM$", re.IGNORECASE)
+
+
+def _strip_ideal_loads(key_value: str) -> str:
+    """Remove EnergyPlus ' IDEAL LOADS AIR SYSTEM' suffix before zone-regex matching."""
+    return _IDEAL_LOADS_SUFFIX.sub("", key_value)
+
+# ── F5 EUI variables (Phase-D: metered HVAC end-uses) ────────────────────────
+# lighting and equipment remain hourly zone variables (unchanged from Phase-C).
+# cooling and heating are now RunPeriod meters read by _compute_eui_metered.
+_EUI_ZONE_VARS: dict[str, str] = {
+    "lighting_eui_kwh_m2": "Zone Lights Electricity Energy",
+    "equipment_eui_kwh_m2": "Zone Electric Equipment Electricity Energy",
+}
+# Legacy alias kept for zone-integrity check (still looks for Ideal Loads variables to parse zones).
+_EUI_VARS: dict[str, str] = _EUI_ZONE_VARS
+
+# ── F6 IOD variables ──────────────────────────────────────────────────────────
+_IOD_SITE_TEMP_VAR = "Site Outdoor Air Drybulb Temperature"
+_IOD_OT_VAR = "Zone Operative Temperature"
+_IOD_OCC_VAR = "Zone People Occupant Count"
+
+
+# ── §3A: SQL parse (DESIGN lines 59-66) ──────────────────────────────────────
+
+def parse_building_sql(sql_path: Path) -> pd.DataFrame:
+    """Pull all hourly variables from eplusout.sql; convert J→kWh at the boundary."""
+    with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
+        df = pd.read_sql_query(HOURLY_QUERY, conn)
+    is_energy = df["units"] == "J"
+    df.loc[is_energy, "value"] *= J_TO_KWH
+    df.loc[is_energy, "units"] = "kWh"
+    return df
+
+
+def _read_abups_district_heating(conn: sqlite3.Connection) -> float:
+    """OPEN-61 T01b: read the District Heating "Water Systems" cell from ABUPS (F11).
+
+    `TabularDataWithStrings`, ReportName='AnnualBuildingUtilityPerformanceSummary',
+    TableName='End Uses', ColumnName='District Heating', RowName='Water Systems'.
+    Value is in GJ; converted to kWh. Missing row, None, or blank string → 0.0.
+
+    🔴 T01 originally read RowName='Total End Uses' (plan F2), which is wrong: the total
+    includes district heating serving OTHER end uses (e.g. space heating), and folding
+    that into DHW misattributes it. F11: on all 8,152 fleet census rows 'Total End Uses'
+    and 'Water Systems' are identical (max diff 0.0, zero rows with any other end use), so
+    this correction changes no fleet number — it only matters for buildings (some of the
+    golden test fixtures, OPEN-64) whose district heating serves something other than DHW.
+    """
+    row = conn.execute(
+        "SELECT Value FROM TabularDataWithStrings "
+        "WHERE ReportName='AnnualBuildingUtilityPerformanceSummary' "
+        "AND TableName='End Uses' AND ColumnName='District Heating' "
+        "AND RowName='Water Systems'"
+    ).fetchone()
+    if row is None or row[0] is None or str(row[0]).strip() == "":
+        return 0.0
+    try:
+        gj = float(row[0])
+    except (TypeError, ValueError):
+        return 0.0
+    return gj * (1_000_000.0 / 3600.0)
+
+
+def _read_abups_district_heating_rows(conn: sqlite3.Connection) -> dict[str, float]:
+    """OPEN-64 T03: read all fourteen ABUPS District Heating End Uses rows (F2), not only
+    Water Systems (OPEN-61 T01b). Same report/table/column as _read_abups_district_heating;
+    returns {RowName: kWh} for every row in _DISTRICT_HEATING_ROWS. A missing table, missing
+    row, None, or blank string leaves that row at 0.0 — same contract as the single-row reader.
+    """
+    result = {row_name: 0.0 for row_name in _DISTRICT_HEATING_ROWS}
+    rows = conn.execute(
+        "SELECT RowName, Value FROM TabularDataWithStrings "
+        "WHERE ReportName='AnnualBuildingUtilityPerformanceSummary' "
+        "AND TableName='End Uses' AND ColumnName='District Heating'"
+    ).fetchall()
+    for row_name, value in rows:
+        if row_name not in result or value is None or str(value).strip() == "":
+            continue
+        try:
+            gj = float(value)
+        except (TypeError, ValueError):
+            continue
+        result[row_name] = gj * (1_000_000.0 / 3600.0)
+    return result
+
+
+def _parse_meters_sql(sql_path: Path) -> dict[str, float]:
+    """Read RunPeriod HVAC end-use meters from SQL; return {meter_name: kWh}.
+    Missing meters (e.g. all-electric → no Heating:NaturalGas) return 0.0, not NaN.
+    T05: Phase-D metered EUI source.
+
+    OPEN-46: the elevator subcategory meter reads 0.0 for any SQL that does not carry it
+    (every run built before the meter was added to HVAC_METERS). _compute_eui treats that
+    0.0 as "meter absent" and performs no de-folding.
+
+    OPEN-61/OPEN-64: none of the fourteen `_DISTRICT_HEATING_ROWS` pseudo-meter keys is read
+    from METER_QUERY (no such meters exist, F1) — they are read from ABUPS via
+    `_read_abups_district_heating_rows()` on the same open connection. That read is wrapped
+    in its OWN try/except so a corrupt or ABUPS-less .sql falls through to 0.0 for all
+    fourteen district-heating keys, without stopping the real meters above from being read —
+    the existing except-clause below still covers the case where the connection itself cannot
+    be opened at all.
+    """
+    meters: dict[str, float] = {
+        "Cooling:Electricity": 0.0,
+        "Heating:Electricity": 0.0,
+        "Heating:NaturalGas": 0.0,
+        "Fans:Electricity": 0.0,
+        "Pumps:Electricity": 0.0,
+        "WaterSystems:NaturalGas": 0.0,
+        "WaterSystems:Electricity": 0.0,
+        "InteriorEquipment:NaturalGas": 0.0,
+        "Refrigeration:Electricity": 0.0,
+        _ELEVATOR_METER: 0.0,
+        **{pseudo_key: 0.0 for pseudo_key in _DISTRICT_HEATING_ROWS.values()},
+    }
+    try:
+        with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
+            rows = conn.execute(METER_QUERY).fetchall()
+            for name, value_j in rows:
+                if name in meters and value_j is not None:
+                    meters[name] += float(value_j) * J_TO_KWH
+            try:
+                dh_rows = _read_abups_district_heating_rows(conn)
+                for row_name, pseudo_key in _DISTRICT_HEATING_ROWS.items():
+                    meters[pseudo_key] = dh_rows.get(row_name, 0.0)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return meters
+
+
+def parse_building_csv(csv_path: Path) -> pd.DataFrame:
+    """CSV fallback: readVarsESO headers KEY:Variable [Units](Hourly) → long frame.
+    Returns a frame with the same columns as parse_building_sql.
+    """
+    raw = pd.read_csv(csv_path)
+    records: list[dict] = []
+    header_rx = re.compile(
+        r"^(?P<key>[^:]+):(?P<var>.+?)\s+\[(?P<units>[^\]]*)\]\(Hourly\)\s*$"
+    )
+    # Parse Date/Time → Month, Day, Hour
+    def _parse_dt(s: str):
+        # EnergyPlus CSV date/time: " 1/ 1 01:00:00" or "01/01 01:00:00"
+        s = s.strip()
+        for fmt in ("%m/%d %H:%M:%S", "%m/ %d %H:%M:%S", " %m/%d %H:%M:%S"):
+            try:
+                from datetime import datetime
+                dt = datetime.strptime(s, fmt)
+                return dt.month, dt.day, dt.hour
+            except ValueError:
+                continue
+        # Fallback regex
+        m = re.match(r"\s*(\d+)/\s*(\d+)\s+(\d+):", s)
+        if m:
+            return int(m.group(1)), int(m.group(2)), int(m.group(3))
+        return None, None, None
+
+    for col in raw.columns:
+        if col == "Date/Time":
+            continue
+        m = header_rx.match(col)
+        if not m:
+            continue
+        key_value = m.group("key").strip()
+        var_name = m.group("var").strip()
+        units_raw = m.group("units").strip()
+        # J→kWh conversion
+        to_kwh = units_raw == "J"
+        for _, row in raw.iterrows():
+            month, day, hour = _parse_dt(str(row["Date/Time"]))
+            val = float(row[col]) * J_TO_KWH if to_kwh else float(row[col])
+            records.append({
+                "key_value": key_value,
+                "variable_name": var_name,
+                "units": "kWh" if to_kwh else units_raw,
+                "Month": month,
+                "Day": day,
+                "Hour": hour,
+                "value": val,
+            })
+    return pd.DataFrame(records) if records else pd.DataFrame(
+        columns=["key_value", "variable_name", "units", "Month", "Day", "Hour", "value"]
+    )
+
+
+# ── §3B: zone resolution (DESIGN lines 78-90) ────────────────────────────────
+
+def resolve_zone(key_value: str) -> dict | None:
+    """Parse zone key → {osm_id_uc, floor, label}, or None for site-level keys."""
+    stripped = _strip_ideal_loads(key_value.strip())
+    m = ZONE_RX.match(stripped.upper())
+    if m is None:
+        return None
+    return {"osm_id_uc": m["osm_id"], "floor": int(m["floor"]), "label": m["label"]}
+
+
+def _check_zone_integrity(
+    df: pd.DataFrame,
+    osm_id: str,
+    num_zones: int,
+    resolution_mode: str | None = None,
+) -> tuple[str | None, str | None]:
+    """Return (parse_status, error_summary) based on zone integrity checks.
+
+    Returns (None, None) if OK, or ("failed_zone_mismatch", msg) for local mismatch,
+    or raises RuntimeError for I2 breach (foreign osm_id → caller aborts whole run).
+    Phase-D: uses Zone Lights Electricity Energy to find zone keys (PTAC has no Ideal Loads).
+    Falls back to Zone Ideal Loads if Lights variable absent (backward-compat).
+
+    resolution_mode=None (default) preserves the exact pre-T14 behavior for every mode
+    other than layout_assign/layout_assigner (E-LA-05). For those two, ZONE_RX/resolve_zone
+    matching (and therefore the I2 foreign-osm_id check) is skipped entirely and replaced by
+    a light key-presence sanity check (see T14 in the LayoutAssigner plan).
+    """
+    lights_mask = df["variable_name"] == "Zone Lights Electricity Energy"
+    if lights_mask.any():
+        zone_keys = df.loc[lights_mask, "key_value"].str.upper().unique()
+    else:
+        ideal_loads_mask = df["variable_name"].str.startswith("Zone Ideal Loads")
+        zone_keys = df.loc[ideal_loads_mask, "key_value"].str.upper().unique()
+
+    if resolution_mode in ("layout_assign", "layout_assigner"):
+        # DOE baseline zone names (e.g. "G SW APARTMENT") never encode an osm_id, so
+        # ZONE_RX/resolve_zone (and the I2 foreign-osm_id check built on it) cannot apply here.
+        distinct_keys = [kv for kv in zone_keys if isinstance(kv, str) and kv.strip() != ""]
+        if len(distinct_keys) == 0:
+            return (
+                "failed_zone_mismatch",
+                "layout_assign: zero zone-level keys found in SQL (corrupt/empty result)",
+            )
+        return None, None
+
+    # Resolve and check for foreign osm_id (I2 breach)
+    foreign: list[str] = []
+    resolved_zone_ids: set[str] = set()
+    for kv in zone_keys:
+        parsed = resolve_zone(kv)
+        if parsed is None:
+            continue  # site-level or ideal-loads system suffix
+        if parsed["osm_id_uc"] != osm_id.upper():
+            foreign.append(kv)
+        else:
+            # Canonical zone name without suffix
+            resolved_zone_ids.add(f"{parsed['osm_id_uc']}_F{parsed['floor']}_{parsed['label']}")
+
+    if foreign:
+        raise RuntimeError(
+            f"I2 breach: foreign osm_id in work dir for {osm_id!r}: "
+            f"{foreign[:3]} (abort whole run)"
+        )
+
+    if len(resolved_zone_ids) == 0:
+        return "failed_zone_mismatch", f"zone count mismatch: found 0, manifest says {num_zones}"
+
+    return None, None
+
+
+# ── OPEN-01 (T05): multiplier-aware simulated floor area from .eio ──────────
+# Ruling 6: the EUI denominator becomes area_multiplier_aware_m2 from eplusout.eio,
+# Sigma(Floor Area x Zone Multiplier x Zone List Multiplier) over zones with
+# Part of Total Building Area = Yes. parse_eio_zone_area() is lifted verbatim from
+# scripts/analysis/e02_t04_floor_area_audit.py:56 (the parser that produced the
+# 40,800-row audit at openubem/outputs/comparisons/open01_denominator_audit.csv) so this
+# module never disagrees with that audit.
+_EIO_HEADER_MARKER = "! <Zone Information>"
+_EIO_DATA_PREFIX = " Zone Information,"
+
+_EIO_FIELD_FLOOR_AREA = "Floor Area {m2}"
+_EIO_FIELD_ZONE_NAME = "Zone Name"
+_EIO_FIELD_ZONE_MULT = "Zone Multiplier"
+_EIO_FIELD_ZONE_LIST_MULT = "Zone List Multiplier"
+_EIO_FIELD_PART_OF_TOTAL = "Part of Total Building Area"
+
+
+def parse_eio_zone_area(path: Path) -> dict:
+    """Stream one .eio file, header-name-mapped, early-exit after the block.
+
+    Verbatim port of scripts/analysis/e02_t04_floor_area_audit.py:56 — do not
+    edit the two independently; if the audit script's version changes, port the
+    change here too rather than letting the two drift apart.
+    """
+    header_idx = None
+    n_zones = 0
+    area_plain = 0.0
+    area_mult = 0.0
+    max_zm = 0.0
+    max_zlm = 0.0
+    n_excluded = 0
+    n_row_errors = 0
+    saw_header = False
+    in_block = False
+
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace", newline="") as f:
+            for line in f:
+                if not saw_header:
+                    if line.startswith(_EIO_HEADER_MARKER):
+                        raw = next(csv.reader([line]))
+                        names = [c.strip() for c in raw]
+                        header_idx = {name: i for i, name in enumerate(names)}
+                        saw_header = True
+                    continue
+                if line.startswith(_EIO_DATA_PREFIX):
+                    in_block = True
+                    n_zones += 1
+                    try:
+                        row = next(csv.reader([line]))
+                        floor_area = float(row[header_idx[_EIO_FIELD_FLOOR_AREA]])
+                        zm = float(row[header_idx[_EIO_FIELD_ZONE_MULT]])
+                        zlm = float(row[header_idx[_EIO_FIELD_ZONE_LIST_MULT]])
+                        part = row[header_idx[_EIO_FIELD_PART_OF_TOTAL]].strip()
+                    except (KeyError, ValueError, IndexError):
+                        n_row_errors += 1
+                        continue
+                    if zm > max_zm:
+                        max_zm = zm
+                    if zlm > max_zlm:
+                        max_zlm = zlm
+                    if part == "Yes":
+                        area_plain += floor_area
+                        area_mult += floor_area * zm * zlm
+                    else:
+                        n_excluded += 1
+                elif in_block:
+                    break
+    except OSError as e:
+        return dict(
+            n_zones=0, area_plain_m2=0.0, area_multiplier_aware_m2=0.0,
+            max_zone_multiplier=0, max_zone_list_multiplier=0,
+            n_zones_excluded_not_in_total_area=0,
+            parse_status=f"file_error:{e}",
+        )
+
+    if not saw_header:
+        status = "no_zone_information_header"
+    elif n_zones == 0:
+        status = "header_found_zero_rows"
+    elif n_row_errors > 0:
+        status = f"ok_with_{n_row_errors}_row_errors"
+    else:
+        status = "ok"
+
+    return dict(
+        n_zones=n_zones,
+        area_plain_m2=area_plain,
+        area_multiplier_aware_m2=area_mult,
+        max_zone_multiplier=int(round(max_zm)),
+        max_zone_list_multiplier=int(round(max_zlm)),
+        n_zones_excluded_not_in_total_area=n_excluded,
+        parse_status=status,
+    )
+
+
+_EIO_OK_STATUSES_PREFIX = ("ok", "ok_with_")
+
+
+# ── OPEN-60: per-zone multiplier map from the same .eio route ───────────────
+# Same header marker, data prefix, and field-name constants as parse_eio_zone_area()
+# above (not a second .eio reader) — this one keeps the per-zone Zone Name instead of
+# folding into an aggregate, because lighting/equipment kWh must be scaled zone-by-zone
+# before being summed. Zone Name is upper-cased for lookup, matching the .upper()
+# convention already used for key_value matching elsewhere in this module
+# (resolve_zone(), _check_zone_integrity()). Never raises; returns {} on any failure,
+# which callers treat as "no multiplier data available" (all zones default to 1.0).
+def parse_eio_zone_multipliers(path: Path) -> dict[str, float]:
+    """Stream one .eio file; return {ZONE_NAME_UPPER: zone_multiplier * zone_list_multiplier}."""
+    result: dict[str, float] = {}
+    header_idx = None
+    saw_header = False
+    in_block = False
+
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace", newline="") as f:
+            for line in f:
+                if not saw_header:
+                    if line.startswith(_EIO_HEADER_MARKER):
+                        raw = next(csv.reader([line]))
+                        names = [c.strip() for c in raw]
+                        header_idx = {name: i for i, name in enumerate(names)}
+                        saw_header = True
+                    continue
+                if line.startswith(_EIO_DATA_PREFIX):
+                    in_block = True
+                    try:
+                        row = next(csv.reader([line]))
+                        zone_name = row[header_idx[_EIO_FIELD_ZONE_NAME]].strip().upper()
+                        zm = float(row[header_idx[_EIO_FIELD_ZONE_MULT]])
+                        zlm = float(row[header_idx[_EIO_FIELD_ZONE_LIST_MULT]])
+                    except (KeyError, ValueError, IndexError):
+                        continue
+                    result[zone_name] = zm * zlm
+                elif in_block:
+                    break
+    except OSError:
+        return {}
+
+    return result
+
+
+def parse_sql_zone_area(sql_path: Path) -> float:
+    """FLEET-06c-FIX: SUM(FloorArea*Multiplier*ListMultiplier) over Zones rows with
+    IsPartOfTotalArea=1, read from eplusout.sql. The SQL carries the identical
+    multiplier-aware area as the eio Zone Information block (F11, within 2e-6 relative
+    on lighting+setback+infiltration/way_425993519). 0.0 on any error (missing file,
+    missing table/columns, corrupt SQL) — same "0.0 means unavailable" contract as the
+    eio route.
+    """
+    try:
+        with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
+            row = conn.execute(
+                "SELECT SUM(FloorArea * Multiplier * ListMultiplier) FROM Zones "
+                "WHERE IsPartOfTotalArea = 1"
+            ).fetchone()
+    except Exception:
+        return 0.0
+    if row is None or row[0] is None:
+        return 0.0
+    try:
+        return float(row[0])
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def parse_sql_zone_multipliers(sql_path: Path) -> dict[str, float]:
+    """FLEET-06c-FIX: {UPPER(ZoneName): Multiplier*ListMultiplier} read from the Zones
+    table in eplusout.sql. {} on any error — same contract as parse_eio_zone_multipliers.
+    """
+    result: dict[str, float] = {}
+    try:
+        with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
+            rows = conn.execute(
+                "SELECT ZoneName, Multiplier, ListMultiplier FROM Zones"
+            ).fetchall()
+    except Exception:
+        return {}
+    for zone_name, mult, list_mult in rows:
+        if zone_name is None:
+            continue
+        try:
+            result[str(zone_name).strip().upper()] = float(mult) * float(list_mult)
+        except (TypeError, ValueError):
+            continue
+    return result
+
+
+def resolve_simulated_floor_area(
+    sql_path: "Path | None",
+    footprint_area: float,
+    num_floors: int,
+) -> tuple[float, str]:
+    """Return (floor_area_m2, provenance) per ruling 6.
+
+    provenance is "eio_simulated" when eplusout.eio (sibling of sql_path) parses
+    with a non-empty, well-formed Zone Information block and a positive
+    multiplier-aware area; "sql_simulated" (FLEET-06c-FIX) when the eio route is
+    unavailable (missing file or parse failure) but the SQL Zones table yields a
+    positive multiplier-aware area; otherwise falls back to footprint_area x num_floors
+    with provenance "footprint_fallback". eio is tried first, footprint last. Never raises.
+    """
+    fallback_area = footprint_area * num_floors
+    if sql_path is None:
+        return fallback_area, "footprint_fallback"
+
+    eio_path = sql_path.parent / "eplusout.eio"
+    if eio_path.exists():
+        try:
+            parsed = parse_eio_zone_area(eio_path)
+        except Exception:
+            parsed = None
+        if parsed is not None:
+            status = parsed.get("parse_status", "")
+            area_mult = parsed.get("area_multiplier_aware_m2", 0.0)
+            if status.startswith(_EIO_OK_STATUSES_PREFIX) and area_mult and area_mult > 0:
+                return float(area_mult), "eio_simulated"
+
+    sql_area = parse_sql_zone_area(sql_path)
+    if sql_area and sql_area > 0:
+        return float(sql_area), "sql_simulated"
+
+    return fallback_area, "footprint_fallback"
+
+
+# ── §3C: EUI computation (Phase-D: metered HVAC + zone lighting/equipment) ───
+# Authorized deviation per §0.1: cooling/heating from RunPeriod meters, not ideal-loads vars.
+# fans_eui_kwh_m2 is separate and NOT in total_eui_kwh_m2 (manager decision at CP-4).
+
+def _compute_eui(
+    df: pd.DataFrame,
+    row: "pd.Series",
+    data_quality_flag: str,
+    meters: dict[str, float] | None = None,
+    floor_area: float | None = None,
+    zone_multipliers: dict[str, float] | None = None,
+) -> tuple[dict[str, float] | None, str, str | None]:
+    """Compute EUI columns using metered HVAC + hourly zone lighting/equipment.
+
+    cooling_eui_kwh_m2       ← Cooling:Electricity meter
+    heating_eui_kwh_m2       ← Heating:Electricity + Heating:NaturalGas meters (all-fuels site)
+    lighting_eui_kwh_m2      ← Zone Lights Electricity Energy (hourly)
+    equipment_eui_kwh_m2     ← Zone Electric Equipment Electricity Energy (hourly)
+    fans_eui_kwh_m2          ← Fans:Electricity meter
+    pumps_eui_kwh_m2         ← Pumps:Electricity meter
+    dhw_eui_kwh_m2           ← WaterSystems:NaturalGas + WaterSystems:Electricity + district (OPEN-61)
+    dhw_district_eui_kwh_m2  ← ABUPS "District Heating", Water Systems row (OPEN-61 T01b, F11;
+                               pseudo-meter, F1-F5)
+    cooking_eui_kwh_m2       ← InteriorEquipment:NaturalGas (gas cooking; elec cooking in equipment)
+    refrigeration_eui_kwh_m2 ← Refrigeration:Electricity (CompressorRack; lumped in equipment)
+    elevators_eui_kwh_m2     ← Elevators:InteriorEquipment:Electricity (OPEN-46; see guard below)
+    total_eui_kwh_m2         ← sum of the end-use EUIs (D9: Phase-E whole-building total)
+
+    OPEN-46 elevator guard (PLAN_three-new-items-2026-08-12.md §3 decision 3):
+    elevators are emitted as ElectricEquipment with EndUse_Subcategory="Elevators", so when
+    the meter is present the elevator kWh is ALREADY inside the hourly equipment variable and
+    is de-folded out of equipment_eui_kwh_m2 into its own column — ten mutually exclusive
+    end-uses, total unchanged. When the meter is absent the column is 0.0 and NOTHING is
+    subtracted from equipment, so the total is bit-identical to the pre-OPEN-46 9-way total.
+    Ten end-uses are therefore reported for runs whose IDFs carry the elevator meter; runs
+    built before it was added to HVAC_METERS report nine and an elevators column of 0.0.
+
+    P10 (C3-enforced): missing lighting or equipment variable → failed_parse.
+    Missing meters → 0.0 (not failed_parse).
+
+    floor_area (OPEN-01, ruling 6, optional): the multiplier-aware simulated area
+    resolved by resolve_simulated_floor_area() — normally Sigma(zone Floor Area x
+    Zone Multiplier x Zone List Multiplier) from eplusout.eio, footprint x num_floors
+    on fallback. When omitted (all pre-OPEN-01 call sites, incl. every existing direct
+    test of this function), falls back to the pre-OPEN-01 footprint x num_floors
+    computed from `row` — unchanged behaviour. parse_building() always supplies it.
+    Ruling 6's own scope limit (fact 8): this makes every EUI internally consistent
+    with what was actually simulated, not physically representative of the real
+    building — most visibly for building mode, which simulates one storey, so its
+    EUI reads as energy per simulated m2, not the multi-storey building's real area.
+
+    zone_multipliers (OPEN-60, optional): {ZONE_NAME_UPPER: zone_multiplier x
+    zone_list_multiplier} from parse_eio_zone_multipliers() — the same .eio route
+    resolve_simulated_floor_area() already uses for the denominator. When supplied,
+    each zone's lighting/equipment kWh (E+ does not scale these hourly zone variables
+    by multiplier) is scaled by its own multiplier before summing, matching the
+    multiplier-aware floor_area denominator. A key_value with no entry in the map
+    defaults to multiplier 1.0 (unmultiplied zone, or unresolved name — same as today).
+    When omitted or empty (all pre-OPEN-60 call sites, incl. every existing direct test
+    of this function), behaviour is bit-identical to before OPEN-60.
+    """
+    if floor_area is None:
+        num_floors = derive_num_floors(row)
+        footprint_area = float(row["footprint_area_m2"])
+        floor_area = footprint_area * num_floors
+
+    # Zone-level lighting + equipment (must be present)
+    present_vars = set(df["variable_name"].unique())
+    for col, var_name in _EUI_ZONE_VARS.items():
+        if var_name not in present_vars:
+            return None, data_quality_flag, var_name
+
+    eui: dict[str, float] = {}
+    for col, var_name in _EUI_ZONE_VARS.items():
+        var_df = df[df["variable_name"] == var_name]
+        if zone_multipliers:
+            per_zone_kwh = var_df.groupby(
+                var_df["key_value"].astype(str).str.strip().str.upper()
+            )["value"].sum()
+            kwh = float(sum(
+                v * zone_multipliers.get(k, 1.0) for k, v in per_zone_kwh.items()
+            ))
+        else:
+            kwh = float(var_df["value"].sum())
+        eui[col] = kwh / floor_area
+
+    # Metered end-uses (0.0 if meter absent — valid for all-electric or no-cooking buildings)
+    if meters is None:
+        meters = {}
+
+    def _m(key: str) -> float:
+        return meters.get(key, 0.0)
+
+    def _dh(row_name: str) -> float:
+        return _m(_DISTRICT_HEATING_ROWS[row_name])
+
+    cooling_kwh = _m("Cooling:Electricity") + _dh("Cooling")
+    heating_kwh = _m("Heating:Electricity") + _m("Heating:NaturalGas") + _dh("Heating")
+    fans_kwh = _m("Fans:Electricity") + _dh("Fans")
+    pumps_kwh = _m("Pumps:Electricity") + _dh("Pumps")
+    dh_kwh = _m(_DISTRICT_HEATING_KEY)  # OPEN-61: ABUPS-read district-heating DHW, folded into dhw_kwh
+    dhw_kwh = _m("WaterSystems:NaturalGas") + _m("WaterSystems:Electricity") + dh_kwh
+    cooking_kwh = _m("InteriorEquipment:NaturalGas")  # gas cooking; elec cooking lives in equipment
+    refrigeration_kwh = _m("Refrigeration:Electricity") + _dh("Refrigeration")  # CompressorRack; lumped is in equipment
+
+    dhw_gas_kwh = _m("WaterSystems:NaturalGas")
+    dhw_elec_kwh = _m("WaterSystems:Electricity")
+
+    eui["cooling_eui_kwh_m2"] = cooling_kwh / floor_area
+    eui["heating_eui_kwh_m2"] = heating_kwh / floor_area
+    eui["fans_eui_kwh_m2"] = fans_kwh / floor_area
+    eui["pumps_eui_kwh_m2"] = pumps_kwh / floor_area
+    eui["dhw_gas_eui_kwh_m2"] = dhw_gas_kwh / floor_area   # gas DHW (× f_gas in carbon.py)
+    eui["dhw_elec_eui_kwh_m2"] = dhw_elec_kwh / floor_area  # elec DHW (× f_elec)
+    # OPEN-61: district-heating DHW (ABUPS-read, F3: 100% Water Systems). No carbon factor
+    # exists for it (F10) — it is NOT multiplied into any gwp_* term in carbon.py.
+    eui["dhw_district_eui_kwh_m2"] = dh_kwh / floor_area
+    eui["dhw_eui_kwh_m2"] = dhw_kwh / floor_area            # combined total for D9 (gas+elec+district)
+    eui["cooking_eui_kwh_m2"] = cooking_kwh / floor_area    # gas only (InteriorEquipment:NaturalGas)
+    eui["refrigeration_eui_kwh_m2"] = refrigeration_kwh / floor_area
+
+    # T06 (D-C amendment): district-heating provenance for the four mixed columns already
+    # folded above. Each *_district_eui_kwh_m2 SPLITS the matching *_eui_kwh_m2 column — it
+    # does not add to it — so carbon.py can charge the district part at the district factor
+    # and the remainder at the gas/electric factor. total_eui_kwh_m2 is unaffected.
+    eui["cooling_district_eui_kwh_m2"] = _dh("Cooling") / floor_area
+    eui["heating_district_eui_kwh_m2"] = _dh("Heating") / floor_area
+    eui["fans_district_eui_kwh_m2"] = _dh("Fans") / floor_area
+    eui["pumps_district_eui_kwh_m2"] = _dh("Pumps") / floor_area
+    eui["refrigeration_district_eui_kwh_m2"] = _dh("Refrigeration") / floor_area
+
+    # OPEN-64 T03: the two zone-metered end-uses (lighting, equipment already computed
+    # above from hourly zone variables) also each carry an ABUPS District Heating row.
+    eui["lighting_eui_kwh_m2"] += _dh("Interior Lighting") / floor_area
+    eui["equipment_eui_kwh_m2"] += _dh("Interior Equipment") / floor_area
+    # T06 (D-C amendment): provenance for the two columns just folded above (same split
+    # contract as the five columns above).
+    eui["lighting_district_eui_kwh_m2"] = _dh("Interior Lighting") / floor_area
+    eui["equipment_district_eui_kwh_m2"] = _dh("Interior Equipment") / floor_area
+
+    # OPEN-64 T03: the six remaining ABUPS District Heating rows with no pre-existing
+    # matching column each get their own new column, folded into total_eui_kwh_m2 below.
+    eui["exterior_lighting_eui_kwh_m2"] = _dh("Exterior Lighting") / floor_area
+    eui["exterior_equipment_eui_kwh_m2"] = _dh("Exterior Equipment") / floor_area
+    eui["heat_rejection_eui_kwh_m2"] = _dh("Heat Rejection") / floor_area
+    eui["humidification_eui_kwh_m2"] = _dh("Humidification") / floor_area
+    eui["heat_recovery_eui_kwh_m2"] = _dh("Heat Recovery") / floor_area
+    eui["generators_eui_kwh_m2"] = _dh("Generators") / floor_area
+
+    # OPEN-46 T05 — GUARDED, ADDITIVE elevator breakout.
+    # De-folding is performed ONLY when the meter actually carried elevator energy.
+    # A SQL without the meter yields 0.0 here, the branch is skipped, and
+    # equipment_eui_kwh_m2 / total_eui_kwh_m2 come out bit-identical to the 9-way values.
+    elevators_kwh = _m(_ELEVATOR_METER)
+    eui["elevators_eui_kwh_m2"] = elevators_kwh / floor_area
+    if elevators_kwh:
+        eui["equipment_eui_kwh_m2"] -= eui["elevators_eui_kwh_m2"]
+
+    # D9: total = all end-use EUIs summed (Phase-E whole-building site energy).
+    # Invariant vs the pre-OPEN-46 9-way total: elevators_eui is subtracted from
+    # equipment_eui above and re-added here, and is 0.0 when the meter is absent.
+    eui["total_eui_kwh_m2"] = (
+        eui["cooling_eui_kwh_m2"]
+        + eui["heating_eui_kwh_m2"]
+        + eui["lighting_eui_kwh_m2"]
+        + eui["equipment_eui_kwh_m2"]
+        + eui["fans_eui_kwh_m2"]
+        + eui["pumps_eui_kwh_m2"]
+        + eui["dhw_eui_kwh_m2"]
+        + eui["cooking_eui_kwh_m2"]
+        + eui["refrigeration_eui_kwh_m2"]
+        + eui["elevators_eui_kwh_m2"]
+        + eui["exterior_lighting_eui_kwh_m2"]
+        + eui["exterior_equipment_eui_kwh_m2"]
+        + eui["heat_rejection_eui_kwh_m2"]
+        + eui["humidification_eui_kwh_m2"]
+        + eui["heat_recovery_eui_kwh_m2"]
+        + eui["generators_eui_kwh_m2"]
+    )
+    return eui, data_quality_flag, None
+
+
+def _append_flag(dq_flag: str, token: str) -> str:
+    import pandas as _pd
+    if _pd.isna(dq_flag) or dq_flag == "":
+        return token
+    tokens = [t.strip() for t in dq_flag.split(",")]
+    if token in tokens:
+        return dq_flag
+    return dq_flag + "," + token
+
+
+# ── §3D: IOD computation (DESIGN lines 119-137) ──────────────────────────────
+
+def _compute_iod(
+    df: pd.DataFrame,
+    data_quality_flag: str,
+) -> tuple[float, str]:
+    """Compute building IOD per DESIGN §3D formula; return (iod, updated_dq_flag).
+
+    Returns (NaN, flag+IOD_NO_OCCUPIED_HOURS) when zero occupied summer hours.
+    """
+    import math
+
+    summer_lo, summer_hi = config.IOD_SUMMER_MONTHS  # (6, 9) inclusive
+
+    site_temp = df[df["variable_name"] == _IOD_SITE_TEMP_VAR][
+        ["Month", "Day", "Hour", "value"]
+    ]
+    ot_df = df[df["variable_name"] == _IOD_OT_VAR][
+        ["key_value", "Month", "Day", "Hour", "value"]
+    ]
+    occ_df = df[df["variable_name"] == _IOD_OCC_VAR][
+        ["key_value", "Month", "Day", "Hour", "value"]
+    ]
+
+    if len(site_temp) == 0 or len(ot_df) == 0 or len(occ_df) == 0:
+        data_quality_flag = _append_flag(data_quality_flag, "IOD_NO_OCCUPIED_HOURS")
+        return float("nan"), data_quality_flag
+
+    # Monthly mean outdoor temp from SQL site variable (never EPW)
+    monthly_mean: dict[int, float] = (
+        site_temp.groupby("Month")["value"].mean().to_dict()
+    )
+
+    summer_mask = (ot_df["Month"] >= summer_lo) & (ot_df["Month"] <= summer_hi)
+    ot_summer = ot_df[summer_mask].copy()
+    occ_summer = occ_df[
+        (occ_df["Month"] >= summer_lo) & (occ_df["Month"] <= summer_hi)
+    ].copy()
+
+    ot_summer = ot_summer.copy()
+    ot_summer["Tave"] = ot_summer["Month"].map(monthly_mean)
+    ot_summer["Tn"] = 0.31 * ot_summer["Tave"] + 17.8
+    ot_summer["Tcomf"] = ot_summer["Tn"] + 2.5
+
+    merge_cols = ["key_value", "Month", "Day", "Hour"]
+    ot_occ = ot_summer.merge(
+        occ_summer.rename(columns={"value": "occ_count"}),
+        on=merge_cols,
+        how="left",
+    )
+    ot_occ["occ_count"] = ot_occ["occ_count"].fillna(0.0)
+    occupied = ot_occ[ot_occ["occ_count"] > 0].copy()
+
+    if len(occupied) == 0:
+        data_quality_flag = _append_flag(data_quality_flag, "IOD_NO_OCCUPIED_HOURS")
+        return float("nan"), data_quality_flag
+
+    occupied = occupied.copy()
+    occupied["exceedance"] = (occupied["value"] - occupied["Tcomf"]).clip(lower=0)
+
+    # Occupant-count-weighted mean of per-zone IOD (DESIGN §3D)
+    zone_iod = (
+        occupied.groupby("key_value")
+        .agg(mean_exc=("exceedance", "mean"), total_occ=("occ_count", "sum"))
+        .reset_index()
+    )
+    total_weight = float(zone_iod["total_occ"].sum())
+    if total_weight == 0:
+        data_quality_flag = _append_flag(data_quality_flag, "IOD_NO_OCCUPIED_HOURS")
+        return float("nan"), data_quality_flag
+
+    iod = float(
+        (zone_iod["mean_exc"] * zone_iod["total_occ"]).sum() / total_weight
+    )
+    return iod, data_quality_flag
+
+
+# ── §5.1 P5: ABUPS / meter closure checks ───────────────────────────────────
+
+def check_building_integrity(
+    sql_path: Path,
+    mtr_path: Path | None = None,
+) -> dict[str, Any]:
+    """DESIGN §5.1 P5 integrity gates for one building.
+
+    Returns dict with keys: abups_ok, meter_ok, gas_zero.
+    Requires TabularDataWithStrings (ABUPS) + RunPeriod meter rows in the SQL.
+    """
+    result: dict[str, Any] = {"abups_ok": None, "meter_ok": None, "gas_zero": None}
+
+    if not sql_path.exists():
+        return result
+
+    try:
+        conn = sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True)
+
+        # ABUPS cross-check: compare hourly sum vs TabularDataWithStrings
+        hourly_q = """
+        SELECT COALESCE(SUM(r.Value), 0.0) AS total_j
+        FROM ReportData r
+        JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
+        WHERE d.Name IN ('Zone Lights Electricity Energy', 'Zone Electric Equipment Electricity Energy')
+          AND d.ReportingFrequency = 'Hourly'
+        """
+        hourly_j = conn.execute(hourly_q).fetchone()[0] or 0.0
+
+        abups_q = """
+        SELECT COALESCE(SUM(CAST(Value AS REAL)), 0.0)
+        FROM TabularDataWithStrings
+        WHERE ReportName = 'AnnualBuildingUtilityPerformanceSummary'
+          AND TableName = 'End Uses'
+          AND RowName IN ('Interior Lighting', 'Interior Equipment')
+          AND ColumnName = 'Electricity'
+          AND Units = 'GJ'
+        """
+        abups_gj = conn.execute(abups_q).fetchone()[0] or 0.0
+        abups_j = abups_gj * 1e9
+
+        if abups_j > 0:
+            diff = abs(hourly_j - abups_j) / abups_j
+            result["abups_ok"] = diff <= 0.005
+        else:
+            # Both zero is acceptable; if hourly_j > 0 but abups = 0 → fail
+            result["abups_ok"] = hourly_j == 0.0
+
+        # Meter closure: hourly zone-level elec vs Electricity:Facility RunPeriod
+        meter_q = """
+        SELECT COALESCE(SUM(r.Value), 0.0)
+        FROM ReportData r
+        JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
+        WHERE d.Name = 'Electricity:Facility'
+          AND d.ReportingFrequency = 'Run Period'
+        """
+        facility_j = conn.execute(meter_q).fetchone()[0] or 0.0
+
+        zone_elec_q = """
+        SELECT COALESCE(SUM(r.Value), 0.0)
+        FROM ReportData r
+        JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
+        WHERE d.Name IN ('Zone Lights Electricity Energy', 'Zone Electric Equipment Electricity Energy')
+          AND d.ReportingFrequency = 'Hourly'
+        """
+        zone_elec_j = conn.execute(zone_elec_q).fetchone()[0] or 0.0
+
+        if facility_j > 0:
+            diff = abs(zone_elec_j - facility_j) / facility_j
+            result["meter_ok"] = diff <= 0.01
+        else:
+            result["meter_ok"] = zone_elec_j == 0.0
+
+        # Gas-zero check (Phase-D PTAC: gas heating is expected; check is informational)
+        gas_q = """
+        SELECT COALESCE(SUM(r.Value), 0.0)
+        FROM ReportData r
+        JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
+        WHERE d.Name = 'NaturalGas:Facility'
+          AND d.ReportingFrequency = 'Run Period'
+        """
+        gas_j = conn.execute(gas_q).fetchone()[0] or 0.0
+        result["gas_zero"] = gas_j == 0.0  # False is expected for gas-heat archetypes in Phase-D
+
+        conn.close()
+    except Exception as exc:
+        warnings.warn(f"check_building_integrity failed for {sql_path}: {exc}")
+
+    return result
+
+
+# ── Top-level per-building parse ──────────────────────────────────────────────
+
+def _derive_num_floors_wired(row: "pd.Series") -> int:
+    """OPEN-35 Option A: pass the medians carried on manifest_row to derive_num_floors()."""
+    use_class = row.get("_use_class")
+    levels_group_median = row.get("_levels_group_median") or {}
+    levels_global_median = row.get("_levels_global_median")
+    return derive_num_floors(
+        row,
+        use_class=use_class,
+        levels_group_median=levels_group_median,
+        levels_global_median=levels_global_median,
+    )
+
+
+def parse_building(
+    sql_path: "Path | str | None",
+    csv_path: "Path | str | None",
+    manifest_row: "pd.Series",
+) -> dict[str, Any]:
+    """Parse one building's SQL (or CSV fallback); return a metrics dict.
+
+    Keys: 5 EUI, 5 GWP placeholders (filled by carbon.py), iod, parse_status,
+          error_summary, data_quality_flag (updated), floor_area_m2 and
+          floor_area_provenance (OPEN-01 T05 — see resolve_simulated_floor_area()).
+    """
+    import math as _math
+    sql_path = Path(sql_path) if (sql_path and not (isinstance(sql_path, float) and _math.isnan(sql_path))) else None
+    csv_path = Path(csv_path) if (csv_path and not (isinstance(csv_path, float) and _math.isnan(csv_path))) else None
+
+    osm_id: str = str(manifest_row["osm_id"])
+    num_zones: int = int(manifest_row.get("num_zones", 1))
+    dq_flag: str = str(manifest_row.get("data_quality_flag", "") or "")
+    resolution_mode: str | None = manifest_row.get("resolution_mode")
+
+    # OPEN-01 (T05, ruling 6): resolve the EUI denominator once, up front, so both the
+    # success path and every failure path report the same floor_area_m2/provenance pair.
+    num_floors = _derive_num_floors_wired(manifest_row)
+    footprint_area = float(manifest_row["footprint_area_m2"])
+    floor_area, floor_area_provenance = resolve_simulated_floor_area(
+        sql_path, footprint_area, num_floors
+    )
+
+    parse_status = "success"
+    error_summary = ""
+    df: pd.DataFrame | None = None
+
+    # §3A: try SQL first
+    if sql_path and sql_path.exists():
+        try:
+            df = parse_building_sql(sql_path)
+        except Exception as exc:
+            error_summary = str(exc)[:500]
+            df = None
+
+    # CSV fallback
+    if df is None and csv_path and csv_path.exists():
+        try:
+            df = parse_building_csv(csv_path)
+            parse_status = "success_csv_fallback"
+            dq_flag = _append_flag(dq_flag, "RESULTS_CSV_FALLBACK")
+        except Exception as exc:
+            error_summary = str(exc)[:500]
+            df = None
+
+    if df is None:
+        return _failed_row(
+            osm_id, "failed_parse", error_summary or "no SQL or CSV", dq_flag,
+            floor_area, floor_area_provenance,
+        )
+
+    # §3B: zone integrity
+    try:
+        status, msg = _check_zone_integrity(df, osm_id, num_zones, resolution_mode=resolution_mode)
+    except RuntimeError as exc:
+        # I2 breach: re-raise to abort whole run
+        raise
+
+    if status is not None:
+        return _failed_row(osm_id, status, msg or "", dq_flag, floor_area, floor_area_provenance)
+
+    # §3C: EUI — read RunPeriod HVAC meters from SQL, then compute (T05 Phase-D)
+    meters: dict[str, float] = {}
+    if sql_path and sql_path.exists():
+        meters = _parse_meters_sql(sql_path)
+
+    # OPEN-60: same .eio route as resolve_simulated_floor_area() above, read again for the
+    # per-zone multiplier map (that call only returns the aggregate area). {} on any failure
+    # — _compute_eui then behaves exactly as before OPEN-60 (every zone defaults to 1.0).
+    zone_multipliers: dict[str, float] = {}
+    if sql_path is not None:
+        eio_path = sql_path.parent / "eplusout.eio"
+        if eio_path.exists():
+            try:
+                zone_multipliers = parse_eio_zone_multipliers(eio_path)
+            except Exception:
+                zone_multipliers = {}
+        if not zone_multipliers and sql_path.exists():
+            zone_multipliers = parse_sql_zone_multipliers(sql_path)
+
+    eui, dq_flag, missing_var = _compute_eui(
+        df, manifest_row, dq_flag, meters=meters, floor_area=floor_area,
+        zone_multipliers=zone_multipliers,
+    )
+    if eui is None:
+        return _failed_row(
+            osm_id, "failed_parse", f"missing required EUI variable: {missing_var}", dq_flag,
+            floor_area, floor_area_provenance,
+        )
+
+    # §3D: IOD
+    iod, dq_flag = _compute_iod(df, dq_flag)
+
+    return {
+        "osm_id": osm_id,
+        "parse_status": parse_status,
+        "error_summary": error_summary,
+        "data_quality_flag": dq_flag,
+        "floor_area_m2": floor_area,
+        "floor_area_provenance": floor_area_provenance,
+        **eui,
+        "iod": iod,
+        # GWP columns filled by carbon.py
+        "gwp_heating_kgco2_m2": None,
+        "gwp_cooling_kgco2_m2": None,
+        "gwp_lighting_kgco2_m2": None,
+        "gwp_equipment_kgco2_m2": None,
+        "gwp_total_kgco2_m2": None,
+    }  # fans_eui_kwh_m2 is in **eui (not in total; flagged for CP-4)
+
+
+def _failed_row(
+    osm_id: str,
+    status: str,
+    error: str,
+    dq_flag: str,
+    floor_area_m2: float = float("nan"),
+    floor_area_provenance: str = "footprint_fallback",
+) -> dict[str, Any]:
+    return {
+        "osm_id": osm_id,
+        "parse_status": status,
+        "error_summary": error,
+        "data_quality_flag": dq_flag,
+        "floor_area_m2": floor_area_m2,
+        "floor_area_provenance": floor_area_provenance,
+        "heating_eui_kwh_m2": float("nan"),
+        "cooling_eui_kwh_m2": float("nan"),
+        "lighting_eui_kwh_m2": float("nan"),
+        "equipment_eui_kwh_m2": float("nan"),
+        "fans_eui_kwh_m2": float("nan"),
+        "elevators_eui_kwh_m2": float("nan"),
+        "total_eui_kwh_m2": float("nan"),
+        "iod": float("nan"),
+        "gwp_heating_kgco2_m2": None,
+        "gwp_cooling_kgco2_m2": None,
+        "gwp_lighting_kgco2_m2": None,
+        "gwp_equipment_kgco2_m2": None,
+        "gwp_total_kgco2_m2": None,
+    }

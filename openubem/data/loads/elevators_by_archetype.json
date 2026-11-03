@@ -1,0 +1,80 @@
+{
+  "_schema": "elevators_by_archetype v1.0 — elevator-loads T01",
+  "_source": "DOE prototype IDFs, docs/docs_VALIDATION/step1/Level 2 DOE round-trip/00.BaselineBuildings_NUs/ (ElevatorLift/Elevators ElectricEquipment or Exterior:FuelEquipment object + BLDG_ELEVATORS schedule, harvested verbatim via eppy fieldvalues)",
+  "_basis": "single whole-building elevator lift motor object per prototype; design_level_w and prototype_floor_area_m2 always harvested from the SAME IDF instance so their ratio (density) is internally consistent even where a file is a regional/size variant (e.g. SecondarySchool 50pct_downscaled)",
+  "_heat_gain_default_note": "Exterior:FuelEquipment prototypes (LargeOffice, LargeHotel, Hospital) carry no zone heat-gain split at all (exterior equipment). OpenUBEM emits the interior ElectricEquipment equivalent per PLAN Dependency decision and falls back to Fraction_Radiant=0.5/Latent=0/Lost=0 for these three only — this exact split is independently confirmed as the DOE-authored value on every ElectricEquipment-native archetype that has no other stated split (MediumOffice, SmallHotel, SecondarySchool, College), so it is not an invented default.",
+  "_omitted_findings": "TallBuilding and SuperTallBuilding DOE prototypes (TallBuilding_90.1-2019_6A_Buffalo_v221.idf, SuperTallBuilding_90.1-2019_6A_Buffalo_v221.idf) were expected per PLAN §4 to carry a harvestable ElevatorLift object but do NOT: grep for ElevatorLift|Elevators_Equip returns zero matches in both files. They model elevator lobby/shaft zones as conditioned space with generic Watts/Area 'Elec Equip' plug loads (same density formula as every other zone, i.e. not an elevator-specific load) plus a dedicated 'Top_ElevatorMachineRm' HVAC zone (cooling only, no equipment object). No ElevatorLift design level exists in source for these two archetypes; they are correctly omitted per zero-fitted-params (T01 authoritative-list rule overrides the PLAN's illustrative table). RetailStandalone carries an unused orphan BLDG_ELEVATORS schedule (no object references it) — confirmed absent, correctly omitted. College was not in the PLAN's coverage list but its DOE prototype (College_90.1-2019_6A_Buffalo_v221.idf) does carry a real '2 Elevator Lift Motors' ElectricEquipment object (32110 W, subcategory 'Elevators'); included per the T01 comprehensive-harvest instruction ('for every DOE prototype IDF ... T01 produces the authoritative list').",
+  "LargeOffice": {
+    "design_level_w": 140025.3,
+    "prototype_floor_area_m2": 46320.38,
+    "heat_gain": {"latent": 0.0, "radiant": 0.5, "lost": 0.0},
+    "schedule_fields": ["Through: 12/31", "For: SummerDesignDay", "Until: 24:00", "0.5", "For: WinterDesignDay", "Until: 24:00", "0.12", "For: AllOtherDays", "Until: 04:00", "0.12", "Until: 05:00", "0.12", "Until: 06:00", "0.20", "Until: 07:00", "0.40", "Until: 09:00", "0.50", "Until: 10:00", "0.35", "Until: 16:00", "0.15", "Until: 17:00", "0.35", "Until: 19:00", "0.50", "Until: 21:00", "0.40", "Until: 22:00", "0.30", "Until: 23:00", "0.20", "Until: 24:00", "0.12"],
+    "source": "ASHRAE901_OfficeLarge_STD2022_Buffalo.idf: Exterior:FuelEquipment 'Elevators' (Design_Level=140025.3, EndUse_Subcategory=ElevatorLift); floor area = sum of BuildingSurface:Detailed Floor areas x Zone Multiplier in the same file; heat_gain is the OpenUBEM interior-equivalent default (source object has no zone heat gain fields)"
+  },
+  "MediumOffice": {
+    "design_level_w": 8517.82,
+    "prototype_floor_area_m2": 4982.19,
+    "heat_gain": {"latent": 0.0, "radiant": 0.5, "lost": 0.0},
+    "schedule_fields": ["Through: 12/31", "For: SummerDesignDay", "Until: 24:00", "0.69", "For: WinterDesignDay", "Until: 24:00", "0.12", "For: Weekdays", "Until: 07:00", "0.12", "Until: 08:00", "0.35", "Until: 09:00", "0.69", "Until: 10:00", "0.43", "Until: 11:00", "0.37", "Until: 12:00", "0.43", "Until: 13:00", "0.58", "Until: 14:00", "0.48", "Until: 15:00", "0.37", "Until: 16:00", "0.37", "Until: 17:00", "0.46", "Until: 18:00", "0.62", "Until: 19:00", "0.12", "Until: 20:00", "0.12", "Until: 21:00", "0.12", "Until: 24:00", "0.12", "For: Saturday", "Until: 07:00", "0.12", "Until: 08:00", "0.16", "Until: 09:00", "0.14", "Until: 10:00", "0.21", "Until: 11:00", "0.18", "Until: 12:00", "0.25", "Until: 13:00", "0.21", "Until: 14:00", "0.13", "Until: 15:00", "0.12", "Until: 16:00", "0.12", "Until: 17:00", "0.12", "Until: 18:00", "0.12", "Until: 24:00", "0.12", "For:Sunday Holidays AllOtherDays", "Until: 24:00", "0.12"],
+    "source": "ASHRAE901_OfficeMedium_STD2022_Buffalo.idf: ElectricEquipment 'Core_bottom_Elevators_Equip' (Design_Level=8517.82, Fraction_Latent=0, Fraction_Radiant=0.5, Fraction_Lost=0, EndUse_Subcategory=ElevatorLift)"
+  },
+  "LargeHotel": {
+    "design_level_w": 44860.63,
+    "prototype_floor_area_m2": 11345.29,
+    "heat_gain": {"latent": 0.0, "radiant": 0.5, "lost": 0.0},
+    "schedule_fields": ["Through: 12/31", "For: SummerDesignday", "Until: 24:00", "0.5", "For: WinterDesignDay", "Until: 24:00", "0.12", "For: AllOtherDays", "Until: 04:00", "0.12", "Until: 05:00", "0.12", "Until: 06:00", "0.20", "Until: 07:00", "0.40", "Until: 09:00", "0.50", "Until: 10:00", "0.35", "Until: 16:00", "0.15", "Until: 17:00", "0.35", "Until: 19:00", "0.50", "Until: 21:00", "0.40", "Until: 22:00", "0.30", "Until: 23:00", "0.20", "Until: 24:00", "0.12"],
+    "source": "ASHRAE901_HotelLarge_STD2022_Buffalo.idf: Exterior:FuelEquipment 'Elevators' (Design_Level=44860.63, EndUse_Subcategory=ElevatorLift); floor area = sum of BuildingSurface:Detailed Floor areas in the same file; heat_gain is the OpenUBEM interior-equivalent default (source object has no zone heat gain fields)"
+  },
+  "SmallHotel": {
+    "design_level_w": 8721.8,
+    "prototype_floor_area_m2": 4013.58,
+    "heat_gain": {"latent": 0.0, "radiant": 0.5, "lost": 0.0},
+    "schedule_fields": ["Through: 12/31", "For: SummerDesignday", "Until: 24:00", "0.5", "For: WinterDesignDay", "Until: 24:00", "0.12", "For: AllOtherDays", "Until: 04:00", "0.12", "Until: 05:00", "0.12", "Until: 06:00", "0.20", "Until: 07:00", "0.40", "Until: 09:00", "0.50", "Until: 10:00", "0.35", "Until: 16:00", "0.15", "Until: 17:00", "0.35", "Until: 19:00", "0.50", "Until: 21:00", "0.40", "Until: 22:00", "0.30", "Until: 23:00", "0.20", "Until: 24:00", "0.12"],
+    "source": "ASHRAE901_HotelSmall_STD2022_Buffalo.idf: ElectricEquipment 'ElevatorCoreFlr1_Elevators_Equip' (Design_Level=8721.8, Fraction_Latent=0, Fraction_Radiant=0.5, Fraction_Lost=0, EndUse_Subcategory=ElevatorLift)"
+  },
+  "Hospital": {
+    "design_level_w": 34667.95,
+    "prototype_floor_area_m2": 22436.18,
+    "heat_gain": {"latent": 0.0, "radiant": 0.5, "lost": 0.0},
+    "schedule_fields": ["Through: 12/31", "For: SummerDesignDay", "Until: 24:00", "1.00", "For: WinterDesignDay", "Until: 24:00", "0.20", "For: Weekdays", "Until: 07:00", "0.2", "Until: 08:00", "0.5", "Until: 09:00", "0.75", "Until: 10:00", "1.00", "Until: 11:00", "1.00", "Until: 12:00", "1.00", "Until: 13:00", "0.75", "Until: 14:00", "1.00", "Until: 15:00", "1.00", "Until: 16:00", "1.00", "Until: 17:00", "1.00", "Until: 18:00", "1.00", "Until: 19:00", "0.52", "Until: 20:00", "0.52", "Until: 21:00", "0.52", "Until: 22:00", "0.28", "Until: 24:00", "0.2", "For: Saturday", "Until: 07:00", "0.2", "Until: 08:00", "0.4", "Until: 09:00", "0.46", "Until: 10:00", "0.70", "Until: 11:00", "0.70", "Until: 12:00", "0.70", "Until: 13:00", "0.51", "Until: 14:00", "0.51", "Until: 15:00", "0.51", "Until: 16:00", "0.51", "Until: 17:00", "0.51", "Until: 18:00", "0.25", "Until: 24:00", "0.2", "For: AllOtherDays", "Until: 08:00", "0.2", "Until: 16:00", "0.4", "Until: 24:00", "0.2"],
+    "source": "ASHRAE901_Hospital_STD2022_Buffalo.idf: Exterior:FuelEquipment 'Elevators' (Design_Level=34667.95, EndUse_Subcategory=ElevatorLift); floor area = sum of BuildingSurface:Detailed Floor areas in the same file; heat_gain is the OpenUBEM interior-equivalent default (source object has no zone heat gain fields)"
+  },
+  "Outpatient": {
+    "design_level_w": 7453.34,
+    "prototype_floor_area_m2": 3804.01,
+    "heat_gain": {"latent": 0.0, "radiant": 0.1, "lost": 0.9},
+    "schedule_fields": ["Through: 12/31", "For: SummerDesignDay", "Until: 24:00", "1.00", "For: WinterDesignDay", "Until: 24:00", "0.12", "For: Weekdays", "Until: 07:00", "0.12", "Until: 08:00", "0.5", "Until: 09:00", "0.75", "Until: 10:00", "1.00", "Until: 11:00", "1.00", "Until: 12:00", "1.00", "Until: 13:00", "0.75", "Until: 14:00", "1.00", "Until: 15:00", "1.00", "Until: 16:00", "1.00", "Until: 17:00", "1.00", "Until: 18:00", "1.00", "Until: 19:00", "0.52", "Until: 20:00", "0.52", "Until: 21:00", "0.52", "Until: 22:00", "0.28", "Until: 24:00", "0.12", "For: Saturday", "Until: 07:00", "0.12", "Until: 08:00", "0.4", "Until: 09:00", "0.46", "Until: 10:00", "0.70", "Until: 11:00", "0.70", "Until: 12:00", "0.70", "Until: 13:00", "0.51", "Until: 14:00", "0.51", "Until: 15:00", "0.51", "Until: 16:00", "0.51", "Until: 17:00", "0.51", "Until: 18:00", "0.25", "Until: 24:00", "0.12", "For: AllOtherDays", "Until: 08:00", "0.12", "Until: 16:00", "0.4", "Until: 24:00", "0.12"],
+    "source": "ASHRAE901_OutPatientHealthCare_STD2022_Buffalo.idf: ElectricEquipment 'Floor 1 Elevator Pump Room_Elevators_Equip' (Design_Level=7453.34, Fraction_Latent=0, Fraction_Radiant=0.1, Fraction_Lost=0.9, EndUse_Subcategory=ElevatorLift)"
+  },
+  "HighriseApartment": {
+    "design_level_w": 10597.39,
+    "prototype_floor_area_m2": 7838,
+    "heat_gain": {"latent": 0.0, "radiant": 0.0, "lost": 0.95},
+    "schedule_fields": ["Through: 12/31", "For: WinterDesignDay", "Until: 24:00", "0.12", "For: SummerDesignDay", "Until: 24:00", "0.5", "For: Allotherdays", "Until: 04:00", "0.12", "Until: 05:00", "0.12", "Until: 06:00", "0.20", "Until: 07:00", "0.40", "Until: 09:00", "0.50", "Until: 10:00", "0.35", "Until: 16:00", "0.15", "Until: 17:00", "0.35", "Until: 19:00", "0.50", "Until: 21:00", "0.40", "Until: 22:00", "0.30", "Until: 23:00", "0.20", "Until: 24:00", "0.12"],
+    "prototype_floor_area_note": "FULL-BUILDING area (7838 m2), NOT the reduced 3-zone-model area (2350.94 m2). The design_level_w (10597.39 W) is a whole-building elevator quantity, so it must be paired with the true full conditioned floor area to yield a correct W/m2 density; OpenUBEM production computes building area as footprint x ALL real floors (cooking._total_floor_area), matching this convention (cf. cooking_by_archetype.json pairing full-DOE areas). This prototype models only 3 representative levels at Zone Multiplier=1 (Z-origins 0 / 12.19 / 27.43 m at 3.048 m floor height => 10 physical floors); footprint = 2350.94/3 = 783.65 m2, x10 floors = 7836.5 m2, agreeing with the DOE-published 7838 m2 to 0.02%. Pure geometry, zero-fitted-params. CP-1 area correction 2026-07-14 per manager ruling.",
+    "source": "ASHRAE901_ApartmentHighRise_STD2022_Buffalo.idf: ElectricEquipment 'T Corridor_Elevators_Equip' (Design_Level=10597.39, Fraction_Latent=0, Fraction_Radiant=0, Fraction_Lost=0.95, EndUse_Subcategory=ElevatorLift)."
+  },
+  "MidriseApartment": {
+    "design_level_w": 4360.9,
+    "prototype_floor_area_m2": 3135,
+    "heat_gain": {"latent": 0.0, "radiant": 0.0, "lost": 0.95},
+    "schedule_fields": ["Through: 12/31", "For: WinterDesignDay", "Until: 24:00", "0.12", "For: SummerDesignDay", "Until: 24:00", "0.5", "For: Allotherdays", "Until: 04:00", "0.12", "Until: 05:00", "0.12", "Until: 06:00", "0.20", "Until: 07:00", "0.40", "Until: 09:00", "0.50", "Until: 10:00", "0.35", "Until: 16:00", "0.15", "Until: 17:00", "0.35", "Until: 19:00", "0.50", "Until: 21:00", "0.40", "Until: 22:00", "0.30", "Until: 23:00", "0.20", "Until: 24:00", "0.12"],
+    "prototype_floor_area_note": "FULL-BUILDING area (3135 m2), NOT the reduced 3-zone-model area (2350.96 m2). Same rationale as HighriseApartment: the design_level_w (4360.9 W) is a whole-building quantity paired with the true full conditioned floor area. This prototype models 3 representative levels at Zone Multiplier=1 (Z-origins 0 / 3.048 / 9.144 m at 3.048 m floor height => 4 physical floors); footprint = 2350.96/3 = 783.65 m2, x4 floors = 3134.6 m2, agreeing with the DOE-published 3135 m2 to 0.01%. Pure geometry, zero-fitted-params. CP-1 area correction 2026-07-14 per manager ruling.",
+    "source": "ASHRAE901_ApartmentMidRise_STD2022_Buffalo.idf: ElectricEquipment 'G Corridor_Elevators_Equip' (Design_Level=4360.9, Fraction_Latent=0, Fraction_Radiant=0, Fraction_Lost=0.95, EndUse_Subcategory=ElevatorLift)."
+  },
+  "SecondarySchool": {
+    "design_level_w": 5896.595,
+    "prototype_floor_area_m2": 9796.0,
+    "heat_gain": {"latent": 0.0, "radiant": 0.5, "lost": 0.0},
+    "schedule_fields": ["Through: 12/31", "For: SummerDesignDay", "Until: 24:00", "0.30", "For: WinterDesignDay", "Until: 24:00", "0.12", "For: Weekdays", "Until: 08:00", "0.12", "Until: 15:00", "0.30", "Until: 16:00", "0.15", "Until: 24:00", "0.12", "For: AllOtherDays", "Until: 24:00", "0.12"],
+    "prototype_floor_area_note": "DOWNSCALE PROVENANCE (not a bug — NO fix needed): both design_level_w (5896.595 W) and prototype_floor_area_m2 (9796.0 m2) were harvested from the SAME _50pct_downscaled source file, so the W/m2 density (design_level_w / prototype_floor_area_m2) is self-consistent and scale-invariant. Scaling a real full-size school by footprint x floors self-corrects; the absolute 9796 m2 deliberately differs from the RESULT_04 full-size 19592 m2 used by cooking_by_archetype.json but that difference is harmless because only the ratio matters. Flagged so this is not later mistaken for the apartment-style under-count bug.",
+    "source": "ASHRAE901_SchoolSecondary_STD2022_Buffalo_50pct_downscaled.idf: ElectricEquipment 'Mech_ZN_1_FLR_1_Elevators_Equip' (Design_Level=5896.595, Fraction_Latent=0, Fraction_Radiant=0.5, Fraction_Lost=0, EndUse_Subcategory=ElevatorLift)."
+  },
+  "College": {
+    "design_level_w": 32110.0,
+    "prototype_floor_area_m2": 6415.51,
+    "heat_gain": {"latent": 0.0, "radiant": 0.5, "lost": 0.0},
+    "schedule_fields": ["Through: 12/31", "For: Weekdays", "Until: 08:00", "0", "Until: 15:00", "0.3", "Until: 16:00", "0.2", "Until: 24:00", "0", "For: AllOtherDays", "Until: 24:00", "0", "For: SummerDesignDay", "Until: 08:00", "0", "Until: 15:00", "0.3", "Until: 16:00", "0.2", "Until: 24:00", "0", "For: WinterDesignDay", "Until: 24:00", "0"],
+    "source": "College_90.1-2019_6A_Buffalo_v221.idf: ElectricEquipment '2 Elevator Lift Motors' (Design_Level=32110, Fraction_Latent=blank->0, Fraction_Radiant=0.5, Fraction_Lost=blank->0, EndUse_Subcategory=Elevators). Schedule reformatted verbatim (same numeric values) from the source's Schedule:Year/Week:Daily/Day:Interval chain ('College BLDG_ELEVATORS') into Schedule:Compact form: Weekdays/SummerDesignDay 0 until 08:00, 0.3 until 15:00, 0.2 until 16:00, 0 until 24:00; WinterDesignDay/AllOtherDays flat 0. College not in PLAN §4 coverage list — added per T01 comprehensive-harvest instruction, see _omitted_findings."
+  }
+}

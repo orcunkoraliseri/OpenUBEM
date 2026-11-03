@@ -1,0 +1,73 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openubem"
+version = "0.1.0"
+description = "Open-source Urban Building Energy Modeling platform"
+readme = "README.md"
+license = { text = "Apache-2.0 OR MIT" }
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "osmnx >= 1.9, < 2.0",
+    "geopandas >= 0.14",
+    "shapely >= 2.0",
+    "pandas",
+    "numpy",
+    "pyogrio",
+    "packaging",
+    "eppy >= 0.5.63, < 1.0",
+    "geomeppy >= 0.11.8, < 1.0",
+    "requests",
+    "pyarrow",
+    "pyproj",
+    "scipy",
+    "joblib",
+    "scikit-learn",
+    "matplotlib",
+    "contextily >= 1.3",
+    "rasterio",
+    "h5netcdf",
+    "xarray >= 2024.1",
+    "cdsapi >= 0.7.4",
+    "ecmwf-datastores-client >= 0.5",
+    "pvlib >= 0.11",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-mock",
+    "tenacity",
+    "openpyxl",
+    "pythermalcomfort",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.setuptools.package-data]
+"openubem.data" = ["*.json", "*.csv"]
+"openubem.data.construction" = ["*.json", "*.md"]
+"openubem.data.loads" = ["*.json"]
+"openubem.data.schedules" = ["*.json"]
+"openubem.idf" = ["templates/*.idf"]
+"openubem.data.climate_zones" = ["*.gpkg", "*.md"]
+"openubem.data.carbon" = ["*.json", "*.md"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+tmp_path_retention_policy = "failed"
+tmp_path_retention_count = 3
+markers = [
+    "slow: marks tests as slow (integration / live-network)",
+    "energyplus: marks tests that require the EnergyPlus 23.1 binary",
+]

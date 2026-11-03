@@ -1,0 +1,2651 @@
+# OpenUBEM Debug References — Master Error/Solution Index
+
+> Purpose: a single lookup document for every recurring error, bug, and failure documented across
+> `docs/docs_DONE`, `docs/docs_ACTIVE`, `docs/docs_TODO`, `docs/docs_VALIDATION`, `docs/docs_REPORTS`
+> and the `openubem/` package itself. **Before starting a new debugging session, search this file
+> first — the symptom has probably been seen before.**
+>
+> Each entry: **Symptom** — cause -> fix. *(source path)*. Entries marked **[OPEN]** were never fixed.
+>
+> Generated 2026-08-20 by a 14-agent sweep of 618 markdown docs + 89 Python modules.
+> Update this file whenever a new debug/measurement doc lands.
+
+## Chapters
+
+1. [Geometry: winding, zone volume, degenerate surfaces](#1-geometry-winding-zone-volume-degenerate-surfaces)
+2. [Thermal runaway & envelope thermal mass](#2-thermal-runaway--envelope-thermal-mass)
+3. [HVAC sizing, setpoints, exhaust & schedules](#3-hvac-sizing-setpoints-exhaust--schedules)
+4. [Zoning & resolution modes](#4-zoning--resolution-modes)
+5. [LayoutGenerator & LayoutAssigner](#5-layoutgenerator--layoutassigner)
+6. [Classification & archetype assignment](#6-classification--archetype-assignment)
+7. [Imputation, fusion & data acquisition](#7-imputation-fusion--data-acquisition)
+8. [Results parsing, EUI arithmetic & meters](#8-results-parsing-eui-arithmetic--meters)
+9. [Validation gates & metric traps](#9-validation-gates--metric-traps)
+10. [Microclimate / UTCI (SVF, MRT, wind)](#10-microclimate--utci-svf-mrt-wind)
+11. [Visualization (3D viewer, matplotlib, basemaps)](#11-visualization-3d-viewer-matplotlib-basemaps)
+12. [Cluster / SLURM / SSH (Speed)](#12-cluster--slurm--ssh-speed)
+13. [Pipeline plumbing, Windows & parallelism](#13-pipeline-plumbing-windows--parallelism)
+14. [Test suite: collection aborts, fixtures, benign noise](#14-test-suite-collection-aborts-fixtures-benign-noise)
+15. [Exceptions raised by the `openubem` package](#15-exceptions-raised-by-the-openubem-package)
+16. [Method traps: how these bugs got misdiagnosed](#16-method-traps-how-these-bugs-got-misdiagnosed)
+17. [Not-a-bug: expected behaviour & accepted limitations](#17-not-a-bug-expected-behaviour--accepted-limitations)
+18. [Currently open items (register snapshot 2026-09-30, final — none open)](#18-currently-open-items-register-snapshot-2026-09-30-final--none-open)
+
+---
+
+## 1. Geometry: winding, zone volume, degenerate surfaces
+
+- **`Floor is upside down! Tilt angle=[0.0]` + `Indicated Zone Volume <= 0.0 ... set to 10.0 m3`** — OSM
+  footprints arrive clockwise-wound; geomeppy's `build_zones` needs CCW for outward normals, so E+ computes
+  a negative zone volume and clamps it to a 10 m³ stub. Universal (95% of la_urban, 100% of la_rural), but
+  only *fatal* on the largest footprints (1,173–22,444 m²). Fix: `shapely.geometry.polygon.orient(poly_local,
+  sign=1.0)` before `build_zones` in `openubem/idf/builder.py`. **Measured energy cost, 2026-08-26 (EU S2,
+  31 buildings):** the volume clamp alone understates ACH-driven ventilation loss **57.74×**; repairing the
+  volume without re-winding still leaves **−11.8 %** on heating demand, with EnergyPlus's own reported zone
+  floor area, zone volume, exterior gross wall area and heat-transfer surface count **byte-identical**
+  between the two runs — the vertex *sets* match and only their *order* differs. **No area- or
+  volume-based geometry check can detect this class of defect.** Recurrence note: this entry already
+  carried the correct fix when `scripts/run_eu_s2_campaign.py` shipped with the defect, so the entry was
+  not consulted. *(docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md §12.20, FINDING EU-S2-08)*
+  *(docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/debugs/DONE_10_fails.md; docs/docs_REPORTS/REPORT_phaseE_final.md §5)*
+- **The same `orient()` fix is deliberately skipped in `auto` mode** — the guard at
+  `openubem/idf/builder.py:464-465` excludes `auto`, which is the mode the published fleet EUI was built in;
+  `GetVertices: ... is upside down!` therefore fires on 8,160/8,160 `auto` buildings. Underlying library
+  defect: geomeppy 0.12.2's `is_clockwise()` returns `False` unconditionally on its CCW branch, so
+  `invert_orientation()` never fires. Root cause fully localised 2026-08-21: CORE zones (0% stubbed) escape
+  this because geomeppy's `core/perim` path re-derives the core polygon via `Polygon2D.buffer()`
+  (`geomeppy/geom/polygons.py:104-113`), which internally calls the *real* `shapely.geometry.polygon.orient
+  (sign=1.0)` unconditionally — a different, working `orient()` than the one openubem gates off. That
+  correction never runs for the `by_storey`/WHOLE path (`geomeppy/idf.py:263-267`, used by
+  `one_zone_per_floor`/`single_zone`), which extrudes the raw, unoriented footprint coordinates — 100%
+  stubbed. PERIM zones (95.75% stubbed) sit in between because `core_perim.py`'s `get_perims()` mixes the
+  correctly-oriented core boundary with the original (unoriented) footprint edge points. Winding itself was
+  left alone (remedy shape (a), extending `orient()` to `auto`, was explicitly not authorised — sign
+  unverified, changes geometry fleet-wide); fixed instead by writing `Zone.Volume` explicitly (below). (OPEN-56)
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-56_writer-localisation.md;
+  docs/docs_DONE/openings/extra/FIX_open-56_zone-volume.md)*
+- **EU models: every outdoor wall and window faces into its own room (wall azimuth 304.36° in the SQL Surfaces table, real outward facing ~124°); floors point up, ceilings and roofs point down, EnergyPlus only auto-flips floors/roofs (`Floor is upside down!`)** — `scripts/run_eu_s2_campaign.py:72` `ZONE_WINDING_SIGN = 1.0` orients every footprint counter-clockwise before geomeppy `add_block`, and geomeppy's `is_clockwise()` never fires, so the whole surface set comes out reversed (FINDING 284). Measured on the four `_win_2026-10-01` fleets: 35,709 / 19,682 / 13,414 / 55,234 outdoor walls inward (ES / FR / GB / IT) against 11 / 23 / 6 / 8 outward. Fix: `openubem/idf/surface_orientation.py` `normalise_surface_orientation(idf)` decides each surface from a measurement (floor down, ceiling/roof up, wall away from its own zone by a 0.2 m probe against the zone floors, centroid sign as fallback), reverses windows with their host, and is called before `add_tabula_windows` in `build_idf_for_building` (`run_eu_s2_campaign.py:2031`); `scripts/eu21/11_fix_orientation.py` rewrites the windowed fleets to `<D>_win_2026-10-02`. Residual: 215 interzone wall pairs of 79,549 do not end up opposite because one side was decided by fallback (OPEN until the director rules). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, T06m)* The centre-point probe with a centroid fallback left L-shaped-zone walls inward (FINDING 285); fixed by the 10-point base vote, then the floor-edge test, in `openubem/idf/surface_orientation.py` `_wall_probe`.
+- **Every building simulates with a 10 m³ zone-volume stub** — understates EUI by a fleet-stratified
+  mean **+0.98%** (median +0.84%, up to +3.25%), direction-consistent in 65/69 sampled buildings. Magnitude
+  does *not* scale with zone count (refuted, corr=+0.113): best model is a fixed ≈+1.0 kWh/m² per-building
+  offset. Fixed 2026-08-21 (T02, `rulings-and-fixes-2026-08-21` plan): `BuildingIDF.build()` now calls
+  `_write_zone_volumes(idf, extruded_zones)` (`openubem/idf/builder.py`, right after the extruded-zones guard
+  and before `assign_constructions()`), which sets each `ZONE` object's `Volume` field explicitly to
+  `floor_area x height_m` — floor area summed from that zone's own `FLOOR`-type
+  `BUILDINGSURFACE:DETAILED` objects (`idf.getsurfaces("floor")`, real post-extrusion geometry, not the
+  zones-dict `floor_polygon` which CORE/PERIM zone dicts share as the whole-building placeholder footprint
+  and would give the wrong area), height from the zone's own `height_m` (floor-to-floor height, correct for
+  every zone role already). **Not applied to the published baseline** (153.8231 over 8,153 is unchanged —
+  no fleet re-run was part of this fix). (OPEN-56) **Update 2026-09-24: now applied** — the fleet
+  re-simulated 2026-09-10 (153.95 over 8,139) was built with explicit volumes, 8,152 / 8,160 IDFs positive ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B. ⚠ superseded 2026-10-21: restated at 154.10 kWh/m² / 1,037,572 t over 8,139 buildings (hot water counted once, D-IMP-05; see docs/docs_ACTIVE/IMP/PLAN_paper-improvement-implementation-2026-10-21.md T13).
+  on every zone; OPEN-56 is closed. The winding itself is still unchanged.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_ten-tasks-2026-08-18-night.md;
+  docs/docs_DONE/openings/extra/FIX_open-56_zone-volume.md)*
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B. ⚠ superseded 2026-10-21: restated at 154.10 kWh/m² / 1,037,572 t over 8,139 buildings (hot water counted once, D-IMP-05; see docs/docs_ACTIVE/IMP/PLAN_paper-improvement-implementation-2026-10-21.md T13).
+- **`GetSurfaceData: There are 100 degenerate surfaces (number of sides < 3)` → Fatal** — geomeppy's
+  `core/perim` emits one perimeter wedge per footprint edge; an 89-edge near-convex footprint explodes into
+  ~52 wedges/floor, many collapsing below 3 vertices. `idf.add_block()` does **not** raise, so the
+  except-based fallback never fires and the building is falsely marked `success`. Fix: post-extrusion
+  degenerate-surface check → discard block → rebuild as `one_zone_per_floor`.
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_coreperim-degenerate-fix.md)*
+- **`Vertex size mismatch between base surface and outside boundary surface` (e.g. 14 vs 15, or 38 vs 41) →
+  `GetSurfaceData: Errors discovered, program terminates`** — a footprint with an interior ring (courtyard)
+  produces a donut `core/perim` decomposition with mismatched inter-floor vertices; the degenerate-surface
+  detector doesn't catch it (no <3-vertex surfaces, normal zone count). Fix: pre-screen
+  `footprint_poly.interiors` non-empty → route straight to `one_zone_per_floor` (or bbox), never `core/perim`.
+  Also seen as a residue of an internal `room_layout → one_zone_per_floor` reroute that doesn't repair paired
+  horizontal surfaces before save.
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_coreperim-degenerate-fix.md; docs/docs_TODO/layoutgenerator/outputs/t12_live_smoke.md:155)*
+- **`CalcHeatBalanceInsideSurf` divergence with *no* degenerate/fatal geometry error** — a sliver perimeter
+  zone (0.0645 m², 18.76 mm off-collinear, above the 10 mm vertex-collapse tolerance) inverts winding. Fix:
+  `_coreperim_has_tiny_zone_area(min_area=0.5)` shoelace detector in the reroute gate. **Do not** add an
+  inverted-winding detector — it false-triggers on all healthy floor surfaces (E+/geomeppy give floors
+  negative signed area by convention).
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_phaseC_geometry_fixbatch.md)* 2026-09-30: 6
+  `la_rural` `fast_zone` buildings still fail this way with a perimeter zone under 2 m² floor, i.e. above
+  the 0.5 m² detector threshold, so the reroute gate does not catch them; re-run on current code: 0 of 6
+  complete. (OPEN-38, class C1; tracked as OPEN-68) Closed 2026-09-30 as a known limitation: time step 20 and/or
+  `ZoneAirHeatBalanceAlgorithm, AnalyticalSolution` cure 0 of 6; `_TINY_ZONE_AREA_M2 = 2.0` (patch the
+  constant **and** `_coreperim_has_tiny_zone_area.__defaults__`, `openubem/idf/surfaces.py:274`) cures 3 of 6
+  but re-routes 41 adopted buildings, so it is not adopted. *(docs/docs_DONE/openings/implemenation/previous/PLAN_seven-items-2026-09-30.md T03, CP-B)*
+  *(docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md T05, T06d)*
+- **EnergyPlus fatal from shadowing on a non-convex surface, 1 `auto` building (`la_rural` way/472961047)** — the
+  shading calculation meets a non-convex casting surface; 2 other buildings with the same warning complete.
+  Re-run on current code: still fails. (OPEN-38, class D; tracked as OPEN-70) First Severe:
+  `DetermineShadowingCombinations: There are 2 surfaces which are casting surfaces and are non-convex`.
+  Closed 2026-09-30 as a known limitation: time step and zone-air solver variants cure 0 of 1. *(docs/docs_DONE/openings/implemenation/previous/PLAN_seven-items-2026-09-30.md T03, CP-B)*
+  *(docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md T05, T06d)*
+- **Shapely `NotImplementedError` → `failed_worker_exception`** — a MultiPolygon footprint (e.g. from a
+  `buffer(0)` anomaly) reaches `BuildingIDF.build()`, which has no MultiPolygon guard. Fix:
+  `_coerce_to_polygon()` takes the largest-area part before `simplify_footprint`, tagging a `data_quality_flag`.
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_phaseC_geometry_fixbatch.md)*
+- **geomeppy `break_polygons` `IndexError` / `intersect_match` `IndexError` → `failed_worker_exception`** —
+  `idf.intersect_match()` (`surfaces.py:577`) raises *before* the degenerate-reroute check at `:585`, so the
+  exception escapes. Fix: wrap `intersect_match()` in try/except; force-rebuild as `one_zone_per_floor` and
+  re-run intersect/repair once before re-raising (`_force_reroute_room_layout_to_one_zone_per_floor`).
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_phaseC_geometry_fixbatch.md; docs/docs_TODO/layoutgenerator/PLAN_layoutgenerator_implementation.md:266)*
+- **Generation worker hangs forever — 4 nested python processes at ~0% CPU, no exception, no timeout** —
+  `intersect_match()` never returns on a high-complexity footprint (97 simplified vertices × 15 floors ≈ 1,455
+  surface pairs). A bare `except` cannot catch a hang. Fix: pre-gate on complexity
+  `M = simplified_vertex_count × n_floors`; if `M > 800` skip `intersect_match` and reroute to
+  `one_zone_per_floor` (fleet max on successful `perimeter_core` = 465; the hang was at 1,455).
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_geometry_generation_drops.md)*
+- **`failed_interzone_vertex_mismatch` (building silently dropped)** — `find_mismatched_interzone_pairs`
+  detected a mismatch post-extrusion and returned early instead of repairing. Fix: reroute to
+  `one_zone_per_floor` and re-check; drop only if still mismatched. **[OPEN]** 6/30 la_suburban footprints
+  still drop this way in LIVE_SMOKE.
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_phaseC_geometry_fixbatch.md; docs/docs_TODO/layoutgenerator/outputs/t12_live_smoke.md:128)*
+- **[OPEN] `** Severe ** RoofCeiling:Detailed=... Vertex size mismatch between base surface ... and outside boundary surface` on every interzone ceiling/floor pair of one building, then `** Fatal ** GetSurfaceData: Errors discovered, program terminates` - on a building that was ALREADY in `one_zone_per_floor`** - so the recorded remedy for the entry above (reroute to `one_zone_per_floor` and re-check) cannot apply: this building started there. Measured on `BATIMENT0000000240879534_part0` (Lyon, `AB`, 7 storeys), the single `EPLUS_FATAL` of the 96-building `S3` campaign. 🔴 **Both paired objects are written with 12 vertices**, so the mismatch is produced INSIDE EnergyPlus by its own collinear-vertex removal, not by the writer emitting different counts. What makes the two sides decide differently: the footprint carries **one exactly collinear vertex** (turn `0.0000` deg, perpendicular deviation `0.000000 m`) at the end of a **0.200 m** segment, three more within 1.4 mm of collinear, and the mirrored interzone pair differs in the **last decimal digit** of its coordinates (`642384.787910771` against `642384.7879107706`). The footprint itself is valid, simple, 13 ring vertices, no duplicate points, minimum segment 0.200 m - so a footprint-validity check passes it and tells you nothing. ⚠ **Not fixed, deliberately.** The obvious remedy - snap mirrored interzone surfaces to bit-identical coordinates, or drop near-collinear vertices before extrusion - changes corpus geometry and the accepted `S2` IDF hashes, and this arc has already had to refuse one corpus-wide vertex remedy that rested on a limit that did not exist (ch.1, the withdrawn ~120-vertex `BuildingSurface:Detailed` ceiling). Recorded as one classified failure of 96 with the measurement attached, and put to the owner in `ACCEPTANCE_S3_promotion_2026-08-27.md` §5.2.
+  *(openubem/outputs/eu_evidence/EU-04/s3/s3_campaign/FR-LYO-HAUTCOEURPENTES/BATIMENT0000000240879534_part0/eplusout.err; openubem/outputs/eu_evidence/EU-04/s3/s3_campaign_manifest.csv)*
+  **Recurrence (EU-11, Speed, 8 buildings):** the exact same building recurs — `BATIMENT0000000240879534_part0`
+  is Lyon `fleet.lst` entry 31 (stem `b2d90c2cba300225`), same 12-Severe+1-Fatal `GetSurfaceData` fatal,
+  `task.rc=1`. The identical symptom class (RoofCeiling:Detailed vertex-count mismatch on an interzone
+  ceiling/floor pair → `GetSurfaceData` Fatal) also hit 4 other Lyon buildings (`BATIMENT0000000240880205_part0`,
+  `..0227_part0`, `..0573_part0`, `..1541_part0`; 2/4/6/12 severe, 1 fatal each) and 3 Madrid buildings
+  (`way/287696585`, `way/434026690` — 4 severe each; `way/434878262` — 8 severe; 1 fatal each). 8/1,340 EU-11
+  Speed runs total. Same disposition: not fixed, each carried as one classified `EPLUS_FATAL` row (blank
+  `heating_kwh`/`eui_kwh_m2`, real `eplus_return_code`/`severe_errors`/`fatal_errors`) in its district manifest.
+  *(openubem/outputs/eu_evidence/EU-11/FR-LYO-HAUTCOEURPENTES/fr_lyo_hautcoeurpentes_manifest.csv;
+  openubem/outputs/eu_evidence/EU-11/ES-MAD-BERRUGUETE/es_mad_berruguete_manifest.csv)*
+  **Recurrence 2 (EU-14, Bologna, Speed job `1295646`, 2 buildings):** `dc5cb4dcddab40d3` (`AB`, 8-severe,
+  1-fatal, `RoofCeiling:Detailed` on `_1` block interzone pairs) and `524073ad3c85f685` (`MFH`, 6-severe,
+  1-fatal, `_WHOLE` block interzone pairs) — identical symptom, identical `GetSurfaceData` Fatal, `task.rc=1`.
+  10/2,544 EU-11+EU-14 Speed runs total. Same disposition: not fixed, carried as classified `EPLUS_FATAL`
+  rows in `it_bol_galvani2_manifest.csv` once harvested.
+  **Recurrence 3 (EU-13B T09, Madrid/Lyon/London resimulation, Speed jobs `1297338`/`1297355`/`1297373`):**
+  identical symptom, much higher incidence — Madrid 38/952 (was 4/961 pre-T09), Lyon 6/283 (was 7/297),
+  London 4/80 (was 1/82). Sample-checked directly (`efd148a964fbbb14`, Madrid): same `RoofCeiling:Detailed`
+  vertex-count mismatch (9 vs 10) on a `BLOCK ..._0 STOREY 3/2 FLOOR/CEILING` interzone pair, same `rc=0`,
+  1-fatal signature as every prior recurrence. The T04 ruled-grid/T05 morphology geometry creates far more
+  interzone ceiling/floor surface pairs per building (many dwelling sub-zones per storey instead of one),
+  so more chances for this pre-existing EnergyPlus collinear-vertex float-precision defect to trigger — the
+  higher count is an increased-exposure effect of T09's own geometry change, not a new defect. Same
+  disposition: not fixed, each carried as one classified `EPLUS_FATAL` row (blank `heating_kwh`/`eui_kwh_m2`)
+  in its district's post-T09 manifest, never smoothed into the pooled EUI.
+  *(openubem/outputs/eu_evidence/EU-11/ES-MAD-BERRUGUETE/es_mad_berruguete_manifest.csv;
+  openubem/outputs/eu_evidence/EU-11/FR-LYO-HAUTCOEURPENTES/fr_lyo_hautcoeurpentes_manifest.csv;
+  openubem/outputs/eu_evidence/EU-11/GB-LDN-STDUNSTANS/gb_ldn_stdunstans_manifest.csv)*
+  **Recurrence 4 (EU-11 recut-95pct-2026-09-08, Bologna T06a, Speed job `1314067` / local race-runner smoke
+  test):** same symptom, `366fc6fda9a1a946` (14 vs 15 on one `RoofCeiling:Detailed` interzone pair, same
+  pattern repeated across other storeys/blocks, 16 severe, 1 fatal, `task.rc=1`) — hit during the local-runner
+  smoke test run ahead of a 139-building Speed/local race batch for this district, confirming this is a
+  per-building IDF defect that fails identically on Speed or locally, not a harness/environment issue. Same
+  disposition: not fixed, will be carried as a classified `EPLUS_FATAL` row when this district is harvested
+  (T06b), from whichever side (Speed or local) finishes it.
+  *(openubem/outputs/eu_evidence/EU-11/IT-BOL-GALVANI2_recut_2026-09-08/local_out/366fc6fda9a1a946/eplusout.err)*
+- **`CheckConvexity: Surface=...WALL 0019 WINDOW is non-planar` → terminates** — non-planar subsurface on a
+  generated room layout; open in LIVE_SMOKE.
+  *(docs/docs_TODO/layoutgenerator/outputs/t12_live_smoke.md:156)*
+- **[OPEN] `.err` reports CHKSBS "Base surface does not surround subsurface" for a door that visibly *does*
+  fit its wall** — first pass wrongly concluded "different generation" because E+ uppercases surface names in
+  `.err` and the cross-check was case-sensitive; a case-insensitive re-match confirmed same geometry, so the
+  `.err`-vs-geometry disagreement is real and unresolved. Note CHKSBS is a `** Warning **` and never kills a
+  run by itself.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-07_smallhotel-idf-diff.md)*
+- **`.err` ends mid-line inside a `GetSimpleAirModelInputs` block, no Fatal marker anywhere, no `.end` file**
+  — a silent `std::bad_alloc` OOM crash (seen on an 89-storey building). Invisible to every fatal-marker
+  regex because E+ never reaches controlled termination.
+  Same crash also seen ending mid-line inside a `SizeWaterCoil:` warning during plant sizing, on a
+  43-storey LargeHotel (`nyc_centre way/266170763`, OPEN-61 census): 0 Severe / 0 Fatal in `.err`,
+  no `.end`, a 318 MB `.eso` and a 305 MB `.sql` that has 36 tables but **no `TabularDataWithStrings`**,
+  and a 15.6 GB working set at death. Diagnostic that separates OOM from a real fatal: open the `.sql`
+  and test for `TabularDataWithStrings` — a controlled fatal still writes it, an OOM crash never does.
+  Fix: none available in-process; the building is recorded as a null-with-reason census row, not retried.
+  On Speed the same crash shows as `sacct` state `OUT_OF_MEMORY`, exit `0:125`, `rc=137` and
+  `slurmstepd: error: Detected 1 oom_kill event` in the task log, when `submit_fleet06b.sbatch` runs at
+  its baked-in `--mem=6G` (FLEET-06b job 1342940: way_281344894, 7 scenario cells). Retry: resubmit only
+  those indices with `--mem=32G` on the CLI; never edit the shared `.sbatch`. Recurrence 2026-09-30: `submit_recut.sbatch` (baked `--mem=6G`) OOM on Madrid fix-fleet tasks 1402184_4 and _8 (`d342db5179c1ac49`, `b56bda9013da5b2d`) after 10 s; resubmitted as 1402967 with `--mem=32G`. Recurrence 2026-10-01: London `_win_2026-10-05` job 1409615, 10 of 196 tasks OOM at "Initializing HVAC" (homes rebuilt with the area-based flat count, more zones); resubmitted as 1410433 with `--mem=32G`, and the pending Madrid/Lyon tasks raised in place with `scontrol update JobId=<id> MinMemoryNode=16384` (`MinMemoryNode=16G` is rejected as "Invalid MinMemoryNode value"). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, T06p item 5 director audit)* 2026-09-30, OPEN-38 class E, tracked as OPEN-71: `la_centre`
+  `way/319507579` (`auto`) fails again at `--mem=32G` (job 1403424, `FAILED`) — **corrected 2026-09-30: that
+  failure is a runaway plant (hot-water loop) temperature, not memory.** With
+  `ZoneAirHeatBalanceAlgorithm, AnalyticalSolution;` it completes (231.80 kWh/m², 12.5 GB, 26 min, job
+  1404350_83); with Timestep 20 it runs out of memory at 32G. Closed as a known limitation, not adopted
+  (one building) *(docs/docs_DONE/openings/implemenation/previous/PLAN_seven-items-2026-09-30.md CP-B)*; the cooking-set re-run (1403414) also left 2 cases with a `.sql` and no `.end`
+  (`la_centre way/428015098`, `nyc_centre way/266170763`, the 43-storey hotel above); they keep their
+  earlier figure. *(docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md T06b, T06d)*
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-41-38_failure-causes.md;
+  docs/docs_DONE/openings/implemenation/previous/PLAN_open61-census-open03-storeys-2026-08-20.md)*
+
+- **`** Fatal ** Errors occurred on processing input file` from `energyplus.exe` on an extruded real
+  footprint, with no preceding Severe that names a geometry object** — the footprint's exterior ring
+  carries more vertices than a `BuildingSurface:Detailed` can hold. Measured on
+  `BATIMENT0000000240877527_part0` (Lyon BD TOPO, AB, 5 storeys): 173 exterior vertices against the
+  IDD's ~120-vertex field limit, so E+ fails during input processing rather than during simulation.
+  Nothing upstream simplifies the ring: `build_zones(..., strategy="one_zone_per_floor")` uses
+  `exterior.coords` verbatim, so any dense historic parcel can hit this. Fix: none applied — found
+  inside the EU-04 `S1` measurement task and recorded fail-closed as `EPLUS_FATAL`, a named refusal,
+  never an energy result. Candidate remedy for a later, explicitly scoped item: a vertex-budget
+  simplification (`shapely.simplify` with an area-preserving tolerance) before extrusion, with the
+  simplification error recorded per building. *(docs/docs_ACTIVE/europeanLocations/prompts/previous/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md;
+  openubem/outputs/eu_evidence/EU-04/s1_smoke_manifest.csv)*
+
+  🔴 **CORRECTED 2026-08-26 by the 4J side while vetting an external report that repeated this
+  entry back to us. Both halves of the diagnosis fail, and the entry stands only as a record of what was
+  believed.**
+
+  * **There is no ~120-vertex `BuildingSurface:Detailed` limit.** Checked in `C:\EnergyPlusV22-1-0\
+    Energy+.idd` and `C:\EnergyPlusV24-2-0\Energy+.idd`: the object carries `\extensible:3`,
+    `\min-fields 20`, and **no `\max-fields`**, and the IDD's own note reads *"shown with 120 vertex
+    coordinates — **extensible object**"*. 120 is what the IDD prints, not a ceiling. The fatal was
+    attributed to a limit that does not exist, on an error message that named no geometry object.
+  * **The failure no longer reproduces.** `EPLUS_FATAL` appears **nowhere** in
+    `openubem/outputs/eu_evidence/EU-04/`. `s1_smoke_manifest.csv`, regenerated **2026-08-26 12:10**,
+    reports **12 of 12 `EPLUS_COMPLETED`** with the layout axis unchanged (8 `NON_CONVEX_FOOTPRINT`,
+    3 `NARROW_FOOTPRINT_LT_8M`, 1 `DWELLING_LAYOUT_EMITTED`) — the same 12 buildings, re-run.
+    `BATIMENT0000000240877527_part0` ends *"EnergyPlus Completed Successfully — 0 Severe Errors"* in
+    **all three** campaigns: `s1_smoke` (26 warnings), `s2_campaign` (24), `s2_campaign_v2` (19).
+
+  ⚪ **The candidate remedy above should not be executed as written.** An external round proposed
+  exactly it — Ramer-Douglas-Peucker at `epsilon = 0.15 m` on every cadastral polygon — rated Tier 1
+  on the non-existent IDD limit. Applying it would change the geometry of the whole corpus to fix a
+  defect that is gone. If ring density is later shown to cause a **reproducible** fatal, the remedy is
+  re-opened **with the new measurement attached**.
+
+  🔴 **The lesson this entry now carries is the useful part: a recorded blocker outlives the
+  blockage.** The refusal was real when written on 2026-08-25 and false by 2026-08-26, while three
+  documents still cited it. *(Cross-reference:
+  `GSSCanada-main/4J_docs_occ/DeepResearchPrompts/VETTING_RL28_RL29.md` §1.4–§1.5;
+  `GSSCanada-main/4J_docs_occ/Step10_docs/4thJ_10_ubemRealStock.md` §6.5.)*
+  🔴 **`MVP_european_locations.md` §EU-04 still reads "11 of 12 `EPLUS_COMPLETED` ... 1
+  `EPLUS_FATAL`" and needs the same correction from its owner.**
+
+- **[OPEN] `GetSurfaceData: Very small surface area` (~2e-4 m2) + `There are N coincident/collinear
+  vertices; These have been deleted` + `There are N degenerate surfaces; ... number of sides < 3` +
+  `CalcCoordinateTransformation: Invalid dot product`, fatal ~1.1 s into the run** — the emitted zone
+  polygons are clean; the slivers are manufactured downstream, inside EnergyPlus itself. The layout
+  regularisation snaps vertices onto a **1 mm** grid (`set_precision(g, 0.001)`,
+  `openubem/geometry/european_nocore.py:131`, and again at `:616,620` in `_snap_world`), which is
+  an order of magnitude **below** EnergyPlus's own ~10 mm coincident-vertex tolerance. Edges that
+  survive our snap at exactly 0.001 m are therefore welded shut by the engine, and where the welded
+  edge sits inside the plate the surface drops below three sides and the run dies. The discriminator
+  is the **minimum distance between any two vertices of a building's zone polygons**: the failing
+  buildings sit exactly on 0.001 m, a floor across the stock rather than noise — the signature of the
+  snap constant, not of bad input. A millimetre edge is necessary but **not** sufficient; whether it
+  becomes fatal depends on the edge's position. Fix (not applied — a geometry-constant change is a new
+  emission, new digests and a new campaign, so it belongs to the author, not to a running job): snap
+  above the engine's tolerance (~10 mm is comfortably clear) or weld vertices closer than that
+  tolerance before emitting, leaving the engine nothing to collapse. **Scope:** the 1 mm grid is
+  confined to the European no-core cutting path; the other two snap sites use 5 mm
+  (`openubem/geometry/layoutGenerator.py:112` `VERTEX_SNAP_M = 0.005`, `openubem/idf/surfaces.py:702`),
+  which is *also* under the engine tolerance and so shares the failure class at lower probability —
+  the North American fleet's measured loss is 7 of 8,160. Exposure measured by a peer session over
+  three European fold districts (3,625 buildings): 96/1174 ES, 147/1211 IT, 16/1240 LDN at or below
+  1 mm; those are a **ceiling on exposure, not a forecast** of failures.
+  *(source: peer measurement 2026-09-09, ES-MAD-BERRUGUETE `relation/12582234`; constants re-derived
+  locally.)*
+
+- **[OPEN] `** Severe ** RoofCeiling:Detailed="... STOREY 0 CEILING 0001", Vertex size mismatch
+  between base surface: ... STOREY 0 CEILING 0001 and outside boundary surface: ... STOREY 1 FLOOR
+  0001` + `The vertex sizes are 23 for base surface and 22 for outside boundary surface.` +
+  `** Fatal ** GetSurfaceData: Errors discovered, program terminates.`, fatal ~0.26 s into the run**
+  — second, distinct symptom of the same millimetre-snap cause as the bullet above, and it is
+  separated from it by what is *absent*: no `Very small surface area` warning, no coincident/collinear
+  vertex deletion, no degenerate surface, no `CalcCoordinateTransformation` message. EnergyPlus
+  deleted nothing; the mismatch was already in the IDF as written. A ceiling and the floor directly
+  above it are the two faces of one interzone plate, and `set_precision(g, 0.001)`
+  (`openubem/geometry/european_nocore.py:131,616,620`) is applied to each face **independently**, so a
+  near-duplicate vertex is dropped on one face and kept on the other and the two rings end up 23 vs
+  22 long. ⚠ **That mechanism was falsified 2026-09-09 for the (b1) class** — those rings are emitted
+  matched; but a second class (b2), found the same day, does write the two faces differently. See the
+  ring comparison and the class split below. Consequence for the fix: raising the snap grid above EnergyPlus's ~10 mm coincident-vertex
+  tolerance is **necessary but not sufficient** — a coarser grid applied independently to the two
+  faces still yields a count mismatch. That remedy clause — snap the two faces of an interzone plate
+  *identically*, or re-match them after snapping — was **retired for (b1)** on 2026-09-09 by direct
+  measurement of the emitted IDFs, then **re-instated for (b2)** the same day when a pair written
+  7.3 m apart appeared. It is dead where the file is already matched and correct where it is not; do
+  not quote either half without the class. See the ring comparison and the class split below. Shared
+  acceptance test with the bullet above, **superseded 2026-09-09**: driving the census of buildings
+  whose minimum vertex gap is <= 10 mm (ES 140 / IT 251 / LDN 32) to zero is **necessary but not
+  sufficient**, and must not be used on its own as the acceptance criterion — a fix designed against
+  that census can pass it and still leave the counter-example below dead. Re-measured at 319 finished buildings: this symptom is
+  the **dominant** one by count, 4 buildings against 1 for the `CalcCoordinateTransformation` route,
+  and the absence list reproduced on every one of the four. The pair sizes EnergyPlus prints differ by
+  **exactly one vertex in all four** (⚠ that regularity **broke 2026-09-09** at 3 vs 12 — see the class
+  split below), never two or three — `relation/12702627` 23 vs 22 (3 plates),
+  `relation/12713026` 8 vs 9 (2 plates), `relation/12725306` 15 vs 14 (1 plate), `relation/12800464`
+  8 vs 9 (4 plates). A difference of exactly one, four times over, is the signature of a single snap
+  merging **one** vertex pair on one copy of the plate and leaving the other copy untouched; it shifts
+  the weight between the two clauses of the remedy, since coarsening the tolerance alone would not
+  have saved four of these five buildings while matching the two copies (or re-matching after
+  snapping) would. Predictor status over 32 finished buildings: 14 carry the exact 1.000 mm edge, 4 of
+  those failed and 10 completed, and **zero** failures sit off the millimetre edge — necessary
+  in-sample, nowhere near sufficient. Across three enlargements of the sample the failed share among
+  exposed buildings was 25 %, 25 %, 29 %, so the exposure census stays a **ceiling on exposure, never
+  an expected loss**.
+  **Counter-example, 2026-09-09 — the millimetre premise is retired.** `relation/13113580`
+  (ES-MAD-BERRUGUETE) failed all ten of its cells with a minimum vertex gap of **1.040812 m**, a metre,
+  not on the millimetre floor and not inside the <= 10 mm census at all: 3 floors, 5 zones each,
+  per-zone (nverts, mingap) = (6, 2.012587) (7, 1.040812) (6, 2.265635) (6, 2.182) (4, 7.502632),
+  re-measured from the payload rather than read back from the census file. It is **this** symptom —
+  nothing deleted, and `The vertex sizes are 7 for base surface and 8 for outside boundary surface`
+  printed twice, on two plates. So the difference of **exactly one** holds a fifth time (it broke at the
+  seventh, below); what dies is
+  the claim that a sub-millimetre gap is what triggers it. (The identical-snap / re-match clause this
+  reading was taken to support has since been retired outright — see the ring comparison below.) `set_precision(g, 0.001)` cannot be the whole story,
+  because this building's two closest vertices are a metre apart — something splits or merges one
+  vertex on one copy of an interzone plate independently of the grid. The mismatch partners here sit in
+  **different blocks at offset storeys** (`_3 STOREY 1 CEILING` against `_4 STOREY 2 FLOOR`), untested
+  as a mechanism and not claimed as one. Explicitly **not** evidence: this payload holds a 7-vertex zone
+  and no 8-vertex zone, which looks like a vertex being *added* to one copy — but `relation/12702627`
+  reports 23 vs 22 over a payload whose zones have only 4, 9, 15 and 34 vertices, so counts change
+  downstream routinely. Predictor measured and **rejected**, so it is not re-tried: "zone count varies
+  between floors" gives 5 failed / 27 completed varying against 3 failed / 31 completed constant — it
+  does not discriminate. Campaign state at 694 cells of 11,510: 80 cells failed; 66 complete ten-cell
+  grids of which 8 failed (12.1 %); on the 1 mm edge 23 buildings -> 7 failed / 16 completed, off the
+  edge 43 -> 1 failed / 42 completed; mechanisms split 2 `CalcCoordinateTransformation`, 5
+  vertex-mismatch, 1 unrelated (next bullet). Every failed building failed all ten cells identically.
+  **Ring comparison, 2026-09-09 — the emitted rings are identical, so the mismatch is made inside
+  EnergyPlus.** For each of the five buildings, every surface pair named in a `Vertex size mismatch`
+  line was pulled out of the IDF that EnergyPlus had refused (the runner deletes a cell's `.idf` only
+  on the success path, so the exact rejected file was still on disk) and the two rings compared as
+  written: `12702627` 6 pairs 34 vs 34, `12713026` 4 pairs 25 vs 25, `12725306` 2 pairs 32 vs 32,
+  `12800464` 8 pairs 10 vs 10, `13113580` 2 pairs 9 vs 9 — **20 of 22 pairs byte-identical**, worst
+  nearest-neighbour distance 0.0, the partner ring being the base ring reversed, which is what an
+  interzone pair should be. The first pass compared coordinates rounded to `round(x, 6)`, a micrometre
+  grid, and reported 22 of 22; re-run on the raw coordinate strings as written, `13113580`'s two pairs
+  **differ** — base `440426.2522241166  4479120.87184088` against partner `440426.25222411647
+  4479120.871840879`, worst nearest-neighbour `9.385703304198744e-10` m. The criterion had been
+  agreed in advance: rings identical in the file with EnergyPlus still complaining puts the cause
+  downstream of the writer. So the 7-vs-8 is produced **after** the file is read, by EnergyPlus's own
+  coincident/collinear stripping run separately on each surface; the only asymmetry left between the
+  two copies is winding direction, which is a **candidate and not a claim** — the engine's cleanup
+  source was not read. This restates on a second corpus what ch.1's Lyon entry already recorded from
+  `BATIMENT0000000240879534_part0` (both paired objects written with 12 vertices), so two independent
+  measurements now say the writer emits matched rings. ⚠ The tenth-decimal gap flagged from the Lyon pair
+  (`642384.787910771` against `642384.7879107706`) was **closed by re-measurement, and it reproduced**:
+  the same order of magnitude appears in Madrid on `13113580`, a different corpus and a different arc.
+  0.94 nm cannot on its own move a 10 mm coincidence test and is **not** claimed as the cause; it is
+  kept live rather than dismissed because it lands on one member of that ring's 1 mm pair, and a
+  near-degenerate triple is where a collinearity sign can flip on a nanometre.
+  **The millimetre is manufactured by the build, not present in the payload — measured 2026-09-09.**
+  `13113580`'s payload ring is 7 vertices with a minimum gap of 1.040812 m; the same plate in the IDF
+  is **9** vertices and holds a pair 1 mm apart (`(440426.252, 4479120.872)` against
+  `(440426.253, 4479120.872)`). Whole-file minimum edge length, completions first: `12582232` 0
+  surfaces under 10 mm / min edge 0.034986, `12582233` 0 / 0.953555, `12628570` 5 / 0.001000; failures
+  `12582234` 78 / 0.000118, `12702627` 96 / 0.001000, `12713026` 95 / 0.001000, `12725306` 112 /
+  0.001000, `12800464` 60 / 0.000437, `12863111` 56 / 0.001000 (the runner defect of the next bullet),
+  `13033801` 172 / 0.000091, `13113580` 36 / 0.000447. Edges of 9.1e-5 and 1.18e-4 m sit **below** the
+  1 mm floor any payload census can reach, so those vertices are created between payload and IDF — in
+  `openubem/idf/surfaces.py` `extrude_geometry` and the geomeppy surface intersection it drives, which
+  is **our** emitter, not the peer's harness. Two consequences: a second, independent reason the
+  <= 10 mm payload census cannot be the acceptance test, and a warning that changing a snap tolerance
+  on the payload side may not touch this failure class at all. Deliberately **not** adopted, so it is
+  not to be quoted as a rule: the IDF min-edge census looks like a clean separator (36-172 sub-10 mm
+  surfaces on every failure, 0 on two completions) but `12628570` completed with five of them at
+  exactly 1.000 mm, and three completed buildings is not a control group. Discarded rather than left
+  standing: one column of the peer's census script read the outside-boundary field at token index 5,
+  where EnergyPlus 23.1 writes `Space Name`; it printed zero everywhere and means nothing — the ring
+  comparison does not depend on it, naming its surfaces from the `.err`. Confirmed 2026-09-09 by
+  printing a real object's tokens instead of trusting a field list: `[5]` is `Space Name` and is
+  genuinely empty, which is why it read zero on every surface; `[6]` is Outside Boundary Condition and
+  `[7]` is the partner surface. Every census below uses 6 and 7.
+  **Class split, 2026-09-09 — (b1) written matched, (b2) written different.** Two further failing
+  buildings settled that this symptom is not one mechanism. `relation/4154554`: 8 pairs, 37 v 37,
+  **byte-identical** in the file, engine still reports 13 vs 12 — (b1), the engine-side story holds.
+  `relation/4154505`: base ring **n=3** against partner ring **n=15** as written, four coordinates
+  present in one ring and absent from the other, worst nearest-neighbour distance
+  **7.300123080542104 m**, partners crossing blocks (`_2 STOREY 1 FLOOR` against `_4 STOREY 0
+  CEILING`) — (b2). Seven metres is not rounding, not snapping and not engine cleanup: those are two
+  different plates written as one interzone pair, i.e. the **adjacency match itself paired two faces
+  that are metres apart**. Both effects run at once in that one building — the file holds 3 and 15
+  while the engine reports 3 and 12. Membership so far: (b1) `12702627`, `12713026`, `12725306`,
+  `12800464`, `4154554`, plus `13113580` at 9.4e-10 m; (b2) `4154505` alone. **Neither class is
+  claimed to be the larger** — seven buildings is not a population. Two regularities died here and are
+  not to be re-quoted: the difference of exactly one (this is 3 vs 12, a difference of nine, which
+  also fires the difference-of-two falsifier that had stood since 2026-09-02), and "written identical
+  in every case", which was over-generalised from five buildings. Further measurements on the pair,
+  carried but not built on: `4154505` throws three `CheckConvexity: ... is non-planar` severes unseen
+  in the earlier eight, and its emitted IDF has a minimum edge of exactly **0.000000 m** — two
+  consecutive vertices at the same point — with 226 of 529 surfaces under 10 mm; `4154554` has 290 of
+  610 at 0.001 m. Their payload gaps, 0.005 m and 0.001 m, are both inside the <= 10 mm census, which
+  still does not rescue that census: `13113580` failed at 1.04 m and `12837457` at 0.006 m has not
+  failed. Control this hands our own tree, alongside the snap question: check whether the adjacency
+  match can pair two faces that are metres apart, not only whether the two faces are snapped alike.
+
+  **How big (b2) is — one building of thirteen, counted 2026-09-09.** Every retained IDF, every
+  `Surface`-boundary surface against its named partner: `12582232` 54 interzone pairs, `12582233` 38,
+  `12628570` 62 (the three completions), `12582234` 139, `13033801` 226, `12702627` 136, `12713026`
+  88, `12725306` 98, `12800464` 170, `13113580` 60, `4154554` 368, `12863111` 141 — **zero pairs with
+  differing vertex counts and zero separated pairs in all twelve**. `4154505` alone: 160 interzone
+  pairs, of which **9 differ in vertex count and 6 have centroids apart, worst 3.7584 m**. So on the
+  sample that exists (b1) is six buildings and (b2) is one. That ratio is **not claimed for Madrid** —
+  thirteen buildings, three of them completed, is not a population.
+
+  ⚠ **Corrected the same day, at sixteen retained IDFs, and the correction has teeth.** "Written with
+  two different vertex counts" is **not** one building but two — `4154505` as above, plus
+  `relation/4164962` with exactly one such pair, 8 v 9 vertices, centroids 0.3027 m apart, and the
+  partner *does* name it back. The load-bearing half: `4164962` throws **no vertex-mismatch severe at
+  all** and dies of the peer's own construction defect (c). **So a plate pair written with two
+  different vertex counts is not sufficient to produce mechanism (b), and "count-differs implies (b)"
+  must not be carried.** The failure class (b2) is still one building; the written-different *property*
+  is two. Keep those apart.
+
+  **A fourth defect in the emitted file — interzone partners that do not name each other back.** Found
+  by the same census, not looked for. `BLOCK RELATION/13113580_1 STOREY 0 CEILING 0001_2` (n=3) names
+  `BLOCK RELATION/13113580_4 STOREY 1 FLOOR 0001_1` (n=3) as its outside boundary object; that floor
+  names a *different* surface back (`..._4 STOREY 0 CEILING 0001_2`). Two ceilings declare the same
+  floor as their partner, the floor names one of them, and the other is left dangling. Orphan counts:
+  `12582234` 31 of 139, `13033801` 24 of 226, `12800464` 20 of 170, `4154505` 12 of 160, `13113580` 10
+  of 60, `12863111` 1 of 141; **zero** in `12702627`, `12713026`, `12725306`, `4154554` and in all
+  three completed buildings. ⚠ **It is not the cause of the failures, and this was tested rather than
+  assumed**: of the 55 surfaces named in the `.err` vertex-mismatch lines across the seven (b)
+  buildings only 5 are orphaned, and three of those buildings fail with no orphans at all; four of the
+  ten failing buildings have zero orphans, so it is not a discriminator either. It is recorded because
+  an interzone surface whose partner points elsewhere has an ill-posed heat balance whether or not the
+  run gets far enough to notice. Attributed to neither codebase — it sits in the same stretch between
+  payload and IDF as the sub-millimetre edges, and neither source has been traced. Third control this
+  hands our own tree: check whether our emitter ever writes an interzone partner that does not name it
+  back.
+
+  🔴 **(b2) and the orphaned partner are the same structure — de-duplicated 2026-09-09, and this is
+  what the remedy actually points at.** `4154505`'s nine count-differing directions are six pairs once
+  de-duplicated, and they are **one three-block chain repeated once per storey**: `_2 STOREY n FLOOR
+  0001_7` (3 vertices) names `_4 STOREY n-1 CEILING 0001_1` (15 vertices) and is **not named back**,
+  while that same ceiling names `_5 STOREY n FLOOR 0001_1` (3 vertices) and **is** named back — the
+  identical 3.7584 m centroid offset on all six. So this was never one plate emitted twice with two
+  rings; it is **three plates in three different blocks chained to the wrong neighbours**. The
+  identical-snap remedy stays alive for (b2) but it points at the **pairing, not the ring**:
+  re-matching is the repair and snapping is not. Consequence for our own tree: the partner-names-it-back
+  check is not only the cheapest of the three controls, it is **the one that reaches (b2)** — run it
+  first. Orphan defect re-measured on a fresh building and the verdict held in both directions:
+  `relation/4165178` has 24 orphaned interzone surfaces of 110 and 8 surfaces named in its `.err`, with
+  **zero overlap**; running total 5 of 63 named surfaces orphaned, four failing buildings with no
+  orphans at all.
+
+  **Tally at sixteen retained IDFs, 2026-09-09** — (a) coincident-deletion-to-degenerate **3**
+  (`4165180` new: 39 coincident/collinear deleted, 24 degenerate, `CalcCoordinateTransformation`
+  fatal); (b1) engine-side vertex mismatch **7** (`4165178` new: 4 pairs written n=11 byte-identical,
+  worst nearest neighbour 0.0, engine reports 9 vs 10); (b2) mis-paired plates **1**; (c) the peer's
+  own interzone-construction defect **2** (`12863111`, `4164962`) — theirs, reported under their defect
+  and never as an upstream loss. Thirteen failing buildings against three completed controls is still
+  not a population and no class is claimed the larger. ⚠ The IDF min-edge census **weakened again**:
+  `4164962` carries 31 of 128 surfaces under 10 mm with a minimum edge of exactly **0.000000 m** — the
+  second zero-length edge after `4154505` — and dies with no geometry severe at all. It stays a
+  candidate that its own next data point argues against.
+
+  **Attribution rule adopted 2026-09-09, at seventeen measured IDFs, in its corrected form: a building
+  is charged to one owner's defect only when *no severe belonging to another owner* appears in its
+  `.err`; everything else is MIXED.** ⚠ The first version of this rule said "the only severe in the
+  file" and was **too blunt — corrected the same day by the measurement it prompted**. Read literally it
+  makes all three mechanism-(a) buildings mixed, because each carries two severe kinds; but those two
+  are one causal chain with one owner — coincident deletion makes a degenerate surface, and the
+  degenerate surface is what fails `CalcCoordinateTransformation`'s dot product. Several severe kinds
+  under one owner cross no attribution line; what they do mean is that the **within-owner mechanism
+  claim is not established** for that building. Do not quote the blunt version.
+  Forced by `relation/4179135`, which carries the peer's interzone-construction severe *and* two
+  `CheckConvexity: ... is non-planar` severes, then dies at `GetSurfaceData: Errors discovered, program
+  terminates` — on the accumulated count, so repairing the construction loop would not have saved it.
+  Charging it to the peer would claim a rescue their fix cannot deliver; charging it upstream would
+  hide their defect inside it. Their own class shrank under the rule they wrote: pure (c) is
+  `12863111` and `4164962` only, two buildings and not three. ⚠ **The same mixing runs inside the
+  upstream classes and it costs us a claim**: `4154505` carries three non-planar severes alongside its
+  vertex mismatches, so "the vertex mismatch is why this building died" is **not established** for the
+  one building (b2) rests on, and is not claimed. Tally at fourteen failing buildings against three
+  retained completions: (a) 3, (b1) 7, (b2) 1, (c) 2 pure + 1 mixed. `4179135` moves nothing upstream —
+  197 surfaces, 47 under 10 mm, minimum edge 0.000272 m, 63 interzone pairs, **zero** count-differing —
+  so the written-different property holds at 2 of 17 measured IDFs and does not grow.
+
+  **Severe census over all fourteen failing `.err` files, 2026-09-09 — and (b1) is the one class whose
+  stated cause survives it.** All seven (b1) buildings carry vertex-size-mismatch severes and **no
+  other kind at all**: `12702627` 6, `12713026` 4, `12725306` 2, `12800464` 8, `13113580` 2, `4154554`
+  8, `4165178` 8 — zero non-planar, zero degenerate, zero construction, in every one. The three
+  mechanism-(a) buildings (`12582234`, `13033801`, `4165180`) each carry exactly one degenerate-surface
+  severe and one `CalcCoordinateTransformation` dot-product severe, which is the single chain above.
+  `4154505` carries 15 vertex mismatches **and** 3 non-planar severes, which is why (b2)'s one building
+  has no established cause. So the class worth spending measurement on is **(b1)** — seven buildings,
+  cause holding on every member, and the class where the two rings are written byte-identical and the
+  engine manufactures the difference after reading. Still not claimed: that (b1) is the larger class in
+  Madrid, or that seven buildings against three retained completions is a population.
+  🔴 **The difference is exactly one vertex, on every pair of every (b1) building — measured
+  2026-09-09 at 1,050 cells, eight buildings.** `relation/4466638` joined (b1) pure (4 severes, all
+  vertex-size mismatch, nothing else; 486 surfaces, 189 under 10 mm, min edge 0.001000 m, 238 interzone
+  pairs, zero asymmetric, zero count-differing; rings written n=34 byte-identical on the raw coordinate
+  strings, nearest-neighbour gap 0.0, engine reads 15 against 16). Every distinct `vertex sizes are X
+  and Y` line across the whole class: `12702627` 22v23, `12713026` 8v9, `12725306` 14v15, `12800464`
+  8v9, `13113580` 7v8, `4154554` 12v13, `4165178` 9v10, `4466638` 15v16 — **a difference of one, with
+  no exception in eight buildings**. That is exactly what "the engine strips one extra vertex from one
+  of two identical copies" predicts, and it is now observed rather than asserted. ⚠ **This does not
+  un-retire the general difference-of-one regularity** recorded above: that one was retired because it
+  was quoted across classes. Scoped to (b1) it holds; scoped to the campaign it does not, because the
+  single difference-of-two pair in the campaign (`4154505`, 12v3 alongside ordinary 11v12 pairs) sits in
+  the one building already excluded from (b1) on independent evidence — the pairing tangle and three
+  non-planar severes. Not claimed, and the peer refuses each explicitly: that the tangle or the
+  non-planarity causes the 12v3 (nothing orders them); that a difference of one is *sufficient* for (b1)
+  membership; that it survives the ninth building. Tally at fifteen failing buildings of 1,050 cells:
+  (a) 3, (b1) 8, (b2) 1, (c) 2 pure + 1 mixed. The written-different property stands at 2 of 18 IDFs.
+  ⚠ **A director-side inference written here on 2026-09-09 was wrong and is retracted:** *"(b1) has
+  the weakest claim on us, because rings written byte-identical cannot be an upstream emission
+  defect."* The first half is right and the conclusion does not follow. See the collapse identity
+  immediately below — (b1) is not a difference between the two written copies, but it is driven
+  entirely by short edges **inside** the ring, and those are manufactured somewhere between the
+  payload and the IDF. Do not quote the retracted sentence.
+
+  🔴 **(b1) is accounted for, not merely described: the engine collapses every sub-10 mm edge in the
+  ring, and one of its two reported counts is exactly `written − k` — measured 2026-09-09 on all eight
+  buildings, no exceptions.** `k` = the number of edges under 10 mm in the same ring, pulled from the
+  refused IDF, for every surface named in a `Vertex size mismatch` severe:
+
+  | building | written | k | written−k | engine reports | identity |
+  |---|---|---|---|---|---|
+  | `12702627` | 34 | 11 | 23 | 23 / 22 | match |
+  | `12713026` | 25 | 17 | 8 | 8 / 9 | match |
+  | `12725306` | 32 | 18 | 14 | 14 / 15 | match |
+  | `12800464` | 10 | 1 | 9 | 9 / 8 | match |
+  | `13113580` | 9 | 1 | 8 | 8 / 7 | match |
+  | `4154554` | 37 | 25 | 12 | 12 / 13 | match |
+  | `4165178` | 11 | 1 | 10 | 10 / 9 | match |
+  | `4466638` | 34 | 19 | 15 | 15 / 16 | match |
+  | `4154505` (ordinary pairs) | 15 | 3 | 12 | 12 / 11 | match |
+  | `4154505` (the 12v3 pair) | 3 | 1 | 2 | 3 / 12 | **no match** |
+
+  One engine count equals `written − k` exactly and the other is one away. `4154554` writes 37
+  vertices and is read as 12 and 13 because 25 of its 37 edges are under 10 mm — so the collapse is
+  **wholesale, not a single stripped vertex**. ⚠ The peer's own earlier phrasing, *"the engine strips
+  one extra vertex from one of two identical copies"*, was right about the **difference** and wrong
+  about the **scale**; it is corrected here and must not be quoted in the stripping form.
+
+  **Why this changes which measurement we owe first.** `13113580` is the clean case and it is the one
+  that matters to us: its **payload** ring is 7 vertices with a minimum gap of **1.040812 m**, its
+  **IDF** ring is 9 vertices carrying a **0.000447 m** edge, and that single edge is exactly the `k=1`
+  that produces its 7-versus-8. The short edges therefore appear **between the payload and the emitted
+  IDF**, which is code, and (b1) has a strong hold on whatever creates them. ⚠ **This is not an
+  attribution to our emitter** — neither side's extrude/intersect path has been read, and the peer
+  refuses the attribution explicitly. It names the question, not the owner. Director-side arithmetic on
+  our own floors, for whoever runs it: our snap calls are `set_precision(g, 0.001)`
+  (`openubem/geometry/european_nocore.py:131,616,620`) and `set_precision(footprint, 0.005)`
+  (`openubem/idf/surfaces.py:702`); 0.447 mm is below both grids. ⚠ **That clause was generalised from
+  one building and holds for only three of the eight** — see the split immediately below — so it must
+  never be quoted for (b1) as a whole.
+
+  🔴 **(b1) splits in two by where its short edges come from — measured 2026-09-09 on the first ring
+  named in each building's mismatch severes, asking whether each short edge's three coordinate deltas
+  are exact multiples of 1 mm.** This is a split **within** (b1), not a new class: last round's identity
+  (one engine count is exactly `written − k`) holds identically across both halves.
+
+  | building | short edges | on a 1 mm grid | shortest edge, as deltas |
+  |---|---|---|---|
+  | `12702627` | 11 | 11 of 11 | +0.000000 −0.001000 +0.000000 |
+  | `12713026` | 17 | 17 of 17 | +0.000000 −0.001000 +0.000000 |
+  | `12725306` | 18 | 18 of 18 | +0.000000 +0.001000 +0.000000 |
+  | `4154554` | 25 | 25 of 25 | +0.000000 −0.001000 +0.000000 |
+  | `4466638` | 19 | 19 of 19 | +0.000000 −0.001000 +0.000000 |
+  | `12800464` | 1 | **0 of 1** | −0.000418 −0.000130 +0.000000 |
+  | `13113580` | 1 | **0 of 1** | −0.000436 +0.000101 +0.000000 |
+  | `4165178` | 1 | **0 of 1** | −0.000583 −0.000222 +0.000000 |
+  | `4154505` (tangle ring) | 1 | **0 of 1** | +0.000227 +0.000285 +0.000000 |
+
+  In **five of eight**, every short edge in the failing ring is an exact 1 mm grid step and the shortest
+  is a single axis-aligned 1 mm move; **none lie on a 5 mm grid**. That is what a 1 mm snap floor emits.
+  In the other **three**, no short edge lies on any grid — arbitrary sub-millimetre deltas — and each of
+  those rings carries exactly **one** short edge against eleven to twenty-five in the grid half.
+
+  **So the two halves ask opposite questions of the same code.** For `12800464`, `13113580` and
+  `4165178` the edge is made *after or outside* the snap and a coarser grid would not remove it — the
+  original clause, now correctly scoped. For `12702627`, `12713026`, `12725306`, `4154554` and
+  `4466638` the edges **are** the grid, and the sharper question is the opposite one: does the build
+  path manufacture edges **at** the snap floor, and is a 1 mm floor simply too fine for a plate the
+  engine will later merge at somewhere between 5 and 27 mm. On that half the matching part of the old
+  *"raise the snap grid above 10 mm"* remedy is revived **as a question, not as a remedy**.
+
+  **Refusals, carried as refusals.** Exact 1 mm quantisation is *consistent with* a 1 mm snap having
+  produced these edges; it does **not** identify which code snapped — neither side's extrude/intersect
+  path has been read, so this sharpens the question without naming an owner. It is **not** claimed that
+  a coarser grid would make those five buildings run: it would remove the edges, which follows from
+  their being exact grid steps, but whether the cells then complete has not been measured. The peer
+  also records our snap-floor line numbers as *our* measurement, not as something it verified — the
+  same courtesy applies in reverse and the split above is the peer's measurement on the peer's data.
+
+  **Revised order of the three owed measurements:** the snap-floor question is **first**, now asked in
+  both directions — *below* the floor for three buildings, *at* the floor for five; the
+  partner-names-it-back check is second, still the only one that reaches (b2); the metres-apart
+  adjacency check stays third.
+
+  **The campaign's one counterexample is resolved, and as a different defect.** `4154505`'s 12v3 pair
+  cannot obey the identity: the base ring is written with three vertices and one short edge, so the
+  identity predicts 2, while the engine says 3 against 12. A three-vertex plate is not a collapsed
+  sixteen-vertex one. That pair is the many-to-one pairing tangle surfacing inside the vertex-mismatch
+  error text — so the single exception to the difference-of-one regularity is **not** an exception to
+  the collapse mechanism. Nothing orders the two defects inside that building.
+
+  **Refusals, carried as refusals.** The 10 mm tolerance is **not pinned**: the largest edge below it in
+  these rings is 0.005099 m and the smallest at or above is 0.026926 m, so any threshold from about
+  **5 to 27 mm** yields the same identity, and the 10 mm figure was chosen earlier for unrelated
+  reasons. **Why one copy keeps one more short edge is not known** — the rings are byte-identical, so
+  the asymmetry is produced during the read. **Short edges do not predict failure**: `12628570`
+  completed carrying 5 surfaces under 10 mm, so the min-edge census stays demoted and must not be
+  revived as an acceptance test on the strength of this identity.
+
+  *(source: peer measurement 2026-09-09, ES-MAD-BERRUGUETE `relation/12702627` and three further
+  buildings at 319 cells, then `relation/13113580` at 694 cells; earlier 16-building predictor reading
+  superseded by the 32-building one, and the <= 10 mm acceptance test superseded by `13113580`; ring
+  comparison and IDF min-edge census over the same five buildings at 775 cells; raw-string re-run and
+  the (b1)/(b2) split on `relation/4154554` and `relation/4154505` at ten failing buildings, which
+  retires the difference-of-one regularity and re-instates the identical-snap remedy for (b2);
+  thirteen-building interzone-pair census, orphaned-partner count and its falsification against the
+  `.err` surface list, same session, with the token-index columns verified against a real object; then
+  the sixteen-IDF correction at 925 cells of 11,510 — `relation/4164962`, `relation/4165178`,
+  `relation/4165180` — which retires "count-differs implies (b)" and merges (b2) with the orphaned
+  partner as one mis-pairing structure; then `relation/4179135` at 1,000 cells, which forces the
+  only-severe attribution rule and leaves (b2)'s single building without an established cause; then the
+  severe census over all fourteen failing `.err` files, which corrects that rule to an across-owners
+  one and establishes (b1) as the only class pure on every member; then `relation/4466638` at
+  1,050 cells, the eighth (b1) building, which re-instates the difference-of-one regularity **inside
+  the class only** and locates the campaign's single difference-of-two pair in the already-excluded
+  building; then the sub-10 mm collapse identity over all eight (b1) buildings at 1,100 cells, which
+  accounts for the severe, corrects the stripping phrasing to a wholesale collapse, resolves the
+  counterexample as the pairing tangle, and retracts the director's "weakest claim on us" inference; then the 1 mm-grid split within (b1),
+  same session, which scopes the director's snap-floor clause to three of eight and revives the
+  coarser-grid question for the other five.)*
+  *Recurrence 2026-09-30:* Speed task 1402184_14 (Madrid `fc1c83df2d9b8786`, fix fleet of the floor-division residual arc) fatal at 0.22 s with 4 severes on block `_5`, sizes 15 vs 16 on the storey 0/1 and 1/2 plates; not retried, the building keeps its `_merged_2026-09-08` EUI. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md §8 T06)*
+
+- **[OPEN] `** Severe ** Construction EU_ROOF_CONSTRUCTION of interzone surface "..." does not have
+  the same materials in the reverse order as the construction EU_FLOOR_CONSTRUCTION of adjacent
+  surface "..."`, fatal at `GetSurfaceData`** — a third, independent failure mechanism seen in the
+  same European campaign, and it is **not** an emission defect: the peer session's runner assigns
+  constructions by `Surface_Type` alone and never asks whether the surface is interzone, so a short
+  block's roof and the taller neighbour's floor receive two different no-mass constructions where
+  EnergyPlus requires reversed layers. Recorded, deliberately **not** fixed mid-campaign, since
+  patching the harness at cell 596 would mean the campaign built its IDFs two ways. Consequence for
+  reading that campaign: its failures come **split by mechanism**, and this share is a harness loss,
+  never an upstream loss for the OpenUBEM emitter. Worth a control in our own tree before any interzone
+  construction change: assign interzone pairs from one construction and its reverse, not from surface
+  type.
+  *(source: peer measurement 2026-09-09, `relation/12863111`; peer's own runner, diagnosed by the peer.)*
+- **Heating 1.66x the 09-08 value on a Madrid home with floor area unchanged (`way/1237260791`, `a2c94661a5028bb1`): 2 `Roof` and 2 `Floor` pieces per storey stay `Outdoors` at the same height as each other (`Block <id>_2 Storey 0 Ceiling 0001_3` ROOF Outdoors and `Block <id>_2 Storey 1 Floor 0001_4` FLOOR Outdoors, 154.5 m2 each), 3,709 m2 of inner floors losing heat to outside air; 40 homes in the four fix trees (Madrid 9, Lyon 2, London 1, Bologna 28)** — `idf.intersect_match()` inside `extrude_geometry` (`openubem/idf/surfaces.py:928`, frozen, `D-EU-41`) writes some of the `_N` fragments of facing ceiling/floor pieces with reversed vertex order: 0 wrongly wound horizontals right after `_extrude_zone_groups_per_storey` (`scripts/run_eu_s2_campaign.py:1080`), 48 right after `extrude_geometry`, all `_N` fragments. Both sides of such a pair then face the same way, `_hidden_pairs` (`HIDDEN_FACING_DOT`, `scripts/run_eu_s2_campaign.py`) never pairs them and they stay `Outdoors`; the per-storey union is unchanged, only the winding is wrong. Fix: `_fix_horizontal_orientation` (`scripts/run_eu_s2_campaign.py`, called before every `_pair_hidden_outdoor_surfaces` in `build_idf_for_building`) reverses any `Floor` whose `_newell_normal` z is not `FLOOR_NORMAL_Z_SIGN` (+1) and any `Roof`/`Ceiling` whose z has the same sign; new preflight token `EXPOSED_BETWEEN_ZONES` (`ep_geometry_preflight`) flags an Outdoors/Ground horizontal overlapping > 0.1 m2 another zone's horizontal at the same z and sends a home to the one-zone-per-floor fallback. Sign note: with `_newell_normal` every healthy fleet IDF has Floor z > 0 and Roof/Ceiling z < 0 (94 of 94 floors, 92 of 92 roofs and ceilings on three sample homes; walls too point "inward" by the same function), so the constant is +1, the opposite of the E+ textbook sign quoted in the plan. *(source: `docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md` T06g)*
+
+## 2. Thermal runaway & envelope thermal mass
+
+- **`CalcHeatBalanceOutsideSurf` / `Temperature (high|low) out of bounds` isolated to the top/roof zone, after
+  the winding fix** — orient is necessary but not sufficient: an all-`MATERIAL:NOMASS` envelope has zero heat
+  capacity, so solar gain on a large roof runs away (±200 °C). Confirmed by an intervention matrix (only "add
+  thermal mass" and "remove windows" gave `success`). Fix: opt-in thermal-mass construction — replace
+  `MATERIAL:NOMASS` with massive `MATERIAL` (ρ=800 kg/m³, cp=1000 J/kg·K, k=0.12 W/m·K, Thickness=R×k),
+  preserving R exactly.
+  *(docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/debugs/DONE_10_fails_solution.md §7A)*
+- **[OPEN] That thermal-mass fix was never merged into production** — it lives only in
+  `scripts/validation/phaseE_recover_10.py`; `grep -n "thermal_mass" scripts/validation/v12_cell_pipeline.py`
+  returns zero matches. (OPEN-42)
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-42_six-failures.md)*
+- **`CTF calculation convergence problem for Construction="..."` → `Fatal (InitConductionTransferFunctions)`**
+  — `patch_envelope()` held conductivity at `_K=0.12 W/m·K` and let `Thickness=(1/u)*_K` absorb the whole
+  R-value; a well-insulated roof (`u_roof < ~0.138`) becomes a >1 m / ~800 kg/m² slab whose time constant the
+  CTF solver can't expand at the 900 s timestep. Fix: cap the mass layer at a frozen `T_MASS_MAX=0.35 m` with
+  a `MATERIAL:NOMASS` residual layer, engaged above `T_ENGAGE=0.868 m`. Mass-preserving / R-preserving N-way
+  splits and R·C-scaled caps were tried and **falsified — do not re-propose them**.
+  *(docs/docs_DONE/SETUP/layoutAssigner/DONE/e-la-20/COMPLETION_REPORT_e-la-20-multilayer-fix.md)*
+- **CTF pass/fail is NOT monotone in cap thickness** — at `u=0.097`: `t_mass=0.4948 m` PASS, `0.5567 m`
+  FATAL, `0.6186 m` PASS. Never justify a thickness constant by bracketing between two passing measurements;
+  only a direct measurement at the exact shipping value/`u` is valid. (F-17)
+  *(same doc)*
+- **[OPEN] `CalcHeatBalanceInsideSurf` divergence in a small marginal zone (`ElevatorCoreFlr1`,
+  `LaundryRoomFlr1`, `KITCHEN_FLR_5`, `HOTEL_BOT_LAUNDRY ZN`)** — caused by the `MATERIAL:NOMASS` swap on
+  scaled small zones. Fixing one zone does not close the archetype: the same building can diverge in a
+  *different* zone next (e.g. one whose floor is `GroundFCfactorMethod`, which `patch_envelope()` skips by
+  design). Treat any such Fatal in *any* zone of a previously-failing building as "not yet closed". (E-LA-15)
+  *(docs/docs_DONE/SETUP/layoutAssigner/DONE/structural-fixes/PLAN_structural-fixes_implementation.md)*
+- **[OPEN] `CalcHeatBalanceInsideSurf ... temperature of 12669512.96 C` on byte-identical input that
+  previously ran fine → `ZERO-FAIL: N failures exceed tolerance`** — a correctness fix made
+  `_get_cross_archetype_loads()` unconditional, so PDE bounds now draw from the full archetype table
+  including data-centre archetypes (~9000+ W/m² equipment vs 5–20 typical). All 71 failures in the measured
+  cell drew equipment ≥2496 W/m²; 0 failures below that floor. Root-caused, not fixed. (OPEN-55)
+  *(docs/docs_DONE/openings/extra/INVESTIGATION_open-55_pde-bounds-datacenter.md)*
+- **`layout_assign` fatal `CalcHeatBalanceInsideSurf ... zone="LAUNDRYROOMFLR1"` (−59,865 °C to
+  +182,399 °C), n_severe=1, only under `resolution_mode="layout_assign"`** — occurs only on buildings
+  substituted with the `SmallHotel` DOE prototype; the fatal zone is the *bottommost* storey (opposite of
+  OPEN-42's topmost signature) and co-occurs 7/7 with CHKSBS warnings. Mechanism undetermined. (OPEN-38)
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-38_laundryroom.md)* 2026-09-30 diagnosis: the zone holds
+  a gas dryer at 442 W/m² and has no HVAC. Re-run on current code with the cooking fix below: still 0 of 7
+  complete. Not remedied (the OPEN-38 ruling fixed only the cooking class); tracked as OPEN-67. Closed
+  2026-09-30 as a known limitation: time step 20 and/or `AnalyticalSolution` cure 0 of 7. *(docs/docs_DONE/openings/implemenation/previous/PLAN_seven-items-2026-09-30.md T03, CP-B)*
+  *(docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md T05, T06b/T06d)*
+- **`CalcHeatBalanceInsideSurf` fatal in the one conditioned core zone of a multi-zone `nyc_centre`
+  restaurant/hotel/school model, zone carrying a 160–1,281 kW gas load (1,960–10,351 W/m²)** — the
+  archetype's whole-building cooking gas and electric load was written as one `Watts/Level` object on
+  `zones[0]`, so a many-zone model concentrated every floor's cooking in one zone. Fix: one `GasEquipment`
+  and one `ElectricEquipment` on the building `ZoneList`, `Watts/Area` = archetype density
+  (`openubem/idf/cooking.py:126-153`); a single zone that stands for N floors gets density × N. Re-run:
+  10 of 10 such cases complete; max cooking gain over the 87-building cooking set is 278.8 W/m².
+  (OPEN-38, class B) *(docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md T05, T06)*
+- **`CalcHeatBalanceInsideSurf` divergence in an ordinary zone (6.0 W/m² gains, HVAC present, zone
+  floor 750–22,444 m²) during sizing, 13 buildings in `floor`/`fast_zone` mode** — no measured column
+  (gains, HVAC, adjacency, shading contact, zone size) separates them from completing buildings; the same
+  building can fail in `floor`/`fast_zone` and complete in `auto`. Re-run on current code: 0 of 13
+  complete. Cause unknown. (OPEN-38, class C2; tracked as OPEN-69) 2026-09-30: the only measured separator is
+  zone size (failing 784-22,444 m², completing 542-750 m², on 2 completing buildings). Closed as a known
+  limitation: time step 20 and/or `AnalyticalSolution` cure 0 of 13. *(docs/docs_DONE/openings/implemenation/previous/PLAN_seven-items-2026-09-30.md T03, CP-B)*
+  *(docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md T05, T06d)*
+- **Data-centre archetypes diverge at 10⁵–10⁶ °C during warmup** — ITE loads of 1076–5382 W/m² on a
+  single-zone IdealAir model before HVAC is active; `SmallDataCenterLowITE` (430 W/m²) succeeds, putting the
+  architectural threshold near ~800 W/m². Ruled permanently N/A rather than capping loads; would need
+  `ElectricEquipment:ITE:AirCooled` + CRAC/CRAH.
+  *(docs/docs_VALIDATION/step1/overAll/OPEN_QUESTIONS_R5.md, OQ-R5-7)*
+- **[OPEN] `** Severe  ** Temperature (low) out of bounds [-289.29] for zone="EU_CELL_ZONE"` / `Temperature (high) out of bounds (202.24]`, ending `EnergyPlus Terminated--Fatal Error Detected. 58 Warning; 125 Severe Errors`** — the European equivalent-envelope cell is an ill-posed heat-balance problem: massless (`Material:NoMass`) envelope, an unenclosed zone, and windows hosted on `OtherSideCoefficients`. Surface temperatures diverge to physically impossible values during warmup. Not caused by any harness code; the same IDF can also complete with a plausible-looking number, so the failure is intermittent. Mitigated (not cured) by `Timestep 12`, which is the only tested change that stabilises without moving the answer. Still unfixed; `D-EU-27` was ruled Option B on 2026-08-28 and mitigation, not cure, was adopted — `Timestep,12;` in both campaign entry points plus a three-replicate bitwise-identity filter, which leaves 191 of 510 cells certified. *(docs/docs_ACTIVE/europeanLocations/implementation/previous/PLAN_finding181-stability-2026-08-28.md §7 T04)* Recurrence 2026-10-02 on a district model, not the cell: Madrid `30240a6694acd89b` (way/997278115, 21 m2, one storey, one zone after the area-based flat count cut it from 3 flats to 1, 4 windows, 3 `MATERIAL:NOMASS` layers) ends `Terminated--Fatal Error Detected. 235 Warning; 3178 Severe Errors` with `Temperature (high) out of bounds (211.57]` on `STOREY 0 FLOOR 0001`/`WALL 0003` in `_win_2026-10-05`; the same home with 3 zones and no windows completed in `_step2delta_2026-09-05`. Accepted as a known limitation (1 of 1,172 homes); the harvest leaves it out because it gates on run completed. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, 2026-10-02 01:30 entry)*
+- **[OPEN] `** Severe  ** Convergence error in SolveForWindowTemperatures for window …_WINDOW_EAST_1` followed by `Program exited before simulations began`** — same European cells, fatal during sizing after ~0.4 s with `severe error count=1`. The window solver cannot converge because the window's host surface carries `OtherSideCoefficients` rather than a real exterior boundary. Same root cause and same open decision as the entry above. *(docs/docs_ACTIVE/europeanLocations/implementation/previous/PLAN_finding181-stability-2026-08-28.md §7 T04)*
+- **A European campaign cell exits `0`, is recorded `completed: true`, `severe_count: 0`, `fatal_count: 0` with no `.err` marker — and returns a different heating value on the next identical run** — measured at 429401.898 kWh twice and 111864.121 kWh once (−74.0 %) for `uk__GB.ENG.AB.03.Gen.ReEx.001.001__f000`, in **strictly serial** mode, from a byte-identical model. Neither `completed: true` nor a clean `.err` screen is sufficient to certify a cell; only replication detects it. Fix: none — `D-EU-27` (ruled Option B, 2026-08-28) certifies a cell only when three independent replicates return a bitwise-identical `heating_kwh` with `severe_count = 0` and `fatal_count = 0`; the worst disagreement that filter rejected was 382.1 %, so it must never be relaxed to two of three. *(docs/docs_ACTIVE/europeanLocations/implementation/previous/PLAN_finding181-stability-2026-08-28.md §7 T01, T03)*
+- **`idf_sha256` differs between two runs of the same campaign cell although the model is identical** — the IDF's `Schedule:File` `File Name` field holds the *absolute* path, written verbatim by `openubem/semantic/european_schedules.py:119` (`File_Name=str(output)`), so the digest embeds the run directory. Diffing two such IDFs shows exactly one differing line and the referenced CSVs are byte-identical. Fix: none applied — the digest is a run identifier, not a model-provenance key; no published figure is affected. *(docs/docs_ACTIVE/europeanLocations/implementation/previous/PLAN_finding181-stability-2026-08-28.md §7 T01)* `FINDING 263` (2026-09-07, EU-11 London, D-EU-108 T05b): a *second*, distinct cause of the same symptom, reproduced on a **same-process double build** of a row whose `geometry_outcome` is `*_INTERZONE_MISMATCH_REROUTED` or whose `fallback_reason` is `near_duplicate_vertex_tolerated_box` (`way/1432262694`, `way/298850495`) — real ULP-level vertex/volume shifts and, in one case, an inserted wall surface with the subsequent walls renumbered, i.e. the near-duplicate-vertex tolerance path itself is not deterministic. Fix: none applied here — every `idf_sha256` identity gate (`D-EU-107`, `D-EU-108`, `D-EU-109`) must exclude the `*_INTERZONE_MISMATCH_REROUTED` / `near_duplicate_vertex_tolerated_box` population and state the excluded count; a gate quoted `N/N` without naming that exclusion is not a passed gate. `D-EU-109`'s ring cleanup removes these buildings from the tolerated/reroute path entirely, at which point the control becomes valid over the full population; `D-EU-109` T03 re-runs it that way. *(docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-london-coverage-2026-09-07.md, `CP-4` director countersign + T05b)*
+
+## 3. HVAC sizing, setpoints, exhaust & schedules
+
+- **PrimarySchool heating 760–1256 kWh/m² (total up to 2175) in mild LA, E+ completes with 0 severe errors so
+  zero-fail checks can't catch it** — misdiagnosed twice (VAV cold-SAT reheat; then degenerate geometry)
+  before the confirmed cause: a kitchen-exhaust `ZoneVentilation` at a fixed absolute flow (`exhaust_m3_s`,
+  e.g. 4500 cfm) on a hardcoded constant-1.0 (24/7/365) schedule dumped on one zone, forcing ~36 kW of
+  make-up air conditioning. Proven on byte-identical geometry (heating design load 2,021 W sane vs 47,487 W
+  blown) and identical across PTAC/PSZ-AC/PSZ-HP. Fix: area-scale
+  `exhaust_m3_s × min(1, total_area/prototype_area)` and replace the constant schedule with a 05:00–01:00
+  window. Same bug inflated QSR/FSR restaurant EUI.
+  *(docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/remediation/PLAN_phaseE_CPD_remediation.md CP-R1.9; docs/docs_REPORTS/REPORT_phaseE_final.md §10.1)*
+- **Single-zone buildings on central VAV + HW-reheat reach 765–1,565 kWh/m²** — the whole building's airflow
+  autosizes to one zone, is held at the locked 30% reheat minimum, and reheats continuously. Phase-D hid this
+  because PTAC autosizes per-unit. Fix: guard in `assign_hvac` (`openubem/idf/hvac.py`) routing any
+  single-zone non-residential building on a central/VAV/PVAV-reheat family to `PSZ-AC w/ Gas Furnace`.
+  *(docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/remediation/PLAN_phaseE_CPD_remediation.md CP-R1.7/1.8)*
+- **[OPEN] `Maximum_Flow_Fraction_During_Reheat` is silently overridden to 1.000 by the 0.30 minimum-flow
+  floor** — a supply-air-temperature-reset fix cannot control reheat airflow while that lock is held; proven
+  non-functional and abandoned rather than unlocking the floor (which would distort every healthy VAV
+  building).
+  *(same doc, D1)*
+- **NYC office heating over-predicted +11…+23%** — 11 non-residential archetypes' `Heating_Setpoint_*`
+  weekday blocks in `doe_schedules.json` held 21.1 °C flat until midnight with no evening setback (an "OQ-2
+  digitization" bug), while the same archetypes' Saturday/AllOtherDays blocks correctly dropped to 15.6 °C.
+  Fix: mirror each archetype's own weekend setback into its weekday block (15.6 °C from 19:00); leave
+  genuinely-24h archetypes (hospital, hotel, data centre) and residential untouched. Result: −9.86%.
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/phaseD_realHVAC/PLAN_phaseD_real_hvac_resim.md)*
+- **[OPEN] Office cooling setpoints hold 23.9 °C flat with no unoccupied rise (~29.4 °C per DOE prototype)**
+  — same flattening class as the heating-setback bug; spot-checked, reported, deliberately not fixed (S4).
+  *(same doc)*
+- **E+ fatal `Illegal Field entered =FOR: ALLOTHERDAYS` — 22/47 MidriseApartment sims died before
+  simulation** — `_compact_block` (`openubem/semantic/schedules.py:72`) guarded `if day_vals is None:
+  continue`, but an empty list `[]` (a legitimate "Saturday = AllOtherDays" encoding) is not `None`, so it
+  emitted a bare `For: Saturday,` with no `Until:` lines. Fix: `if not day_vals: continue` (fixes 6
+  archetype/family pairs at once).
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_phaseC-combined-resim.md)*
+- **SuperMarket refrigeration EUI 1192 kWh/m²** — defrost schedule was constant-on. Fix: 3 staggered 20-min
+  defrost pulses/day → 100.4 kWh/m². Verify schedule objects encode a duty cycle, not an on/off placeholder.
+  *(docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/REPORT_phaseE_final.md)*
+- **MidriseApartment lighting EUI overcounted ~10× (43.9 vs ~4.5 kWh/m²)** — OpenUBEM's synthetic lighting
+  schedule peaked at ~0.9, but the real DOE residential lighting schedule is diversity-baked with peak 0.181
+  paired against the *full* installed LPD. Normalizing the schedule to peak 1.0 (the natural-looking fix)
+  would have re-inflated it 5× more — use the DOE schedule verbatim, unnormalized.
+  *(docs/docs_DONE/LOADS & SCHEDULES/scheduleDigitization/AUDIT_research_verdict.md)*
+- **73,803 Severe `"Transformer Overloaded"` on MediumOffice at S=1.60** — `scale_baseline_idf()` doesn't
+  scale fixed-capacity auxiliary equipment (transformers, DHW tank capacity, coil/fan rated flow). Fix:
+  extend the scaling spec. (E-LA-06)
+  *(docs/docs_DONE/SETUP/layoutAssigner/DONE/COMPLETION_REPORT.md)*
+- **`SizeFluidCooler` Fatal ("water outlet temp"), 81.9% of LargeOffice failing fleet-wide** —
+  `FluidCooler:TwoSpeed`'s `High/Low_Speed_Nominal_Capacity` never scaled. Fixed by adding the fields to the
+  scaling engine (E-LA-07/08).
+  *(docs/docs_DONE/SETUP/layoutAssigner/debug/DONE/COMPLETION_REPORT_debug.md)*
+- **`dhw_eui` distorted up to 1643 kWh/m²** — `WaterHeater:Mixed.Peak_Use_Flow_Rate` was never added to the
+  scaling engine, so it stayed at baseline scale while floor area scaled. Fixed (E-LA-10).
+  *(same doc)*
+- **[OPEN] `Design Size Rated Heating Capacity [W] = INF` / `Rated Water Flow Rate = NaN` on
+  `COIL:HEATING:WATERTOAIRHEATPUMP` (`CheckForRunawayPlantTemps` Fatal)** — WSHP autosize degeneracy on
+  shrunk DataCenter zones, exposed only after the FluidCooler fix. Root-caused, no fix (E-LA-11).
+  Sibling degeneracies, also open: `SizeAirLoopBranches: ... air flow less than 1.0000E-003 m3/s` (E-LA-15)
+  and `Calculation of cooling coil design UA failed` / `Autosizing of cooling tower UA failed ... Bad
+  starting values for UA` (E-LA-16, which also hits already-passing buildings).
+  *(same doc; docs/docs_DONE/openings/extra/MEASUREMENT_open-51_e-la-16-identity.md)*
+- **`thermostat_setback` measure drove the occupied heating setpoint from 21.0 C to 10.0444 C and
+  the occupied cooling setpoint from 24.0 C to 29.4778 C for every hour of every day, on the real
+  `ASHRAE901_OfficeMedium_STD2022_Buffalo.idf` prototype** — `_is_time_outside_occupied`
+  (`openubem/scenarios/measures.py`) tested the END time of a `Schedule:Compact` `Until:` entry
+  against a hard-coded 07:00–18:00 window, so the DOE occupied block `Until: 22:00, 21.0` (covering
+  07:00–22:00) was labelled unoccupied and no workday entry fell inside the window at all; with no
+  candidate found, `_select_reference_and_outside` fell back to the earliest entry (the 05:00
+  night-setback value, 15.6) and treated it as the occupied setpoint, pushing every other entry
+  toward the setback delta. A second, compounding fault: `_parse_compact_value_entries` tested
+  `low.startswith("for:")`, so `For SummerDesignDay` (no colon) was not recognised as a header and
+  its entries inherited the previous block's label, letting design-day (equipment-sizing) blocks be
+  modified. Fix: replaced the fixed-clock heuristic with one derived from each schedule's own
+  workday values (`occupied = max`/`setback = min` for heating, reversed for cooling; deepen only
+  entries at the setback level) — `openubem/scenarios/measures.py:383`
+  (`_derive_occupied_and_setback`) and `openubem/scenarios/measures.py:335`
+  (`_parse_compact_value_entries`, header test now `for:` or `for `, `WinterDesignDay`/
+  `SummerDesignDay` blocks excluded entirely). A schedule with no setback structure at all now
+  reports `gate_no_setback_block` instead of inventing occupied hours. The measure shipped
+  `"status": "withdrawn"` in `openubem/data/scenarios/measures.json` until re-verified against the
+  real prototype.
+  *(docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block5-2026-09-17.md)*
+
+## 4. Zoning & resolution modes
+
+- **`resolution_mode="building"` EUI is ~1/num_floors of the correct value** (lights ratio exactly 0.200 on a
+  5-floor building; nyc_centre `building` mean 102.7 vs `auto` 198.9) — `build_zones`'s `single_zone` branch
+  emits one zone whose floor polygon is the footprint only, so `*/Area` loads use a one-floor zone area, and
+  DHW/cooking/refrigeration `_total_floor_area()` counts unique `_F<idx>` name tokens (a lone `_F0_whole`
+  zone yields 1). Fix: add `num_floors`/`floor_area_m2` to the `single_zone` dict, emit absolute design
+  levels (`LightingLevel`/`EquipmentLevel`/`People` = intensity × floor_area_m2), and make all three
+  `_total_floor_area` copies honour an explicit `num_floors` before name-parsing.
+  *(docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/PLAN_resolution_mode_switch.md M18)*
+- **Lighting/equipment EUI silently divided by floor count (`lighting_eui × levels` = an exact constant per
+  archetype — the proof)** — `decide_zoning_strategy` collapsed any building with footprint < 500 m² to a
+  single full-height zone carrying one floor's internal loads, then divided by `footprint × n_floors`. Hit
+  44.9% of an 8,148-building fleet, including MidriseApartment (the size check on line 16 fired before the
+  residential rule on line 18). Fix: route any `num_floors > 1` to `one_zone_per_floor`; add a regression
+  test asserting `lighting_eui_kwh_m2` is independent of floor count for the same archetype/LPD.
+  *(docs/docs_DONE/BUGS/zoningBug/PLAN_zoning-multifloor-fix.md)*
+- **`auto` mode silently diverged from the adopted phaseE baseline (MediumOffice heating/cooling/fans off by
+  −52…−60 kWh/m²)** — an unconditional `poly_local = orient(poly_local, sign=1.0)` added in
+  `BuildingIDF.build()` re-wound every footprint to CCW; inert for single-zone/one-per-floor but it changes
+  geomeppy's core/perim split and VAV sizing for `perimeter_core`. Fix: gate it — `if self.resolution_mode
+  != "auto":` before the `orient()` call (`openubem/idf/builder.py:~293`).
+  *(docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/PLAN_resolution_mode_switch.md M10/T07b)*
+- **E+ Fatal on `fast_zone` (perimeter_core) for narrow or courtyard footprints** — a narrow footprint's
+  4.57 m inward core buffer collapses (core < 10 m²); a courtyard produces a donut core with mismatched
+  inter-floor vertices. Both fall back to `one_zone_per_floor`; fallback rows are logged and counted, not
+  treated as failures.
+  *(docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/SIMULATION_RESOLUTION_zoning_by_building.md §4)*
+- **Harvest CSV comes back with zero EUI on every row (`float division by zero` in `_parse_sql`)** —
+  `build_cell_info` read the phaseE `05_results.gpkg`, which has no `total_floor_area_m2`/`floor_area_m2`
+  column (only `footprint_area_m2` + `levels`). Fix: compute `floor_area_m2 = footprint_area_m2 × max(1,
+  levels)` plus a defensive `fa<=0` guard in `_parse_sql`.
+  *(docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/PLAN_resolution_mode_switch.md M18)*
+- **Every cell reaching the post-sim "reroute" step crashes with a `TypeError` on argument count** — a
+  monkey-patch stub at `v12_cell_pipeline.py:520` was a 3-arg lambda, but commit `e063865` added a 4th
+  positional arg to `decide_zoning_strategy` (`builder.py:325`). Fix: `lambda arch, area, floors, *_a, **_k:
+  ...` — make monkey-patch stubs permissive of trailing args.
+  *(docs/docs_DONE/BUGS/misclassification/RESUME_T11_fresh_manager_session.md)*
+- **`results_status=failed_zone_mismatch` on buildings that simulated cleanly (0 severe, valid SQL)** —
+  `_check_zone_integrity` (`parser.py:225`) hard-dropped on `len(resolved_zone_ids) != num_zones`, but
+  `num_zones` in the manifest goes stale after a reroute. Fix: raise/drop only on a foreign osm_id or zero
+  resolvable zones; demote a pure count shortfall to non-gating (recovered 4 false drops without resim).
+  *(docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/debugs/DONE_10_fails.md §3)*
+  - Same status, different cause: **`failed_zone_mismatch` "found 0, manifest says 60" on the first case of
+    a re-simulation built with `trim_outputs=True`** — a trimmed `.sql` holds only 11 run-period meters and no
+    `Zone Lights Electricity Energy` / `Zone Electric Equipment Electricity Energy` hourly variables, which
+    `parse_building()` needs to resolve zones (`openubem/results/parser.py:308-312`, `:591-596`, `:633`). Fix:
+    any run that will be parsed with `parse_building()` is built with `trim_outputs=False`
+    (`scripts/analysis/open38_fix_rerun_2026-09-30.py:162`, same in `open35_resim_2026-09-30.py`); both
+    OPEN-35 and OPEN-38 re-runs were rebuilt and resubmitted. *(docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md T03b, T03c)*
+- **Manifest reports `zoning_strategy=room_layout` even when the building silently degraded** — 6 of 24
+  "successes" actually fell back to 2-zone one-zone-per-floor geometry inside `extrude_geometry()`, logged
+  only as `intersect_match raised IndexError -> rerouting` at `openubem/idf/surfaces.py:623`; the manifest
+  field never reflects it. **[OPEN]**
+  *(docs/docs_TODO/layoutgenerator/outputs/t12_live_smoke.md:134)*
+- **`unknown resolution_mode: ...`** — `openubem/geometry/zoning.py:35` rejects any mode outside the
+  supported set; check the caller's spelling.
+
+- **IDF written with `generation_status=success` but zero `Zone` objects (People/Lights/Infiltration name zones that do not exist)** — for `perimeter_core` buildings, `extrude_geometry` expands the core/perim placeholders into the IDF and flags them `extruded`; when `intersect_match` then raised (`NotImplementedError` or `IndexError`), the `match()`-alone retry called `_purge_idf_geometry` (removes every ZONE) and re-extruded only `valid_zones`, which excludes the already-`extruded` core/perim zones, leaving an empty IDF while `extruded_zones` stayed non-empty. Fix: skip that retry when any zone is already `extruded`, so the existing one_zone_per_floor reroute runs (`openubem/idf/surfaces.py:941`); builder now returns `failed_no_zones` when the IDF holds no ZONE (`openubem/idf/builder.py:676`). Manifest `zoning_strategy` still reads `perimeter_core` after this reroute. *(docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md T04)*
+
+## 5. LayoutGenerator & LayoutAssigner
+
+- **[OPEN] geomeppy `intersect_match` coplanar-containment `IndexError` → E+ Fatal /
+  `failed_worker_exception`** — wing-local corridor cuts create T-junctions at wing boundaries (a room edge
+  meeting the middle of a neighbour's edge); the full-span grid exists precisely to avoid this. Related:
+  merging a degenerate sliver into its neighbour re-creates the T-junction — **drop** degenerate cells,
+  never merge them (T12-FIX).
+  *(docs/docs_TODO/layoutgenerator/debugs/PLAN_cleanzoning_connected_corridor.md:56)*
+- **[OPEN] A closed O-ring corridor yields a single annulus polygon with an interior ring, re-introducing the
+  donut E+ Fatal** — fix: clip the corridor buffer *per wing* (hole-free by construction) instead of against
+  the whole holed footprint. The general rule: never pass a holed polygon to `add_block`; `_split_donut`
+  cuts O-shapes into hole-free wings with inner-ring walls tagged `Outdoors`.
+  *(docs/docs_TODO/layoutgenerator/debugs/PLAN_design_buildout_by_archetype.md:688; docs/docs_TODO/layoutgenerator/PLAN_layoutgenerator_implementation.md:18)*
+- **[OPEN] `GEOSException: TopologyException` raised (not degraded to `[]`) on real `units_corridor`
+  footprints** — `zoning.py:83-101` handles only the empty-return degrade path, not an exception, so opt-in
+  zone-mode production would propagate the raise. Known cases: `way/280612418`, `way/442341172`,
+  `way/428643330`.
+  *(docs/docs_TODO/layoutgenerator/debugs/PLAN_design_buildout_by_archetype.md:436)*
+- **[OPEN-BLOCKED] `GetOutsideAirSysInputs ... invalid Controller List Name="OUTDOORAIR:MIXER" not found`,
+  100% of `Outpatient`** — not a scaling bug: `eppy`'s `EpBunch.__repr__` (used by `IDF.save()`) pre-expands
+  `Controller:MechanicalVentilation` to 156 field names and `zip(lines[1:], comments[1:])` silently truncates
+  objects with more values (this archetype has 170/194), so the object ends in `,` not `;` and runs on into
+  the next. Rejected fixes: eppy's `increaseIDDfields` (`ValueError: 'CONTROLLER:MECHANICALVENTILATION' not
+  in list`, a geomeppy key-casing bug) and a post-save comma→semicolon patch (drops the excess zone-groups).
+  (E-LA-09/13)
+  *(docs/docs_DONE/SETUP/layoutAssigner/debug/DONE/PLAN_debug_implementation.md)*
+- **[OPEN-BLOCKED] `layout_assign` zones keep DOE baseline names instead of `{osm_id}_F{floor}_{label}`** —
+  so `openubem/results/parser.py`'s `_check_zone_integrity()`/`ZONE_RX` always false-negatives for
+  `layout_assign` buildings, silently failing the harvest gate. (E-LA-05)
+  *(docs/docs_DONE/SETUP/layoutAssigner/DONE/COMPLETION_REPORT.md)*
+- **`Daylighting:ReferencePoint` coordinates not scaled by `scale_baseline_idf()`** — a latent defect masked
+  by E-LA-07-class-2; must be fixed *before* class-2 or its retest is confounded by a second Fatal. (E-LA-12,
+  fixed)
+  *(docs/docs_DONE/SETUP/layoutAssigner/DONE/structural-fixes/PLAN_structural-fixes_implementation.md)*
+- **Substituted buildings overlap their neighbours in the 3D viewer** — the emitted world position is
+  `real_footprint_centroid_UTM + baseline_prototype's own S=1 local coordinates`; surface-level scaling
+  shrinks rooms but never rescales the zone-origin grid. A faithful read of the IDF's own convention, not a
+  viewer bug.
+  *(docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/viewer_blank_diagnosis.md)*
+- **[OPEN] Hotels degrade to per-floor zoning on any complex shape (L/U/T/O/cross) in production** — the
+  engine can pack real GuestRoom+Corridor layouts on those shapes (verified 15/27/48 zones, area-conserved),
+  but the T13a production gate keeps hotels per-floor pending E+ validation, entangled with the T18-DIAG
+  sliver defect. LargeOffice and Primary/SecondarySchool have **no geometry engine at all** (T13b/T13c).
+  *(docs/docs_TODO/layoutgenerator/PLAN_layoutgenerator_implementation.md:183-195)*
+
+- **[CLOSED 2026-08-27] `generate_european_dwelling_layout` returns `FALLBACK_PENDING_LAYOUT / PARTITION_AUDIT_FAILED`
+  with `partition_audit.failures = ('AREA_GAP', 'OUTSIDE_FOOTPRINT')` at an `area_error_fraction` of
+  5.09e-12** - the emitted partition is exact; the audit fails on float noise. Cause: the generator rotates
+  the footprint about the literal coordinate origin (`openubem/geometry/european_residential.py:504`,
+  `affinity.rotate(..., origin=(0.0, 0.0))`) while `audit_european_floor_partition` compares against an
+  **absolute** `topology_tolerance_m2=1e-8` (`openubem/geometry/european_residential.py:643`). The noise
+  therefore scales with distance from (0,0): the same building emits a clean layout in EPSG:32631
+  (~642000, 5070000) and fails in EPSG:2154 (~852000, 6519000). Layout success is CRS-dependent, so a
+  census run in Lambert-93 would report near-zero emitted layouts for the same corpus. Not fixed - found
+  inside a measurement task (EU-04 `S1-EXEC-01` CP-1, 2026-08-25) and recorded rather than remedied;
+  candidate fix is rotation about the footprint centroid and/or a footprint-area-relative topology
+  tolerance. Workaround in force: S1 runs in the manifest's native `EPSG:32631`.
+  **CLOSED by measurement 2026-08-27.** Both candidate fixes are in the code today: `generate_european_dwelling_layout` rotates about `footprint.centroid` (`openubem/geometry/european_residential.py:511`) and the audit is called with `EUROPEAN_TOPOLOGY_TOLERANCE_FRACTION`, a footprint-relative tolerance (`:536`).
+  Re-measured over all **297** Lyon attribute-ready rows in both projections: emission agrees **297 of 297** between `EPSG:32631` and `EPSG:2154`. Two consequences that must be read together. **(a)** The dependence is gone, so a census run in Lambert-93 would no longer under-report. **(b)** The same fix changed the corpus result: the **10** rows `s1_layout_reachability_census.csv` recorded as `PARTITION_AUDIT_FAILED` now emit, so Lyon's emission is **28 of 297**, not 18, and `layout_contract_ceiling.json`'s 64.3 % survival calibration is withdrawn in `layout_contract_ceiling.CORRECTION.json`. The native-CRS rule is kept anyway - it costs nothing and it is what the ruling pinned.
+  *(openubem/outputs/eu_evidence/EU-04/s3/s3_scope_measurement.csv; openubem/outputs/eu_evidence/EU-04/D-EU-22/layout_contract_ceiling.CORRECTION.json)*
+  *(docs/docs_ACTIVE/europeanLocations/prompts/previous/EXECUTOR_PROMPT_EU-04_s1_smoke_2026-08-25.md:115)*
+- **Ruled dwelling partition silently emits empty cells, and the run reports `HABITABILITY_GATE_FAILED_AFTER_ROTATION` on ~84 % of the fleet (coverage ~16 % instead of ~97 %)** — the equal-area bisection cuts a footprint with axis-aligned blade rectangles built as `box(mid, -1e6, 1e6, 1e6)`. A footprint left in **absolute UTM coordinates** has a northing near 4.9×10⁶ m, outside the blade, so every intersection is empty, the cell count never matches the requested dwelling count, and the loop falls through to the habitability reason token — which is a **misattribution**, not the real cause. Fix: translate each footprint to its own centroid before partitioning (`affinity.translate(fp, -fp.centroid.x, -fp.centroid.y)`), exactly as the sample execution does; measured fleet coverage went 15.76 % → 97.05 % over the same 2,544 buildings with no other change. 🔴 A reason token emitted by fall-through is not evidence of that failure mode — check the cell count before believing the token. *(docs/docs_ACTIVE/europeanLocations/EXAMPLE_dwelling_layout_validation_2026-08-28.md §8)*
+- **`AttributeError: 'Point' object has no attribute 'exterior'` when computing `shapely.minimum_rotated_rectangle(footprint_poly)`** — a handful of fleet footprints are degenerate (near-zero area, e.g. a single-vertex or collinear ring), so `minimum_rotated_rectangle` returns a `Point`/`LineString` instead of a `Polygon`, and any code assuming `.exterior.coords` crashes. Fix: T9's fit check (`openubem/geometry/layout_assigner.py:_fit_check`) guards with `if rect.geom_type != "Polygon": return None, None` before reading `.exterior` — treated as "not scoreable", not a crash. Also relevant when reading `05_results.gpkg` geometry columns for census scripts: that file's own `geometry` is a re-centred placement **point**, not the building footprint — use the matching cell's `01_buildings.gpkg` for the real polygon. *(docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block2-2026-09-17.md, task E02)*
+
+## 6. Classification & archetype assignment
+
+- **DOE/PNNL prototypes misclassify into the wrong archetype** (511 m² SmallOffice → Medium; 4,982 m²
+  MediumOffice → Large; 6,871 m² PrimarySchool → Secondary; 4-story SmallHotel → Large) —
+  `openubem/semantic/building_classifier.py`'s cut-points (500/4000 m² office, 5000 m² school, levels≥4
+  hotel) were copied from DESIGN §3C and never validated against the prototype sizes they represent. Fix:
+  office 2322/9290 m² *total floor area*, hotel split at ≥5 levels, school split by level count — recorded as
+  DESIGN erratum **E-R3-3**. `tests/test_building_classifier.py` boundary assertions had to be rewritten;
+  they passed only because the bug existed.
+  *(docs/docs_DONE/BUGS/misclassification/BUG_archetype_classification_thresholds.md)*
+- **The code keys on `total_floor_area_m2` while DESIGN §3C's cut-points were written for
+  `footprint_area_m2`** — an earlier undocumented amendment (E-R3-1) swapped the metric without updating the
+  values; a second fix (E-R3-2) touched a duplicate literal at fallback rule 17a. Always check for prior
+  errata before treating a bug report's diff as the full picture.
+  *(docs/docs_DONE/BUGS/misclassification/INVESTIGATION_archetype_classification_thresholds.md)*
+- **[OPEN] Mixed-use rule 15 (`MIXED_USE_DOMINANT_TAG`) never fires in production** —
+  `_normalise_use_class()` returns a disagreement score of exactly `0.5`, but `dominant_tag_threshold`
+  defaults to `0.60` at all 4 call sites (`building_classifier.py:102,172,517,579`), so every real tag
+  disagreement falls through to the generic `MidriseApartment` fallback (rule 16). The unit test masked it by
+  calling `_apply_rule_table` directly with a fabricated `score=1.0`. Proposed fix: threshold 0.50 at all 4
+  sites + an end-to-end regression test (`function_tag="office", building_tag="house"` → `SmallOffice`).
+  Blast radius never measured — the open item deliberately treats this as a modelling decision, not a
+  drop-in fix.
+  *(docs/docs_DONE/BUGS/input-framework/PLAN_input-framework-classification-fixes.md; docs/docs_TODO/mixed_use_classification.md:21-62)*
+- **[OPEN] `05_results.gpkg` archetype_id doesn't reproduce when `BuildingClassifier().classify()` is re-run
+  on the same frozen input** — one writer traced (`v12_cell_pipeline.py` Step2→3→5), no second writer found,
+  yet the current code predicts `SmallHotel`/`LargeHotel` where the file holds `SmallOffice`/`LargeOffice`.
+  Corroborated by a retained raw `in.idf` containing `Building, HotelSmall` — the mismatch is real,
+  implicating stale/mismatched generations. (OPEN-28)
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-06_archetype-writer-trace.md)*
+- **A manually-labelled classifier fixture disagrees with classifier output on rows lacking a level count** —
+  7/11 mismatches trace to one convention gap: the labels assumed "no floor count → 1 storey", while the
+  classifier imputes a plausible level count via group-median lookup from comparable nearby buildings. A
+  labelling-convention disagreement, not a classifier defect.
+  *(docs/docs_DONE/openings/extra/FIX_open-22_tagrich-fixture.md)*
+- **A fix's own before/after diagnostic doesn't reproduce against the real pipeline** — the diagnostic was
+  computed without the stratified group-median-levels imputation that `BuildingClassifier.classify()`
+  actually applies. Pin regression tests to a **live-verified** value, never to a plan's stated value.
+  *(docs/docs_DONE/BUGS/input-framework/PLAN_input-framework-classification-fixes.md)*
+- **[OPEN] `building=yes` untagged footprints get size-bucketed to an office guess (rule 17a) with 2 wrong
+  thresholds** — tracked as provenance Tier A, thresholds still defective.
+  *(docs/docs_DONE/INPUTS/imputation/docs_Done/REPORT_missing_input_handling.md:56)*
+- **London EU-11 fleet only 82/1,242 residential buildings (6.6 %) — not a coverage failure, `_gb_rows`
+  (`scripts/run_eu_s2_district_campaign.py:187`) simply never mapped OSM's `house` tag (1,018 of 1,242
+  buildings) to any TABULA building type; the mapping dict only recognised `apartments`/`detached`/`terrace`.**
+  Confirmed empirically by re-running `_gb_rows` against the full manifest and reading its `Counter` exclusion
+  reasons directly, not by inspecting code alone: `UNMAPPABLE_RESIDENTIAL_TYPE` was 345 of the 1,160 excluded
+  (the rest: 445 no EPC match, 355 EPC-period-straddle, 15 missing storeys). First fix attempt (`"house":
+  "SFH"`) was wrong: `openubem/semantic/european_archetype_mapping.py:28-30` documents *why* — "OSM `house`
+  cannot distinguish SFH from TH... must not be promoted... without supplementary evidence" — a `house` tag
+  covers both detached and mid-terrace, which have materially different envelope heat loss. Correct fix: split
+  by footprint adjacency (`compute_footprint_adjacency`, already used for FR/IT) — `"TH" if is_attached else
+  "SFH"` — same pattern as Bologna's `_it_rows:262-267`. Verified result for London: 82 → 389 buildings
+  (all recovered ones are `TH`, zero `SFH` — architecturally correct for dense inner-London terraces, and a
+  useful sanity check that the fix isn't guessing). The shared cross-country function
+  (`map_observed_building_to_tabula`) only runs this two-signal derivation for `country == "FR"` — Madrid's
+  analogous `house`/`residential` gap (~81 buildings) is NOT yet fixed, needs the same treatment extended to
+  ES plus a check that Spanish cadastral data (`observed_dwellings`) is actually populated for those rows.
+  *(docs/docs_ACTIVE/europeanLocations/STATE_european_locations_v5.md, `FINDING 251`; `CHECKLIST_european_locations_v5.md`, `eu-nocore-full-fleet-expansion` T01)*
+
+## 7. Imputation, fusion & data acquisition
+
+- **`ValueError: Unknown label type: continuous`** — `IterativeImputer(estimator=RandomForestClassifier(...))`
+  applies one estimator class across the whole joint feature+target matrix. Fix: route classification targets
+  to a natural single-target classifier (`RandomForestClassifier`/`LogisticRegression`/`KNeighborsClassifier`);
+  keep the matrix family for regression targets.
+  *(docs/docs_DONE/INPUTS/imputation/docs_Done/PLAN_phaseC_ml_imputer.md:505)*
+- **`ValueError: could not convert string to float`** — the generic `impute_missing` spatial/statistical tiers
+  are continuous-only (`knn_fill` does `.astype(float)`, `_statistical_tier` calls `.median()`). Fix: route
+  categorical targets through `neighbour_vote` (spatial) and group-mode (statistical); in the mask-and-recover
+  harness report `NOT_SCORABLE` rather than fabricating a score.
+  *(docs/docs_DONE/INPUTS/imputation/PLAN_input_imputation_implementation.md:1467)*
+- **`mice`/`linear` predict `year_built` in the AD-5000+ range and the confidence path stamps `ML_*_HIGH` on
+  100% of it** — globally-linear estimators extrapolate catastrophically on a coordinate-pooled multi-city
+  frame. Fix: default per-target method is `knn` for coordinate-pooled targets; `_clamp_to_observed_range`
+  bounds fills (MAE ≈34 instead of 900–1160) though it is a proven no-op for `knn` itself.
+  *(docs/docs_DONE/INPUTS/imputation/implementation/IMPLEMENTATION_phaseC_ml_imputer.md:101)*
+- **`ValueError: Cannot determine common CRS for concatenation inputs`** — pooling per-city frames from 3
+  different native UTM zones without reprojecting. Fix: reproject before pooling (fails loudly, no silent
+  corruption).
+  *(docs/docs_DONE/INPUTS/imputation/debugs/PLAN_phaseC_knn_repro_investigation.md:188)*
+- **An ad hoc reproduction script silently defaults to `missforest` instead of `knn` (MAE 27.82 vs 25.14)** —
+  the shipped default `IMPUTE_ML_METHOD_BY_TARGET` is `"missforest"` for every target; the original driver
+  always overrode it per-method. Always set `config.IMPUTE_ML_METHOD_BY_TARGET[target] = "knn"` explicitly.
+  Not a code regression.
+  *(same doc:129,211)*
+- **Two columns come back `NaN`/`None` on a *second* read of the same cached Overture data while others
+  survive** — `height_cache.pull_overture` stores `fetch_overture()`'s already-normalized output, but
+  `fusion.OvertureSource.join` re-reads via `fetch_overture()` again, double-normalizing and nulling any
+  renamed column (`levels`, `use_class`). Fix: `_load_overture_layer(cfg)` in `openubem/semantic/fusion.py`
+  detects an already-normalized cache and skips re-normalization. **[OPEN weakness]** the guard is a
+  duplicated literal column set, not a shared import, and no unit test covers the cached-read path.
+  (E-UTCI-13)
+  *(docs/docs_DONE/openings/extra/FIX_open-13_height-cache-and-collection.md)*
+- **`Binder Error: Referenced column "year_built" not found` on the first live Overture query** — the real
+  Overture Buildings schema has no `year_built` column at all (a synthetic-fixture blind spot; only assessor
+  data carries it). Fix: drop it from the live-fetch SELECT.
+  *(docs/docs_DONE/INPUTS/imputation/results/phase_D/RESULTS_phaseD.md:97)*
+- **`INSTALL spatial` / `INSTALL httpfs` hang or fail on a machine without cached DuckDB extensions** — those
+  extensions load only inside the live-endpoint fetch branch; the default `slice_path` branch reads via
+  `gpd.read_parquet` with no `duckdb` import, so tests/CI never trigger a network install.
+  *(docs/docs_DONE/INPUTS/imputation/docs_Done/PLAN_phaseD_fusion.md:492)*
+- **`impute_column: bounds must be provided for PDE imputation on column 'height_m'` on 100%-missing cells,
+  while `knn_fill` fills exactly 0 rows at every radius 100–1000 m** — `"auto"` dispatch resolves to the `pde`
+  branch (needs explicit bounds) whenever a column is 100% NaN, vs `kde` when even a few real values exist.
+  `knn_fill` returning 0 is the MNAR guard working as designed: every candidate donor is itself 100% missing.
+  Widening the radius cannot fix it (the module is strictly per-cell).
+  *(docs/docs_DONE/OUTDOOR/UTCI/e-utci-09/figures/i03_spatial_impute_structural_test.md:29)*
+- **Rows with zero spatial neighbours are silently neither filled nor MNAR-flagged** — `_query_neighbours`
+  returns empty → `continue` skips setting `blocked_mask[i]` (`spatial_impute.py:218-220`). Observability
+  gap, dangerous once wired into production. Fixed with a distinct `SPATIAL_NO_NEIGHBOUR_SKIPPED` flag.
+  (E-UTCI-10)
+  *(docs/docs_DONE/OUTDOOR/UTCI/e-utci-09/PLAN_e-utci-09_investigation.md:435)*
+- **`.get(key) or default` silently overwrites a stored falsy-but-valid `0`** — Python truthiness treats
+  `0`/`""`/`NaN` as missing. Fix: `.get(key, default)` plus a tracked provenance flag; found across HVAC/DHW/
+  cooking numeric-default sites.
+  *(docs/docs_DONE/INPUTS/imputation/docs_Done/REPORT_missing_input_handling.md:160)*
+- **`validate_schema()` raises on an EXACT column-count/tail-match gate** (`if len(gdf.columns) != 57`) — any
+  additive column (e.g. `imputed_fields_count`) fails it regardless of placement. Never wire a new summary
+  column into `enrich_semantics` without updating the schema gate.
+  *(docs/docs_DONE/INPUTS/imputation/PLAN_input_imputation_implementation.md:1341)*
+- **[OPEN] Missing EPW weather-file path fails silently** — the IDF proceeded with E+ internal defaults
+  instead of a hard fail. Partly addressed: `BuildingIDF.__init__` now raises for a missing/invalid EPW path
+  (`.build()` still never raises by design, so per-building problems stay in `data_quality_flag`). (OPEN-26)
+  *(docs/docs_DONE/INPUTS/imputation/docs_Done/REPORT_missing_input_handling.md:65; docs/docs_DONE/openings/extra/FIX_open-26-29_polish-and-fatal-tests.md)*
+- **Fusion sources fail silently when unconfigured — by design** — `available()` returns `False` when
+  `FUSION_LIDAR_NDSM_PATH` / `FUSION_ASSESSOR_PATH` is unset, so the source is skipped with no error. A 0%
+  fill rate on an unconfigured source is not a bug.
+  *(docs/docs_DONE/INPUTS/imputation/docs_Done/PLAN_phaseD_fusion.md:311)*
+- **[OPEN] 3–4 of 12 microclimate cells report `svf_mean=1.0000` (flat open field)** — upstream Stage-1 OSM
+  ingestion: `height_m`/`levels` are 84.5–100% NaN in the affected cells vs 0.67–26.09% elsewhere (a clean
+  bimodal split from differential OSM tagging density), not a code defect. Partly cleared by an Overture pull
+  + fusion tier; `nyc_rural` 36.4% / `austin_rural` 19.2% remain. Fleet-wide 34.39% (2,806/8,160) have no
+  `height_m`. (OPEN-12, E-UTCI-09)
+  *(docs/docs_DONE/OUTDOOR/UTCI/e-utci-09/COMPLETION_REPORT_e-utci-09-investigation.md:14)*
+- **[OPEN] Unknown-archetype buildings draw equipment EUI up to 13,824 kWh/m² against a cell mean of
+  ~230–390** — the PDE donor pool for Unknown spans the full 29-archetype table uniformly, including
+  data-centre plug loads (`occupant_m2_per_person` range `[4.65, 464.52]`); the OPEN-49 fix removed the
+  condition that had hidden it. A donor screen was implemented (71→0 divergences) but exposed OPEN-59:
+  Unknown buildings still run **1.7× classified**, now via DHW (+61.0, 2.4×) and lighting/cooling (5.6–6.7×).
+  (OPEN-55/59)
+  *(docs/docs_DONE/openings/extra/PROPOSAL_open-55_unknown-pde-bounds.md; docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md)*
+- **[OPEN] `ImportError: cannot import name 'recover_pairs' from 'openubem.validation.mask_recover'`** —
+  `openubem/results/impute_scatter.py:63` imports a name that does not exist in `mask_recover.py` (the
+  module only defines `mask_and_recover`); the module fails at import time, before its own
+  `config.IMPUTE_DRAW_METHOD_BY_TARGET` unguarded read at `impute_scatter.py:235` (F7) is ever reached.
+  `openubem/results/draw_leaderboard.py:174` has no such import problem and does reproduce F7's
+  `AttributeError: module 'openubem.config' has no attribute 'IMPUTE_DRAW_METHOD_BY_TARGET'` on first
+  use of `_draw_pairs`. Both modules are orphaned (OPEN-17: `ml`/`draw` are intentionally not in
+  `IMPUTE_ENABLED_TIERS`); not fixed here — no tier is promoted or wired by this measurement.
+  **Update 2026-09-24:** the `AttributeError` half no longer applies — `IMPUTE_DRAW_METHOD_BY_TARGET`
+  exists since 2026-09-09 (`openubem/config.py`, empty by default; OPEN-17 closed). The
+  `recover_pairs` import at `impute_scatter.py:63` still fails; that half stays `[OPEN]`.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-17_tier-census.md)*
+- **`HTTP Error 429: Too Many Requests` / `HTTP Error 504: Gateway Timeout` from
+  `https://overpass-api.de/api/interpreter` during city-scale building extracts** — the public Overpass
+  instance grants only ~2 concurrent slots per IP and drops large `area(...)`/`out geom` queries under
+  load; two extract jobs running in parallel produced 429 and district-sized queries produced 504.
+  Fix: serialise the extracts (one job at a time), retry with increasing backoff (20/40/60 s) and skip
+  outputs that already exist, then re-run only the failed units. Mirrors are not a reliable fallback —
+  `overpass.kumi.systems` returned `HTTP Error 502: Bad Gateway` and `overpass.private.coffee` timed
+  out for the same query the main endpoint later served. All twelve EU-02 extracts completed this way. Seen again 2026-10-08 (Yerevan): HTTP 200 with body `runtime error: open64: 0 Success /osm3s_osm_base Dispatcher_Client::request_read_and_idx::rate_limited` and HTTP 504 on a plain `rel(13404220);out geom;`; `overpass()` in `scripts/eu22/acquire_yerevan.py` treats both as failures, logs the real text, rotates the endpoints and sleeps 15/30/45 s between rounds.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4; docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-city-AM-yerevan-2026-10-08.md §8 T01)*
+- **`406 Not Acceptable` from `https://overpass-api.de/api/interpreter` on a plain `curl --data-urlencode`, and `json.decoder.JSONDecodeError: Expecting value: line 1 column 1` when the saved "raw" file is read back** — the Overpass server refuses a request without a `User-Agent` (406), and a rate-limited call (`429`) saved by `curl -o` leaves an HTML error page under the `.json` name, so a script that skips existing files then parses HTML. Fix: send a `User-Agent` header, save the body only on HTTP 200 (`overpass_post`, `scripts/eu22/acquire_budapest.py:64`), retry 429 with 20/40/60 s backoff printing the real status text, and delete any raw file whose first byte is not `{` or `<osm`. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-city-HU-budapest-2026-10-08.md T01)*
+- **Building counts silently wrong when a WGS84 bbox is passed to `ingest_buildings` in GeoJSON order** —
+  `openubem/acquisition/osm_fetcher.py:43` forwards `bbox` to `osmnx.features.features_from_bbox`, whose
+  signature in the pinned osmnx 1.9.3 is `(north, south, east, west)`, while GeoJSON/`shapely.bounds`
+  order is `(west, south, east, north)`. Passing the GeoJSON order produces an empty or nonsensical
+  extract rather than an error. Fix: convert explicitly at the call site — the DESIGN order is
+  `(n, s, e, w)`, as `osm_fetcher.py:82` already documents for the warning payload.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.5)*
+- **A residential filter over OSM tags returns almost nothing in Italian and French cities** — the
+  `building=yes` share measured 2026-08-24 is 65.5 % in a dense Bologna area statistica and 61.1 % over
+  the whole Lyon commune (cadastre imports set no use tag), versus 1.5–27 % in Madrid barrios. Any
+  count from `openubem/data/osm_to_use_class.json` alone is therefore a *tagging* measurement, not a
+  stock measurement, and a density ranking built on it partly ranks mapping completeness (Islington's
+  Barnsbury ward: 83.8 % unknown, 43rd of 58 on residential/km²). Fix: for IT/FR join a non-OSM
+  classifier before applying any residential gate. **Resolved and measured 2026-08-24:** ISTAT 2011
+  section variables `E3`/`E1` for Italy (60 of 71 screened Bologna units then pass the 0.60 dominance
+  gate, against 2 on OSM; in the selected unit OSM sees 31 residential buildings and ISTAT 1,010), and
+  IGN BD TOPO® V3 `batiment.usage_1/usage_2` via `data.geopf.fr/wfs/ows` for France (11 of 36 Lyon
+  quartiers then pass, against 0). Both also carry the attributes OSM lacks — dwellings, storeys,
+  height, construction date, wall material.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §6)*
+- **`data.geopf.fr` WFS `GetFeature` returns `"features": []` with HTTP 200 and no error message** — the
+  IGN Géoplateforme WFS 2.0 rejects the WFS-standard `BBOX=<lat>,<lon>,<lat>,<lon>,EPSG:4326` axis order
+  silently and yields an empty, entirely plausible-looking FeatureCollection. Fix: give the bbox as
+  `BBOX=<west>,<south>,<east>,<north>,CRS:84` (lon,lat); the same request then returns
+  `numberMatched="107347"` over the Lyon commune. Add `SORTBY=cleabs` before paging with `STARTINDEX`,
+  or pages silently overlap.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.2)*
+- **ISTAT 2011 section breakdowns do not sum to the residential-building total (`E4+E5+E6 = 1,140` vs
+  `E3 = 1,010`)** — the `dati-cpa_2011` archive ships no data dictionary, and the intuitive reading
+  (`E4` = first construction-material class) is off by one: `E4` is *edifici utilizzati ad uso non
+  residenziale*, so material is `E5..E7`, period `E8..E16`, storeys `E17..E20`, dwelling units
+  `E21..E26`, state of repair `E28..E31`. Fix: never assume the positions — verify with the five
+  identities that must each equal `E3`, plus `E2 − E3 = E4`, over the whole comune before use.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §0 item 5)*
+- **Joining ISTAT census variables to a municipal section layer matches zero rows** — ISTAT's `SEZ2011`
+  is the 12-digit national code (`370060000001`) while a comune's own published layer carries the local
+  section number (`sez2011 = 1`). Fix: join on `int(NSEZ) == int(sez2011)` inside the comune, not on the
+  full code; a silent zero-match here produces a complete, all-zero ranking table rather than an error.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.3)*
+- **Opendatasoft Explore v2.1 `group_by` returns `{"total_count": N, "results": []}`** — the aggregation
+  is only emitted when `limit > 0`; with `limit=0` the endpoint answers with the row count and an empty
+  result list, which reads as "no distinct values". A companion trap: aliasing the grouped field in
+  `select` (`select=descrizion as v&group_by=descrizion as v`) returns **HTTP 400 Bad Request**. Fix:
+  `?group_by=<field>&select=count(*) as n&limit=30&order_by=n desc`, no alias on the grouped field.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.4)*
+- **`HTTP Error 403: Forbidden` from `data.ademe.fr/data-fair/api/v1/datasets/<slug>/lines`** — the
+  human-readable slug (`dpe03existant`) is accepted by the catalogue endpoint but not by `lines`. Fix:
+  resolve the numeric dataset id from `/datasets?q=dpe&select=id,title,count` and call
+  `/datasets/meg-83tjwtg8dyz4vv7h1dqe/lines?size=0&bbox=<w>,<s>,<e>,<n>`.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.5)*
+- **`URLError [SSL: CERTIFICATE_VERIFY_FAILED] self-signed certificate in certificate chain` against
+  `servizigis.regione.emilia-romagna.it` / `geoportale.regione.emilia-romagna.it`** — the Emilia-Romagna
+  geoportal serves its WFS behind a CA that is not in the Python trust store. Fix: do **not** disable
+  verification for a data source of record; substitute an equivalent authority — here the Comune di
+  Bologna Opendatasoft portal (`c_a944ctc_edifici_pl`) plus ISTAT, both of which cover the same need.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §4.7)*
+- **A selected site's `unit_code` names a different unit than the geometry and counts on the same row** — in
+  `eu02_site_measurements_v2.{csv,json}` the Lyon site carried `unit_code = 8075`, which resolves to
+  *Quartier Saxe Roosevelt*, while every measured field on that row (0.3753 km², 868 buildings, 544
+  residential, 1,449.6 per km², 6,387 dwellings) belongs to quartier `7016`, *Haut et Cœur des Pentes*. The
+  name and the numbers were taken from the selected row of the ranking frame and the identifier from a
+  different one; because no arithmetic depends on the code, every sum, share and checksum still verified and
+  the error survived the whole review. Fix: derive the identifier from the same row as the measurement, and
+  before writing a site packet assert that `(unit_id, unit_name, area_km2, residential)` all agree with the
+  candidate ranking file the site was chosen from. Corrected to `7016` on 2026-08-24.
+  *(docs/docs_ACTIVE/europeanLocations/outputs/EU02_neighbourhood_selection_2026-08-24/EU02_neighbourhood_selection_2026-08-24.md §8.1)*
+- **`HTTP 400` with body `No se puede procesar su peticion.` from every request to `https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx`, including a bare `GetCapabilities`** — the Spanish Catastro INSPIRE WFS **rejects the literal `curl/*` `User-Agent` and nothing else**; the status is 400, not 403, so it reads as a malformed request and sends you off editing query parameters that were correct all along. **Measured on 2026-08-27, same URL, four clients:** `curl/8.5.0` → **400**; `python-requests/2.32.3` → **200**; a custom `OpenUBEM/1.0` → **200**; an **empty** `User-Agent` → **200**. So it is not a browser check and it is not a bot policy — it is a curl blocklist, which is why a `requests`-based probe of the same endpoint never sees it and a shell probe always does. Fix: send **any** `User-Agent` other than curl's default (`curl -A ''` is enough). **Second trap behind the first:** once reachable, `ListStoredQueries` shows the service exposes only `GetBuildingByParcel`, `GetFeatureById`, `GetBuildingPartByParcel`, `GetOtherBuildingByParcel` and `GetAllConstructionByParcel` — **every stored query is keyed on a cadastral reference**, so a stored-query `bbox=` request answers `Paremter REFCAT can't be null` (the service's own spelling). ⚠ **Corrected 2026-08-27, same day, by a parallel measurement:** an **ad hoc** `TYPENAMES=bu:Building` + `BBOX=` `GetFeature` **does work** — it requires the `,urn:ogc:def:crs:EPSG::4326` suffix on the bbox and **lat,lon** axis order, and `TYPENAME` singular is rejected. What is true is narrower: **no *stored query* is bbox-keyed.** The earlier `HTTP 500` on that form came from the missing browser `User-Agent`, not from the form. Either route answers a coverage question: the ad hoc bbox `GetFeature`, or the INSPIRE **ATOM bulk download** (province feed → municipality zip → stream-parse the GML). *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_D-EU-22_s3_attribute_source_2026-08-27.md §7)*
+- **`curl` returns `HTTP 000` with 0 bytes for `https://www.catastro.minhap.es/INSPIRE/...` while the same path under another host works** — the `catastro.minhap.es` host is dead (connection never establishes), and because the failure is a connection failure rather than a 404 it produces an empty file and an empty grep rather than an error anyone notices. Fix: use `https://www.catastro.hacienda.gob.es/INSPIRE/...`; the ATOM root, the province feeds and the municipality zips are all served there. Note the path is case-sensitive on the download leg (`/INSPIRE/Buildings/28/28900-MADRID/A.ES.SDGC.BU.28900.zip`). *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_D-EU-22_s3_attribute_source_2026-08-27.md §7)*
+- **Every request to `https://epc.opendatacommunities.org/api/v1/domestic/search` returns `301 Moved Permanently` and lands on a GOV.UK landing page, and the same path on the new host returns `HTTP 404`** — the MHCLG EPC open-data host has been **retired**, not moved path-for-path: it now 301s wholesale to `https://get-energy-performance-data.communities.gov.uk/`, whose own guidance states *"You need to sign in or create an account with GOV.UK One Login to receive a bearer token"*, and whose `/login/authorize` hands off to `https://oidc.account.gov.uk/authorize`. There is **no open bulk route** — `/files/all-domestic-certificates.zip` 404s on the new host. Fix: none available in code; the data now requires an account credential, which is an **owner action**. Record the site as `CREDENTIAL_BLOCKED` and never as a data absence — the distinction decides whether a downstream sample is refuted or merely deferred. By contrast **OS Open UPRN needs no key** (`https://api.os.uk/downloads/v1/products/OpenUPRN/downloads?area=GB&format=CSV&redirect`), but it carries identity and coordinates only and **never a construction year**. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_D-EU-22_s3_attribute_source_2026-08-27.md §7)*
+- **The Spanish Catastro INSPIRE Buildings WFS answers a bbox question, but only in one exact
+  parameter form — and a wrong form fails as an HTTP **200** carrying an OWS `ExceptionReport`,
+  never as a transport error.** `https://ovc.catastro.meh.es/INSPIRE/wfsBU.aspx` publishes **five
+  stored queries and none of them is by bbox** (`GetBuildingByParcel`, `GetFeatureById`,
+  `GetBuildingPartByParcel`, `GetOtherBuildingByParcel`, `GetAllConstructionByParcel`), so a
+  `STOREDQUERIE_ID=GetBuildingByBBOX` guess silently falls through to the by-reference query and
+  returns `Paremter REFCAT can't be null` (the service's own spelling). The **ad hoc** `GetFeature`
+  does work: `TYPENAMES` must be **plural** — `TYPENAME` returns *"At least one of the parameters
+  TYPENAMES and RESOURCEID must be present"* — and `BBOX` must carry the CRS URN as a fifth field
+  with **lat,lon** axis order: `BBOX=<s>,<w>,<n>,<e>,urn:ogc:def:crs:EPSG::4326`. Measured on
+  2026-08-27: **48 consecutive tiles, HTTP 200 throughout, 3,782 features**, under the plain
+  non-browser User-Agent `OpenUBEM-D-EU-22-coverage-probe/1.0`, reproduced identically on a second
+  run. 🔴 **Do not record this service as unusable** — an earlier note in the `D-EU-22`
+  record said the WFS *"cannot answer a coverage question at all"* and attributed an HTTP 400 to the
+  User-Agent; that HTTP 400 did **not** reproduce, and the cost of believing it is a 611 MB
+  municipality ATOM download for a question 48 tiled requests answer. Two further facts worth
+  keeping: `numberOfFloorsAboveGround` on `bu-ext2d:Building` is served as
+  `xsi:nil="true" nilReason="other:unpopulated"` — a **declared** non-population, the storey count
+  lives on `BuildingPart` — and `www.catastro.minhap.es` no longer connects, the live host being
+  `www.catastro.hacienda.gob.es`.
+  *(openubem/outputs/eu_evidence/EU-04/D-EU-22/probe_es_catastro_coverage.py; evidence
+  `es_catastro_coverage_probe.json`; `debugs/docs/DONE-docs/DECISION_REQUEST_D-EU-22_s3_attribute_source_2026-08-27.md` §7 Finding 3 and §8.2)*
+- **The MHCLG EPC endpoint pinned by `D-EU-10` is retired, and its successor is behind an account —
+  an open dataset that stopped being openly *fetchable*.** Every path under
+  `epc.opendatacommunities.org` now returns **HTTP 301** to
+  `get-energy-performance-data.communities.gov.uk`, whose own guidance reads *"You need to sign in or
+  create an account with GOV.UK One Login to receive a bearer token"*; both of its access routes
+  (`download` and `api`) land on that gate, and there is **no open bulk route**. 🔴 The
+  failure mode to recognise: an unauthenticated request returns **HTTP 200 and an HTML sign-in page**,
+  so a client that only checks the status code records a success and parses zero rows. OS Open UPRN,
+  the other half of the ruled GB pair, **is** open and needs no key
+  (`api.os.uk/downloads/v1/products/OpenUPRN/downloads?area=GB&format=CSV`, 618,494,417 bytes, md5
+  `2f023512afc378cd7b9351b24ccf1a34`, one 2.27 GB CSV member) — but it carries identity and
+  coordinates only and **never a construction year**, so it is the join key and never the answer.
+  ⚪ Consequence for any GB coverage claim: **UNMEASURED is not zero.** A credential, not a
+  dataset, is what is missing.
+  *(openubem/outputs/eu_evidence/EU-04/D-EU-22/probe_gb_it_coverage.py; evidence
+  `gb_it_coverage_probe.json`)*
+- **A zero join rate is a broken probe until proven otherwise — the ISTAT section key is `NSEZ`, not
+  `SEZ2011`.** The 2011 indicator tables carry both: `SEZ2011` is the 12-digit national key
+  (`PROCOM` + section) while the Comune's own `sezioni-di-censimento-anno-2011` layer publishes the
+  bare section number in a field also called `sez2011`. Keying on the national code joins **0 of 104**
+  polygons and looks exactly like "the data does not cover this bbox"; keying on `int(NSEZ)` joins
+  **102 of 104**. Fix: the probe now refuses to report a zero join as a finding — it stamps
+  `probe_status = BROKEN` and says so — because this arc has twice had to withdraw a conclusion
+  frozen on an unexamined zero.
+  *(openubem/outputs/eu_evidence/EU-04/D-EU-22/probe_gb_it_coverage.py;
+  `outputs/EU02_neighbourhood_selection_2026-08-24/eu02_reproducible_queries.json` `_revision_B_non_osm_sources.IT_istat_sections.join_key`)*
+
+- **`FileNotFoundError` on `.../s3_campaign/ES-MAD-BERRUGUETE/relation/12582232/relation/12582232.idf` the first time a campaign runner met a Spanish building** - OSM stable ids are `way/123` and `relation/456`, and the slash is a **path separator**, so every place a run names a file after `building_id` silently opens a directory level: the run directory, the IDF, each zone name, and each `Schedule:File` gain CSV. France never exposed this because BD TOPO ids (`BATIMENT0000000240879449_part0`) carry no slash, so a runner can pass every French test and still be unable to write its first Spanish IDF. Fix: `scripts/run_eu_s3_campaign.py:run_slug` maps `/` to `_` for **naming only** - the true `building_id` stays in the campaign manifest beside a `run_slug` column, so a run directory can always be traced back to its OSM id. Zone names are renamed with the same slug before IDF assembly, since EnergyPlus object names reach the filesystem through the external-schedule CSV path.
+  *(openubem/outputs/eu_evidence/EU-04/s3/s3_campaign_manifest.csv)*
+
+- **`HTTP 404` with a GOV.UK HTML body from every EPC API call to `https://get-energy-performance-data.communities.gov.uk/api/...`, and `HTTP 200` HTML (not JSON) from the retired `https://epc.opendatacommunities.org/api/v1/domestic/search`** — the England/Wales EPC service moved to GOV.UK One Login and the **API host is a different hostname from the website**: the base URL is `https://api.get-energy-performance-data.communities.gov.uk` (note the `api.` prefix) and the paths lost their `v1`: `/api/domestic/search`, `/api/certificate?certificate_number=...`. The old `opendatacommunities` host still answers 200 with a redirect page, so a naive check reads it as alive. Auth is **`Authorization: Bearer <token>`**, not the old HTTP Basic `base64(email:apikey)`; the token is shown on the service's *My account* page. Verified live 2026-08-27: bad postcode → `404 {"data":{"error":"No certificates could be found for that query"}}` (JSON error = token accepted), `E1 6AN` → `200` with 3 rows. **Second trap:** `/api/domestic/search` returns a *summary* record only — `uprn`, `certificateNumber`, address, `registrationDate`, `currentEnergyEfficiencyBand`; there is **no `construction-age-band`, `property-type` or `total-floor-area`** in it, so any age/area coverage question needs a **second call per certificate** to `/api/certificate`. Fix: use the `api.` host, Bearer auth, and budget two calls per building. *(docs/resources/UK/Energy certificate data APIs – GOV.UK.pdf; service technical documentation at `/api-technical-documentation/making-a-request`)*
+
+- **A UPRN-to-footprint spatial join silently loses ~13 % of its pairs (London: 1,059 footprints matched instead of the pinned 1,219; 6,504 pairs instead of 6,838), with no error and no warning** — OS Open UPRN's native `X_COORDINATE`/`Y_COORDINATE` are **OSGB36 / EPSG:27700**, while the EU-02 manifest is EPSG:32630 and pyproj reprojects it to 27700 **without the OSTN15 grid shift**. The two sides then sit 1–2 m apart, which is more than the width of the gap between London terraces, so points fall just outside their own building. Nothing raises: both layers claim CRS 27700. Fix: build the point layer from the file's own WGS84 `LATITUDE`/`LONGITUDE` columns (`Point(lon, lat)`, `crs=4326`, then `.to_crs(27700)`) so both sides travel through the same transformation — `openubem/outputs/eu_evidence/EU-04/D-EU-22/probe_gb_epc_coverage.py` T02 join. Proved by caching the 16,151 candidate points once and running three variants: native E/N → 1059/1193/6504; lat-lon→  27700 → 1219/1231/6838; lat-lon→ 32630 vs manifest native → 1219/1231/6838. General rule: **never mix a dataset's native projected coordinates with a reprojection of another dataset into the same EPSG** — go through lat/lon on both sides. *(docs/docs_ACTIVE/europeanLocations/previous/PLAN_gb-epc-coverage-probe-2026-08-27.md, T02)*
+
+- **A join CSV holds 1,276 distinct `osm_id` values over a 1,242-row manifest, and 47 cells contain a pandas repr block (`way/395533900    36.83
+way/395533900    41.02
+Name: footprint_area_m2, dtype: float64`) instead of a number** — the writer looped `for idx in buffer_only_idx: row = joined_buffer.loc[idx]`, but the sjoin result carries a **duplicated index** (one point can match several buffered footprints), so `.loc[idx]` returns a **DataFrame**, not a Series, and `row["osm_id"]` writes a whole column's string repr into one cell. A second bug rode along: `index.difference()` compares index labels, not pairs, so valid buffer-only pairs were dropped. Fix: collect `strict_pairs = {(uprn, osm_id)}` while writing the strict rows, then iterate `joined_buffer.iterrows()` and emit a `buffer_1m` row for every pair not already in that set — `.iterrows()` on both loops guarantees every cell is a scalar. Standing rule: **after any `gpd.sjoin`, never index the result with `.loc[label]`**; iterate rows. *(docs/docs_ACTIVE/europeanLocations/previous/PLAN_gb-epc-coverage-probe-2026-08-27.md, T02)*
+
+- **`HTTP 400: {"message":"raddatabase: Incorrect value. Please, enter one of the following strings: ['PVGIS-ERA5', 'PVGIS-SARAH3']","status":400}` from PVGIS `api/v5_3/MRcalc` with `raddatabase=PVGIS-NSRDB`** — the v5_3 monthly-radiation endpoint no longer lists NSRDB, so the plan order SARAH3 -> NSRDB -> ERA5 silently collapsed to ERA5 for Montreal (an ERA5-derived benchmark is not independent of the ERA5 weather file under test). The same request on `api/v5_2/MRcalc` returns NSRDB monthly GHI for Montreal 2010. Seoul stays ERA5 (NSRDB v5_2 answers "Location out of the spatial coverage"). Fix: `scripts/acquire_pvgis_monthly_ghi_benchmarks.py` `NEW_FOLD_DATABASE_ORDER` tries SARAH3 (v5_3), NSRDB (v5_2), ERA5 (v5_3) and writes every refused database with its real error text into the benchmark JSON. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-cities-00-common-2026-10-08.md, C02)*
+
+- **CDS job status `rejected` with `HTTP 400 Client Error ... /jobs/<id>/results` -> "The job has been rejected. Number queued requests for this dataset is temporarily limited. Please configure your scripts accordingly"** (`reanalysis-era5-single-levels`; the job manifest shows only `"status": "rejected"` and an empty `metadata.log`, the text is only visible by calling `get_results()` on the job) — `acquire_era5_eu_folds.py --submit` queued 91 requests at once for the seven new folds; CDS accepted 5 and rejected 85 after about 14 seconds each. Fix: `scripts/acquire_era5_eu_folds.py` new `--run-throttled --max-active N` keeps at most N jobs accepted/running, resubmits rejected labels as retry manifests as slots free, and logs the real rejection text with the request id; `poll()` now skips manifests already `rejected`/`failed`. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-cities-00-common-2026-10-08.md, C02)*
+
+## 8. Results parsing, EUI arithmetic & meters
+
+- **EnergyPlus `.err` severe/fatal lines are silently never detected** — real E+ output uses **two** spaces
+  (`**  Severe  **`) and the spacing is inconsistent even within one file (`** Severe  **`), so the literal
+  one-space substring check returns nothing: no exception, no log. Fix: the shared whitespace-tolerant
+  matchers in `openubem/results/err_parse.py` (`re.compile(r"^\s*\*\*\s+Fatal\s+\*\*", re.MULTILINE)` etc.),
+  applied at `runner.py:141`, `v12_cell_pipeline.py:625`, `make_manifest_from_cluster.py:47` and 7 harvest
+  scripts. Verified 44/44 true fatals caught on the 40,800-file E02 corpus. (OPEN-45)
+  **[OPEN]** remaining unfixed sites: `openubem/simulation/runner.py:140`, `tests/test_sim_integration.py:171`;
+  and `error_summary` in `v12_cell_pipeline.py:625-626` is still always `""` for every failing building ever
+  manifested. Also: `SEVERE_RE`'s `^` anchor only matches the first line of a multi-line severe, so the count
+  is a lower bound.
+  *(docs/docs_DONE/openings/extra/FIX_open-45_severe-matcher.md; MEASUREMENT_open-29_status-retrace.md; MEASUREMENT_open-42_six-failures.md)*
+- **`has_fatal` is a dead column fleet-wide since T17** — same one-space vs two-space literal mismatch.
+  (E-LA-21)
+  *(docs/docs_DONE/SETUP/layoutAssigner/DONE/e-la-20/COMPLETION_REPORT_e-la-20-investigation.md)*
+- **`total_eui_kwh_m2` undercounts lighting and equipment for any building with a zone multiplier —
+  only 6/48 buildings reconcile end-use sums to total within 2%** — the total sums Interior Lighting and
+  Interior Equipment from *per-zone hourly output variables*, which E+ does **not** scale by zone multiplier,
+  then divides by a multiplier-aware floor area (`openubem/results/parser.py:431-433`). Heating/cooling/fans/
+  pumps/DHW come from the multiplier-correct ABUPS table and match to <0.01%. (OPEN-60)
+  Fix: `parse_eio_zone_multipliers()` returns `{ZONE_NAME_UPPER: Zone Multiplier × Zone List
+  Multiplier}` from the same `.eio` route `resolve_simulated_floor_area()` already uses (not a second
+  reader), and `_compute_eui()` groups each zone variable by `key_value` and scales per zone before
+  summing — `openubem/results/parser.py`, 2026-08-21 (T03). Unknown zone → 1.0; empty/absent map
+  → bit-identical to the pre-fix path, so no new failure mode. ⚠️ **The 6/48 figure has NOT been
+  re-measured after the fix** — that sample's `.sql` files were deleted in the 2026-08-20 W9 prune
+  (OPEN-53) and re-measuring needs a re-simulation. Do not quote the fix as verified against n=48.
+  *(docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md;
+  docs/docs_DONE/openings/extra/FIX_open-60_multiplier-eui.md)*
+- **A rebuilt script's fleet EUI is 15–37% higher than the archived production figure for byte-identical
+  IDFs** — the ad hoc script computed "Total Site Energy ÷ Total Building Area" from the ABUPS summary, while
+  production's `openubem/results/parser.py` sums per-end-use EUIs from custom RunPeriod meters divided by
+  `resolve_simulated_floor_area()`'s multiplier-aware `.eio` area. Two different numerators **and**
+  denominators that look interchangeable. Fix: re-parse with production's `parse_building()`; no resim
+  needed. (OPEN-58)
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-35_storey-intervention.md)*
+- **Two different buildings produce byte-identical `eplusout.sql`** — `run_ep()` invoked EnergyPlus with no
+  `cwd=`, so all runs shared one working directory and overwrote each other's outputs. Concurrency is *not*
+  required to trigger it; any caller importing that shared `run_ep` is exposed. Fix: an isolated `cwd` per
+  invocation — applied 2026-09-29, `scripts/analysis/open56_zone_volume_experiment.py:157`
+  (`cwd=str(outdir)`). (OPEN-58, closed; blast radius: 6 artifacts)
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-58_blast-radius.md)*
+- **`elevators_eui_kwh_m2` reads 0.0 for every building though total EUI is correct** —
+  `openubem/idf/outputs.py`'s `HVAC_METERS` requested Cooking and Refrigeration submeters but omitted
+  `Elevators:InteriorEquipment:Electricity`, even though the emitter (`elevators.py:65`) and parser
+  (`parser.py:47/111`) both reference it. With no meter request E+ never writes the subcategory, so it
+  defaults to 0 and stays folded inside `equipment_eui`. One-line fix. **[OPEN, worse]**
+  `openubem/idf/elevators.py` is now orphaned dead code — nothing calls `assign_elevators`, and every
+  elevator archetype's IDF has zero `Elevators` `ElectricEquipment` objects.
+  *(docs/docs_DONE/LOADS & SCHEDULES/elevators/PLAN_elevator_loads_implementation.md; docs/docs_DONE/openings/extra/MEASUREMENT_open-46_divergence-inventory.md)*
+- **`footprint_area_m2 = 200.0` for buildings whose simulation failed** —
+  `v12_cell_pipeline.py:659` (`_build_enriched_gdf`) initializes the column to a hardcoded `200.0` and only
+  overwrites it `if status == "success"`, so the placeholder survives into every downstream audit CSV.
+  Repeated ad hoc in ~15 other call sites. **[OPEN]**
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-42_placeholder-and-fleet-impact.md)*
+- **5 SuperMarket rows silently pass through a reconstruction step unmodified** — the results key is
+  `SuperMarket`, the lookup key was `Supermarket` (case mismatch), so the entry fell through to a passthrough
+  default. A companion `_T12_ROUNDTRIP_PASSTHROUGH` exception set was masking similar gaps (Outpatient, …)
+  and was removed once the map was fixed; the honest numbers differ substantially (SuperMarket +90.4% vs the
+  fudged −31.5%).
+  *(docs/docs_DONE/LOADS & SCHEDULES/serviceLoads/PLAN_service-loads-reconstruction_2026-06-17.md T12-corr)*
+- **Prototype floor-area denominator wrong for whole-building quantities on partially-modelled prototypes** —
+  `elevators_by_archetype.json` used the *reduced-zone-model* area (3 representative levels) as the
+  denominator for a whole-building DOE `design_level_w`, inflating HighriseApartment to 10.23 kWh/m²/yr. Fix:
+  derive true footprint × real floor count from Z-origin geometry (<0.02% vs DOE-published area) → 3.07.
+  Generic rule: check whether a prototype's "modelled area" equals its "true full-building area" before using
+  it as a denominator.
+  *(docs/docs_DONE/LOADS & SCHEDULES/elevators/PLAN_elevator_loads_implementation.md T01 CP-1)*
+- **`_floor_count_from_zones` counted unique E+ zone names as storeys** (Hospital: 55 zones → 55 "floors" vs
+  5 actual), producing wrong `floor_area = footprint × n_floors` and tiny per-floor footprints — 0/19
+  buildings passed the ±5% round-trip gate. Fixing this alone moved Hospital from −93.7% to −12.2%. Never
+  infer storey count from zone count for multi-zone reference models.
+  *(docs/docs_VALIDATION/step1/overAll/OPEN_QUESTIONS_R5.md OQ-R5-5/6)*
+- **EUI extraction from `eplusout.sql` fails even though the file exists** — `Output:SQLite` was set to
+  `Simple` (or missing); `TabularDataWithStrings` (needed for `AnnualBuildingUtilityPerformanceSummary`) only
+  exists under `SimpleAndTabular`.
+  *(same doc, OQ-R5-4)*
+- **12 corrupt SQL files shipped in one cell** — a truncated `tar` transfer from the cluster. Verify every
+  fetched SQL with `PRAGMA integrity_check` plus `Zones > 0` before treating a harvest as complete.
+  *(docs/docs_DONE/GENERAL/Resume_Prompts/monitorRun_resumeManager.md)*
+- **`Zone Information` fields parsed from `eplusout.eio` come back shifted by one column (volume reads as ceiling height, etc.)** — the `! <Zone Information>` header line begins with the `!` comment token, so splitting it on `,` yields one more leading element than the data rows that follow. Indexing data rows by `header.index(name)` is then off by one for every field. Fix: strip the leading `! <...>` token from the header before building the index map, and assert on a known-good row (a `_F0_WHOLE` zone whose `Floor Area × Ceiling Height` is recomputable) before reporting any number. Found and fixed mid-task while parsing all 8,160 `.eio` of the adopted run for OPEN-56.
+  *(docs/docs_DONE/openings/implemenation/previous/PLAN_ten-live-items-2026-08-21-night.md T02)*
+- **A fleet recomputation reproduces the adopted headline to 0.005 % but never exactly (153.8304 vs 153.8231)** — not a parsing or filter bug, and not rounding: every row-set filter, every precision 0–5 dp, all six archived `evidence/open48_refleet*` run directories, and the provenance path the restatement doc itself cites (`%LOCALAPPDATA%\Temp\ubem_validation\open48_refleet4\`) all return 153.8304 on an identical sorted `osm_id` set. Cause unknown and **not recoverable from what is on disk**. Fix: none — do not "correct" the recomputation to match, and do not restate the adopted figure; quote 153.8231 and cite this entry.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_t01_headline-reproduction.md)*
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B. ⚠ superseded 2026-10-21: restated at 154.10 kWh/m² / 1,037,572 t over 8,139 buildings (hot water counted once, D-IMP-05; see docs/docs_ACTIVE/IMP/PLAN_paper-improvement-implementation-2026-10-21.md T13).
+- **`_parse_meters_sql` silently zeroed ALL nine HVAC meters, not just the new one, for any `.sql` lacking `TabularDataWithStrings`** (self-inflicted while adding OPEN-61's district-heating read) — the new `_read_abups_district_heating(conn)` call was placed inside the same `try` block *before* the `for name, value_j in rows:` loop that applies the real meter rows; when the ABUPS table didn't exist (every minimal synthetic fixture in `tests/test_parser_hvac_metered.py`, `tests/test_parser_elevators.py`), the `OperationalError` propagated out of the `with` block and was caught by the outer swallow-all `except Exception: pass` before the loop ever ran, so `Cooling:Electricity`, `Elevators:InteriorEquipment:Electricity`, etc. all came back 0.0 instead of their real values. Fix: give the ABUPS read its own inner `try/except`, placed *after* the meter-rows loop, so a failure there defaults only `_DISTRICT_HEATING_KEY` to 0.0 and never touches the other nine (`openubem/results/parser.py`, `_parse_meters_sql`). Caught by three previously-passing tests going red (`test_reads_all_four_meters`, `test_missing_meter_returns_zero`, `test_elevator_meter_read`) on the first full-suite run after the change.
+- **District Heating under Water Systems ≈ the electric/gas DHW of the same building (MidriseApartment medians 32.3 vs 37.1 kWh/m²)** — the same hot-water draw is emitted twice: `WaterHeater:Mixed` with its own `Peak_Use_Flow_Rate` + flow schedule (`openubem/idf/dhw.py:116-131`) and a `WaterUse:Equipment` with the same peak flow and schedule on an unplumbed `WaterUse:Connections` (`dhw.py:135-149`), which EnergyPlus books to District Heating; OPEN-61 then folded that into `dhw_eui_kwh_m2`. The OPEN-61 ruling ("additional spend, not a double count", `docs/docs_DONE/openings/INVESTIGATION_open-items-register-II.md:387-394`) tested only that the gas figure did not move. Size in the adopted fleet: pooled 171.38 → about 154.1 kWh/m² without it (8,139 buildings; 8.5–10.9 % of city energy). Fixed 2026-10-21 (owner ruling D-IMP-04 = a, plan T13, no new simulations). Fix 1, builder: `openubem/idf/dhw.py` no longer creates `WaterUse:Equipment`, `WaterUse:Connections` or the two zone-gain schedules; it emits only the standalone `WaterHeater:Mixed` (`dhw.py:110-125`, return at `:127`); tests re-pinned to one water heater and no water-use objects (`tests/test_dhw.py::test_one_water_heater_no_water_use_objects`, `tests/test_step3_orchestrator.py:404`, `:416-420`, `:515-525`). Fix 2, saved results: `scripts/paper/remove_dhw_double_count.py` removes `dhw_district_eui_kwh_m2` from `dhw_eui_kwh_m2`, `total_eui_kwh_m2` and `total_kwh` of the 8,139 adopted rows and recomputes carbon with `openubem/results/carbon.py` (output `openubem/outputs/comparisons/paper_adopted_fleet_dhw-fix_per_building_2026-10-21.csv`, summary `paper_dhw-fix_summary_2026-10-21.json`). Result: pooled 171.383 → 154.097 kWh/m², carbon 1,146,454 → 1,037,572 t. Limit: the copy's room heat gains stay inside the saved heating and cooling until a re-run; pre-fix IDFs and result files still carry the copy. The corrected figure (154.10 kWh/m², 1,037,572 t over 8,139 buildings) was adopted 2026-10-21 by owner ruling D-IMP-05 = a. *(docs/docs_ACTIVE/IMP/PLAN_paper-improvement-implementation-2026-10-21.md §7 CP-1b, §6 T13)*
+  *(docs/docs_DONE/openings/implemenation/previous/PLAN_open61-dh-remedy-2026-08-22.md T01)*
+- **`total_eui_kwh_m2` golden regression tests failed after OPEN-61's district-heating fold** (`test_r1_total_eui`, `test_r2_total_eui`, `test_r6_total_eui`, `tests/test_results_parser.py:279,289,304`) — T01 folded ABUPS "District Heating" `Total End Uses` into `dhw_eui_kwh_m2` unconditionally, on plan F3's finding that 100.00% of district heating is Water Systems — but F3 measured only the OPEN-61 fleet census corpus (8,152 rows, `open61_census_fleet.csv`), not every `.sql` the parser can ever see. The three golden fixtures (`tests/fixtures/golden_sql/r1_single_zone.sql`, `r2_one_zone_per_floor.sql`, `r6_perimeter_core.sql`) are pre-Phase-D artifacts whose ABUPS table routes 100% of the District Heating column to the **Heating** row (148.24 / 709.99 / 1646.86 GJ respectively) and 0.00 to Water Systems — the exact opposite of F3 — consistent with an Ideal-Loads-Air-System heating plant (EnergyPlus tags Ideal Loads heating as DistrictHeating fuel by convention; superseded fleet-wide by Phase-D's metered `Heating:Electricity`/`Heating:NaturalGas` route, per `parser.py`'s own module docstring). T01's fold therefore misattributed 105.05 / 78.89 / 101.66 kWh/m² of real HEATING energy into `dhw_eui_kwh_m2` for these three fixtures, inflating `total_eui_kwh_m2` by the same amount (`heating_eui_kwh_m2` itself was untouched and its own golden tests still passed — only the three `total_eui` assertions failed). **Fix (T01b, director-authored 2026-08-22, F11): `_read_abups_district_heating()` reads `RowName='Water Systems'`, not `'Total End Uses'`** (`openubem/results/parser.py`, `_read_abups_district_heating`) — on all 8,152 fleet census rows the two rows are identical (max diff 0.0, F11), so this changes no fleet number, but on the three golden fixtures (Water Systems = 0.00 GJ) it correctly reads 0.0 instead of the misattributed heating energy. All three golden tests pass again with no fixture or expected-value edit. New guard test added: `tests/test_parser_open61_district_heating.py::TestDistrictHeatingServingSpaceHeatingNotFoldedIn` (uses `r1_single_zone.sql` directly). Tracked as **OPEN-64** (district heating serving a non-DHW end use, general case).
+  *(docs/docs_DONE/openings/implemenation/previous/PLAN_open61-dh-remedy-2026-08-22.md T01/T01b, CP-1 STOP + fix 2026-08-22)*
+  **OPEN-64 fixed 2026-09-09 (T03):** all fourteen ABUPS District Heating End Uses rows are now
+  each folded into their own matching `_compute_eui` column (`Heating`→`heating_eui_kwh_m2`,
+  `Cooling`→`cooling_eui_kwh_m2`, `Interior Lighting`/`Interior Equipment` added onto the existing
+  zone-metered columns, `Fans`/`Pumps`/`Refrigeration` added onto their meters, `Water Systems`
+  unchanged into `dhw_district_eui_kwh_m2`, and the six rows with no prior column —
+  `Exterior Lighting`, `Exterior Equipment`, `Heat Rejection`, `Humidification`, `Heat Recovery`,
+  `Generators` — each get a new `*_eui_kwh_m2` column, all summed into `total_eui_kwh_m2`.
+  `_read_abups_district_heating_rows(conn)` reads all fourteen rows at once (`openubem/results/parser.py`);
+  `_read_abups_district_heating()` is unchanged and still Water-Systems-only. Golden expected values
+  raised for `heating_eui_kwh_m2`/`total_eui_kwh_m2`/`gwp_heating_kgco2_m2`/`gwp_total_kgco2_m2` on
+  R1/R2/R6 (`tests/fixtures/golden_sql/golden_expected.json`) by the Heating-row delta measured
+  above; no golden `.sql` touched. Fleet exposure measured, not assumed: 0 of 8,152 fleet buildings
+  carry any EnergyPlus meter whose name contains "District" (`openubem/outputs/comparisons/open61_census_fleet.csv`,
+  `dh_b_available` column, corroborated by a 30-file direct sample of the read-only
+  `open61_census_2026-08-20` corpus), so this fix moves no fleet number.
+
+- **`assert False` in `TestEuiGolden::test_r1_total_eui` — `math.isclose(276.9193027210884, 171.873920234131, rel_tol=1e-06)`** (and the identical failures in `test_r2_total_eui`, 265.1497 vs 186.2619, and `test_r6_total_eui`, 262.9418 vs 161.2838), while `test_r1_heating_eui` / `test_r1_cooling_eui` / `test_r1_lighting_eui` on the **same fixture** all pass — the OPEN-61 district-heating fold read the ABUPS `RowName='Total End Uses'` cell instead of `RowName='Water Systems'`, so district heating that serves **space heating** was added into `dhw_eui_kwh_m2` and thence into the total. **Only the total failing while every component passes is the signature of energy being ADDED, not recomputed** — go straight to a newly-summed term, do not re-derive the components. Confirm in one query: `SELECT RowName,Value FROM TabularDataWithStrings WHERE ReportName='AnnualBuildingUtilityPerformanceSummary' AND TableName='End Uses' AND ColumnName='District Heating'` — the golden fixtures return `Heating` 148.24 GJ and `Water Systems` 0.00 GJ, and 148.24 × 277.7778 ÷ 392 m² = 105.0456 kWh/m² matches the observed delta exactly. Fix: `RowName` changed to `'Water Systems'` in `_read_abups_district_heating`, `openubem/results/parser.py` (OPEN-61 T01b). ⚠️ **Root method trap, not just a typo: a quantity measured over the production fleet ("100 % of district heating is Water Systems", 8,152 buildings) was used as a statement about the code. The golden fixtures are the mirror image of the fleet.** The 13 unread ABUPS district-heating rows are tracked as **OPEN-64**. *(docs/docs_DONE/openings/implemenation/previous/PLAN_open61-dh-remedy-2026-08-22.md §5 F11, T01b)*
+
+- **A fleet EUI parsed after the OPEN-61 / OPEN-64 fixes still contains no district heating — every `District Heating` cell of the ABUPS `End Uses` table is non-zero, yet the harvested `dhw_eui_kwh_m2` equals `WaterSystems:NaturalGas + WaterSystems:Electricity` only** — the harvest used its own meter-only `_parse_sql` (`scripts/cluster/t08_harvest_results.py:163-214`, meter list `:68-82`), not production `parse_building()`. EnergyPlus reports hot water from `WaterUse:Equipment` with no plant connection as district heating on the ABUPS table and on **no** meter this list requests, so a meter-only reader cannot see it, and a fix to `openubem/results/parser.py` never reaches it. Measured on 2,741 of the 8,139 adopted buildings: 2,736 carry it, +19.97 kWh/m² pooled on that subset. Detection: `SELECT Units, Value FROM TabularDataWithStrings WHERE ReportName='AnnualBuildingUtilityPerformanceSummary' AND TableName='End Uses' AND ColumnName='District Heating' AND RowName='Water Systems'` (units are GJ on the North American fleet — ×277.7778 for kWh; contrast the `JtoKWH` entry below). Fix: `scripts/cluster/t08_harvest_results.py:141` `parse_production()` (called from `:157` `_production_row()`) and `scripts/cluster/t07_harvest_results.py:97,191` now route through `parse_building()` + `check_building_integrity()` and report `abups_ok`; the local `_parse_sql` bodies are deleted; guarded by `tests/test_harvest_uses_production_parser.py`. Side effect: a `.sql` from a `trim_outputs=True` IDF has no hourly zone variables, so the production parser returns `failed_parse` for it and the harvest records `parse_error` instead of a number. (OPEN-65, OPEN-61, OPEN-63) *(docs/docs_DONE/openings/INVESTIGATION_open-items-register-II.md §6 OPEN-65)*
+- **Adopted per-building EUI is higher than the ABUPS `Total Site Energy` for restaurants, hotels, supermarkets, hospitals and schools — `total_kwh` (adopted) minus ABUPS = `Cooking:InteriorEquipment:Electricity` + `Refrigeration:InteriorEquipment:Electricity`, to the kWh** — the meter-only `_parse_sql` added those two sub-meters (`scripts/cluster/t08_harvest_results.py` old `:68-82` meter list, `cooking_kwh` / `refrig_kwh` sums) on top of `InteriorEquipment:Electricity`, which already contains them, so electric cooking and refrigeration were counted twice (and electric cooking was charged at the gas factor in carbon). Measured on the 2026-09-29 re-parse: 129 of 8,139 adopted buildings (QuickServiceRestaurant 50, FullServiceRestaurant 32, LargeHotel 27, SecondarySchool 9, SuperMarket 5, Hospital 4, PrimarySchool 2), pooled effect -1.25 kWh/m2; production `parse_building()` matches ABUPS on all of them. Detection: compare per-building `total_kWh` with `Site and Source Energy / Total Site Energy` (GJ x 277.7778). Fix: none needed in `parse_building()`; both harvest scripts now call it (T03), and the user adopted the re-parsed 172.41 kWh/m² on 2026-09-30 (CP-1), so no published number carries the double count. (OPEN-65, closed) *(docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md §8 T02; openubem/outputs/comparisons/open65_reparse_summary_2026-09-29.json)* ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B. ⚠ superseded 2026-10-21: restated at 154.10 kWh/m² / 1,037,572 t over 8,139 buildings (hot water counted once, D-IMP-05; see docs/docs_ACTIVE/IMP/PLAN_paper-improvement-implementation-2026-10-21.md T13).
+
+- **A manifest column named `eui_kwh_m2` that is in fact a heating-only intensity** (`openubem/outputs/eu_evidence/EU-04/s3/s3_campaign_manifest.csv`, promoted under `D-EU-24`) — the numerator is `heating_kwh`, the annual sum of the hourly `Zone Ideal Loads Zone Total Heating Energy` `Output:Variable` extracted at `scripts/run_eu_s2_campaign.py:285`; it carries no lighting, no appliance electricity, no DHW and no cooling, so quoting it as a whole-building EUI is wrong by a large factor **in the direction that looks plausible**. Fix: the promoted artefact is NOT renamed (that would rewrite a promoted file); the basis is carried additively in `openubem/outputs/eu_evidence/EU-04/s3/s3_campaign_manifest_BASIS.md` and MVP §9.7.3, and the pooled 66.86769 kWh/m² may not be printed without the words "heating-only".
+  *(docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md §9.7.3, EU-05 entry)*
+- **`TabularData` empty in `eplusout.sql` even though `Output:SQLite` was written as `SimpleAndTabular`** — `SimpleAndTabular` says only *where* tabular output goes, never that any was requested. With no `Output:Table:SummaryReports` object EnergyPlus writes no `AnnualBuildingUtilityPerformanceSummary`, so `select count(*) from TabularData` returns 0 and every end-use read against that `.sql` silently finds nothing. Fix: add `Output:Table:SummaryReports,AllSummary;`, checking first for an existing `OutputControl:Table:Style` — a duplicate is a Severe.
+  *(docs/docs_ACTIVE/europeanLocations/EXECUTOR_PROMPT_EU-05_meter_sidecar_2026-08-27.md §5 T01)*
+- **A distinct-schedule-CSV count read as a dwelling count** — the 374 distinct `Schedule:File` CSVs across the 95 accepted `S3` IDFs are **one per zone**; summing `zone_count` by `layout_mode` gives 26 dwelling zones (in the 12 `DWELLING_LAYOUT_EMITTED` buildings) against 348 one-zone-per-floor massing floors. Any per-dwelling quantity scored over 374, or over the 95 buildings, uses the wrong denominator. Fix: denominators written down in `s3_campaign_manifest_BASIS.md` §2 and MVP §9.7.3 EU-06 — the per-dwelling population is **12 buildings / 26 dwellings**.
+  *(docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md §9.7.3, EU-06 entry)*
+
+- **`meters_present 0 of 95` recorded as un-measurable because "emitting meters means re-running the promoted campaign and changing every `idf_sha256`"** — the reason confuses emitting meters *in* the promoted campaign with measuring them at all. Fix: off-path sidecar over copies — verify each promoted IDF's SHA-256, append only `Output:Meter` + `Output:Table:SummaryReports`, run in a separate tree, compare the hourly ideal-loads series row-for-row (`max_abs_diff 0.0`) and recompute all promoted hashes afterwards; `scripts/run_eu_meter_sidecar.py`. All five meters existed on all 95. *(docs/docs_ACTIVE/europeanLocations/EXECUTOR_PROMPT_EU-05_meter_sidecar_2026-08-27.md)*
+- **`OtherEquipment` read as "1 W/m²" from its `Power per Zone Floor Area` field** — with `Design Level Calculation Method = Watts/Area` the field is a **multiplier** on the `Schedule:File`, and when the schedule's type limits are `AnyNumber_Wm2` the CSV itself carries the W/m². Fix: read the schedule, not the object — all 381 `S3` gain CSVs are flat at 3.0 W/m² at `f = 0`, so the delivered gain is 3× the field value. *(openubem/outputs/eu_evidence/EU-04/s3/s3_campaign_manifest_BASIS.md)*
+- **EnergyPlus writes a trailing space + bare CR on the last CSV header field inconsistently between two runs of the same IDF**, so a raw column-name-set comparison falsely reports `column set mismatch`. Fix: match columns on the **stripped** header name while reading values by the original key; `scripts/run_eu_meter_sidecar.py`. *(same doc, T02)*
+- **`TabularDataWithStrings` values read as GJ and multiplied by 277.78** — under `OutputControl:Table:Style ... JtoKWH` the values are **already kWh** and `ColumnName` carries no unit suffix (`District Heating`, not `District Heating [GJ]`). Fix: no conversion; verified against a promoted `heating_kwh`. *(same doc, T01)*
+- **8,134 of 8,139 rows `floor_area_provenance = footprint_fallback`; fleet area 23.42 M m² vs 23.87 M m²** — locally-run case folders (and the temp copy the harvest decompresses `.sql.gz` cases into) hold no `eplusout.eio` sibling, so `resolve_simulated_floor_area()` fell straight to `footprint_area × num_floors`; `parse_building()` reads the same eio for its per-zone multiplier map (OPEN-60), so with no eio every multiplied zone's lighting/equipment was counted once instead of scaled, undercounting energy by ~0.8% on 129 buildings. The `eplusout.sql` `Zones` table carries the identical multiplier-aware quantity the eio Zone Information block does (measured 142,456.77 m² SQL vs 142,457.04 m² eio on `lighting+setback+infiltration/way_425993519`, relative difference 2e-6 — eio just rounds to 2 decimals). Fix: `parse_sql_zone_area()` (`SUM(FloorArea*Multiplier*ListMultiplier) FROM Zones WHERE IsPartOfTotalArea=1`) and `parse_sql_zone_multipliers()` (`{UPPER(ZoneName): Multiplier*ListMultiplier}`) added as a fallback tried only when the eio route is unavailable — `openubem/results/parser.py:496` (`resolve_simulated_floor_area`, provenance `sql_simulated`) and `openubem/results/parser.py:987` (`parse_building`'s zone-multiplier map). eio still wins when present; footprint stays last resort. *(docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md §2h Task FLEET-06c-FIX)*
+- **Re-harvest fleet EUI excl. district 152.6985 vs published T08 153.9501 kWh/m²; 129 kitchen buildings (restaurants, hotels, schools, supermarkets, hospitals) 11–28 % below T08, all in `cooking_eui_kwh_m2` / `refrigeration_eui_kwh_m2`** — T08 counted the sub-meters `Cooking:InteriorEquipment:Electricity` and `Refrigeration:InteriorEquipment:Electricity` as cooking/refrigeration while also counting the full `InteriorEquipment:Electricity` as equipment (double count, +29.879 GWh = +1.25 kWh/m²; T08 total exceeded `Electricity:Facility`+`NaturalGas:Facility`). Fix: none needed in code — current `openubem/results/parser.py:681-682` (cooking = `InteriorEquipment:NaturalGas`, refrigeration = `Refrigeration:Electricity`) is correct; FLEET-06 baseline 172.4076 incl. district supersedes 153.95. *(docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md §2h, manager audit of FLEET-06c-BASE)* ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B. ⚠ superseded 2026-10-21: restated at 154.10 kWh/m² / 1,037,572 t over 8,139 buildings (hot water counted once, D-IMP-05; see docs/docs_ACTIVE/IMP/PLAN_paper-improvement-implementation-2026-10-21.md T13).
+- **FLEET-06c-ALL: every one of 84 harvest tasks fails with `MemoryError((744600, 1), dtype('float64'))` or `PermissionError(13, 'The process cannot access the file because it is being used by another process')`; no table written** — the 7 cells were launched as 7 processes each with `ProcessPoolExecutor(max_workers=12)`, i.e. 84 concurrent `aggregate_results()` workers on a 63.5 GB / 20-CPU machine (peak ~3.7 GB per worker measured); the PermissionError is raised by the temp `.sql` unlink, which catches only `FileNotFoundError` (`scripts/analysis/fleet06c_harvest_2026-09-24.py:199-203`), and fires *after* the outputs are written. Fix: delete partial outputs and run all 84 (cell, geo) tasks in one 12-worker pool (scratchpad `rerun_all.py`); a `csv=True` + PermissionError task is complete but must still be audited. *(docs/docs_DONE/TechTransfer/Prompt/PROMPT_MANAGER_techtransfer_2026-09-18.md §7k)*
+- **[OPEN] FLEET-06c scenario harvest: 4–7 of 1,779 `nyc_urban` rows per scenario cell have `floor_area_provenance = footprint_fallback` and null `total_eui_kwh_m2`, although the case folder has a success `eplusout.end` and an `eplusout.sql.gz`** — the decompressed SQL is corrupt: `sqlite3.DatabaseError('database disk image is malformed')` (e.g. `lighting/way_241854850`, `way_280621309`). Baseline cases (plain `eplusout.sql`) are unaffected. Cause not yet confirmed; suspected the 2026-09-22 disk-full stop during compression. Fix pending: count affected cases after the harvest, re-simulate or exclude them from every row. *(docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md §2h)*
+- **A re-run summary reports crashed buildings as recovered (OPEN-38: C1 6/6, C2 13/13, D 1/1, E 1/1, 8
+  additions), although every one of them ended `EnergyPlus Terminated--Fatal Error Detected`** —
+  `parse_building()` returns `parse_status = "success"` on the partial `.sql` a fatal run leaves behind, and
+  the harvest treated `success` as "the run completed". All 21 such rows had
+  `check_building_integrity()["abups_ok"] == False`. Fix: a row counts only when `parse_status == "success"`
+  **and** the run's terminal state is `completed` (`.end` reports success), applied to controls, targets,
+  recovery counts and additions (`scripts/analysis/open38_fix_rerun_2026-09-30.py` `cmd_parse`). True
+  result: 10 of 44 recovered (class B), 2 additions. Any harvest that trusts `parse_status` alone must also
+  gate on the terminal state or on `abups_ok`.
+  *(docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md T06d amendment)*
+- **`test_results_parser.py`, `test_results_carbon.py`, `test_parser_open61_district_heating.py` fail with R1 heating EUI 335.70 expected 167.85 (exactly 2x), GWP heating 70.22 vs 35.11** — since commit `84832042` (FLEET-06c-FIX, 2026-09-25) `resolve_simulated_floor_area()` takes the floor area from the SQL `Zones` table (`sql_simulated`, 196 m2 for the one-zone fixture), while `golden_expected.json` R1 still held the 392 m2 (196 x 2 floors) answers. Code is right, golden answers were stale. Fix: R1 `floor_area_m2` 392.0 -> 196.0 and every `eui`/`gwp` value x2 in `tests/fixtures/golden_sql/golden_expected.json`; 81 tests pass. *(docs/docs_DONE/openings/implemenation/previous/PLAN_tests-and-crashes-2026-09-30.md T04)*
+
+## 9. Validation gates & metric traps
+
+- **CBECS NMBE / CV(RMSE) / KS gates FAIL in every cell and every region under every basis/COP/load-fraction
+  combination tested (CV(RMSE) 47–97%, KS_D 0.22–0.55)** — structural to an archetype-deterministic UBEM
+  (near-zero within-archetype variance vs CBECS's per-building survey spread) plus regional/composition
+  mismatch. A scalar reporting basis only shifts the mean, never the shape. Correctly designated report-only
+  (V-R5-5); **never tune to pass**.
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/v19_validation/PLAN_v19_national_cbecs_rescore.md; docs/docs_VALIDATION/step1/overAll/results/MEMO_phaseB_cbecs_diagnosis.md)*
+- **A "passing" aggregate metric that was actually a bug artifact** — CP-D NMBE read −3.1% (PASS) only
+  because the kitchen-exhaust blowups (1,323 and 888 kWh/m² outliers) inflated the commercial mean enough to
+  offset a systematic level deficit. After the fix: honest NMBE −17.6%, R² 0.40 → 0.91. **Rule:** an
+  unexpectedly good aggregate number is itself suspect when two independent defects can cancel — check R² /
+  per-archetype medians alongside NMBE.
+  *(docs/docs_REPORTS/REPORT_phaseE_final.md §10.5-10.6)*
+- **A fuel-basis correction (cool ÷3.5, heat ×1.19) makes NMBE worse (−16.0% → −29.5%/−35.3%)** — the
+  pre-correction number was a coincidental offset between inflated cooling-thermal and understated
+  heating-fuel. Test proposed corrections in isolation; never accept an accidental cancellation as
+  validation.
+  *(docs/docs_VALIDATION/step1/overAll/results/MEMO_phaseB_cbecs_diagnosis.md)*
+- **High R² (0.69–0.996) alongside failing CV(RMSE) and KS_D** — R² checks shape, not level. Together with
+  the registered "NMBE is blind to variance collapse" rule: **never read either metric alone as
+  "validated."**
+  *(docs/docs_VALIDATION/step1/overAll/V13_cross_case_synthesis.md)*
+- **[OPEN] LA and Austin cells were scored against the CBECS *Northeast* reference** — the harness carried
+  the NE reference forward from the V11 NYC pilot and was never re-pointed per region. Always verify the
+  reference-region parameter is set per case, not inherited from a template. (R6)
+  *(same doc)*
+- **F12 EUI-plausibility gate FAILs on QSR/FSR at 1085–1120 kWh/m²/yr, just above the generic [25,1000]
+  band** — cooking/refrigeration-dominated archetypes legitimately exceed generic caps; small-N cells amplify
+  a few outliers past the 1% tolerance. Held deliberately per V-R5-8: an archetype-aware band must be a
+  pre-run gate-spec change, never a reactive widening after seeing a FAIL.
+  *(docs/docs_VALIDATION/step1/overAll/OPEN_QUESTIONS_R5.md)*
+- **LA office over-predicted +78.4%, offices +30–50% in every city** — IDFs use `IdealLoadsAirSystem`, so
+  `Zone Ideal Loads ... Cooling/Heating Energy` are *thermal loads*, but `openubem/results/parser.py:204`
+  compared them directly to metered electricity with no COP conversion; cooling-dominated LA reads ~3.5× what
+  a real DX system would meter. Interim fix: divide cooling by COP ≈3.5 at the reporting layer; real fix was
+  the Phase-D physical PTAC + prototype-COP resim.
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/v19_validation/PLAN_v19_basis_diagnostic.md)*
+- **National CBECS NMBE fails in all 3 census regions under a single national service-load fraction table**
+  (NYC +12.2%, LA −16.8%, Austin −12.6%) — a climate-blind national table over-restores in heating-heavy NYC
+  and under-restores in mild LA/Austin. Fix: per-census-division fraction tables (ratio-tilt anchored on the
+  pre-validated national level, no anchor fitting) — all 3 regions flip to passing, at a disclosed cost to
+  two small LA sub-segments.
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/phaseD_realHVAC/PLAN_regional_service_load_fractions.md)*
+- **Restaurant service-load reconstruction overshoots ESPM by +110…+160%** — `modeled_frac=0.33` assumed 67%
+  unmodeled service load; the true fraction is 0.69. Dividing by too small a fraction amplifies any base
+  error by `1/frac` (a 2× base error becomes 6×). Also: FSR and QSR were aliased onto the *same* fraction
+  entry despite different load profiles, and NYC multifamily over-grossed +34% because the national
+  `modeled_frac=0.69` leaves only ~8% room in a heating-dominated climate. **[OPEN]** the restaurant 4-end-use
+  base is itself 2.03× PNNL-expected (likely office/retail schedules on a cooking archetype) — needs resim.
+  *(docs/docs_VALIDATION/step1/overAll/V18_calibration_diagnosis.md)*
+- **Per-building round-trip deviation of ~45% reads as failure at a ±5% single-building gate** — published
+  archetype UBEMs show 40–100% per-building error cancelling to 1–10% at stock scale (field norm: aggregate
+  city median within ±10–15% of measured). The ±5% single-building gate is the wrong acceptance test for an
+  archetype-level UBEM.
+  *(docs/docs_VALIDATION/step1/overAll/V17_external_measured_validation.md)*
+- **An EUI do-no-harm gate fails at pooled multi-city granularity (NMBE −5.51%) but is neutral at production
+  per-cell granularity (+0.0000)** — `knn` needs a pooled frame to clear its ≥200-row fit floor; production
+  imputes per-cell where it never fires. Always re-check a leaderboard failure at the actual production
+  granularity.
+  *(docs/docs_DONE/INPUTS/imputation/docs_Done/PLAN_phaseC_ml_imputer.md:39)*
+- **Pooling two continuous targets into one `recover_pairs` call collapses `complete_cases` to rows where
+  BOTH are observed** (n≈170, under `knn`'s 200-row floor) — baseline and `knn` both collapse to the same
+  wrong number (MAE 41.9, n=34), which looks like divergence but is a shared masking bug. Check `n_holdout`
+  against the documented count before trusting a leaderboard.
+  *(docs/docs_DONE/INPUTS/imputation/debugs/PLAN_phaseC_knn_repro_investigation.md:183)*
+- **A validation gate reports "single_zone repairs: 0" for a cell that had a real repair** — the gates-report
+  funnel undercounts; cross-check against the run log's "Repairing"/"Repair round" lines.
+  *(docs/docs_DONE/GENERAL/Resume_Prompts/pahseC_resumeManager.md)*
+- **`counter_total_eui` in `roundtrip_report.csv` is a constant 2.0× the sum of its own four end-use
+  columns**, unlike the matrix convention where total == Σ4 — verify the total/sum convention matches before
+  computing deltas across two validation CSVs.
+  *(docs/docs_VALIDATION/step1/overAll/V16_service_loads_reconstruction.md)*
+- **`AssertionError: T10/T11 CROSS-CHECK GATE FAILED for <target>`** — a regenerated leaderboard/scatter MAE
+  doesn't reproduce the committed `RESULTS_phaseC.md` value to 2 dp. STOP: the invocation is wrong; **do not
+  tune to hide the mismatch**.
+  *(openubem/results/draw_leaderboard.py:326; openubem/results/impute_scatter.py:253)*
+- **Every campaign manifest reads `"energyplus_version": "23.1"` no matter which binary ran** (FINDING 187) —
+  the field was a hard-coded literal, never measured, so a 24.2.0 run, a Linux run and a Windows run all
+  self-report 23.1 and no version-dependent result can be attributed. Fix: split into
+  `energyplus_version_declared` (the guard's 23.1) and `energyplus_version_measured`, parsed from the binary
+  actually invoked and set to `"not_run"` in `dry_run`. *(openubem/campaign/eu_cell_runner.py:613-616;
+  docs/docs_ACTIVE/europeanLocations/previous/STATE_european_locations_v2.md §3)*
+- **A gate requires a manifest field that the manifest writer never emits** — `step8_gates`' `immutable_fields`
+  demanded `platform` while `MANIFEST_FIELDS` had no such key, so G8.14's platform arm could never be
+  satisfied and the gap read as a scoring result rather than a missing writer. **Check both sides of a
+  required-field contract before diagnosing the gate.** Fix: `_platform_record()` writes hostname, os,
+  machine, processor, python_version, energyplus_exe and energyplus_sha256, and `platform` was added to
+  `MANIFEST_FIELDS`. *(openubem/campaign/eu_cell_runner.py:77-82,123; openubem/validation/step8_gates.py)*
+
+## 10. Microclimate / UTCI (SVF, MRT, wind)
+
+- **`compute_svf` mid-canyon SVF is ~2× the "analytic target" (0.74 vs 0.414 at H/W=0.5)** — the code and its
+  `cos²γ` horizon formula were correct; the **plan's cited analytic formula was wrong**. Correct closed form
+  for a two-wall canyon is `1/√(1+(2H/W)²)`, not `√(1+(2H/W)²)−2H/W`. Fix the target, not the code.
+  *(docs/docs_DONE/OUTDOOR/UTCI/implementation/PLAN_utci_microclimate_implementation.md:3279)*
+- **After fixing the target, the SVF gate still fails by 0.001–0.009** — the code samples at pedestrian
+  height (`z=DEM+1.1 m`) while the analytic target assumes canopy floor; use `1/√(1+(2(H−1.1)/W)²)` for an
+  apples-to-apples check. The remainder is raster discretization and shrinks with resolution. (A "true
+  Euclidean pixel distance" fix made the gap *worse* — discarded.)
+  *(same doc:3370)*
+- **The cool-pavement-paradox gate fails and no single `Psi_grd` passes both it and the open-field/night
+  tests** — `Psi_grd=0.5` gets the albedo sign wrong; `Psi_grd=W_h=0.06` gets the sign right but falls 5–10×
+  short. **Root cause from reading running SOLWEIG source** (`solweig.py`): the ground's true total view
+  factor is **0.50**, not 0.06 — `Lground=Lup*0.5` is added unconditionally in each of the 4 lateral
+  directions (`Fup=0.06` + `4×Fside(0.22)×0.5=0.44`). Setting it to 0.50 fixes the paradox gate (+5.39 °C)
+  and open-field noon (64.3 °C). A prior "CLOSED" ruling based on a literature *abstract* rather than source
+  code was wrong and was superseded. Note `W_H=0.06` in `openubem/microclimate/mrt.py:84` is still the
+  correct *direct* top/bottom weight — do not "fix" it.
+  *(same doc:3628)*
+- **Fixing `Psi_grd` broke the previously-passing canopy-shade test (15.35 → 27.09 °C)** — not a physics
+  regression: the shaded test case used `sh_veg=0.0` (total beam block) and `compute_tmrt`'s
+  `beam_gate = sh_building * sh_veg` made `sh_veg` a no-op while `sh_building=False`. Correct test setup:
+  `sh_building=True` **and** `sh_veg=DECIDUOUS_TAU_SUMMER` (0.20, `domain.py:162`) → 21.24 °C. Fixing a model
+  constant can unmask a test-construction bug the wrong constant was masking.
+  *(same doc:3787)*
+- **[OPEN] `test_night_tmrt_close_to_ta` fails (Tmrt−Ta = −11.22 °C vs a required −5…0 °C)** — T12's ground
+  physics were hand-verified and ruled out; the root problem is the tolerance itself, which has **no citation
+  anywhere**. A primary source (Gál 2020, ICUC10) confirms SOLWEIG-class models under-predict nighttime Tmrt
+  by 2–10 °C, but gives no citable replacement for the svf=1 open case. STOP, not fixed.
+  *(same doc:3897)*
+- **`pedestrian_wind_macdonald` returns physically impossible speeds (up to 834,439 m/s, even −19 m/s)** —
+  `v_H = v10*ln((H-d)/z0)/ln((10-d)/z0)` assumes the 10 m reference sits above the canopy; with tall
+  buildings the `max(10-d, ped_height_m)` floor can drive the log ratio's denominator to ~2.6e-6 →
+  catastrophic cancellation. The pre-existing unit test only asserted `< free_stream` — too weak. Fix 1
+  (E-UTCI-07): fall back to `cost730` whenever `10.0-d <= ped_height_m`, counted via a
+  `wind_macdonald_domain_invalid_cell_hours` manifest field. Fix 2 (residual 84,439 cell-hours at cells the
+  first trigger never flags): an **unconditional postcondition** — fall back to `cost730` whenever
+  `0 <= v_1p1 <= v10` is violated, regardless of cause → 0 bound violations domain-wide. An epsilon guard on
+  the log ratio was rejected (doesn't uniformly bound the output).
+  *(same doc:4026, 4178)*
+- **`ResimRefusedError` / `AnnualEnergyPlusWindowRefusedError`** — deliberate structural traps:
+  `window_mode='annual'` with per-surface-per-hour output across a fleet is a multi-terabyte trap. Pass
+  `override_annual=True` / `override_annual_energyplus=True` only when the size has been deliberately
+  computed.
+  *(openubem/microclimate/resim.py:162; openubem/microclimate/window.py:76)*
+
+## 11. Visualization (3D viewer, matplotlib, basemaps)
+
+- **Published-numbers board shows its counters but an empty task list; `node --check` on its `<script>` gives `SyntaxError: Unexpected identifier 'you'`** — a quoted user phrase `(<i>"you can decide for all the steps"</i>)` was pasted raw into a double-quoted string of the `WP` data array (row `S03`), closing the string early; the whole script failed to parse, so nothing below the static HTML rendered. Fix: the quotes inside the script became `&quot;` (`docs/docs_DONE/openings/reporting/board_published-numbers.html`, `WP` row `S03`); check any board edit with `node --check` on the extracted script before publishing. *(docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md §8 T07)*
+- **Viewer scene reads as a "collapsed super-block" — one dominant purple mass swallowing the real towers** —
+  not a geometry merge: 121/738 buildings (≈50% of ground area) had `no_height` in OSM, were imputed to 1
+  storey / 3.5 m, and rendered with a confident viridis EUI colour. Largest case: Grand Central Terminal
+  (`relation/11171793`, a legitimate 155,536 m² single OSM relation).
+  *(docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md T22)*
+- **…and the fix over-fired: 85–100% of some cells rendered flat beige `#E4DFD6`** — `buildingFillColor`
+  short-circuited on `heightMissing(attrs)` *before* the real EUI lookup, painting real simulation output
+  over with beige at low opacity. Every building was actually simulated (`n_buildings == len(05_results.csv)`
+  in all 12 cells). Fix: remove the short-circuit; footprint-only buildings show their real colour at full
+  opacity with a dashed-outline legend indicator instead.
+  *(docs/docs_DONE/VISUALS/3D-visualization/debug/PLAN_3dviz_debug_representation.md)*
+- **Per-building translucency in a merged single-mesh scene** — "set material opacity per building" doesn't
+  apply. Widen the vertex `color` attribute from itemSize 3 (RGB) to 4 (RGBA) with `material.transparent =
+  true`; three.js auto-enables `USE_COLOR_ALPHA` (verified against pinned `three@0.155.0`).
+  *(docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md T22)*
+- **`data_quality_flag` token matching breaks on the separator** — Step-1 `osm_fetcher.py` comma-joins its
+  tokens, then `provenance.py::_append_flag` pipe-joins more onto that
+  (`"no_floors,no_height,no_year|GROUPMODE_MED"`). Use a plain substring test (`flag.includes("no_height")`),
+  not a split.
+  *(same doc T18)*
+- **3-hour hang regenerating 12 viewers, wall-clock cap never fired** — a single stuck Overpass retry hung the
+  whole run because `with ThreadPoolExecutor() as ex:` blocks on exit (`shutdown(wait=True)`). Fix: run the
+  fetch on a **daemon thread** with `thread.join(timeout)`; on timeout the wedged thread is abandoned.
+  *(docs/docs_DONE/VISUALS/3D-visualization/manager_prompt/sonnet_manager_handoff.md)*
+- **Overpass rate-limits mid-regen, large cells stall indefinitely** — the regen driver had been launched
+  **twice concurrently**, both hammering the same endpoint, with no per-request timeout. Fix: exactly one
+  driver instance; `ox.settings.requests_timeout = 60` plus a per-cell wall-clock backstop
+  (`CELL_CTX_CAP_S = 240`); accept roads-only degradation rather than treating it as a bug.
+  *(docs/docs_DONE/VISUALS/3D-visualization/manager_prompt/opus_manager_handoff.md)*
+- **Headless Chromium can't create a WebGL context for LIVE_SMOKE screenshots** — `--use-gl=swiftshader`
+  alone stopped working on Chrome 150.0.7871.24. Use
+  `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`.
+  *(docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md T20)*
+- **esbuild `--alias` for the vendored three.js bundle doesn't resolve on Windows** — relative
+  `node_modules/...` alias targets depend on the invoking `cwd`. Use absolute resolved paths.
+  *(same doc T17)*
+- **"Where are the building footprints? it is just gray background"** — `plot_eui_map` read
+  `05_results.gpkg`, which holds only **centroids**. Fix: read polygons from `01_buildings.gpkg` and
+  left-merge the attribute columns from `05_results.gpkg` on `osm_id`.
+  *(docs/docs_DONE/VISUALS/plotting/PLAN_plotting-suite_2026-06-16.md T10)*
+- **Basemap tile fetch fails with an out-of-range zoom (the "zoom-22 class of bug"), or the basemap is
+  blurry** — auto-zoom against point-source coordinates produces an invalid tile level; `zoom="auto"` also
+  under-selects and then bilinearly upsamples. Fixes: an explicit fallback loop
+  (`None → 17 → 16 → 15 → 14 → 13`) wrapped in try/except so a failure degrades to footprints-on-white; and
+  step the zoom up past contextily's auto value until the native raster's long axis ≥ `target_px` (cap +3).
+  *(same doc T10; docs/docs_DONE/VISUALS/3D-visualization/debug/PLAN_3dviz_debug_representation.md)*
+- **A data-centre outlier (`counter_total_eui` ≈ 14,584) blows out the roundtrip scatter axis** — drop rows
+  whose `openuben_archetype` contains `"DataCenter"` after the success filter in both `plot_roundtrip_scatter`
+  and `plot_dev_ranked_bar`, recompute the displayed median, and caption the exclusion. Same functions also
+  had to filter to `counter_status.str.startswith("success")` before aggregating — they were mixing failed
+  counterpart simulations into the stats.
+  *(docs/docs_DONE/VISUALS/plotting/PLAN_plotting-suite_2026-06-16.md T11 + correctness fix)*
+- **`TypeError` in `viewer_app.mjs::_buildLegend()`** — thrown when a scene has zero CityObjects with a
+  numeric `total_eui_kwh_m2`. Real, reproduced headlessly; initially misattributed as the cause of a reported
+  "blank scene" (the real cause was a slow-loading 26 MB / 190k-surface file).
+  *(docs/docs_DONE/SETUP/layoutAssigner/debug/storey-Matching/results/viewer_blank_diagnosis.md)*
+- **EU-11 remedy-campaign 3D viewer opens fully blank, zero buildings drawn, no visible error to the user** —
+  `scripts/update_eu_outputs_3d.py` emitted the scene-JSON provenance block as `provenance_counts`, but the
+  shared viewer bootstrap script reads `D.counts.measured` unguarded near the top of the IIFE
+  (`document.getElementById("hm").textContent=D.counts.measured...`); `D.counts` is `undefined`, the
+  `TypeError` throws before the building-draw loop ever runs, and canvas stays empty. Confirmed by parsing the
+  embedded scene JSON directly — 1,351 valid building records, zero NaN/degenerate geometry — data was fine,
+  only the key name was wrong. Fix: rename the emitted key to `"counts"` and add the missing `"data_dir"` key
+  (used unguarded for the footer link) to match the JS contract exactly.
+  *(scripts/update_eu_outputs_3d.py:238; regenerated `docs/docs_ACTIVE/europeanLocations/outputs_3D/eu_GB-LDN-STDUNSTANS_viewer.html`)*
+- **Per-building CSV join against `osm_id` silently returns zero hits for one district only (Bologna),
+  others fine** — `pandas.DataFrame.iterrows()` yields each row as a `Series`, which upcasts *all* columns to
+  one common dtype; joining an `int64 building_id` column next to a `float64 eui_kwh_m2` column turns every
+  id into a float during iteration (`27410` → `27410.0` → `str()` → `"27410.0"`), which then matches no
+  `str(row["osm_id"])` key. Only surfaced for Bologna because its `building_id` values are plain numeric
+  (Comune di Bologna ids); the other 3 EU districts use OSM-prefixed ids (`way/…`, `relation/…`,
+  `BATIMENT…`) that are already `object`/string dtype and don't upcast. Fix: read the id column with
+  `pd.read_csv(..., dtype={"building_id": str})` and iterate via `zip(df["col_a"], df["col_b"])`, never
+  `iterrows()`, when joining a string id against a numeric sibling column.
+  *(scripts/generate_eu_3d_viewers.py:793-808, `_load_eu11_eui`)*
+- **`ValueError: 97d478bc56840531.idf: ZONE '97d478bc56840531_F0_dwelling_3' has no floor surface`** when the 3D viewer script reads the 10-06 IT tree with `read_district` — the 3 IT and 1 ES broken-shell homes (FINDING 291, `geometry_fault_excluded_2026-10-06.csv`) are in `prepared_buildings.csv` with a zone that has no floor polygon; the strict reader refuses them. Fix: `_read_tree` / `_read_fault_plan` in `scripts/generate_eu_3d_viewers.py` read only the ids in that CSV with the zone filter that drops ring-less zones (same as `scripts/eu21/09_plans3d_from_idf.py::read_fault_plan`); every other home still uses the strict reader. T10b: `scripts/emit_eu11_layout_sidecars.py` (idf_plans_by_id block, `read_building_plan` per IDF in try/except, skipped ids printed) now does the same, so the side-car emitter no longer prints `WARNING: could not read IDF plans`. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-model-integrity-2026-10-02.md, T08)*
+- **`ValueError: <stem>.idf: ZONE '<stem>_F0_dwelling_N' has no floor surface`** when `scripts/eu21/09_plans3d_from_idf.py --source-tag win_2026-10-10` builds Helsinki, Vienna or Budapest — one home per city (FI-HEL-743480, AT-VIE-5371515, way/258430575) has a dwelling zone with no floor polygon, and the tolerant reader was only used for the FINDING 291 ids of the four built cities. Fix: `read_all_tag` (`scripts/eu21/09_plans3d_from_idf.py:144-150`) catches that `ValueError` outside FOUR_SITES, rereads with `read_fault_plan`, and records the id in `NO_FLOOR_ZONE_HOMES` (line 56); every other error is re-raised. Same error at S9 (`python -m scripts.generate_eu_3d_viewers --district FI-HEL-KALLIO --tag win_2026-10-10`, home c968481f95c7f46c, `_read_tree` line 93): `_read_tree` in `scripts/generate_eu_3d_viewers.py` now catches it for sites outside `FOUR_SITES` and rereads with `_read_fault_plan`; Vienna and Budapest need no further change. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-city-FI-helsinki-2026-10-08.md, T08)*
+- **Side-car `dwellings_total` != merged-manifest `dwellings_used` (GB 196 of 1,240, IT 1,051 of 1,160; side-car 17 or 16 flats against 73 or 132 simulated)** — `emit_eu11_layout_sidecars.py` re-imputed its own count (`n_apartment` of the reference building) while the 10-06 models use `_dwellings_for` (area rule, `run_eu_s2_district_campaign.py:148-167`). Fix: when `--population-manifest` is given, `dwellings_val` and `provenance_token` (`DWELLINGS_USED_<SOURCE>`) are taken from the manifest's `dwellings_used` / `dwellings_source` before `allocate_european_dwellings` (`scripts/emit_eu11_layout_sidecars.py`, `used_map` block). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-model-integrity-2026-10-02.md, T10b)*
+
+## 12. Cluster / SLURM / SSH (Speed)
+
+- **[OPEN] `sbatch: error: Slurm temporarily unable to accept job, sleeping and retrying` /
+  `sbatch: error: Batch job submission failed: Resource temporarily unavailable`, exit code 1, repeated
+  identically across 3 separate submission attempts** — hit submitting job 3/7 of a chained
+  `--dependency=afterany` array-job sequence while job 1/7 (9,302-task array) had ~30 tasks `R` and
+  thousands still `PD`. Exact command that failed each time: `ssh -o ConnectTimeout=10
+  o_iseri@speed.encs.concordia.ca "bash -lc 'sbatch --array=1-9302%32 --time=7-00:00:00
+  --dependency=afterany:1330087 --export=FLEET_DIR=...,FLEET_LST=fleet.lst.3
+  /speed-scratch/o_iseri/openubem/scripts/cluster/submit_fleet06b.sbatch'"`. Confirmed NOT a broader
+  outage: `sinfo` showed partition `ps` `up`, and the already-running job 1/7 kept advancing (task
+  index progressed from ~140 to ~718 between checks) — this is `slurmctld`'s own RPC/controller
+  congestion, most likely from bookkeeping a very large (9,302-element) pending array, rejecting new
+  submissions rather than queuing them silently. Not fixed: needs either a longer backoff before
+  resubmitting job 3, or waiting for job 1's pending-element count to drop before submitting the next
+  link in the chain, rather than submitting all 7 back-to-back immediately.
+  *(FLEET-06b split-submit, `scripts/cluster/fleet06b_split_submit_2026-09-18.py`, 2026-09-18)*
+  Seen again 2026-09-26 19:18 (FLEET-07c): a 9,000-task array was refused with only 10,817 tasks in the whole
+  cluster queue (`squeue -h -r`), so the effective limit is well below `MaxJobCount = 20002` minus the
+  queue. Workaround: a cluster-side feeder job (`fleet07_2026-09-26/fleet07_feeder.sbatch`, 1 CPU) submits
+  1,000-task chunks and retries every 10 min, so no local session is needed.
+  *(PROMPT_MANAGER_techtransfer_2026-09-18.md §7l)*
+- **`tar: /speed-scratch/o_iseri/openubem/fleets/fleet07_2026-09-26/pull/chunk_19.tar: Cannot close: Disk quota exceeded`**
+  (pack job 1400570, tasks 19, 21, 31 FAILED; 38 of 41 tars fine) — the `o_iseri` scratch quota is 10.0 TB hard;
+  the 830 GB raw `out/` plus 471 GB of tars filled it. Fix: pull each tar, verify it, then `rm -f` that tar on
+  Speed by exact path; after ≥ 80 GB freed, repack only `--array=19,21,31`. Size the pack output against
+  `quota -s` before submitting. *(PLAN_techtransfer-block7-fleet07-2026-09-26.md §6 FLEET-07c, Space amendment)*
+- **`tar: ./<cell>/<stem>/eplusout.sql.gz: file changed as we read it` (pack job 1400526), and later tars
+  with 14,733–16,113 members instead of 3,000 (chunks 12, 13, 14 of job 1400570)** — `$TMPDIR` on Speed is
+  per node, not per task, so `STAGE="$TMPDIR/stage"` was shared by every array task on the same node: each
+  tar swept up the other tasks' cases, some mid-`gzip` (one truncated `.sql.gz` found by the size check).
+  Tolerating tar exit 1 hid it. Fix: `STAGE="$TMPDIR/stage_${SLURM_ARRAY_JOB_ID}_${SLURM_ARRAY_TASK_ID}"`,
+  removed after tar, any non-zero tar exit fails the task (`scripts/cluster/fleet07_pack.sbatch`); the pull
+  extracts only the chunk's own cases; completeness is checked by the gzip size trailer against the original
+  `eplusout.sql` size on Speed (`scratchpad/isize_check.py`). Repacked as job 1400704.
+  *(PLAN_techtransfer-block7-fleet07-2026-09-26.md §8 FLEET-07c part 2)*
+- **`subprocess.TimeoutExpired: Command '['scp', ...chunk_08.tar', ...]' timed out after 3600 seconds`** —
+  the Speed→local link carries ~12 MB/s in total (measured: 11.8 MB/s for one stream, 1.5 MB/s each for 8),
+  so any tar over ~5 GB cannot finish in an hour with 8 in parallel; the partial file is thrown away. Fix: no
+  timeout on the `scp` call, up to 3 attempts per tar (`scratchpad/pull_driver.py`, `scp_pull()`). Size the
+  ETA as total GB ÷ 12 MB/s, not per stream. *(PLAN_techtransfer-block7-fleet07-2026-09-26.md §6 FLEET-07c)*
+- **`tcsh` silently drops `cat > file <<EOF` sent over bare `ssh`** — no error, just an empty/missing remote
+  file. Use `scp` for transfer and wrap every remote command in `bash -lc` (the `_ssh()` helper,
+  `scripts/cluster/t08_harvest_results.py:104`).
+  *(docs/docs_DONE/GENERAL/Resume_Prompts/monitorRun_resumeManager.md; CLAUDE.md)*
+- **`bash: No match.` from a remote command sent through the `_ssh()` `bash -lc '<cmd>'` wrapper, and the
+  whole remote command silently does nothing** — the wrapper's outer quoting is a single pair of `'...'`; if
+  `<cmd>` itself contains a single-quoted sub-string (e.g. `find idfs -name '*.idf'`), that inner `'` closes
+  the outer tcsh quote early, so `*.idf` lands unquoted mid-line and tcsh glob-expands it against the
+  connecting directory before `bash` ever runs — an empty match aborts the whole line with `No match.` and
+  every command after the break (extraction, copies, echoes) never executes, with no other error surfaced.
+  Fix: never put a `'...'` literal inside an `_ssh()`/`bash -lc '...'` payload; use `"..."` for any inner
+  quoted glob/pattern instead (`find idfs -name "*.idf"`), which passes through tcsh's outer single-quote
+  untouched. *(scripts/cluster/fleet06b_submit_2026-09-18.py, FLEET-06b 2026-09-18)*
+- **`sbatch: error: Batch job submission failed: Invalid job array specification` for `--array=1-65112%32`**
+  — Speed's SLURM `MaxArraySize` is `10001` (`scontrol show config | grep MaxArraySize`, informational, not
+  compute, allowed on the login node), so a single array job's highest task index must stay ≤ 10000; the
+  plan's precedent-derived `--array=1-N%32` pattern silently stops working once `N` exceeds that ceiling
+  (it worked for T07's `N=8152`). No fix applied yet — needs a decision on how to split a >10,000-case
+  campaign into multiple array jobs while keeping the total concurrent-task account-wide cap at 32, not
+  32-per-split-job. *(FLEET-06b 2026-09-18, PLAN_techtransfer-block6-2026-09-18.md)*
+- **[OPEN] `_ssh` (`scripts/validation/v12_cell_pipeline.py:111-116`) never inspects `result.returncode`** —
+  a failed `mkdir -p` at `:265` went unnoticed, then `scp` died with `dest open ... No such file or
+  directory`, discarding 43 minutes of correct upstream work and **blaming the wrong operation**. 3 of 8 call
+  sites share the bug (`:265`, `:457`, `:536` — the latter two discard a completed SLURM array). Worst site:
+  `:325` in `poll_cluster` runs `squeue ... 2>/dev/null | wc -l`, so a suppressed `squeue` failure reads as
+  `0` = "all tasks done" and the pipeline harvests results that were never produced. Also,
+  `subprocess.run(timeout=...)` is never wrapped in a `TimeoutExpired` catch. Cost: 3 of 12 cells lost in one
+  run. Remedy specified (`check: bool` raising on nonzero), not applied. (OPEN-54)
+  *(docs/docs_DONE/openings/extra/INVESTIGATION_open-54_ssh-unchecked-exit.md)*
+- **A completion poller declares a SLURM array "complete" when the controller itself failed** — fixed by
+  capturing `${PIPESTATUS[0]}` and requiring positive `sacct` corroboration (any of
+  `{PENDING,RUNNING,REQUEUED,RESIZING,SUSPENDED,CONFIGURING,COMPLETING}` → re-poll; no states → re-poll), and
+  by making `_ssh()` raise by default on remote failure.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_ten-items-2026-08-18-late.md)*
+- **Remote stderr `Unmatched '.` from tcsh, child exit 1, raised as `RemoteCommandError`** — long `_ssh`
+  payloads hit a tcsh parse limit near ~8,192 bytes, but it is **intermittent, not a fixed threshold**: one
+  bisection put the flip at 8,166–8,191 bytes, one byte *under* 8,192, ruling out a simple buffer
+  explanation. A separate Windows-only CRLF-on-stdin fault returns a clean, plausible, silently-wrong `0` and
+  is invisible on Linux. Mitigation: chunk `_ssh()` payloads well under 7,500 characters. (was OPEN-57,
+  closed)
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-57_probe-length-threshold.md)*
+- **`WinError 206` / truncated-quote errors fetching cluster results at fleet sizes ≥ ~150** — enumerating
+  per-building paths inline hits the Windows 32,767-character command-line limit. Use a single streamed
+  remote `find | tar --null -T -` pipe into a local `.tgz`.
+- **`sacct --format=JobID,State%20` silently truncates the JobID column on a large still-pending array,
+  collapsing e.g. `1305167_[171-293]` into `1305167_[17+` — read as "17 pending" instead of the true 123**
+  — the default JobID field width is fixed, and `%20` only widens the State column, not JobID; the `+`
+  marks truncation, not a count. Caused a monitoring-loop progress report to overstate completed counts by
+  ~40 % across three districts (Lyon 268 reported vs. 162 real, Madrid 916 vs. 192, Bologna 1178 vs. 122) in
+  one polling cycle before being caught by eyeballing that the "pending" number hadn't grown despite ~1,700
+  new tasks having been queued. Fix: always widen JobID too — `--format=JobID%25,State%20` — so array
+  ranges print in full. *(EU-11 Speed campaign monitoring, 2026-09-04)*
+  *(docs/docs_VALIDATION/step1/overAll/OPEN_QUESTIONS_R5.md OQ-R5-10)*
+- **`fleet.lst` build produces 1778/1778 `cp` failures** — entries used slash-format osm_ids while the sbatch
+  script builds `idfs/<entry>.idf`. Entries must be the IDF filename stem (underscore format, Unix LF).
+  *(same doc)*
+- **`.eio` files never present locally after a harvest** — 5 harvest scripts' `tar czf - --ignore-failed-read
+  */eplusout.sql */eplusout.err */eplusout.end` fetch list simply never named `eplusout.eio`. Fixed at all
+  sites. (OPEN-37)
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-37_eio-fetch-closure.md)*
+- **Harvest of a full-output re-simulation killed at the 30-minute tool limit, local fetch folder empty
+  (stream had reached 6.8 GB)** — `_fetch` ran `ssh … tar czf - -T -` with `subprocess.run(capture_output=True)`
+  and opened the result with `tarfile.open(fileobj=io.BytesIO(p.stdout))`, so nothing reaches disk until the
+  whole multi-GB stream is held in memory (508 untrimmed cases = 16 GB). Fix: `subprocess.Popen` +
+  `tarfile.open(fileobj=p.stdout, mode="r|gz")`, extracting member by member
+  (`scripts/analysis/open35_resim_2026-09-30.py:202-220`); ported to `open38_fix_rerun_2026-09-30.py` `_fetch`.
+  Parse steps skip the fetch when `fetched/out/*/eplusout.sql` already exists.
+  *(docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md, T03b and T06b amendment)*
+- **[OPEN] ~2.14 GB of untrimmed per-task directories orphaned on scratch, no `task.rc` present** — the sbatch
+  template's `set -e` kills the job script at the failure point, before the lines that write `RC=$?`/`task.rc`
+  and run the disk-trim block, so a failed task keeps its full output (~48.6 MB vs ~0.3 MB trimmed).
+  Reproduces in every fleet generation using the T08-derived template.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-39-40_cluster-records.md)*
+- **[OPEN] 874/875 E02 harvest directories missing `.sql`/`.end` while `.err`/`.eio` report "Completed
+  Successfully"** — statistically indistinguishable from a healthy control (99.9% vs 100%), all-or-nothing at
+  the batch level (exactly 2 of 60 `(cell, mode)` batches), so it is a **harvest-copy gap**, not a simulation
+  failure. Cause not determinable further from `.err`/`.eio` (neither logs `Output:SQLite` request status).
+  (OPEN-53)
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-53_missing-sql.md)*
+- **A cell fails with the SSH connection dropped (sshd closed the connection, not a nonzero remote exit)** —
+  a solo transport drop; no remote job existed, nothing harvestable, no cleanup needed. The fix that worked:
+  retry the cell **alone** (a single `run_cell()` with nothing else queued in the process) — both failing
+  cells succeeded on the first solo retry.
+  *(docs/docs_DONE/openings/extra/INVESTIGATION_open48-run4-cell-failures.md)*
+- **A `grep -c` / `||`-fallback exit-code interaction corrupted a wait loop's exit condition** — it polled
+  forever without ever detecting that the cluster job had finished; caught only by a manual live check.
+  *(docs/docs_DONE/SETUP/layoutAssigner/debug/DONE/COMPLETION_REPORT_debug.md)*
+- **Local-CPU-scaled wall-clock extrapolations for cluster runs are unreliable** — two recorded ~10× misses.
+  Never gate `--time=` limits or go/no-go decisions on local timing extrapolation; measure on real nodes.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_speed-probe-cost.md)*
+- **EU-11 S2 campaign: every array task failed instantly with `Schedule:File=... not found`** — the new
+  `scripts/cluster/ship_eu11_fleet.sh` staged and tarred only `idfs/`, `weather/`, `fleet.lst`, never the
+  local `schedules/` directory, so the remote fleet dir had no schedule CSVs at all (100% failure, Madrid
+  961, Lyon 297, London 82). Fix: stage and tar `schedules/` too (`ship_eu11_fleet.sh`); re-shipped and
+  resubmitted clean (Madrid job 1293106, Lyon 1293123, London 1293124), spot-checked `task.rc=0` with
+  "EnergyPlus Completed Successfully" post-fix.
+  *(docs/docs_ACTIVE/europeanLocations/prompts/PROMPT_EU-11_full_district_campaign_speed.md)*
+- **`ship_eu11_fleet.sh`'s local staging step raised `FileExistsError: [WinError 183]` on the schedules
+  directory** — the staging step created `schedules/` unconditionally with `mkdir()` (no `exist_ok`) on a
+  district already staged once, so a re-ship after a `prepare()` regeneration collided with the leftover
+  directory from the prior run. Fix: `exist_ok=True` (and clear the stale contents first so old schedule
+  CSVs from a superseded regeneration can't leak into a new tar). Hit during `D-EU-35`'s Madrid/Lyon/London
+  re-shipping.
+  *(scripts/cluster/ship_eu11_fleet.sh; docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_D-EU-35_geometry_simulation_desync_resimulation_2026-08-28.md)*
+- **A `sacct` PENDING bracket's lower bound duplicated an individually-listed task of a different state**
+  (`1305186_205 RUNNING` alongside `1305186_[205-1200%8] PENDING` in the same poll) — a snapshot race: the
+  task transitioned PENDING→RUNNING while `sacct` was compiling its grouped-range output, so it appears both
+  individually (current state) and as the bracket's stale lower edge. Naive `hi-lo+1` expansion overcounts
+  pending by exactly 1 (sum came to `total_tasks+1`). Fix: cross-check the arithmetic sum
+  (completed+failed+running+expanded-pending) against the job's known `total_tasks`; if over by 1 and an
+  individual line duplicates the bracket's lower bound in a different state, subtract 1 from the bracket
+  count (Lyon/Madrid the same poll had no such overlap — bracket start was exactly one past the last
+  individual line, confirming this is a race artifact, not a general off-by-one in the expansion rule).
+  *(EU-11 Speed campaign monitoring, 2026-09-04, poll #5)*
+- **`sbatch` submission for `D-EU-35`'s re-shipped fleets failed, script not found** — the remote path was
+  guessed as `/speed-scratch/o_iseri/openubem/scripts/submit_fleet_t08.sbatch` (flat under `scripts/`); the
+  real path nests it under `scripts/cluster/`:
+  `/speed-scratch/o_iseri/openubem/scripts/cluster/submit_fleet_t08.sbatch`. Fix: use the `cluster/`-nested
+  path in every `sbatch` call.
+  *(scripts/cluster/submit_fleet_t08.sbatch)*
+- **`tar: <stem>/eplusout.sql\r: Warning: Cannot stat: No such file or directory`** when streaming a
+  file list to a remote `tar -T -` over `ssh` from a Windows Python script — `Path.write_text()` on
+  Windows translates `\n` to `\r\n`, so every line in the list file gains a trailing `\r` the remote
+  Linux `tar` treats as part of the filename. All members silently fail to match (`--ignore-failed-read`
+  swallows the errors into a near-empty archive) rather than raising. Fix: write the file-list with
+  `Path.write_bytes(("\n".join(lines) + "\n").encode("utf-8"))` (or `open(..., newline="")`), never
+  `write_text()`, whenever the list is piped to a POSIX remote command.
+  *(scripts/cluster/fetch_parse_cell.py, T08 fleet harvest, 2026-09-10)*
+- **`squeue` shows `JobHeldUser` on the whole pending remainder (`1405556_[389-747]`, `1405559_[1-1089]`) after `scontrol hold <jobid>_[i,j,k]`** — on an array whose pending tasks are still one unsplit record, `scontrol hold` with an index list holds that whole record, not the listed tasks. Fix: `scontrol release <jobid>` at once (throttle stays `ArrayTaskThrottle=32`); to skip single not-started tasks, swap their input on disk instead, or let them run and resubmit. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md §8, T06d4 director audit)*
+- **`File exists.` when a command on the Speed login shell redirects (`>`) to an existing `/tmp` file** — the login shell (tcsh) has `noclobber` set, so `>` refuses to overwrite an existing file. Fix: `rm -f` the file first, or pipe instead of using a temp file. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-helsinki-division-2026-10-09.md)*
+- **`(standard_in) 1: syntax error` from `bc` when summing `sacct -o Elapsed`** — `Elapsed` is `HH:MM:SS` text with `:`, which `bc` cannot parse as a number. Fix: use `sacct -o ElapsedRaw` (seconds) for sums and means. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-helsinki-division-2026-10-09.md)*
+- **`EnergyPlus 23.1 IDD not found at C:\EnergyPlusV23-1-0/Energy+.idd; falling back to eppy bundled IDD v8.0.0` in a Speed array log that builds IDFs** — `openubem/config.py:9-31` looks for the Windows install path; on Linux it silently falls back to the v8.0 IDD, so every IDF written there has the `BuildingSurface:Detailed` field shift. Fix: ship the local 23.1 `Energy+.idd` (md5 2f3e8a1b…) into the Speed package and export `OPENUBEM_ENERGYPLUS_IDD_PATH` in the array script, failing if the file is missing (`scripts/cluster/eu22_fix_array.sbatch`); wrong-IDD job 1448040 cancelled and its parts deleted. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-division-fix-3cities-2026-10-10.md, T05)*
+
+## 13. Pipeline plumbing, Windows & parallelism
+
+- **The cell driver hard-kills a whole cell (`sys.exit(2)`) when even 1 building is unsimulatable** — the
+  zero-fail exit fired from **three different places across three rounds of hardening**: (1)
+  `v12_cell_pipeline.py:1025-1030` `run_cell`; (2) 4 unconditional `sys.exit(2)` calls inside
+  `verify_and_repair` (~line 561) that fire *before* the run_cell tolerance can act; (3)
+  `dropped_buildings.csv` written into `results_dir` before Step 5 created it → `OSError: Cannot save file
+  into a non-existent directory`. Fix: a `max(5, ceil(0.01*n_generated))`-tolerant logged-drop path at every
+  gate + `results_dir.mkdir(parents=True, exist_ok=True)`.
+  *(docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/remediation/PLAN_phaseE_CPD_remediation.md §9-10)*
+- **A `print()` crashes the job on the Windows cp1252 console** — Unicode/emoji in log or verdict strings.
+  Seen in the drop-log path (la_rural fan-out) and in `scripts/diagnostics/v19_phasec_rescore.py`. Fix:
+  remove the glyphs; add `# -*- coding: utf-8 -*-`.
+  *(docs/docs_REPORTS/REPORT_phaseE_final.md §10.4; docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_phaseC-combined-resim.md)*
+  Also seen as **`UnicodeEncodeError: 'charmap' codec can't encode character '∩' in position 3:
+  character maps to <undefined>`** — an `∩` (set-intersection glyph) in an f-string `print()` inside
+  `scripts/analysis/open09_open38_overlap_2026-08-21.py`, run via `.venv/Scripts/python.exe` on the
+  default cp1252 console (T10, `PLAN_ten-live-items-2026-08-21.md`). Fix: replaced the glyph with `x`
+  in the print string; `PYTHONIOENCODING=utf-8` also unblocks it without an edit if the glyph must stay.
+- **Resim driver freezes mid-run: 4 nested python processes at ~0% CPU, no exception** — `joblib`'s `loky`
+  backend (`run_step3(..., n_jobs=4)`) deadlocks intermittently under Python 3.14 on Windows (IPC deadlock,
+  not compute). Fix: `n_jobs=1`, plus a skip-if-remote-done resumable fetch and a per-cell wall-clock timeout
+  so one stuck cell can't freeze a 12-cell sweep.
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/phaseD_realHVAC/PLAN_phaseD_real_hvac_resim.md)*
+- **One bad building crashes the entire serial generation loop** — the `n_jobs=1` path in `run_step3`
+  (`builder.py:402-405`) had no try/except around `BuildingIDF(row).build()`, unlike the isolated loky path.
+  Fix: mirror `_build_one`'s try/except, record `failed_worker_exception`, continue.
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_geometry_generation_drops.md)*
+- **Parallel-pool rules (Windows `spawn`)** — worker functions must be module-level (closures/lambdas can't
+  pickle); child `print()` output is lost or interleaved, so buffer it and return it in the result dict;
+  distinguish real pool crashes (`BrokenProcessPool`, OOM, segfault → re-raise) from application errors (bad
+  IDF, applier exception → catch *inside* the worker, return `ok=False`) so one bad job doesn't abort the
+  pool.
+  *(docs/docs_DONE/SETUP/parallelProcessing/parallel_idf_prep_detailed.md)*
+- **A batch of parallel E+ runs yields empty output dirs or odd fatals (`HVACTemplate:* objects found... must
+  run ExpandObjects`, `Missing required property 'Building'`)** — a concurrency/harness artifact; re-running
+  the same buildings **serially** completes cleanly (18 s, 0 severe). Always re-verify apparent failures
+  serially before scoring them. Related: `SQLite database failed to open` fatal during local parallel runs is
+  a filesystem lock artifact — re-run in a clean isolated directory.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-35_storey-intervention.md; docs/docs_DONE/BUGS/misclassification/RESUME_T11_fresh_manager_session.md)*
+- **`PermissionError: [WinError 32] The process cannot access the file because it is being used by another
+  process`** on `Path.unlink()` of a temporary decompressed `eplusout.sql` copy after `aggregate_results()`
+  returns — `aggregate_results()` (or a library it calls) can still hold a SQLite handle on the decompressed
+  file's path when the harvest tries to delete it, on Windows only. Fix: catch `PermissionError` alongside
+  `FileNotFoundError` around the cleanup `unlink()` and leave the file for the OS temp cleanup; it is a
+  scratch copy, not an output, so a leaked one is harmless.
+  *(scripts/analysis/fleet07_harvest_2026-09-27.py:218, FLEET-07d)*
+- **`move_to_runtime` throws `WinError 32` after a local E+ worker exits** — `eplusout.sql` stays locked, so
+  `rmtree` of the temp source fails even though the copy already succeeded. Verify by counting
+  `eplusout.end` files in `runtime/.../sim_out` (don't trust the exception), then delete the leftover
+  `%TEMP%/ubem_validation/cases/<cell>` manually.
+  *(docs/docs_DONE/GENERAL/Resume_Prompts/pahseC_resumeManager.md)*
+- **Rerunning a cell's ship step doesn't pick up regenerated IDFs** — `ship_to_cluster`'s guard was
+  `if not dst.exists(): shutil.copy2(...)`. Fix: unconditional copy, plus `rmtree` `fleet_staging/` and
+  `sim_out/` before each regeneration (keep weather/step1/step2 caches).
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_phaseC_geometry_fixbatch.md)*
+- **`assign_climate_zones` crashes on a 1-row subset** — its "wrong continent" zero-Tier1 guard fires
+  spuriously on a single repaired building. For single-row repairs, reuse the cached
+  `02a_climate_epw.parquet` zone instead of re-deriving.
+  *(docs/docs_DONE/GENERAL/Resume_Prompts/pahseC_resumeManager.md)*
+- **A cell silently never ran** — it was simply absent from `CELL_CONFIGS` in `v12_cell_pipeline.py`
+  (nyc_centre). Check the config table before debugging the pipeline.
+  *(docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_phaseC_geometry_fixbatch.md)*
+- **Two concurrent background runs race on the same output directory** — a 376–752 MB raster of unknown
+  provenance resulted; an `svf_mean` byte-match was wrongly taken as proof the race was harmless (SVF is
+  deterministic geometry and matches regardless of interleaving). Always check for a live process
+  (`Get-CimInstance Win32_Process`) before relaunching against a shared output path; **kill before
+  delete-and-relaunch**.
+  *(docs/docs_DONE/OUTDOOR/UTCI/implementation/sub-plans/DONE-PLAN_e-utci-09_height_backfill.md:1656)*
+- **A background driver dies repeatedly with no explanation** — it was launched from inside a subagent turn
+  and torn down when that turn ended. Launch turn-surviving background drivers from the main session only.
+  Related: long-lived local background pollers get externally killed after an idle/lifetime threshold —
+  decouple into short, re-armable per-cycle checks.
+  *(docs/docs_DONE/BUGS/misclassification/RESUME_T11_fresh_manager_session.md; docs/docs_DONE/SETUP/phaseC_combinedResim/PLAN_phaseC-combined-resim.md)*
+- **[OPEN] `FileNotFoundError ... .pytest_tmp\...\step3\idfs\way_R7.idf` inside `run_step3()` writing
+  `03_idf_manifest.parquet`, despite an earlier `output_dir.mkdir(parents=True, exist_ok=True)`** — looks
+  like a race or tmp-dir issue specific to the pytest session; not diagnosed, reproducibility unconfirmed.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-24_live-gate.md)*
+- **`run_ep_isolated()` silently produces no `eplusout.sql` (rc from the subprocess never even
+  checked; `outdir` stays populated only with the `mkdir`) when the caller passes relative `Path`
+  objects for `idf`/`epw`** — `run_ep_isolated()` sets `cwd=str(outdir)` on the `subprocess.run`
+  call (`scripts/analysis/open35_storey_intervention_2026-08-19.py:107`) precisely to give every
+  invocation its own working directory (the OPEN-58 fix); a relative `idf`/`epw` path resolves
+  against the **new** `cwd` after the switch, not the caller's original directory, so EnergyPlus
+  is pointed at a path that doesn't exist there and exits non-zero with `capture_output=True`
+  swallowing the message. Fix: always pass `.resolve()`'d (absolute) `Path`s for `idf`, `epw` and
+  `outdir` into `run_ep_isolated()`. *(docs/docs_DONE/openings/extra/MEASUREMENT_open-61_district-heating.md)*
+- **`AttributeError: 'NoneType' object has no attribute '__dict__'` inside `dataclasses._process_class` ->
+  `_is_type`, raised while loading a sibling analysis script via `importlib.util.spec_from_file_location` +
+  `module_from_spec().exec_module()`** — the loaded module defines a `@dataclass`, and dataclasses' internal
+  type resolution does `sys.modules.get(cls.__module__).__dict__`; a module built via `module_from_spec` is
+  never registered in `sys.modules` unless the caller does it explicitly, so the lookup returns `None` and
+  `.__dict__` fails. Fix: `sys.modules[spec.name] = module` **before** `spec.loader.exec_module(module)`.
+  *(scripts/analysis/open61_census_build_2026-08-20.py, loading open61_census_read_2026-08-20.py's
+  `DistrictHeatingRead` dataclass by file path)*
+- **`FileNotFoundError: [Errno 2] No such file or directory: '...\idfs\<safe_id>.idf'` from
+  `eppy.modeleditor.IDF.save()` inside `BuildingIDF.build()`** — the success path
+  (`openubem/idf/builder.py:642-643`) writes straight to `output_dir / "idfs" / f"{safe_id}.idf"` without
+  creating the `idfs` subdirectory itself (only a different branch, `:713`, does
+  `(output_dir/"idfs").mkdir(exist_ok=True)`). Every caller of `.build()` must pre-create
+  `(output_dir / "idfs").mkdir(parents=True, exist_ok=True)` before calling —
+  `open35_storey_intervention_2026-08-19/20.py`'s `build_arms()` already does this; a fresh caller that only
+  creates `output_dir` itself (not its `idfs` child) hits this. Fix: create the `idfs` child directory, not
+  just `output_dir`, before `.build()`. *(scripts/analysis/open61_census_build_2026-08-20.py T02)*
+
+- **A multi-hour analysis run dies mid-way with no traceback; its background-task log contains only `[killed]`** —
+  a long job launched through the agent harness's own background-task mechanism is a child of the session and is
+  terminated when the session is compacted or the task is stopped. The OPEN-61 fleet census lost its process this way
+  after 5 hours and 7,354 of 8,153 buildings; only the flushed CSV rows survived. Fix: launch any run longer than a
+  few minutes as a **detached OS process** instead — `Start-Process -FilePath py -ArgumentList "-3",<script>
+  -RedirectStandardOutput <log> -RedirectStandardError <err> -WindowStyle Hidden -PassThru` — and watch its log file
+  rather than its stdout; and give the runner a **resume path** (read the osm_ids already in the output CSV, run only
+  the complement, open the CSV in append mode) so an interrupted run never has to be repeated.
+  *(scripts/analysis/open61_census_build_2026-08-20.py T03)*
+  - Extended 2026-10-07: `subprocess.Popen(..., creationflags=DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP|CREATE_NO_WINDOW)` is **not** enough — the T12b rulebook reruns (orchestrator + 10 workers) all died together at a session compaction around 12:10, log ending at `start R2_33_ES-MAD-BERRUGUETE`, 14 of 109 jobs done, no traceback, no System event. A detached child still inherits the harness's process job. A WMI launch (`Invoke-CimMethod Win32_Process Create`) died the same way 20 min later, at the next user turn (12:39:45; only a system-Python `http.server` started outside the session survived; no Defender or System event). Fix: run the orchestrator as a **scheduled task** — a `.cmd` wrapper, `schtasks /create /tn OpenUBEM_T12b /tr <wrapper> /sc once /st 23:59 /f`, `schtasks /run`, then `Set-ScheduledTask -Settings (New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit 3d -MultipleInstances IgnoreNew)`; watch it with `schtasks /query ... | grep Running`, and `schtasks /delete` it after DONE. The orchestrator's skip-if-dump-exists resume picks up where the last run stopped. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md §8 T12b)*
+  - Extended 2026-10-07 (second): the `.cmd` scheduled task also died, between 14:35 and 14:40, all workers with it, `LastTaskResult 3221225786` (0xC000013A = console closed / Ctrl+C) — an interactive scheduled task opens a **visible console window** on the user's desktop and everything attached to it dies when that window is closed. 20 of 109 jobs were done. Fix: register the task with `New-ScheduledTaskAction -Execute .venvScriptspythonw.exe -Argument <orch.py> -WorkingDirectory <repo>` plus `-Hidden` settings (no console), workers launched with `creationflags=subprocess.CREATE_NO_WINDOW`, and the orchestrator's first line redirecting `sys.stdout = sys.stderr = open(<err.txt>, "a", buffering=1)` — the first pythonw launch without that line exited silently after its first worker start (cause unseen, since pythonw discards stderr); with it the run started cleanly at 14:42:49 with 89 jobs to do. Watch the orchestrator by process count, not task state. *(same source)*
+  - ⚠ superseded 2026-09-10: restated at 153.95 kWh/m² over 8,139 buildings (different population from 8,153 — see previous/PLAN_accuracy-restatement-2026-09-09.md T08, CP-4). Do not diff the two numbers without stating both populations. ⚠ superseded 2026-09-30: adopted 172.41 kWh/m² and 981,720 t CO₂e over the same 8,139 buildings (153.95 / 881,743 missed district heating and double-counted cooking + refrigeration in 129 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md CP-1). ⚠ superseded 2026-09-30 (three rulings): adopted 171.38 kWh/m² and 1,146,454 t CO₂e over the same 8,139 buildings — see docs/docs_DONE/openings/implemenation/previous/PLAN_three-rulings-2026-09-30.md CP-B. ⚠ superseded 2026-10-21: restated at 154.10 kWh/m² / 1,037,572 t over 8,139 buildings (hot water counted once, D-IMP-05; see docs/docs_ACTIVE/IMP/PLAN_paper-improvement-implementation-2026-10-21.md T13).
+- **`shutil.rmtree(work_dir, ignore_errors=True)` leaves `sim_out/eplusout.sql` behind on Windows** — the SQLite
+  file is still open (or held by the OS) when cleanup runs, so the unlink fails, `ignore_errors` swallows it, and the
+  directory survives holding just the `.sql`. Effect is twofold: a per-building cleanup meant to bound disk use
+  instead accumulates ~2.5 MB per building (41 GB over the fleet census), **and** a re-run of that building reads a
+  stale `eplusout.sql` if EnergyPlus fails, silently parsing the previous run's results. Fix: delete the work dir
+  explicitly before re-running a building, and treat leftover `.sql` files as a corpus to be inventoried rather than
+  as cleanup that succeeded. *(scripts/analysis/open61_census_build_2026-08-20.py T03)*
+- **`ERROR: Could not find input data file: <dir>\<dir>\<name>.idf` from `energyplus.exe`, `returncode=1`,
+  no `eplusout.err` written at all** — the runner built its per-building temp directory from a **relative**
+  `Path` (`SMOKE_ERR_DIR / f"_tmp_{building_id}"`), then called `subprocess.run([..., "-d", str(tmp_root),
+  str(idf_path)], cwd=tmp_root, ...)`; `cwd=` only changes the child process's working directory, it does not
+  rebase relative path *arguments*, so `energyplus.exe` resolved the still-relative `idf_path` against the new
+  `cwd` a second time, looking for `tmp_root/tmp_root/<name>.idf`. Same root cause as the `run_ep_isolated()`
+  entry above (relative path + `cwd=` switch), different, louder symptom because here EnergyPlus itself reports
+  the exact missing path instead of silently producing no output. Fix: `.resolve()` the temp directory before
+  building the `.idf` path from it (`scripts/run_eu_s1_smoke.py:283`).
+  *(scripts/run_eu_s1_smoke.py, EU-04 S1 smoke, D-EU-04-H)*
+
+- **`ModuleNotFoundError: No module named 'cdsapi'` raised at import time by `scripts/acquire_era5_eu_folds.py:27` (`from cdsapi.api import get_url_key_verify`)** — the script was launched with the Windows `py` launcher, which resolves to the system interpreter (`AppData/Local/Programs/Python/Python313/python.exe`), not the project virtualenv. `cdsapi`, `pvlib` and `xarray` are installed only in `.venv` and are still undeclared in `pyproject.toml`, so nothing outside `.venv` can import them. The failure is environment selection, not a missing install. Fix: invoke the acquisition and conversion scripts as `./.venv/Scripts/python.exe scripts/acquire_era5_eu_folds.py ...`; `py -0p` lists the launcher targets and confirms `.venv` is not among them. *(docs/docs_ACTIVE/europeanLocations/previous/PLAN_eu-boundary-closure-2026-08-26.md, T01)*
+
+- **`PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'era5_madrid_2009-06.zip'` inside `ecmwf.datastores.processing.Results.download`** — a manual `--poll` invocation was run in the foreground while the background `--run-sequential` loop for the same fold was also polling; both processes saw the CDS job as `successful` at the same moment and raced to write the same target file, so the loser's `os.remove(target)` inside `download()` hit a file the winner still had open. The file itself downloaded correctly (the winner completed it); only the loser process crashed. Fix: `scripts/acquire_era5_eu_folds.py:poll()` catches `PermissionError` around `result.download(str(dest))`, prints `DOWNLOAD_RACE_SKIPPED`, and continues instead of raising -- the next `--poll` retries naturally since `dest` is absent for the losing process. Operational rule: do not run a manual `--poll` while `--run-sequential` is active for the same fold. *(docs/docs_ACTIVE/europeanLocations/previous/PLAN_eu-boundary-closure-2026-08-26.md, T01)*
+
+- **EnergyPlus aborts with `Could not find weather file` even though the `.epw` exists and its path is correct from the shell** — the gate-6 smoke runner invokes EnergyPlus with `cwd=<temp run dir>` while passing the EPW as a **relative** path, so the child resolves it against the temp directory instead of the repo root and never sees the file. The path is right; the working directory is not. Fix: resolve the weather path to absolute before building the argument list — `Path(epw_path).resolve()` at the top of `evaluate_energyplus_smoke_gate`, `openubem/acquisition/european_weather.py`. Found by running the real control (the pinned France EPW, which the registry already records as `gate_6_energyplus_smoke: PASS`) rather than by unit tests, which used a monkeypatched runner and could not see it. General rule for any `subprocess.run(..., cwd=...)`: every path handed to the child must be absolute, because the child's notion of "here" is not yours. *(docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md §12.12)*
+
+- **A long live-API sweep runs at double its pinned rate limit and burns quota twice over, while every log line looks healthy** — a dispatched subagent had launched its own copy of the sweep and the director later launched another; both were hitting the same host and the same on-disk cache at ~10 req/s against a pinned 5 req/s. Neither process can see the other. `wmic process where "..." get CommandLine` returns nothing on this machine; the working probe is PowerShell `Get-CimInstance Win32_Process | Where-Object CommandLine -match '<script>'`, which showed two independent PID pairs. Fix: `Stop-Process -Id <loser pids> -Force`, then keep exactly one owner of any rate-limited job. Rule: **before launching a long network job, list the processes** — an agent's claim that its job "finished" or "is running" is prose, not evidence. *(docs/docs_ACTIVE/europeanLocations/previous/PLAN_gb-epc-coverage-probe-2026-08-27.md, T03)*
+
+- **A subagent reported `completed`, then woke up again minutes later, deleted a 5,781-file live response cache and restarted a 40-minute sweep from zero** — a finished agent is not inert: it can re-notify and act again, and its startup path included a "clean the cache" step. Cost ≈ 5,800 wasted API calls; **no corruption**, because the cache is keyed per UPRN and the sweep is idempotent (`was_cached` short-circuits both the sleep and the call counter). Fix: `TaskStop` on that task id, and never again dispatch an agent into an arc that owns a long-lived cache. Rules: **make every long job resumable and per-key cached** so a rogue restart costs time and never truth; and **no destructive step in a job's startup path**. *(docs/docs_ACTIVE/europeanLocations/previous/PLAN_gb-epc-coverage-probe-2026-08-27.md, T03)*
+
+- **A 40-minute background job stops dead with a 0-byte log and no error, ~30 minutes after it was launched** — two separate traps compounded. (a) `TaskStop` on an agent **also kills the child processes that agent launched**, so stopping a rogue agent silently killed the sweep it had parented. (b) Python **block-buffers stdout when redirected to a file**, so a 0-byte log on a healthy long job is normal and cannot be used as a liveness signal. Fix: relaunch with `PYTHONUNBUFFERED=1` (progress then appears line-by-line and resume is visible as `api_calls: 0` on already-cached items), and **before `TaskStop`-ing an agent, check whether a job you want to keep is parented to it** — launch long jobs from the director session, never from a subagent. *(docs/docs_ACTIVE/europeanLocations/previous/PLAN_gb-epc-coverage-probe-2026-08-27.md, T03)*
+
+- **Two `scripts/eu21/08_district_viewer.py` runs for the same `--district`/`--tag` are alive at once, both about to write the same `district_plans/<D>_nocore_<tag>.json`** — an executor that cannot see its own earlier background launch relaunched the regeneration 8 minutes later; the script writes the JSON in one unguarded `json.dump` at the end (`scripts/eu21/08_district_viewer.py:887`), so two finishers would have interleaved into a corrupt baseline that every later parity run would then be gated against. Caught before either finished, by `Get-CimInstance Win32_Process | Select ProcessId,ParentProcessId,CreationDate` — the **CreationDate** column is what separates the survivor from the duplicate; the command line alone cannot. Fix: `Stop-Process -Id <later pids> -Force` on the newer launch only, keeping the older (further-along) one, then hand the executor the measured process table instead of letting it re-derive state. Rule: an executor's "still waiting on my background task" is a claim about its own memory, not about the machine — list the processes before believing there is exactly one. *(docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-plan-homogeneity-2026-09-07.md, T03b)*
+
+- **A `Bash` tool call with `nohup ... & echo $!` inside `run_in_background: true` reports `completed` in seconds with 0-byte logs, yet the launched processes are still alive minutes later, unlogged and untracked** — nesting an explicit `&`-background (and `nohup`) inside a call the harness is already tracking as a background task double-backgrounds it: the outer call returns as soon as the inner `echo` runs, "completed" describes only that trivial wrapper, and the real child processes detach from both the harness's job table and the intended log redirection (their `>file 2>&1` was opened before a later `rm -rf` on the log directory, so writes go to an unlinked inode). A second, correctly single-backgrounded relaunch after that then races 8 duplicate OS processes over the same 4 output directories (`emit_eu11_layout_sidecars.py`, T07c/D-EU-115). Separately, a plain `wait` (no args) at the end of a background script can print its "done" marker (`rc=127`) while two of its four backgrounded children are still running — killing unrelated processes mid-script via `Stop-Process` disturbs the shell's job table enough that `wait` stops waiting early; the status file is not proof of completion. Fix: never nest `&`/`nohup` inside a `run_in_background: true` call — let the harness's own backgrounding do the job, with a synchronous `wait` as the *only* backgrounding inside the command. Verify real completion with `Get-CimInstance Win32_Process | Select ProcessId,ParentProcessId,CreationDate,CommandLine` (kill true duplicates by `CreationDate`, keep the tracked batch) rather than trusting a "completed" notification or a status-file marker; re-poll process liveness after any external `Stop-Process` before believing a `wait` exit. *(docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md, T07c/D-EU-115)*
+- **`Background command "Run one home's energy simulation locally and time it" was stopped after reaching its background time limit` — and the local EnergyPlus run it started dies with it, mid-simulation, no `task.rc`** — a `run_in_background` Bash call is killed with its whole process tree when its `timeout` runs out (default 30 min, max 2 h), so any long local campaign (EnergyPlus, orchestrators) launched from it is cut, children included; a 3-storey Madrid home needed 17 min of sizing alone. Fix: start long local campaigns as a separate detached process (`Start-Process bash -l supervisor.sh -WindowStyle Hidden`), make the launcher restart-safe (a home is done only once `task.rc` exists, a half-written out dir is removed and redone), and use background Bash calls only as short watchers. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md §8, director note 2026-10-07 23:25)*
+
+- **FLEET-06b local run stops with no error; `run_log.txt` last write 2026-09-22 19:26, disk `C:` at 100 % (277 MB free); on restart 2,761 finished cases have `eplusout.end` but no `eplusout.sql`/`.sql.gz`** — the 65,112-case output tree (~14 MB/case, `eplusout.sql` 8.4 MB + `eplustbl.htm` 5.6 MB) filled the disk; then a cleanup ran `find ... ! -name <keep-list> -delete` while a second session was concurrently `gzip -f`-ing `eplusout.sql` to `.sql.gz`, so the exclusion-based delete removed the fresh `.sql.gz` files (list: `%TEMP%/ubem_validation/fleet06b_local_2026-09-18/lost_sql_2026-09-22.txt`; those cases re-simulate). Also `is_completed()` only accepts an uncompressed `eplusout.sql`, so every compressed case would have been re-run. Fix: pending check in `scripts/analysis/fleet06b_local_run_2026-09-18.py:286` also accepts `eplusout.sql.gz` + success `.end`; never bulk-delete by exclusion on a folder another process writes to. FLEET-06c harvest must decompress `.sql.gz` (or read it) before `parse_building`. *(docs/docs_DONE/TechTransfer/Prompt/PROMPT_MANAGER_techtransfer_2026-09-18.md §7f)*
+
+- **FLEET-06b local run: `run_log.txt` / `progress.json` stop updating (last write 2026-09-19 13:55:47, done=17,622) while Task Scheduler still shows `OpenUBEM_FLEET06b` as "Running" and the 10 EnergyPlus workers keep finishing cases** — only the checkpoint/aggregator thread inside `cmd_full()` froze; the simulations never stopped. Likely cause: disk-I/O contention with an undocumented cleanup script (`sweep_fleet06b.ps1`, origin unknown) that was gzip-compressing finished `eplusout.sql` files at the same time and itself stalled at "packed=5000". Fix: none in code; trust the files on disk, not `progress.json`: resume uses `openubem.simulation.parallel.is_completed()`, not `results.csv`, so a restart is safe. *(docs/docs_DONE/TechTransfer/Prompt/PROMPT_MANAGER_techtransfer_2026-09-18.md §7)*
+
+- **EU rule-book dry run (T12b): scheduled task `OpenUBEM_T12b` shows `Last Result: -1073741510` (0xC000013A), the `orch12b.py` dispatcher is gone with an empty `orch12b_err.txt`, the 10 worker processes keep running but no new job starts (`orch_log_T12b.txt` stops after `15:28:37 start R1_30_IT-BOL-GALVANI2_c2`)** — the dispatcher was terminated from outside (control/close exit, not a Python error); its children are detached and survive, but nobody launches the queue. Restarting the old dispatcher would relaunch the 10 still-running jobs (their dump files do not exist yet). Fix: `orch12c.py` (scratchpad) reads the last `start` lines without `end` from the log, adopts the live PIDs (checked with `OpenProcess`/`GetExitCodeProcess`, never `os.kill(pid, 0)`, which terminates on Windows), counts them against the 10-slot cap and requeues any that end without a dump; task action repointed with `Set-ScheduledTask`. Recurred 2026-10-07 ~18:22 (same exit code, after `18:21:39 start R1_275_IT-BOL-GALVANI2_c5`): adoption now reads from the last `todo` marker (`split(" todo ")[-1]`, not a hard-coded count) and the task trigger repeats every 10 min (`MultipleInstances IgnoreNew`), so a killed dispatcher comes back by itself within 10 min. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md §8 T12b)*
+- **EU rule-book dry run (T12c, `orch12d.py`): two 8-home Bologna jobs run far past the approved 10-min-per-home cap (`R1_35_IT-BOL-GALVANI2_j6` silent in `out_log.txt` for 2 h with CPU still climbing, `R2_33_IT-BOL-GALVANI2_j0` 105 min), and no `home_timeouts.csv` is ever written** — the in-process cap (`HomeTimeout` raised via `PyThreadState_SetAsyncExc`) is only delivered between Python bytecodes, so a home stuck inside native shapely/geometry code (log tail: `intersect_match raised IndexError — purging and retrying with match() alone`) is never interrupted. Fix: rerun the stuck jobs one home per process with a hard wall-clock kill (`taskkill /T /F` after 600 s) from the dispatcher (`orch12e.py`, scratchpad); 14 of 16 homes finished in 16–576 s, 2 hit the cap (Bologna 30090 under R1_35, 27931 under R2_33). Third external kill of the dispatcher (0xC000013A) also seen this run; the 10-min repeat task restarted it. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md §8 T12c)*
+
+- **EU rule-book local simulations (`sim_local.py`, 2026-10-07): 206 of 228 homes end in 0 s with `rc 3221225794` in `sim_log.txt` (23:33:52–23:42:52), while the 22 already running finish with `rc 0`; the later 16-wide pass logs `launch 228 homes` and simulates nothing** — 0xC0000142 (`STATUS_DLL_INIT_FAILED`): `energyplus.exe` could not start because the machine ran low on memory (two 8-wide sim pools plus the rebuild pool at once; the agent tool reported "system is running low on memory" at the same time). The launcher writes `task.rc` for any exit code and skips every folder with a `task.rc`, so the failed homes were never retried and the night ended "ALL DONE". Fix: delete only the `out/<stem>` folders whose `task.rc` is `3221225794`, rerun them as one 16-wide pool (`sim_list_retry.csv`, 2026-10-08 08:26); a launcher must treat a 0-s non-zero exit as "not run", not "done". *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md §8)*
+- **EU rule-book local simulations (`sim_local.py`, 2026-10-08): `sim_log.txt` gets no `end` lines after 09:07 while `energyplus.exe` processes stay alive** — a side-car helper ran `taskkill //IM python.exe`, which also stopped the owner's ThreadPool launcher; its EnergyPlus children ran on as orphans, so finished homes got no `task.rc` and nothing new was queued. Fix: write `task.rc` for orphans whose `eplusout.end` says "Completed Successfully" (scratchpad `finalize_orphans.py`), relaunch the pending homes as two disjoint lists so the total stays 16 wide, and forbid `taskkill /IM` in every dispatch prompt (stop own processes by PID only). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md §8, 2026-10-08 09:45)*
+
+- **`schtasks /end /tn OpenUBEM_FLEET06b` reports success but `energyplus.exe` processes keep running and the CPU stays loaded** — ending the scheduled task stops only the top-level dispatcher; its EnergyPlus child processes are not part of that stop and keep running. Fix: `taskkill /T /F /PID <dispatcher PID>` to kill the whole process tree, then `schtasks /delete` so the task cannot restart. *(docs/docs_DONE/TechTransfer/Prompt/PROMPT_MANAGER_techtransfer_2026-09-18.md §7g)*
+
+- **`** Severe  ** <root>[ElectricLoadCenter:Generators][OpenUBEM_PV_Generators][generator_outputs][30][generator_object_type] - "OpenUBEM_PV_Distribution" - Failed to match against any enum values.`, followed by `Value type "string" for input "DirectCurrentWithInverter" not permitted by 'type' constraint` and `**FATAL:Errors occurred on processing input file`** — `inject_pv()` (`openubem/idf/pv.py:225`) writes one `ELECTRICLOADCENTER:GENERATORS` object for every rooftop PV generator, but eppy's IDD for that object holds only 30 generator groups. On a building with more generators (way_381810555 has 64 `Generator:PVWatts`), eppy writes the first 30, drops the rest, and leaves the object without its closing `;`, so the next `ELECTRICLOADCENTER:DISTRIBUTION` object is read as more generator fields. Seen on 21 FLEET-06b cases (3 buildings × 7 scenario cells: way_381810555, way_425993519, way_427278443; Speed job 1342940); the baseline IDFs have no PV object and run fine. Diagnostic: in the IDF, the `ELECTRICLOADCENTER:GENERATORS` block ends at `Generator 30 ...` with a `,`. Fix: `inject_pv()` now splits the generators into groups of at most 30 (`MAX_GENERATORS_PER_LIST`, `openubem/idf/pv.py:47`), each with its own suffixed Generators + Inverter + Distribution object (`openubem/idf/pv.py:225-262`); test in `tests/test_pv_injection.py`; the 21 IDFs were rebuilt and rerun on Speed (job 1346459). *(docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md §4)*
+
+- **`WebFetch` on any external URL fails with `getaddrinfo ENOTFOUND <host>` even for well-known hosts (`docs.nrel.gov`, `pvwatts.nrel.gov`, `www.nrel.gov`)** — the agent sandbox has no general outbound DNS/HTTP for arbitrary domains; only the `WebSearch` tool's own backend can reach the network. Symptom is identical for every host tried, so it is a sandbox limitation, not a dead link. Fix: use `WebSearch` (which returns quoted snippets, not the raw document) to corroborate a public number instead of fetching the source PDF directly, and cross-check against any locally-shipped copy of the same fact (e.g. the EnergyPlus `Energy+.idd`'s own field `\default` values for `Generator:PVWatts` / `ElectricLoadCenter:Inverter:PVWatts`, which implement NREL PVWatts V5 verbatim per the object's own `\memo`) rather than trusting a single secondary source. *(docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block4-2026-09-17.md, H02)*
+
+- **`eplusout.end` says "EnergyPlus Completed Successfully" but `eplusout.sql` holds only a few hours (no annual totals); sql mtime newer than end** — an interrupted re-run rewrote the sql but left the old `.end` from the first run, so `is_completed()` (`openubem/simulation/parallel.py:73`) trusted a stale marker. Fix: move the folder aside and re-run the case; check that `.end` is newer than the sql before trusting it. *(docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md §2g)*
+- **`No baseline available for archetype_id='SmallHotel' ... returning no_baseline metadata for downstream fallback` (layout_assign IDFs build "success" but are not prototype-based)** — `config.BASELINE_IDF_DIR` defaults to `C:/Users/o_iseri/Desktop/idf_reader/Content/00.BaselineBuildings_NUs_v231`, which no longer exists (library now under `Desktop/NEXA-desktop/Content/`), so the builder silently falls through to the template pipeline. Fix: set env `OPENUBEM_BASELINE_IDF_DIR` to the existing directory before any layout_assign build (`openubem/config.py:50`); check the log for that message. *(docs/docs_DONE/openings/implemenation/previous/PLAN_ten-items-close-2026-09-29.md, T05)*
+- **Local `python.exe` count shows 10 processes while only 8 do work (EU local runs, 10-process limit)** — each `.venv\Scripts\python.exe` is a launcher stub that uses no CPU and spawns the real uv `cpython-3.14` interpreter, so every worker is counted twice. Fix: no code change; count only the uv `cpython-3.14` `python.exe` processes, and the controlling main process counts toward the 10-process local limit. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-helsinki-division-2026-10-09.md)*
+- **Budapest T02 dry run started with 6 workers runs only 4** — the scratch script `t02.py` caps its pool at 4 workers (`t02.py:289`, in `openubem/outputs/eu_evidence/EU-11/budapest_division_2026-10-09/scratch/`). Fix: none, 4 accepted because no edits were allowed during the run; known limit, not open. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-helsinki-division-2026-10-09.md)*
+
+## 14. Test suite: collection aborts, fixtures, benign noise
+
+- **`AttributeError: module 'openubem.semantic.imputation' has no attribute '_draw_tier'` at
+  `tests/test_draw_methods.py:645` → `Interrupted: 1 error during collection`, exit 2, ZERO of 1,937 tests
+  collected** — a class body (`class TestNoEUILeakage`, line 631) evaluates the symbol at import time, so one
+  broken file aborts the whole suite. `@pytest.mark.skip` on the class does **not** help — the body still
+  executes. Fix: module-level `pytest.skip(..., allow_module_level=True)` naming the blocking item, or gate
+  with `_HAS_DRAW_TIER = hasattr(imp, "_draw_tier") and hasattr(imp, "_draw_stratum_col_for")` +
+  `@pytest.mark.skipif`. The underlying feature (OPEN-17's draw tier) was deliberately never implemented.
+  **Update 2026-09-24:** it was implemented opt-in on 2026-09-09 (T04 of
+  `previous/PLAN_accuracy-restatement-2026-09-09.md`); the guards now find the symbols and the 15 tests run and pass.
+  *(docs/docs_DONE/openings/extra/FIX_open-13_height-cache-and-collection.md)*
+- **`AttributeError: module 'openubem.config' has no attribute 'IMPUTE_DRAW_METHOD_BY_TARGET'` /
+  `IMPUTE_DEBIAS_NEWERSKEW` (9 tests)** — one root cause, not 9 defects: tests were committed ahead of a
+  feature that was never wired in. Before treating this shape as a live defect, run
+  `git log --all -S<symbol>` on the target module. Same pattern hit fusion:
+  `AttributeError: ... 'FUSION_SOURCES_BY_TARGET'` → 25 failed / 4 passed, because `fusion.py` and its 29
+  spec tests landed but the six `FUSION_*` config keys and `_fusion_tier`'s body did not.
+  *(docs/docs_DONE/openings/extra/FIX_five-more-items-2026-08-13.md; docs/docs_DONE/OUTDOOR/UTCI/implementation/sub-plans/DONE-PLAN_e-utci-09_height_backfill.md:1523)*
+- **`FileExistsError [WinError 183]` / `(rm_rf) error removing ...: OSError [WinError 145]` from two
+  concurrent pytest sessions** — a fixed `--basetemp=.pytest_tmp` in `pyproject.toml` means a second session's
+  `rm_rf` wipe races the first session's live writes. Deleting the `addopts` line is **not** the fix: this
+  machine's OS temp root throws `PermissionError [WinError 5]` on
+  `C:\Users\o_iseri\AppData\Local\Temp\pytest-of-o_iseri`. Correct fix: a repo-local **per-session-numbered**
+  basetemp. (OPEN-52, closed)
+  *(docs/docs_DONE/openings/extra/FIX_open-52_pytest-basetemp.md, FIX_open-52_temproot-remedy.md)*
+- **Running the suite silently rewrote a checked-in fixture** (`tests/fixtures/synthetic_30_archetype_coverage.gpkg`;
+  one rewrite already committed in `6aeebb0`) — the `synthetic_30_gdf` session fixture wrote its GeoPackage to
+  the checked-in path (GDAL's GPKG driver writes through a filename). Fix: write to `tmp_path_factory`.
+  (OPEN-50)
+  *(docs/docs_DONE/openings/DONE/INVESTIGATION_open-items-register.md)*
+- **`AttributeError: 'list' object has no attribute 'list2'` from `eppy/idf_msequence.py:89` when a test
+  asserts `idf.idfobjects["SOME:CLASS"] == []`** — `idfobjects[...]` returns an `Idf_MSequence`, whose
+  `__eq__` always tries to read `other.list2`; comparing it against a plain `list` (including the empty-list
+  idiom) raises instead of returning `False`. Fix: assert on `len(...) == 0` (or convert with `list(...)`)
+  instead of a direct `== []`/`== [...]` comparison against an `idfobjects[...]` result.
+  *(docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md, Task PV-WIRE;
+  tests/test_pv_build_wiring.py)*
+- **The suite baseline is `pytest -q tests/`** — a bare root-level `pytest -q` reports ~36 false failures.
+  *(project convention; see MEMORY index)*
+- **Benign noise, never a failure: `Windows fatal exception: access violation` / `<cannot get C stack on this
+  system>`** — joblib/loky worker-spawn noise under Python 3.14 on Windows, localized around
+  `test_step3_orchestrator.py::test_parallel_byte_identity` and `test_sim_integration.py`. The run still
+  reports the full pass count. Check the exit status, not the stdout dump. Documented independently in at
+  least five arcs.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-46_path-verification.md; docs/docs_DONE/BUGS/zoningBug/PLAN_zoning-multifloor-fix.md; docs/docs_TODO/layoutgenerator/debugs/PLAN_design_buildout_by_archetype.md:501)*
+
+- **A single test file takes minutes of CPU while the same code runs in milliseconds outside pytest** — the test asserted membership directly against a large serialised string, `assert "\\" not in serialised` and 26 more `assert f"{letter}:" not in serialised`, where `serialised` was a ~340 KB `json.dumps` of the frozen campaign-cell spec. **pytest's assertion rewriter carries both operands of every rewritten comparison through its explanation machinery**, so 28 membership tests against a 340 KB operand cost minutes; the same 28 checks in a plain `python -c` finish in under a millisecond (measured: `build 0.09 s, dumps 0.00 s, membership 0.0000 s`). Fix: evaluate the membership tests in ordinary code and assert once on the small result — `offenders = [t for t in tokens if t in serialised]` then `assert offenders == []` — which also gives a better failure message, since it names the offending token instead of dumping the string. `tests/test_eu_campaign_cell_spec_freeze.py` went from **over 5 minutes to 1.02 s** for 9 tests. **Diagnostic trap this hid:** the first attributed cause was a `git status` subprocess in the code under test; measuring it directly gave 0.085 s and cleared it, and a `--durations` run with `-x` looked fast only because it stopped before reaching the slow test. Always get `--durations` over the FULL file before attributing a cause. *(docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md §12.12)*
+
+- **`AssertionError: assert ['\\'] == []` from `test_serialised_spec_carries_no_absolute_or_windows_path`, with no path anywhere in the diff** — the guard forbids **any** backslash in `json.dumps(spec, ensure_ascii=True)` because that is how a Windows path would leak in, but a backslash also appears whenever a JSON string contains a newline (`\n`) or a non-ASCII character (`\uXXXX`). The offender was **prose**: two caveat amendments in `openubem/data/campaign/eu_boundary_caveats_v1.0.json` were written with embedded blank lines. The guard was right and the data was wrong. Fix: whitespace-normalise every caveat string (`" ".join(v.split())`) and re-run the freeze. **Diagnostic trap:** walking the parsed spec for a literal backslash finds nothing — the escape is created *by serialisation*, so search the `json.dumps(...)` output, not the object. *(docs/docs_ACTIVE/europeanLocations/DONE/CLOSURE_eu_boundary_contract_v1.0.md §12)*
+
+- **`test_allow_unpinned_writes_draft_with_510_cells` fails with `assert draft_path.is_file()` → False, and the captured stdout reads `status=FROZEN_PINNED` instead of DRAFT** — FINDING EU-S2-09, fourth recurrence: the test calls `main(["--allow-unpinned"])`, which reads the **live** `weather_registry.json`, and silently assumed at least one fold was still `RULED_NOT_PINNED`. Once the last fold was promoted the run legitimately produced a pinned spec at the non-DRAFT path. Fix: inject a synthetic registry rather than soften the assertion — `_synthetic_registry_with_statuses(tmp_path, {..., "it": "RULED_NOT_PINNED"})` plus `monkeypatch.setattr(freeze_mod, "build_spec", lambda **kw: real_build_spec(weather_registry_path=..., **kw))`, because `build_spec`'s default argument is bound at definition time and monkeypatching `DEFAULT_WEATHER_REGISTRY_PATH` therefore does nothing. In the same pass `tests/test_eu_weather_registry.py` stopped pinning the literal top-level `status` and now asserts the **invariant** that the label agrees with the per-fold statuses — stricter than the literal, since it also fails on a stale label. **Rule: never assert a literal value of a mutable ruled data file.** *(docs/docs_ACTIVE/europeanLocations/DONE/CLOSURE_eu_boundary_contract_v1.0.md §12)*
+
+- **A repo-path guard fails on legitimate prose containing `<letter>:`** — a test forbidding Windows absolute paths matched a bare `f"{letter}:"` and fired on `EPSG:32631` inside the caveat register's own text. A drive letter only denotes an absolute path when a separator follows it. Fix: match `f"{letter}:/"` and `f"{letter}:\\"` instead of the bare colon form, in `tests/test_eu_campaign_cell_spec_freeze.py`. *(same source)*
+
+- **`AssertionError` comparing an emitted path to `tmp_path.as_posix()` after a writer was changed to emit repo-relative paths** — `test_caveats_register_happy_path_embeds_every_entry_and_its_source` asserted `spec["caveats_source"]["path"] == good_registry.as_posix()` (absolute) while the freezer's `_repo_relative_posix` returns `.pytest_tmp/pytest-of-.../eu_boundary_caveats_synthetic.json`, because pytest's basetemp sits **inside** the repository and therefore relativises. The assertion is latent: it passes on any machine or run where `Path.resolve()` leaves the temp path outside the repo root. Fix: assert against the writer's own rule, `freeze_mod._repo_relative_posix(good_registry)`, in `tests/test_eu_campaign_cell_spec_freeze.py:172`. **General form: when production code gains a path-normalising helper, every test that hard-codes the un-normalised form must be re-pointed at the helper, not at a literal.** *(docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md §12.12c)*
+
+- **`FileNotFoundError: ...debugs/docs/DONE-docs/tabula_102_extra_columns_2026-08-23.csv` in `test_extracted_numeric_columns_match_102_row_reference`** — 23 files were moved from `docs/docs_ACTIVE/europeanLocations/debugs/docs/` into a new `DONE/` subfolder by another session, **without the citation sweep the project's archiving rule requires**. A test held the pre-move path as a hard-coded literal, so a documentation archive turned the suite red. Fix: re-point `REFERENCE_CSV` at `.../debugs/docs/DONE/...` in `tests/test_eu_construction_sets.py:19-27`. **General form: an archive is not finished when the files land — roughly twenty other documents in the same arc still cite the pre-move paths.** Resolve by filename, never by rewriting the path prefix. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/CLOSURE_QUESTIONS_european_locations_2026-08-26.md §5)*
+
+- **`** Warning ** Indicated Zone Volume <= 0.0 for Zone=...` / `The calculated Zone Volume was=-49.03` / `The simulation will continue with the Zone Volume set to 10.0 m3.`** — geomeppy's by_storey/WHOLE extrusion path uses the raw, unoriented footprint coordinates, so floor normals point the wrong way (`** Warning ** GetVertices: Floor is upside down! Tilt angle=[0.0], should be near 180`), the divergence-theorem volume integrates negative and EnergyPlus substitutes a **fixed 10.0 m³**. The core/perim path escapes it because `Polygon2D.buffer()` calls shapely's `orient()` unconditionally. **Not cosmetic when ventilation or infiltration uses `AirChanges/Hour`**: EnergyPlus derives the flow as ACH × zone volume ⁄ 3600, so the air flow and its heat loss scale with the substituted volume. Measured in the EU S2 campaign: 103/103 zones in 31/31 buildings, **1 030.0 m³ of air simulated against a true 59 470.92 m³ — a 57.74× understatement** (8.23×–122.52× per zone). Fix: call `write_zone_volumes(idf, zones)` after `extrude_geometry(...)`, which writes `Zone.Volume = floor area × storey height` — the OPEN-56 remedy already present at `openubem/idf/builder.py:217` and called by `BuildingIDF` at `builder.py:660`; the EU runners `scripts/run_eu_s2_campaign.py:215` and `scripts/run_eu_s1_smoke.py:291` never called it. **Trap when sizing the error: do NOT take |calculated volume| as the true volume.** Under a flipped floor normal the sum returns −(floor area × 1 m) regardless of storey height, which reads as "1 m-tall zones" and understates the error threefold; read `Ceiling Height` and `Floor Area` from `eplusout.eio` instead. **Diagnostic rule this teaches: read what a warning says, do not count warning kinds** — a triage gate that only counts is satisfied by six kinds of which two invalidate the result. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_EU-17_zone_volume_10m3_2026-08-26.md)*
+- **`KeyError: 'es'` in `tests/test_eu_fold_epw_conversion.py` / `assert 'RULED_PINNED' != 'RULED_PINNED'` / `test_refuses_when_a_fold_is_not_pinned` fails after an owner ruling** — eight tests asserted on the CURRENT contents of the live, mutable `openubem/data/weather/weather_registry.json`. `load_fold_targets` (`scripts/convert_era5_eu_folds_to_epw.py:61-67`) returns only folds whose `status == "RULED_NOT_PINNED"`, so promoting a fold correctly removes it from the target set and every test keyed on that fold raises `KeyError`. **Nothing regressed — the ruling was the point.** Fix: behaviour tests build a synthetic registry in `tmp_path` and pass it via the function's own `registry_path` parameter; only genuine shipped-file invariants read the live file, and they iterate over whatever folds are present instead of naming one. **Rule this teaches: a data file whose purpose is to change when an owner rules something must never be the fixture a unit test asserts against** — otherwise the pressure at the moment of a ruling is to revert the ruling to make the suite green. **RECURRED 2026-08-26 on the `uk` promotion, in the same file, as `KeyError: 'uk'` plus a second shape: `assert not any(module.OUTPUT_ROOT.rglob("uk_*.epw"))` failed because a correctly-promoted London EPW now sits in the real `openubem/data/weather/`. The `es` repair had converted eight tests in one file and missed two in `tests/test_eu_fold_epw_conversion.py`. Fix: the first now builds a synthetic registry via `_write_registry`/`_synthetic_entry` like its neighbours; the second `monkeypatch.setattr(module, "OUTPUT_ROOT", tmp_path / "out")` (`tests/test_eu_fold_epw_conversion.py:95,116`). **Second rule: an output DIRECTORY the pipeline legitimately writes into is the same trap as a mutable data file — assert against a `tmp_path` root, never the shipped one.** Expect a third recurrence at the `it` promotion. *(docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md §12.21, FINDING EU-S2-09)*
+- **`FileNotFoundError: ...\debugs\docs\DONE\tabula_102_extra_columns_2026-08-23.csv`** — an archive sweep renamed the containing folder without the citation sweep the project's archiving rule requires. It happened **twice on 2026-08-26** to the same file (`docs/` -> `DONE/` -> `DONE-docs/`), breaking `tests/test_eu_construction_sets.py` each time although the CSV itself never changed. Fix: stop hard-coding the prefix — resolve the reference **by filename**, `sorted(search_root.rglob(NAME))`, which is the repository's own 2026-08-09 archiving rule (*resolve by filename, not by rewriting the path prefix*) applied to a test constant. Any test that pins a path into a docs archive folder will break on the next sweep; resolve by name instead. *(docs/PROJECT_CHECKLIST.md head section, OPEN-33)*
+
+- **`ValueError: could not convert string 'HH_es_00035_Presence' to float64 at row 0, column 1.`** raised from `numpy.loadtxt` inside `read_presence_csv` — the GSSCanada 4J presence bundles ship each series as a **one-column CSV with a header line naming its household**, while `openubem.semantic.european_schedules.read_presence_csv` documents and enforces a **headerless** contract. Neither side is wrong; the two contracts simply differ, and the emitter's own contract must not be widened, because a headerless reader that silently skips a first line would also swallow a truncated first hour. Fix: the consumer reads the shipped format instead — `_read_presence_series` in `openubem/campaign/eu_cell_runner.py` strips one leading non-numeric line, returns it, and the caller **verifies it equals `HH_<fold>_<hid>_Presence`**, turning the header into a second independent confirmation of the household beside the SHA-256. *(docs/docs_ACTIVE/europeanLocations/implementation/previous/PLAN_run-campaign-cell-2026-08-27.md)*
+
+- **A hand-written convex-polygon intersection returns `0.0` for every pair, including polygons that visibly overlap — and every test that used it still passed** — the Sutherland-Hodgman clip built its half-plane as `a = y0 - y1, b = x1 - x0`, which is the **inward** normal negated, so `a*x + b*y <= c` kept the outside of each edge and the successive clip emptied the ring on the first edge. Nothing raised: an intersection routine that always answers zero satisfies every "these must not overlap" assertion. Fix: `a = y1 - y0, b = x0 - x1` in `tests/reference/geo08_reference_partitioner.py`, plus a test that asserts a **known non-zero** overlap (two unit squares offset by half their side → 25.0), so the routine can never again be vacuous while green. *(MVP_european_locations.md §9.7.3, EU-04 GEO-08 addendum)*
+
+- **A `GEO-*` gate goes green while silently omitting one of the quantities its own specification requires** — the first `GEO-08` F4 pass compared zone count, dwelling areas, exterior facade contact and adjacency, but **not circulation area**, which MVP §4.8 lists alongside them. No test could detect the omission: every assertion written passed, and a missing assertion has no failure mode. It was caught only by a reader comparing the gate to its specification. Fix: circulation core area, shared boundary, overlap and core-share were added to `tests/test_eu_geo08_independent_parity.py`. **Standing lesson: build a gate from its specification's own list of quantities, never from the quantities already in hand — the suite cannot see an absence.** *(MVP_european_locations.md §4.8; docs_ACTIVE/europeanLocations/prompts/DIRECTOR_PROMPT_european_locations.md)*
+
+- **`ModuleNotFoundError: No module named 'pvlib'` collecting `tests/test_eu_fold_epw_conversion.py` and `tests/test_eu_t06_weather_promotion.py`** — not a missing dependency: `pvlib >= 0.11` is declared at `pyproject.toml:32` and installed in the project venv. The interpreter running pytest was not `.venv/Scripts/python.exe`. The same mistake cascades — `xarray`, `h5netcdf`, `cdsapi` and `ecmwf-datastores-client` all follow. Fix: run the suite through the project venv. ⚪ Scope note worth keeping: those two modules cover the ERA5→EPW **conversion**, not the run-time weather guarantee — `D-S10-7` is enforced at run time by the frozen `weather_sha256` check and the bundle-year vs EPW-year agreement, both asserted in `tests/test_eu_cell_runner.py`, so a scored campaign run needs neither module. *(docs_ACTIVE/europeanLocations/messages_GSSCanada/)*
+
+- **`FileNotFoundError: [Errno 2] No such file or directory: 'C:\\Users\\o_iseri\\Desktop\\idf_reader\\Content\\00.BaselineBuildings_NUs_v231\\ASHRAE901_OfficeMedium_STD2022_Buffalo.idf'` in `tests/test_pv_injection.py` (6 failed) and `tests/test_scenario_campaign_wiring.py` (4 errors)** — the tests load ASHRAE 90.1 prototype IDFs from a folder outside the repo (TechTransfer arc, commits `ab4d7707`, `2630eae9`), and that folder no longer exists on this machine. Fix: the default of `BASELINE_IDF_DIR` now points at the moved folder `C:\Users\o_iseri\Desktop\NEXA-desktop\Content\00.BaselineBuildings_NUs_v231`, `openubem/config.py:53` (OPEN-72). *(docs/docs_DONE/openings/implemenation/previous/PLAN_tests-and-crashes-2026-09-30.md T03)*
+
+- **`tests/test_prep_gate.py::TestPrepGateOffByDefault::test_flag_default_is_false` fails and `tests/test_sim_parallel.py::TestRunNeighbourhood::test_n_input_rows_in_output` raises `PrepPhaseFailedError: 1 building(s) failed IDF generation before simulation: ['C']`** — `openubem/config.py:123` ships `PREP_ABORT_ON_FAILURE = True` (commit `ab4d7707`, 2026-09-18) although its plan (`docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block2-2026-09-17.md:159`) and the tests specify `False`; with `True` the deliberately unbuildable test building stops the whole run. Fix: `PREP_ABORT_ON_FAILURE = False`, `openubem/config.py:123` (OPEN-73). *(docs/docs_DONE/openings/implemenation/previous/PLAN_tests-and-crashes-2026-09-30.md T03)*
+
+
+- **`tests/test_eu_rulebook_change_2026_09_30.py::test_b_defaults_prepare_hashes_equal_pre_edit_reference` fails with `assert 0 == 100`** — the 100 reference hashes in `rulebook_2026-09-30/t03_pre_edit_hashes.csv` were taken on the 09-08 models (95 of 100 equal the 09-08 `baseline.csv` hash); today's code builds the adopted 10-06 models, and 0 of 100 equal the published 10-06 `idf_sha256`. Not caused by the dry-run driver. Fix: director ruling 2026-10-06 retired the test with `@pytest.mark.skip` (tests/test_eu_rulebook_change_2026_09_30.py, above `test_b_...`); gate (a) of T11 measures reproduction of the 10-06 models on all 4,113 homes. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md, T10)*
+- **Dry-run worker writes no IDF for 1 h 20 min while its CPU time keeps rising (Bologna R0 `--ref 1006`, one process for 1,179 homes; the last IDF written was building 30177, next was 30186 with 152 dwellings)** — not a hang on 30186: rerun alone in its own process it finished in about 340 s. The single process was slow because a few Bologna homes need long best-effort cuts (chunks of 131 homes stalled 30 to 70 min each on one home, then resumed). Fix: director ruling 2026-10-06, Bologna R0 run as 10 parallel chunks (chunk 0 = 30186 alone), inline `python -c` runners with `m.OUT` set per chunk, parts concatenated into `scratch/dryrun_1006/part_R0_IT-BOL-GALVANI2.csv`; no code change. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md T11)*
+- **EU rule-book dry run: every guarded rung (R1_*, R2_*, R3_*, RALL_G) returns exactly the R0 classes, home for home (Madrid candidates 48 V1 + 38 V2 in R0, R1_30, R2_40 and RALL_G alike), while unguarded RALL resolves 45** — `worker()` builds `_ORIG["relaxed_ids"]` from `bl.index` (OSM ids, `scripts/analysis/eu_rulebook_dryrun_2026-09-30.py:305`) but `geo()` tests `str(row.building_id)` (`:263-266`), which is the 16-hex stem because `prepare` passes `model_row` (`scripts/run_eu_s2_district_campaign.py:1136-1139`); no home ever matches, so guarded runs silently use default rules. Fix: build the set from `bl.stem` (PLAN T12c step 1); check with a smoke run that one class changes before any full run. Verified 2026-10-07 on the T12c local run: R1_35 moves 49 of 199 storey-rule homes (38 to OK), R2_33 moves 49 of 128 (16 to OK; the earlier "56 of 136, 19 to OK" double-counted 7 Bologna homes present in both the j12d chunk and the j12e single-home rerun — dedupe on run+district+building_id). Tighter rungs (T12f, 128 single-home jobs, 0 timeouts): of the 38 R1 homes, 15 stay OK at 2.75, 9 at 3.0, 14 only at 3.5; of the 16 R2 homes, 8 stay OK at 0.45, 3 at 0.40, 5 only at 0.33; R3_200 and R3_150 fix 0 of 10. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md §6 T12c, §8 director audit 2026-10-07)*
+- **[OPEN] `dryrun_R0_1006.csv` at default rules gives other zones than the adopted 10-06 IDF for 8 homes (`moved_1006` set, gate (a) 4,105 of 4,113; Madrid `relation/12877779`, `relation/3730743`, `way/310738153`, `way/400445219`, `way/428478249`, `way/434878289` reason `zone_names`; Bologna `30544`, `32687` reason `zone_area`)** — uncommitted edits to `european_residential.py` (2026-10-02 12:39) made after the adopted 10-06 builds: the density refusal at `:2761` is skipped under the nocore regime and the storey grouping changed, so today's code divides 6 homes the adopted set kept as boxes and shifts one zone area by more than 0.2 m2 in 2 others. Fix so far: none in code; the 8 homes are held at their adopted 10-06 models and left out of every T12 gate and ladder count (director ruling 2026-10-06); the 6 Madrid homes go to CP-3 as their own line. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md, T11 and T12)*
+- **[OPEN] Relaxed-rule dry-run rungs R1_* / R2_* / R3_* give 0 IDF hash changes and storey-fail counts identical to R0 (C11 986, C12 476) although they relax exactly C11 / C12; RALL (guardless) resolves 167 homes, RALL_G 0** — `_nocore_cut_with_guard` cuts under the default ruleset and, when it keeps that cut, returns its default-rule `checks`/`verdict`; the relaxed rescore `old_rec` is computed but never decides the verdict, so a kept cut that passes the relaxed threshold is still FAIL and falls back to a box. Only a strictly better new geometry is accepted. Fix so far: none; director stopped CP-1 (FINDING 292); proposed fix = judge the kept cut by the active ruleset, then re-run the ladder and RALL_G (`openubem/geometry/european_residential.py:1356-1376`). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md, director audit of T12)*
+
+## 15. Exceptions raised by the `openubem` package
+
+Grep target for "which module can throw this, and what does it mean?"
+
+### `openubem/acquisition`
+- **`ValueError: Input schema gate: missing/extra columns / expected 26 columns`** / **`archetype_id '...'
+  not in 30-element vocab`** — the 26-column contract into the climate-zone join. *(climate_zone.py:45,48,50,55)*
+- **`RuntimeError: zero_tier1_matches`** — every building missed the within-county join → wrong continent /
+  uncovered territory, not a per-building gap. **`unmatched_buildings`** — check input CRS.
+  **`invalid_zone_tokens`** — county lookup table corrupt. *(climate_zone.py:121,165,176)*
+- **`ValueError: EPW check 2/4 failures`** — first line isn't `LOCATION,...`, unparseable, or row count isn't
+  8760/8784 → the mirror served a truncated file. *(epw_manager.py:94,97,122)*
+- **`RuntimeError: epw_cold_cache_offline` / `epw_all_tiers_exhausted`** — `fetch_epw(offline=True)` with an
+  empty cache, or all mirrors failed. *(epw_manager.py:247,273)*
+- **`FileNotFoundError: height_cache.load_cached(...): no cached Overture pull`** — the reader never fetches;
+  run `pull_overture(cell)` first. **`ValueError: pull_overture: '<cell>' is not one of the 4 affected
+  cells`** — it's a manual E-UTCI-09 entry point, never call it from CI. *(height_cache.py:65,105)*
+- **`ValueError: Schema error: ... / expected 23 columns / 'osm_id' not unique`** — OSM ingest output failed
+  its 23-column schema/dtype/uniqueness contract. **`Exactly one of {location, bbox, osm_path} must be
+  set`**. *(osm_fetcher.py:100,121,132,534-552)*
+- **`ValueError: fetch_overture: one of slice_path or endpoint must be given.`** *(overture_fetcher.py:52)*
+- **Comune di Bologna ODS CTC GeoJSON field aliases** — live exports observed on 2026-08-24 abbreviate
+  `altezza_gronda`, `quota_gronda`, and `quota_piede` to `altezza_gr`, `quota_gron`, and `quota_pied`.
+  `bologna_fetcher.py` accepts both explicit spellings; do not infer height from another field or derive
+  storeys when neither eaves-height spelling is present.
+
+### `openubem/geometry`
+- **`ValueError: patch_envelope: row[...] is null/missing for archetype_id=...`** — requires Step-2 semantic
+  enrichment; refuses to silently default an envelope column. *(envelope_patcher.py:86)*
+- **`ValueError: unknown resolution_mode: ...`** *(zoning.py:35)*
+- Gotcha: `layout_assigner.py:69` carries a comment flagging the bug its task fixed — read it before touching
+  that code.
+
+### `openubem/idf`
+- **`ValueError: osm_id=...: epw_path ... is missing or does not exist`** — refuses to build at the
+  template's placeholder `Site:Location` (0,0). *(builder.py:241)*
+- **`KeyError: archetype_id '...' not found in hvac_cop_by_archetype.json`** — regenerate with
+  `extract_prototype_cop.py`. *(hvac.py:645)*
+- **`RuntimeError: intersect_match failed after one_zone_per_floor reroute`** — the second attempt also
+  failed; re-raised for `_build_one`. *(surfaces.py:801)*
+- Gotcha: `surfaces.py` lines 339, 565, 663, 771, 773 are **silent** `logger.warning` fallbacks (bbox / skip
+  the zone or block) that never raise — grep them when geometry looks degraded but nothing threw.
+- **eppy `ZoneInfiltration:DesignFlowRate` field names silently return `None`/wrong values when guessed
+  from the calculation-method string** — the object's real eppy field names are `Flow_Rate_per_Floor_Area`
+  and `Flow_Rate_per_Exterior_Surface_Area` (not `Flow_per_Zone_Floor_Area` / `Flow_per_Exterior_Surface_Area`),
+  and `Flow/ExteriorWallArea` (not just `Flow/ExteriorArea`) is a valid `Design_Flow_Rate_Calculation_Method`
+  value that also reads from `Flow_Rate_per_Exterior_Surface_Area` — a wrong guess wrapped in `try/except`
+  produces no traceback, just a silently empty min/max. Fix: read `obj.fieldnames` on a live eppy object to
+  get exact field names before mapping calculation-method values to fields. *(J01 census,
+  docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block5-2026-09-17.md)*
+
+### `openubem/semantic`
+- **`ValueError: use_floor_count=True requires levels, got None`** *(building_classifier.py:214)*
+- **`SchemaError` family** — override archetype not in vocab, duplicate osm_id in the override CSV, I/O
+  column count/order mismatch, invalid `archetype_confidence`/`archetype_source`, or an `OpenUBEMUnknown` row
+  missing its required LOW+FALLBACK_UNKNOWN / OVERRIDE_USER provenance. *(building_classifier.py:501-583)*
+- **`ValueError: fusion: zero-fitted-params violation -- EUI column(s) ... must never be read`** — structural
+  guard; no adapter may read an EUI column. *(fusion.py:39; imputation.py:176)*
+- **`KeyError: fusion: unknown source '...'`** *(fusion.py:156)* · **`NotImplementedError`** on
+  `FusionSource.available/.join` *(fusion.py:136,143)*
+- **`ValueError: impute_column: method='ml' requires model_path` / `bounds must be provided for PDE
+  imputation` / `unknown method`** *(imputation.py:71,105,113)* · **`build_ml_imputer: unknown method`**
+  (frozen `_ML_METHOD_NAMES`; no tuning path exists by design) *(imputation.py:253)*
+- **`BelowFloorError(method, n_observed, floor)`** — too few observed rows to fit. **`StrictImputationError`**
+  — strict mode found still-missing targets. *(imputation.py:420,936)*
+- **`ValueError: Loads table gap: no row for archetype(s) [...]`** — add it to
+  `doe_prototype_loads.json`/`openstudio_loads.json`. **`Setpoint inversion at rows [...]`** (DESIGN §3D/F15).
+  *(loads.py:142,154)*
+- **`KeyError: No schedule library entry for archetype '...'`** *(schedules.py:51)* ·
+  **`ValueError: confidence must be one of {...}`** *(provenance.py:63)*
+- **`ValueError: enrich_semantics input gate: missing columns / null epw_path / null climate_zone`**
+  *(semantic/__init__.py:101-109)* · **`validate_schema: expected 57 columns / last 28 columns mismatch / NaN
+  in appended column / out of range / setpoint invariant violations`** (DESIGN F19 gate)
+  *(semantic/__init__.py:118-177)*
+- **`ValueError: OPEN-55 donor screen: excluding [...] empties the Unknown PDE donor pool`**
+  *(semantic/__init__.py:264)*
+
+### `openubem/simulation`
+- **`ValueError: build_task_list: missing epw_path for N simulable buildings`** *(parallel.py:50)*
+- **`RuntimeError: EnergyPlus binary not found at <exe>`** — set `ENERGYPLUS_PATH`. **`Could not parse
+  EnergyPlus version` / `EnergyPlus version mismatch: expected ..., found ...`** vs
+  `config.ENERGYPLUS_VERSION`. *(runner.py:31,38,43)*
+
+### `openubem/microclimate`
+- **`ValueError: Domain: <name>.shape != dsm.shape`** *(domain.py:58,60)* · **`build_vegetation(tier='cdsm')
+  requires cdsm_path and tdsm_path`** *(domain.py:183,214)*
+- **`air_temperature_field(tier='tier1') requires svf and altitude_deg`** *(airtemp.py:105,109)* ·
+  **`pedestrian_wind(tier='macdonald') requires buildings_gdf, domain, wind_direction_deg`** *(wind.py:279,288)*
+- **`read_epw_hourly: <n> data rows, expected 8760 or 8784`** *(epw_hourly.py:54)* ·
+  **`write_geotiff: data shape != domain.shape`** *(raster_io.py:70)*
+- **`scenario='tree_canopy'/'pv_canopy' requires canopy_gdf`** *(scenarios.py:136-178)* ·
+  **`select_window(...)` mode/keys errors** *(window.py:52,72,83)*
+- **`FileNotFoundError: run_step6: neither 01_buildings_clean.gpkg nor 01_buildings.gpkg found` / `no IDF
+  archive at <cell>_step3_idfs_archive.zip`** · **`unparseable EPW LOCATION line`**
+  *(microclimate/__init__.py:58,94,153)*
+- **`ResimRefusedError` / `AnnualEnergyPlusWindowRefusedError`** — deliberate multi-terabyte traps (ch. 10).
+
+### `openubem/results`, `validation`, `viz`
+- **`AssertionError: T10/T11 CROSS-CHECK GATE FAILED`** — see ch. 9. *(draw_leaderboard.py:326; impute_scatter.py:253)*
+- **`RuntimeError: I2 breach: foreign osm_id in work dir for '...' (abort whole run)`** — DESIGN §3B
+  integrity check. *(parser.py:253; results/__init__.py:173)*
+- **`FileNotFoundError: 05_results.gpkg / 01_buildings.gpkg not found for cell '...'` / `No phased cells
+  found under ...`** *(plotting_suite.py:72,103,105,681)* · **`phase_<n> folder has zero PNGs`**
+  *(impute_montage.py:58)*
+- **`ValueError: Fractions for '<key>' sum to X, expected 1.0 ± 1e-3`** *(service_loads.py:53,58)*
+- **`ValueError: eui_impact_report: observed/imputed arrays must be paired`** *(eui_impact.py:143)* ·
+  **`assign_spatial_blocks: no usable postcode/block column and no 'geometry' column`** *(mask_recover.py:124)*
+- **`ValueError: buildings_gdf has no CRS`** *(basemap_raster.py:125)* · **`No manifest rows with a matching
+  footprint centroid.`** *(cityjson_emitter.py:109)* · **`IDF file not found` / `No BuildingSurface:Detailed
+  objects in <idf_path>`** *(geometry_extract.py:64,514)*
+- Gotcha: `results/__init__.py:230,245` turn figure-rendering and viewer-export failures into non-fatal
+  `warnings.warn` — check the warnings if a figure or viewer is unexpectedly missing.
+
+- **`AttributeError: 'str' object has no attribute 'idfobjects'` from `compute_band_map()`** — the
+  function takes an already-loaded eppy/geomeppy IDF object, not a path string. Fix: load the file
+  first (`IDF(path)`) and pass the object. *(openubem/geometry/layout_assigner.py; hit while
+  re-deriving `n_proto` during the CP-3 audit, 2026-08-20)*
+
+## 16. Method traps: how these bugs got misdiagnosed
+
+- **Scenario campaign finishes clean (65,112/65,112, 0 failed) but every scenario cell has the fleet EUI of the baseline to 4 decimals (172.3974 kWh/m² over 8,122 in all 8 cells); `eplustbl.htm` `Total Site Energy` = 39193.43 GJ and `Interior Lighting` = 4887.09 GJ in baseline, lighting, setback and infiltration for `relation_11171765`.** Root cause: `apply_cell()` wrote no measure into any model — all 7 non-baseline IDFs per building are byte-identical (300/300 sampled), differing from baseline only by the rebuild (PV, ground temperature). Each measure gated out: `thermostat_setback` → `gate_no_thermostat` (models carry `HVACTemplate:Thermostat`, the measure only reads `THERMOSTATSETPOINT:DUALSETPOINT`, `openubem/scenarios/measures.py:467`); `infiltration_tightening` → `gate_unsupported_coefficients` (`ZoneInfiltration:DesignFlowRate` with coefficients 1/0/0/0); `lighting_power_density` → `gate_archetype_out_of_scope` because `scripts/analysis/fleet06a_campaign_2026-09-18.py:76` calls `apply_cell(idf, cell, enabled=True)` with no `archetype=`. The gates return a status dict that the campaign builder never checked. Fix (block 7, FLEET-07a/b, 2026-09-26): measures read `HVACTemplate:Thermostat` and the 1/0/0/0 infiltration objects, `archetype=` passed, every measure status logged; the 40,746 changed cases re-run (FLEET-07c) and the table now moves: all three measures −4.98 kWh/m² (−2.9 %) over 8,129 (`openubem/outputs/comparisons/fleet07_scenario_summary_2026-09-26.csv`). Trap: a clean run count and a PV difference hid that no measure applied — assert per-measure `status` / `n_applied > 0` at build time and diff one building's IDFs across cells before launching. *(docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block6-2026-09-18.md, FLEET-06c-TABLE entry 2026-09-26)*
+
+- **Diff against the actual committed baseline, not against sibling code paths in the same tree.** The `auto`
+  regression passed every conservation test because those tests only compared modes *within one working
+  tree*, all carrying the same new bug. *(§4)*
+- **Include a non-degenerate fixture in every conservation/invariant test.** The `building`-mode
+  `/num_floors` undercount was invisible to the original test because all its fixtures were single-floor. *(§4)*
+- **A prior artifact is never a matched control.** An EUI before/after comparison silently inverted sign
+  (+4.30% reported vs −0.99% true) because a script hardcoded reference values from an earlier artifact while
+  other pipeline state (classification, HEAD) had moved. (E-LA-24)
+- **"Content is right" and "locator is right" are two independent claims.** A citation's data matched
+  digit-for-digit while every section/table number was fabricated. Verify DOIs at
+  `https://api.crossref.org/works/<doi>` — two cited DOIs resolved to unrelated papers or 404'd. Also
+  distinguish link rot from fabrication before concluding a source doesn't exist. (OPEN-47)
+- **Decompose an aggregate shift by end-use per-building before writing a causal story.** A large regression
+  attributed to "removing a service-load overlay" was ~90% a heating-only effect; the earlier version's
+  apparent accuracy was a compensating-error coincidence (oversized PTAC heating filling the gap). *(§9)*
+- **An imprecisely-recalled defect-ID list in a code comment hides a live defect from grep sweeps.** A
+  comment at `layout_assigner.py:863-865` misattributed E-LA-16 (cooling-coil UA autosize) to the unrelated
+  warmup-convergence family for weeks. (OPEN-51)
+- **A monkey-patch stub / literal string / hardcoded threshold message rots silently.** See the 4-arg lambda
+  (§4), the one-space `** Severe **` literals (§8), and a gate whose failure message hardcodes "< 80% gate"
+  regardless of the configured threshold.
+- **Re-verify apparent parallel failures serially, and verify process liveness independently.** Concurrency
+  artifacts, tool-level timeouts silently killing a LIVE_SMOKE, and stale duplicate background processes have
+  each produced false failure reports here. *(§13)*
+- **A subagent that ends its turn waiting on a background/cluster process is marked complete mid-work.**
+  Don't assume a dispatched agent resumes itself after a long wait. **Recurred on a second, different
+  agent (`a7b81c96b8dae26e1`, EU-14B T05) despite the pattern already being pre-embedded in its dispatch
+  prompt** — the agent submitted its own `sbatch --array` job then ended its turn claiming it would "poll
+  in the background and resume automatically," producing a `status: completed` notification with zero real
+  progress (no harvest, no report). Pre-emptive prompt text alone did not prevent it. Fix (confirmed working
+  both times): `SendMessage` the still-alive agent — never spawn a duplicate — instructing it to resume in
+  the same turn with **one foreground blocking `Bash` call** (never `run_in_background`, never `Monitor`):
+  `until ! _ssh "squeue -u \$USER -j <jobid> -h" | grep -q .; do sleep 60; done`, porting the `_ssh()` tcsh
+  wrapper from `scripts/cluster/t08_harvest_results.py:104`; if the call's own timeout fires before the
+  queue clears, call it again rather than ending the turn. `[OPEN]` — root cause (why the agent believes
+  it has background-polling capability for a job it spawned itself) unaddressed; only the symptom has a
+  confirmed per-instance fix.
+- **Never widen a gate or tune a constant after seeing a FAIL.** Band and threshold changes must be proposed
+  as pre-run spec changes. *(§9)*
+- **A regex object-splitter bounded only by the next occurrence of the SAME keyword corrupts the last
+  object of every file.** A hand-rolled IDF reader that sliced `BUILDINGSURFACE:DETAILED` blocks between
+  successive `^BUILDINGSURFACE:DETAILED,` matches let the last such block's slice run to end-of-file,
+  so its vertex regex picked up every subsequent object's numbers too (any trailing `SHADING:*`,
+  `FENESTRATIONSURFACE:DETAILED`, etc.). Fix: split the whole file on blank lines first
+  (`\n[ \t]*\r?\n`, verified separator style for this generator), then filter blocks by keyword —
+  every block is self-contained regardless of position in the file.
+  *(scripts/analysis/open03_envelope_decomposition_2026-08-20.py; docs/docs_DONE/openings/extra/MEASUREMENT_open-03_envelope-decomposition.md)*
+- **Summing every `Surface Type "floor"` object as "total floor area" silently doubles buildings that
+  carry an unconditioned Attic zone.** An Attic zone's own floor surface (OBC `Surface`) sits at the
+  same elevation as the conditioned zone's ceiling below it — same physical plane, second object — so
+  a naive floor-type sum counted it twice (measured 538 m² vs the correct ~255 m² on one fixture). The
+  IDF already carries the fix: every `ZONE` object's `Part of Total Floor Area` field (Yes/No) is
+  E+'s own signal for which zones' floor area counts; restrict any floor-area sum to zones where that
+  field is not `No` instead of guessing from zone names.
+  *(scripts/analysis/open03_envelope_decomposition_2026-08-20.py; docs/docs_DONE/openings/extra/MEASUREMENT_open-03_envelope-decomposition.md)*
+- **A "distinct wall min-Z elevation" storey-count method silently collapses to 1 band whenever
+  a building's `GlobalGeometryRules` `Coordinate System` is `Relative` AND the file encodes each
+  repeated floor band's elevation in the `ZONE` object's own `Z_Origin` field rather than in the wall
+  vertices themselves** — every wall vertex then reads a near-zero LOCAL Z regardless of the true
+  floor elevation, because the method (`open03_envelope_decomposition_2026-08-20.py`'s `parse_idf()`)
+  never adds the owning zone's `Z_Origin` back in (unlike `layout_assigner.compute_band_map()`, which
+  does this correctly, lines ~490-497). Measured zone-by-zone across all 18 `layout_assign`
+  baseline-mapped archetypes present in the fleet (not assumed): **severe** in `MidriseApartment`
+  (18/27 zones), `HighriseApartment` (18/27), `TallBuilding` (145/164), `SuperTallBuilding` (232/256),
+  `Outpatient` (59/118), `SecondarySchool` (21/46) — together 2,983/8,160 buildings (36.6 % of the
+  fleet); **immaterial** in `LargeOffice` (3/23 zones, none floor-area-counting) and
+  `QuickServiceRestaurant`/`FullServiceRestaurant` (the 1 affected zone in each is non-floor-area);
+  **absent** in the other 10 mapped archetypes (`ZONE.Z_Origin == 0.0` uniformly, absolute Z baked
+  directly into wall vertices). **Tracked as OPEN-62 from 2026-08-20.**
+  **Blast radius bounded the same day (director, at the source): production code does NOT share this
+  omission** — `layout_assigner.py:471` reads the zone `Z_Origin` and `:491-493` adds it back before
+  `min(v[2])`, and `openubem/viz/geometry_extract.py:143-155` does the same; no third production
+  reader counts storeys from wall Z. The defect is confined to `parse_idf()` in
+  `open03_envelope_decomposition_2026-08-20.py` and the one script that imports it, so it is a
+  **measurement-instrument erratum, not a geometry defect**.
+  **FIXED 2026-08-20 (T01, `PLAN_open62-z-origin-and-three-rulings-2026-08-20.md`)** —
+  `parse_idf()` (`scripts/analysis/open03_envelope_decomposition_2026-08-20.py:117-224`) now mirrors
+  `layout_assigner.py:465-495`: it reads `GLOBALGEOMETRYRULES`' `Coordinate System` and each `ZONE`'s
+  own `Z Origin`, adding it into the wall-vertex minimum before rounding when the file is `Relative`.
+  The fix is additive — `storey_count` is the corrected value, `storey_count_naive` is the untouched
+  pre-fix value, and C9a confirms `storey_count_naive` reproduces the pre-fix
+  `open03_envelope_decomposition.csv` exactly (96/96 arm-rows, 48 buildings × 2 arms). **The
+  building-level falsifiable prediction (C12) only partly held**: at the whole-building `storey_count`
+  level (not the zone level the severity table above counts), only 4 of the 6 named archetypes
+  actually move — `HighriseApartment`, `MidriseApartment`, `SuperTallBuilding`, `TallBuilding`.
+  `Outpatient` and `SecondarySchool` hold at delta 0 despite their severe zone-level counts, because
+  those two archetypes mix encodings: other zones on the same floor already bake their elevation
+  directly into wall vertices, so the floor's band is already present in the naive set and the
+  `Z_Origin` correction lands on a band that was already there. Verified directly on both archetypes'
+  baseline IDFs (zone-level wall-Z-base sets identical before/after correction). Restated fleet
+  census and control C9b are T02. 🔴 **C9b RAN AND FAILED 2026-08-20 (T02/CP-2), and the failure
+  changes what this entry means.** Checked against `layout_assigner.py`'s own origin-aware reader,
+  the corrected parser agrees on only **12 of 18 archetypes**; 6 disagree over **3,734 buildings**
+  (`TallBuilding` 11 v 20, `SuperTallBuilding` 16 v 30, `Warehouse` 2 v 1, and 1 v 2 on
+  `FullServiceRestaurant` / `QuickServiceRestaurant` / `SmallOffice`). Traced on
+  `TallBuilding.idf`: floor surfaces give **20** distinct elevations, all wall bases 20, exterior
+  wall bases 19, and *exterior wall bases in floor-area-counting zones* — what this function actually
+  counts — give **10** (`0.0, 4.9, 23.8, 55.3, 72.8, 88.6, 104.4, 118.4, 132.4, 135.9`, i.e. the
+  levels where a new exterior wall STARTS). 🔴 **So `storey_count` is not a storey count — it is the
+  number of distinct exterior-wall base elevations in floor-area zones, and it undercounts any
+  building whose facade spans multiple floors.** The `Z_Origin` fix above is correct and necessary
+  but **NOT sufficient**. ~~any value read from this column is a **lower bound**~~ -- **WITHDRAWN at
+  CP-3, see the director's correction at the end of this entry: it is not a bound in either
+  direction.** Do not treat this entry as closed: the `Z_Origin` symptom is fixed, the quantity is
+  still wrong.
+  **T06 ADDS `storey_count_floor` 2026-08-20** (`PLAN_open62-z-origin-and-three-rulings-2026-08-20.md`,
+  ruling R7): `parse_idf()` (`open03_envelope_decomposition_2026-08-20.py:118-236`) now also counts
+  distinct origin-corrected elevations among ALL `Surface Type "floor"` objects, **unfiltered by
+  zone** (R7's own wording carries no zone filter, and this is the value that reproduces CP-2's
+  "Floor surfaces (the independent reader)" measurement, 20 on `TallBuilding.idf`) -- exposed as
+  `layout_assign_storey_count_floor` in `open03_storey_census_zfix.csv`, additive, `storey_count`
+  and `storey_count_naive` untouched. **T06's own "How" text said to apply the wall path's zone
+  filter "so the two are comparable"; that filtered value does NOT reproduce the pre-registered C14
+  targets** (on `TallBuilding` it collapses to 11, coinciding with the wall-base `storey_count`,
+  because a zone's floor sits at the zone's own base elevation and the filter drops 9 of the file's
+  20 distinct zone-Z levels entirely -- 155/164 zones are floor-area-counting but concentrate on
+  only 11 Z values). Resolved in favour of the unfiltered reading (matches R7's own definition, the
+  calling task's explicit statement that "C14 targets come from the floor-surface reader", and the
+  numeric targets themselves); the filtered variant is kept in `parse_idf()`'s return dict as
+  `storey_count_floor_zonefiltered` for reference but is not written to any CSV. **C14 result:
+  `storey_count_floor` agrees with `layout_assigner.compute_band_map()`'s `n_proto` -- a second,
+  independently implemented floor-surface reader in production code -- on all 18/18 baseline-mapped
+  archetypes**, including the 6 archetypes C9b found the wall-base method disagreeing on. **C16
+  (storey_count_floor >= storey_count, allowed to fail) found 38/8,160 violations, all one
+  archetype: `Warehouse`** (wall-base reads 2, floor-surface reads 1) -- not reconciled; a
+  wall-based elevation with no matching floor plate (e.g. a mezzanine/dock-door wall segment) is
+  the kind of case the wall method could over-count relative to floors, distinct from the
+  under-counting story C9b told. **C17 restates C13's built mean/max as values, not lower bounds,
+  using `storey_count_floor`: mean 2.94 (>= C13's 2.25 lower bound), max 30 (>= C13's 16 lower
+  bound).** The module docstring's stale "KNOWN CAVEAT ... NOT fixed here" paragraph is now rewritten
+  to describe both symptoms and both fixes in sequence rather than claiming either is unfixed.
+  🔴 **DIRECTOR'S CORRECTION, CP-3 2026-08-20 — three claims above are wrong and are corrected here.**
+  (a) **The `Warehouse` mechanism is not a mezzanine.** Measured directly on the preserved prototype
+  (`scratchpad/open03_proto_saved/Warehouse.idf`): exterior wall z-bases are `{0.0: 8 walls,
+  4.267: 2 walls}` while FLOOR surfaces are **3, all at z = 0.0**. It is a single-storey high-bay
+  facade split into two vertical wall bands. (b) **`storey_count` is therefore NOT a lower bound** --
+  it under-counts `TallBuilding` (20 -> 11) and `SuperTallBuilding` (30 -> 16) and **over-counts**
+  `Warehouse` (1 -> 2). It is unbounded in both directions; C13's 2.25/16 survive only because
+  `floor < wall` happens to occur **0 times** inside the 5,714-row unmatched subset, which is an
+  accident of archetype mix. (c) **C17's 2.94 may NOT be published as a value: `storey_count_floor`
+  counts an ATTIC as a storey.** Verified origin-corrected on the prototypes: `SmallOffice.idf`
+  z = 3.05 carries **9 floor surfaces, every one in zone `Attic`**; `FullServiceRestaurant.idf` and
+  `QuickServiceRestaurant.idf` (both `Relative`) carry zone `attic` at z = 3.049. All three are
+  one-storey prototypes reported as 2. That is **3,580 buildings (43.9 % of the fleet)** and **2,797
+  of the 5,714 unmatched rows (48.9 %)**; attic-corrected, the built mean is **2.45**, not 2.94. The
+  publishable statement is the **range 2.45 - 2.94**. (d) Consequently **C14's 18/18 agreement with
+  `compute_band_map()`'s `n_proto` does not certify a storey count** -- `n_proto` is documented in
+  production as *"deliberately left as the measured Z-BAND COUNT, never a represented-storey count"*
+  (`openubem/geometry/layout_assigner.py:404-406`). This is **not a production defect**; production
+  branches `match_storeys()` on it and never publishes it as storeys. 🔴 **Net: no reader in this
+  codebase returns a storey count** -- naive collapses `Relative` files to 1, wall-base is unbounded
+  both ways, floor-surface counts attics. ⚠️ **Do not "fix" this by excluding zones named `Attic`** --
+  zone-name matching is the generalisation A1 already falsified (F-07, `layout_assigner.py:389`), and
+  it would move archetypes across `match_storeys()`'s `n_proto` branches, which that docstring warns
+  against by name.
+  *(scripts/analysis/open03_storey_census_2026-08-20.py; scripts/analysis/open03_envelope_decomposition_2026-08-20.py; docs/docs_DONE/openings/extra/MEASUREMENT_open-03_storey-census.md; docs/docs_DONE/openings/INVESTIGATION_open-items-register-II.md §6 OPEN-62)*
+
+- **A pre-registered control answered with a different denominator than the one it was registered
+  with, returning the opposite verdict** — OPEN-61's C6 asked for the ratio `dh / dhw_eui`; the
+  executor computed `dh / total_site_energy` and reported the 60-building pilot as "NOT
+  REPRESENTATIVE, ~50x off", asserting its denominator matched the pilot's construction. It did not.
+  On the registered ratio the fleet median is 0.6503 (IQR 0.3117-0.8642) against the pilot's 0.714
+  (0.362-0.840) — **representative**. Fix: re-derive the headline and every pre-registered control
+  from the artifact yourself before it enters the register; one `csv.DictReader` loop did it here.
+  Detection rule: a verdict that reverses a prior result by an order of magnitude is a denominator
+  bug until proven otherwise. *(scripts/analysis/open61_fleet_dh_number_2026-08-20.py; corrected in
+  docs/docs_DONE/openings/extra/MEASUREMENT_open-61_fleet-dh-number.md §C6)*
+
+- **A per-building MEDIAN ratio applied to a fleet-POOLED quantity, silently biasing the estimate
+  low** — OPEN-61's pre-census estimate scaled a 60-building median `dh/dhw` of 0.714 onto the fleet.
+  Measured, the fleet's median ratio is 0.6503 but its **pooled** ratio is **0.9382, 44 % higher**,
+  because large buildings carry far more district heating per unit of DHW. The method therefore
+  topped out at 17.43 kWh/m² where the truth is 19.47 — it could not have reached the answer at any
+  point in its own IQR, while still appearing to "land inside the band". Fix: when the target is a
+  pooled statistic, scale by the **pooled** ratio, never the median of per-building ratios; the two
+  differ by exactly the size-correlation the pooling exists to capture.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-61_fleet-dh-number.md §C6)*
+
+- **A pooled fleet figure read as a per-building offset** — 19.47 kWh/m² of unreported district
+  heating is a *fleet* quantity, not a property of a typical building. 116 buildings (1.4 % of 8,144)
+  carry 70.5 % of it; every office, retail and shop archetype sits at 1.3-2.7 kWh/m². Applying the
+  pooled figure as a uniform correction would move energy onto ~5,000 buildings that do not have it.
+  Fix: before proposing any remedy from a pooled number, print the per-archetype concentration; if the
+  top decile carries most of the mass, no flat offset is admissible.
+  *(docs/docs_DONE/openings/extra/MEASUREMENT_open-61_fleet-dh-number.md §C6b)*
+
+- **A citation sweep after an archive reports "0 broken" and a `.json` provenance field still points at the pre-archive path** — the sweep was scoped to `--include=*.md`, so every non-Markdown citation was invisible to both the repair and the verification that followed it. Moving `DECISION_REQUEST_EU-19_it_gate5_october_2026-08-27.md` into `debugs/docs/DONE-docs/` left `openubem/data/weather/weather_registry.json:217` (`decision_record`) unresolvable — inside the provenance block that justifies the fold's gate-5 exception, which is the one place the link matters. Fix: re-run the resolver over `--include=*.json --include=*.csv --include=*.py --include=*.txt` as well and repair, `openubem/data/weather/weather_registry.json:217`. **Rule: a citation sweep scoped to one file extension is not a citation sweep.** Corollary found in the same pass: two **frozen** artefacts (`eu_campaign_cell_spec_v1.0.json`, `eu_boundary_caveats_v1.0.json`) cite an already-archived path and **cannot be repaired** — a frozen file records the citation as it stood at the freeze, so archive before you freeze, never after. *(docs/docs_ACTIVE/europeanLocations/content/walkthrough_progress_log.csv, 2026-08-27T17:20Z)*
+
+## 17. Not-a-bug: expected behaviour & accepted limitations
+
+- **E+'s 10 m³ minimum-volume clamp warning is universal and benign as a *warning*** — and the `.err`
+  "Volume ≤ 0" line is **anti-correlated** with pathology: a healthy 44-zone LargeOffice carries 44 of them
+  while the runaway single-zone schools carry 1 each. Do not use it alone as a defect signal. (But see §1:
+  the underlying negative-volume clamp *is* a real ≈+1% EUI understatement.)
+  *(docs/docs_DONE/LOADS & SCHEDULES/hvac-ServiceLoads/remediation/PLAN_phaseE_CPD_remediation.md §9)*
+- **Small uniform EUI offsets between Windows and Linux (Speed) EnergyPlus runs are expected float/platform
+  rounding.** Only a *structural* delta (tens of kWh/m², concentrated in one archetype) is a regression.
+  *(docs/docs_DONE/SETUP/Simulation_Resolution/resolution_sets/PLAN_resolution_mode_switch.md M17)*
+- **Food-service archetypes running +423 kWh/m² above the phaseE benchmark is a stale-anchor artifact** — the
+  on-disk benchmark predates the cooking/DHW/refrigeration realism commits (`b2ca38f`, `e8e03d2`) and has
+  `refrigeration_eui=0`. Non-food archetypes bit-reproduce phaseE (mean |Δ| = 0.004).
+  *(same doc M16)*
+- **An imputer's predicted-vs-actual scatter looking "flat" vs the 1:1 diagonal is inherent variance
+  collapse**, not a bug — any single-best-estimate imputer pulls toward the conditional mean under the
+  zero-fitted-parameters rule. Judge a stochastic-draw imputer (`pmm`) on histogram/ECDF, not the scatter.
+  *(docs/docs_DONE/INPUTS/imputation/implementation/IMPLEMENTATION_phaseC_ml_imputer.md:127)*
+- **CBECS/CV(RMSE)/KS gate failures are structural and report-only** (§9). **`knn_fill` filling 0 rows on a
+  100%-missing cell is the MNAR guard working** (§7). **Fusion sources skipping when unconfigured is by
+  design** (§7). **Warmup non-convergence under `thermal_mass=True` is a known, non-blocking side effect**
+  (1.29% → up to 64% prevalence depending on segment; `status` stays `success`) — but it is *not* proven
+  cosmetic for accuracy (OPEN-09).
+- **A missing E+ install mapping / version mismatch fails loudly by design** — `runner.py` refuses to run a
+  binary whose `--version` doesn't match `config.ENERGYPLUS_VERSION`.
+- **A campaign's md5-vs-earlier-campaign check finding 2 mismatched "unchanged" IDFs out of 16,227 is a
+  stale-shared-fixture artifact, not a measure bug.** FLEET-07b's md5 audit (rows not in
+  `manifest_changed.csv` must match the FLEET-06a IDF byte-for-byte) found 2 mismatches
+  (`way_381810555`/infiltration, `way_425993519`/lighting); both traced to a `Generator:PVWatts` "DC System
+  Capacity" field the measures never touch. Root cause: both FLEET-06a and FLEET-07b build from the same
+  shared source tree `%TEMP%\ubem_validation\fleet06a_rebuild_2026-09-18\<geo>\step3\idfs\<stem>.idf`, but 2
+  of those source files were overwritten in place on 2026-09-23 (mtime), 5 days after FLEET-06a's campaign
+  build read them on 2026-09-18. FLEET-07b (built 2026-09-26) reads the current, updated source and
+  reproduces it exactly; FLEET-06a's older output reflects the pre-2026-09-23 value. Not a fix — the shared
+  fixture drifted between two campaigns' build times; any future byte-identity check across campaigns built
+  from the same "fresh IDF" tree on different dates should expect this.
+  *(docs/docs_DONE/TechTransfer/implementation/PLAN_techtransfer-block7-fleet07-2026-09-26.md §8 FLEET-07b)*
+- **[FORWARD-LOOKING, not yet hit in OpenUBEM] AirflowNetwork in `MultizoneWithDistribution` mode will not
+  scale to a district-size model** — the pressure-network solver builds one matrix across every zone in
+  the network; once many buildings' zones are joined into it the matrix becomes singular or fails to
+  converge, and the run dies or stalls. This is reported from experience on another project, not
+  reproduced here — OpenUBEM does not use AirflowNetwork today. Fix (if ever proposed): use
+  `MultizoneWithoutDistribution`, which survives at that scale. Recorded ahead of time so the next person
+  who proposes district-scale AirflowNetwork finds this before spending days reproducing it.
+  *(docs/docs_DONE/TechTransfer/2026-09-17_TechTransfer_idf_reader_to_OpenUBEM.md §5, item 4 / T10)*
+
+## 18. Currently open items (register snapshot 2026-09-30, final — none open)
+
+Authoritative list: `docs/docs_DONE/openings/INVESTIGATION_open-items-register-II.md` (7 live, next free
+ID OPEN-74; 5 on 2026-09-30 night, 0 on 2026-09-30 evening, 6 on 2026-09-29, 12 on 2026-09-24). Snapshot only — always re-read the register before acting. The 2026-08-20 snapshot this
+replaces listed items since closed (09, 10, 12, 13, 14, 15/16/17, 20, 27, 28, 42, 48, 51, 54, 55, 56, 60).
+
+| ID | One-line |
+|---|---|
+| OPEN-03 🔒 | closed 2026-09-29, known limitation: `layout_assign` builds the prototype's storeys for 70 % of buildings; quote its results with that caveat (§4) |
+| OPEN-19 🔒 | closed 2026-09-29, known limitation: LA cells run ~+40% hot because they are 90.1 buildings, not Title 24; no climate-zone switch exists |
+| ~~OPEN-35~~ 🔒 | closed 2026-09-30, fixed on the user's ruling: both stages use the group-median storey count; 488 buildings re-simulated, adopted 171.38 kWh/m² / 1,146,454 t over 8,139 ⚠ superseded 2026-10-21: restated at 154.10 kWh/m² / 1,037,572 t over 8,139 buildings (hot water counted once, D-IMP-05; see docs/docs_ACTIVE/IMP/PLAN_paper-improvement-implementation-2026-10-21.md T13). |
+| ~~OPEN-38~~ 🔒 | closed 2026-09-30: cooking-load crashes fixed (10 of 10, §2); 28 runs (19 buildings) still fail; the 6 that crash in `auto` are not in the 8,139; each closed 2026-09-30 as a known limitation (OPEN-67 … OPEN-71) — laundry and sizing divergence (§2), sliver and non-convex shading (§1), out of memory at 32G (§12) |
+| OPEN-53 🔒 | closed 2026-09-29, known limitation: 874 meter-only E02 files stay on Speed, not re-fetched; never base an EUI on a meter-only `.sql` (§12) |
+| OPEN-58 🔒 | closed 2026-09-29, fixed: scratch `run_ep()` now runs in its own directory; its EUI formula is still not production's (§8) |
+| OPEN-59 🔒 | closed 2026-09-29, known limitation: Unknown buildings are 31 % below classified pooled, 2.31× above per-building median; always name the weighting (§7) |
+| ~~OPEN-61~~ 🔒 | closed 2026-09-30 (re-parse adopted); was: district-heated hot water missing from the adopted figure (parser fixed; number not yet re-parsed) (§8) |
+| ~~OPEN-62~~ 🔒 | closed 2026-09-30 on the user's ruling (storey = ground floor and floors above, not attic or ceiling spaces); caveat: the reader undercounts floors repeated by a multiplier and reads 0 for data-centre prototypes |
+| ~~OPEN-63~~ 🔒 | closed 2026-09-30 (re-parse adopted); was: carbon factor for district heat is in code (0.226, US EPA), but the adopted carbon total never saw district heat (§8) |
+| ~~OPEN-65~~ 🔒 | closed 2026-09-30 (re-parse adopted); was: the adopted fleet figure was parsed by a meter-only harvest parser that never reads district heating (§8) |
+| ~~OPEN-66~~ | 🔒 closed 2026-09-29, fixed: zero-zone IDFs now return `failed_no_zones`; root cause fixed in `extrude_geometry` (see §4 entry) |
+| OPEN-67 🔒 | closed 2026-09-30, known limitation: SmallHotel laundry room crashes `layout_assign`, 7 runs; no trial variant cures it; production figure unaffected (§2) |
+| OPEN-68 🔒 | closed 2026-09-30, known limitation: sliver perimeter zone under 2 m², 6 `fast_zone` runs; a 2 m² threshold cures 3 but re-routes 41 adopted buildings, not adopted (§1) |
+| OPEN-69 🔒 | closed 2026-09-30, known limitation: ordinary zone diverges during sizing, 13 runs / 7 Warehouses, no variant cures it; 4 missing from the adopted fleet (§2) |
+| OPEN-70 🔒 | closed 2026-09-30, known limitation: non-convex shading fatal, 1 building missing from the adopted fleet (§1) |
+| OPEN-71 🔒 | closed 2026-09-30, known limitation: runaway plant temperature (not memory); completes with `AnalyticalSolution`, not adopted; 1 building missing from the adopted fleet (§12) |
+| OPEN-72 🔒 | closed 2026-09-30, fixed: `BASELINE_IDF_DIR` default points at the moved prototype folder (§14) |
+| OPEN-73 🔒 | closed 2026-09-30, fixed: `PREP_ABORT_ON_FAILURE = False` (§14) |
+
+---
+
+- **EU parent-table reconciliation rejected six valid GB rows as non-existing variants** — X-01 copied rows such as `GB.ENG.AB.02-03.ApartmentBuildings.SyAv.002.001` failed a local `.endswith(".001.001")` assertion, although the parent generator's actual retention predicate is `code.endswith('.001')` (`C:\Users\o_iseri\Desktop\GSSCanada\GSSCanada-main\4J_docs_occ\tools\4thJ_step8_tabula.py:315`) and the final `.001` is the existing-state component. Fix: validate the final `.001` suffix plus `Number_BuildingVariant == 1` in `openubem/data/construction/tabula_reconcile.py`; the X-01 decision record preserves the authority resolution. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-01_variant-suffix-2026-08-23.md)*
+
+*Maintenance: when a debug/measurement doc lands, add its distinct, reusable failure modes here in the same
+`**Symptom** — cause -> fix. *(path)*` form. Keep `[OPEN]` markers current against the register.*
+# X-02 ventilation coefficient mismatch (2026-08-23): the planned `V_C / A_C_Ref` identity did not reproduce the pinned TABULA `h_Ventilation` values. The direct `Calc.Set.Building` relation is `0.34 * (n_air_use + n_air_infiltration) * h_room`; ruling and source example are in `docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-02_ventilation-coefficient-2026-08-23.md`.
+
+## European locations X-04
+
+- **DR11 R5 returns 19.993496 W, not the literal 20.000 W ± 0.001 W** — the local EnergyPlus
+  23.1 fixture confirms its 0.5/0.5 other-side temperature is exactly 10.000 C, but retains an
+  effective inside-film resistance even after a very large inside convection coefficient is
+  requested. This stays a strict `xfail`; see
+  `docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-04_R5-engine-film-2026-08-23.md`.
+
+- **X-04 resolution and R3 follow-up (2026-08-23)** — the evaluator accepted the documented
+  engine-aware R5 tolerance, so R5 now passes; R7 also passes. The executable R3 fixture
+  preconditions to 20 C and applies a 0 C boundary but returns 19.998714 C at 14.0625 h rather
+  than 7.357589 C. It is retained as a strict expected failure pending reconciliation; see
+  `openubem/outputs/eu_evidence/X-04/targeted_pytest_r3_fixture.log`.
+
+- **T07 disposition (2026-08-26), outcome (b) — fixture inputs were wrong, not the implementation.**
+  Root cause of the 19.998714 C stagnation: `_r3_idf()` in `tests/test_eu_physics_energyplus.py`
+  formerly set an artificial inside convection coefficient `h_in = 1e7 W/(m2 K)`, which locked
+  EnergyPlus's partitioned zone heat-balance solver (decay clamped to ~1e-7 fraction per timestep,
+  i.e. ~2e-6 K per minute) — a numerical artifact, not real physics. Re-derivation confirms the
+  analytical target is reproducible exactly from the pinned functions:
+  `r3_time_constant_hours(1.62e7, 320.0)` = 14.0625 h and
+  `r3_free_float_temperature_celsius(20.0, 0.0, 14.0625, 1.62e7, 320.0)` = 7.357588823 C
+  (`openubem/idf/european_physics.py:145-154`), matching DR11 §4's 7.357589 C to six decimals — so
+  DR11's target is not in question. The fix (already present in the current fixture: no
+  `SurfaceProperty:ConvectionCoefficients` override, natural convection relies on TARP) makes the
+  free-float trajectory physically continuous — measured `T(14.04h) = 3.6036 C`,
+  `T(24h) = 1.5914 C` for the 100 m2 InternalMass case — and the test asserts these as physical
+  decay bounds (`2.0 <= t_14 <= 5.0`, `0.5 <= t_24 <= 3.0`), not the single-node analytic value,
+  because the full CTF/TARP dynamic model is a distributed system and is not expected to reduce to
+  the lumped one-node exponential exactly. No `xfail` remains in `tests/test_eu_physics_energyplus.py`
+  or `tests/test_eu_physics_primitives.py`; both files are green (11 passed). Fix:
+  `tests/test_eu_physics_energyplus.py::_r3_idf` (override removed),
+  `tests/test_eu_physics_energyplus.py::test_r3_free_float_energyplus_fixture` (assertions un-xfailed).
+  *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/ANALYSIS_REQUEST_X-04-R3_X-07-CDS_2026-08-23.md,
+  PLAN_eu-boundary-closure-2026-08-26.md T07)*
+
+## European locations EU-10
+
+- **`Schedule:File=..., File Name: "C:\\Users\\...\\*_gain.csv" not found` on Speed EU-11 tasks** — the accepted S2 builder emits an absolute Windows schedule path, valid locally but unavailable on Linux after the IDF alone was staged. Fix: `scripts/run_eu_s2_district_campaign.py:prepare` stages the byte-identical gain CSVs under `schedules/<stem>/` and retargets only each `Schedule:File` path to `../../schedules/<stem>/...`, relative to the array task output directory; failed arrays were cancelled before resubmission. *(EU-11 Speed submission, 2026-08-28)*
+
+- **`cp: cannot stat '.../idfs/<stem>'$'\r''.idf': No such file or directory` on Speed EU-11 tasks** — the Windows-prepared `fleet.lst` used CRLF, and `sed` passed the trailing carriage return into the IDF filename. Fix: `scripts/cluster/submit_fleet_t08.sbatch` strips `\r` from the selected fleet stem before forming paths; the failed arrays were cancelled and will be resubmitted with the corrected batch script. *(EU-11 Speed submission, 2026-08-28)*
+
+- **`bash: -c: line 0: unexpected EOF while looking for matching '"'` while tracking EU-11 Speed arrays** — a PowerShell-interpolated loop placed nested quotes around the remote `bash -lc` payload, truncating the command before it reached Speed. Fix: issue a single-quoted remote payload per read-only tracking command; the job submission and fleet contents are untouched. *(EU-11 Speed monitoring, 2026-08-28)*
+
+- **`ValueError: ARCHETYPE_AMBIGUOUS: GB/AB/GB.06` while preparing EU-11** — the initial band-period selector incorrectly required a generated TABULA row even when the accepted registry supplies one unambiguous composite row (`GB.ENG.AB.04-08.ApartmentBuildings.SyAv.005.001`) for that period. Fix: `scripts/run_eu_s2_district_campaign.py:_record_for_period` now mirrors `select_tabula_archetype`: prefer one generated row when present, otherwise accept exactly one remaining candidate; a genuine multi-candidate result still fails closed. *(EU-11 fleet preparation, 2026-08-28)*
+
+- **A retained EnergyPlus J-to-kWh series can sum to 8759.999999999998 rather than a literal 8760.0** — IEEE-754 accumulation of hourly converted values is expected, not an energy-accounting discrepancy. Fix: retain the strict closure tolerance in `openubem/results/european_campaign.py` and use approximate comparisons in `tests/test_eu_results_accounting.py`; do not round retained values before validation.
+
+## European locations X-05
+
+- **EU-02 live Bologna `ValueError: Unlisted Bologna rifter typologia values`** — the live cadastral export used official spellings `Cabina ENEL`, `Mura storiche`, and `Stazione di rifornimento`, while the initial fail-closed rule carried their shorter aliases only. Fix: retain both explicit spellings as non-residential in `classify_bologna_rifter`, with a regression fixture; never default an unseen typology. **EU-02 GeoPackage readback:** Fiona places `geometry` first and represents nullable `Int64` fields as ordinary numeric columns. Validate the emitted `01_buildings_clean.schema.json` metadata on readback rather than treating that driver representation as an in-memory schema failure.
+
+- **The EU-02 Lyon selection record’s BD TOPO class counts do not add up** — it states 891 total, 23 annexes, then 544 residential + 278 unknown + 52 non-residential; those categories sum to 897 (or 874 after annex removal). The retained raw WFS query and pinned boundary reproduce 891 / 23 / 544 / 278 / **46** when `usage_1 OR usage_2 = Résidentiel` is applied as specified. Fix: preserve the measured 46 in `openubem/outputs/eu_evidence/X-10/fr_live_reconciliation.json`; do not alter the selected site or silently force the count to 52.
+
+- **A positional `Sizing:Zone` fixture was rejected before sizing began** — the original test fixture placed `No` and `NeutralSupplyAir` in fields whose EnergyPlus 23.1 schema expects numeric cooling-flow data and a heating-flow method, respectively. Fix: `tests/test_eu_hvac_sizing.py` constructs `Sizing:Zone` through named IDD fields, then requires a successful zone-sizing record and nonzero heating load. *(MVP §9.7 EU-05 acceptance evidence)*
+
+- **A weighted U-value cannot reconstruct TABULA's `h_Transmission` target** — component-specific boundary factors are embedded in the calculator's eleven `H_Transmission_*` terms. Preserve and sum those cached terms, divided by `A_C_Ref`, for the exact source readback; do not substitute a weighted-U approximation. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+
+- **`** Severe ** Duplicate name found for object of type "Schedule:Constant" named "EU_AlwaysOn_ES.ME.SFH.04.Gen.ReEx.001.001". Overwriting existing object.` (10 severes, fatal before simulation)** — `add_european_heating_controls` named every emitted object after the archetype alone, so a multi-dwelling building, whose dwellings share one archetype by construction, wrote one schedule/ventilation/gains/thermostat set per zone under the same names. Single-zone fixtures never exposed it. Fix: `openubem/idf/european_controls.py` names the per-zone objects after `zone_name`, emits the two archetype-independent constant availability schedules once per IDF, and raises `ValueError` when controls are requested twice for the same zone; `tests/test_eu_reciprocal_surface_audit.py` runs a three-dwelling generated layout through a real EnergyPlus design-day sizing run. *(MVP §9.7 EU-04/EU-05 acceptance evidence)*
+
+- **`** Severe ** Duplicate name found for object of type "ScheduleTypeLimits" named "EU_Step8_AnyNumber_Wm2". Overwriting existing object.` (one duplicate per extra dwelling zone, fatal before simulation)** — `emit_step8_gain_schedule` always (re-)creates a fixed-name `SCHEDULETYPELIMITS` object (`EU_Step8_AnyNumber_Wm2`); calling it once per dwelling zone of a multi-dwelling building therefore writes one duplicate per zone beyond the first, unlike `add_european_heating_controls` which already names its own objects after `zone_name`. Fix: `scripts/run_eu_s2_campaign.py:build_idf_for_building` removes any existing `EU_Step8_AnyNumber_Wm2` object immediately before each per-zone call to `emit_step8_gain_schedule`, so exactly one survives; verified on `BATIMENT0000000240879449_part0` (5-dwelling `DWELLING_LAYOUT_EMITTED` case) with a real EnergyPlus 23.1 run. *(docs/docs_ACTIVE/europeanLocations/previous/PLAN_eu-boundary-closure-2026-08-26.md T02)*
+
+- **S0 windows made EnergyPlus abort with "Other side coefficients are not allowed with windows"** — the first equivalent-envelope emitter placed windows in wall hosts using `OtherSideCoefficients`; EnergyPlus permits fenestration only on an exterior/interzone parent. Fix: `openubem/idf/european_box.py` emits the S0's required `b=1` window/door hosts as `Outdoors` walls and preserves the same `U*A` loss; `tests/test_eu_box_generator.py` runs the SFH heating-only engine smoke test. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+
+- **S0 north/west windows failed the outward-normal check** — subsurface vertex order did not match its cardinal parent-wall winding. Fix: `openubem/idf/european_box.py` uses orientation-specific fenestration vertex sequences, validated by the EnergyPlus smoke run. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+
+- **The AB floor's displayed TABULA b did not reproduce cached H** — `b_Transmission_Floor_1 = 1` but its cached `H_Transmission_Floor_1` is not `U*A`. Fix: `openubem/idf/european_box.py:_component_values` derives the admissible effective b from the authoritative H component for saved-IDF realization while retaining the original display b in the registry. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISIONS_X-05_s0-box-plan-2026-08-23.md)*
+
+- **Every BD TOPO building is stamped `provenance_year_built = IGN_BDTOPO_MISSING` / `data_quality_flag = 'no_year'` although the source carries the year** — `openubem/acquisition/bdtopo_fetcher.py:94` parsed `date_d_apparition` with `pd.to_datetime(..., format="mixed", errors="coerce")`. Under pandas 3.0.3 that returned `NaT` for **every** BD TOPO value, because the source formats the field as a date with a bare zone suffix and no time part (`'1998-01-01Z'`, `'1820-01-01Z'`), and because pre-1677 values such as `'1580-01-01Z'` fall outside `datetime64[ns]`. `errors="coerce"` then discarded the failure silently. Measured on the live Lyon WFS query (bbox `45.774784, 45.768891, 4.837450, 4.823612`): **1,115 of 1,663** raw features carry a non-null `date_d_apparition`, yet the retained manifest `openubem/outputs/eu02/FR-LYO-HAUTCOEURPENTES/02_residential_manifest.gpkg` held **0 of 530** observed years. This was the live blocker on EU-04 `GEO-10`/S1–S3, and it was a parse defect, not a missing source. Fix: `openubem/acquisition/bdtopo_fetcher.py:82-93` extracts the leading 4-digit calendar year via `_parse_bdtopo_year` with 1000..current_year bounds without datetime round-tripping; regression-tested by `test_bdtopo_year_parse_recovers_real_date_shapes_and_pre_1677_years` and `test_bdtopo_retains_all_years_when_source_dates_present` in `tests/test_eu02_fetchers.py`. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_EU-04_GEO-08_GEO-10_2026-08-25.md)*
+
+
+- **G8.13 (Schedule:File `Interpolate to Timestep = No`) failed 0/103 against real S2 dwelling/zone gain schedules, although every emitted `Schedule:File` literally reads `No,  !- Interpolate to Timestep`** — `evaluate_saved_idf_schedule_gates` (`openubem/validation/step8_gates.py:497`) read `matching_schedule[6]` for the interpolation flag. That index was correct only for the narrower 7-field `Schedule:File` fixture in `tests/test_eu_step8_saved_idf_gates.py` (Name, TypeLimits, File, ColNum, RowsSkip, NumHours, Interpolate). The real object `emit_step8_gain_schedule` (`openubem/semantic/european_schedules.py:88`) writes also carries `Column_Separator`, `Minutes_per_Item`, and `Adjust_Schedule_for_Daylight_Savings`, which shifts `Interpolate_to_Timestep` to index 7; index 6 read `Column_Separator` (`"Comma"`) instead, so the gate always failed on real 10-field objects while its own unit test — using the shorter fixture — stayed green. Fix: `openubem/validation/step8_gates.py:482,497` updates the guard to `len(fields) >= 8` and checks `matching_schedule[7].casefold() == "no"`; `tests/test_eu_step8_saved_idf_gates.py` widens fixture to full 10-field `Schedule:File` with `Column_Separator = Comma`. *(docs/docs_ACTIVE/europeanLocations/debugs/docs/DONE-docs/DECISION_REQUEST_EU-13_G8.13_scorer_index_2026-08-26.md, docs/docs_ACTIVE/europeanLocations/previous/PLAN_eu-boundary-closure-2026-08-26.md §9 FINDING EU-S2-02)*
+
+
+- **`** Warning ** This building has no thermal mass which can cause an unstable solution.`, followed by `** Fatal ** Program halted because of convergence error in SolveForWindowTemperatures` on a *non-reproducible* subset of cells** — the same IDF and EPW run three times by hand gave three different `eplusout.csv` digests, and over three 510-cell campaign runs 130 cells changed status while 132 of the 264 always-completing cells returned a different heating value (worst case 27.1 %). Cause: `openubem/campaign/eu_cell_runner.py::_build_idf` emitted the S0 equivalent envelope — which is `Material:NoMass` throughout, so it has **literally zero heat capacity** — without ever adding the `InternalMass` object that carries the campaign's declared capacity, although `scripts/run_eu_s2_campaign.py:244` had always added it. A zero-capacity zone has no single answer, so the window-temperature fatals were a symptom, not the disease. Note it is a **Warning**, not a Severe, and the `dry_run` path never reaches EnergyPlus, so neither suite could have caught it. Fix: `openubem/campaign/eu_cell_runner.py` now calls `add_european_internal_mass(idf, zone_name, a_c_ref_m2, c_m_wh_m2k=record["c_m_wh_m2k"])` right after the envelope; verified by running `uk__GB.ENG.MFH.02.Gen.ReEx.001.001__f050` three times — **76524.889 kWh three times, 0 severe, 0 fatal**, against 74253.89 / 54094.73 / fatal before. Regression: `test_the_cell_idf_carries_its_declared_thermal_capacity` in `tests/test_eu_cell_runner.py`. ⚪ The three remaining geometry warnings (`Floor is upside down`, `zone is not fully enclosed`, `Entered Zone Floor Area(s) differ more than 5%`) are **inherent to the equivalent-envelope method** documented at `openubem/idf/european_box.py:48-58` and no longer produce non-determinism. *(docs/docs_ACTIVE/europeanLocations/implementation/previous/PLAN_run-campaign-cell-2026-08-27.md)*
+
+- **`PermissionError: [WinError 5] Access is denied` on every EnergyPlus launch from the campaign entry point** — `openubem.config.ENERGYPLUS_PATH` is the **installation directory** (`config.py:16` appends `Energy+.idd` to it, and `simulation/runner.py:18`, `run_eu_s1_smoke.py:259`, `run_eu_s2_campaign.py:304` and four test modules all append the executable name), but `eu_cell_runner._run_energyplus` executed `str(ENERGYPLUS_PATH)` **directly as the binary** — it was trying to execute a folder. One value cannot satisfy both readings, and no `dry_run` test reaches the launch. Fix: `_energyplus_exe()` in `openubem/campaign/eu_cell_runner.py` appends `energyplus.exe`/`energyplus` when the value is a directory and passes it through when it is already the binary, so a caller that worked around this by pointing the variable at the exe is not broken by the repair; covered by `test_energyplus_path_may_be_the_install_directory` and `test_energyplus_path_may_also_be_the_binary_itself`. *(cross-session report from GSSCanada 4J, 2026-08-28)*
+
+- **[OPEN] A campaign cell finishes with `return_code = 0` and no Severe, yet its heating figure is meaningless — `** Warning ** Temperature out of range [-100. to 200.] (PsyPsatFnTemp)`, `Inside surface heat balance did not converge with Max Temp Difference [C] =10.088`, and in the by-hand cases that do die, `CalcHeatBalanceInsideSurf: The temperature of -76844.75 C`** — measured by GSSCanada 4J across three full 510-cell runs *after* the `InternalMass` repair: **333 / 346 / 348 completed, of which 97 / 102 / 94 carry one of those markers**; 185 cells are clean in all three runs but **49 of those still return a different heating value (max 45.5 %)**, leaving **136 of 510 clean and bit-reproducible**, and only **5 archetypes with all five `f` levels reproducible** — which is the number that matters, because the sensitivity design compares `f` levels *within* an archetype. 🔴 **The whole `es` fold is affected: every completed `es` cell in every run carries an out-of-range temperature warning.** Cause is not yet ruled. It is **not** the missing `InternalMass` (that is fixed and verified) and **not** the floor orientation: flipping the S0 floor normals to the correct downward tilt was tried, cleared `GetVertices: Floor is upside down!`, and **made the cell worse** — `es__ES.ME.AB.01.Gen.ReEx.001.001__f000` went from three identical runs to 1 fatal in 3 (`Convergence error in SolveForWindowTemperatures`), so the change was reverted. What is measured is that the same cell also raises `FixViewFactors: View factors not complete` — i.e. the interior radiant exchange of the S0 equivalent envelope is ill-posed because the zone is deliberately unenclosed (`openubem/idf/european_box.py:48-58`), and the windows sit in hosts whose outside boundary is `OtherSideCoefficients`. 🔴 **Measured 2026-08-28: the effect the campaign exists to detect is two orders of magnitude below this noise floor.** On the five archetypes whose whole `f` sweep is clean and bit-reproducible in all three runs, the full `f000`→`f100` sweep moves heating by **0.11–0.39 %** (`IT.MidClim.AB.03` 0.2170, `IT.MidClim.MFH.01` 0.3865, `IT.MidClim.SFH.08` 0.2638, `GB.ENG.AB.04` 0.1226, `GB.ENG.MFH.02` 0.1103), and it is not even monotone — two of the five turn back up at `f100`. Against a **45.5 %** run-to-run spread on cells that were clean three times and still moved, **no ruling that merely recovers refused cells can make `EU-09` scoreable while this is open.** Completeness histogram over the 42 archetypes with any reproducible cell: 5 have all five `f` levels, **16 have four**, 7 three, 12 two, 2 one. **Standing rule until this is ruled: `completed: true` is necessary and NOT sufficient — screen `eplusout.err` for those three strings, and require completeness per archetype across all five `f` levels, never a raw cell count.**  🔴 **Resolution 2026-08-28 (`D-EU-27` then `D-EU-28`, both ruled Option B): closed by construction, never by cure, and only for `uk` and `it`.** `Timestep 12` plus three replicates per cell made the run reproducible, giving **191 of 510 CERTIFIED** (3 bitwise-identical `heating_kwh` AND `severe_count = 0` AND `fatal_count = 0` AND all three `completed`) — but certification screens the two counters and **not the `eplusout.err` marker columns the evidence CSV already carries** (`FINDING 182`). **42 of those 191 carry `marker_psy` in all three replicates and all 42 are `es`** (all-three-or-none; `marker_inside_hb` and `marker_calchb` are 0 on every certified cell), because EnergyPlus reports the diverging inside-surface heat balance as a **Warning**, which raises neither counter. The `es` fold did not become sound — the same ill-posed solution merely became **repeatable**. `D-EU-28` therefore restricts the quotable perimeter to the **149 marker-free certified cells (`uk` 75, `it` 74, `es` 0)**, five-`f` sweep set **15 pairs** (`uk` 8, `it` 7). **This entry stays `[OPEN]` because the ill-posedness itself is unfixed for `es`; what changed is that no quoted figure touches it.** Screening rule unchanged and now mandatory: `completed: true` and `clean: true` are each necessary and NOT sufficient — filter on the marker columns too. *(docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md §9.7.3; outputs/deu27_rerun_cells.csv)* *(docs/docs_ACTIVE/europeanLocations/implementation/previous/PLAN_run-campaign-cell-2026-08-27.md T08)*
+
+- **saved IDF Zone fields do not encode an integral storey count** — `read_saved_idf_geometry` derived `storeys_exact = V/(A*h)` from `Zone.Ceiling_Height`, which the IDF writer serializes to 7 significant figures, so a true height of 11 was written `10.999998` and the recovered storey count missed the integer by ~1e-7, far outside `math.isclose(..., rel_tol=0.0, abs_tol=1e-9)`; two of 39 European perimeter archetypes raised instead of being read (`GB.ENG.AB.03.Gen.ReEx.001.001`, `IT.MidClim.AB.05.Gen.ReEx.001.001`). Fix: `openubem/validation/step8_gates.py:401` (and the same serialized-vs-recomputed comparisons at `:443-444` and `:670`) now use `rel_tol=1e-6`; regression `tests/test_eu_box_generator.py::test_v8d_read_saved_idf_geometry_tolerates_7sf_ceiling_height_truncation`. *(docs/docs_ACTIVE/europeanLocations/previous/MVP_european_locations.md §9.7.3)*
+
+- **EU-13's `geometry_outcome` disagrees with the `heating_kwh`/`floor_area_m2`/`eui_kwh_m2` already harvested for the same building — e.g. `relation/12582232` (Madrid) is labelled `DWELLING_LAYOUT_EMITTED` with `floor_area_m2 = 1089.2873` (exactly `272.32 m² x 4` storeys, the massing-box total, not the dwelling-partitioned one)** — `scripts/emit_eu11_layout_sidecars.py` (EU-13) recomputes `geometry_outcome` and the pop-up's dwelling zones from the footprint alone via a fresh `generate_european_dwelling_layout` call, entirely independent of `scripts/run_eu_s2_district_campaign.py:_geometry`, the separate function that actually built the zones submitted to Speed for EU-11's harvest. That function's dwelling-layout branch called `european_layout_to_zone_specs(...)` without `n_storey=n_storey` (same defect as `FINDING EU-12-01`, but here baked into the real submitted IDF, not just a side-car) and its `else` branch had no dwelling-count imputation at all, so most of EU-13's newly-labelled buildings were actually simulated under the older, simpler massing-box or storey-0-only zoning — the pop-up now shows geometry that was never run. Fix: `scripts/run_eu_s2_district_campaign.py:_geometry` now takes `records` and mirrors the side-car emitter exactly — same `n_storey` stacking, same four-tier imputation cascade for missing observed counts, same outcome-string branching (`DWELLING_LAYOUT_EMITTED[_IMPUTED_COUNT]` / `FALLBACK_PENDING_LAYOUT[_MISSING_DWELLING_COUNT]`); verified directly (no new Speed run) on `relation/12582232`: now produces 20 zones (4 storeys x 5 dwellings), matching the side-car. `[OPEN]` a real re-simulation is still required to make the harvested numbers match — tracked in `DECISION_REQUEST_D-EU-35_geometry_simulation_desync_resimulation_2026-08-28.md`, ruling pending. *(caught while answering the owner's question on Speed re-simulation timing, 2026-08-28)*
+
+- **EU-13 3D viewer pop-up shows `Unconditioned core: Yes` for every dwelling-layout-emitted real-footprint building although zero core zone exists anywhere in its `floors[].zones`** — `scripts/emit_eu11_layout_sidecars.py:183` wrote `allocation.has_unconditioned_core`, a density-threshold flag (`dwellings/storeys >= 2`) computed by the synthetic-TABULA-plate helper `allocate_european_dwellings` (only called here to get `units_per_floor`), into the side-car metadata as if it described the real-footprint geometry emitted by `generate_european_dwelling_layout` — which, by the latter's own docstring (`openubem/geometry/european_residential.py:139-141`), never carves a core out of an observed shell, since doing so would fail the `audit_european_floor_partition` area-conservation check (GEO-01) against the real footprint. Verified on `way/51781396` (London, 17 storeys): 5 dwelling strips tile 100 % of every floor, no core polygon anywhere, yet the sidecar and pop-up both claimed a core. Fix: `scripts/emit_eu11_layout_sidecars.py:183` now writes `layout.unconditioned_core_emitted` (the `EuropeanGeneratedFloorLayout` field, always `False` on this path since no call site sets it `True`), honestly reflecting that the full plate is dwelling area with no core; re-ran `scripts/emit_eu11_layout_sidecars.py` and `scripts/generate_eu_3d_viewers.py` across all 4 districts (1,340 side-cars, 1,078 emitted), confirmed `grep -c '"has_unconditioned_core": true'` returns 0 across the corpus, viewers regenerated and re-mirrored byte-identically. *(caught by user inspection of `eu_GB-LDN-STDUNSTANS_viewer.html`, 2026-08-28; `openubem/outputs/eu_evidence/EU-13/RESULTS_EU-13.md`)*
+
+## European locations EU-13B
+
+- **`ValueError: requested_dwelling_count must be positive` inside `generate_european_building_dwelling_layout` for real Lyon SFH/TH buildings** — `allocate_european_dwellings`'s `q/(q+1)` floor stratification legitimately allocates `0` dwellings to some storeys when the declared total is below the storey count (a single dwelling spanning multiple floors, e.g. 1 dwelling over 2-4 storeys — common for terraced houses), and the T01 per-storey partitioner called the ruled-grid generator with that `0` directly. Fix: `openubem/geometry/european_residential.py` (`generate_european_building_dwelling_layout`) now groups consecutive storeys into `EuropeanStoreyGroup(start_storey_index, storey_span, layout)`, absorbing a `0`-count storey's height into the previous non-zero storey's zone (one zone extruded across the whole group's height) instead of partitioning it separately; `european_building_layout_to_zone_specs` extrudes one zone per group across `storey_span * height_m`. Verified: a 1-dwelling, 2-storey Lyon building's side-car now shows one zone (`storey_span=2`) instead of crashing or double-counting. *(EU-13B T01, 2026-08-30)*
+
+- **`classify_building_morphology` routed a plain axis-aligned rectangle to `l_shape_decomposition` / `i_shape_linear_gallery` instead of `point_block_grid`** — the reflex-vertex interior-angle formula used `atan2(cross(a-b, c-b), dot(a-b, c-b))` (vectors from the vertex back to its two neighbours), which is the wrong sign convention for a CCW-oriented ring and reports every convex 90° corner as a 270° reflex angle. Fix: `_reflex_vertex_count` now computes the standard turn-angle formula (`dir_in = b-a`, `dir_out = c-b`, `interior = 180 - atan2(cross(dir_in,dir_out), dot(dir_in,dir_out))`), which correctly reports 90° for every corner of `box(0,0,60,10)`. Regression: `tests/geometry/test_eu13b_dwelling_conservation.py::test_t05_point_block_route_for_compact_convex_plate`. *(EU-13B T05, 2026-08-30)*
+
+- **`AttributeError: 'NoneType' object has no attribute 'intersection'` inside `_facade_contact_lengths` when the I-shape linear-gallery route processed a real Madrid building (`way/380242656`)** — a full-width 1.80 m corridor spine disconnects the remaining plate into two separate polygon lobes (a `MultiPolygon`), and re-clipping that `MultiPolygon` with axis-aligned boxes at the corridor's own boundary produced a mixed-type `GeometryCollection` (Polygon + degenerate LineString slivers) for the "north"/"south" band; `_equal_area_axis_cuts`'s `MultiPolygon`-only handling let a non-Polygon slip through as a "dwelling" polygon, and that object later returned `None` from a boundary-adjacent property. Fix: `generate_european_linear_gallery_layout` now selects north/south lobes directly from `remainder`'s own connected components by comparing each component's centroid to the spine's midline (no re-clipping through the spine boundary), and `_equal_area_axis_cuts` now explicitly extracts the largest `Polygon` from any `GeometryCollection` result (or raises `ValueError`, caught by the caller's fallback) instead of passing a non-Polygon through silently. *(EU-13B T05, 2026-08-30)*
+
+- **30 of 297 Lyon buildings failed with `NARROW_FOOTPRINT_LT_8M` via the secondary route even though the ruled grid never itself checks plate width** — `dwelling_count == 1` (and, less severely, `== 2`) storeys were still being routed through `classify_building_morphology`'s I-shape/L-shape dispatch, which has no reason to run for a trivial whole-plate or half-plate split; when that dispatch failed for a small/irregular footprint, the fallback to the legacy `generate_european_dwelling_layout` re-triggered its own independent `< 8 m` minimum-rotated-rectangle width gate, rejecting buildings the ruled route itself never needed to reject. Fix: `generate_european_ruled_storey_layout` now short-circuits `dwelling_count == 1` (return the whole footprint as one dwelling, no morphology, no regularization) and `dwelling_count == 2` (regularize then call the point-block grid directly, bypassing morphology) before any routing decision. Measured effect on Lyon: narrow-footprint fallbacks dropped from 30 to 2 buildings; Madrid dropped from 32 to 4. *(EU-13B T04/T05, 2026-08-30)*
+
+- **Real GIS footprints with sub-metre digitization jaggies (a single vertex offset by a few centimetres) were routed to `l_shape_decomposition` on an otherwise rectangular plate, inflating secondary-route fallback** — `_reflex_vertex_count` was called on the raw, undenoised footprint, so cadastral/OSM digitization noise below the T03 colinear-vertex tolerance (0.15 m) registered as a "real" reflex corner. Fix: `classify_building_morphology` and `_split_at_reflex_vertex` both denoise with `footprint.simplify(0.5, preserve_topology=True)` before reflex detection, and additionally require the denoised footprint's convex-hull area deficit to exceed 3 % before treating any detected reflex vertex as real (a genuine L/U/cross shape always clears this; noise never does). Measured effect on Lyon: `equal_strip_multi_angle_sweep`-scheme storeys dropped from 903 to 578 out of ~1,340 total. Regression: `tests/geometry/test_eu13b_dwelling_conservation.py::test_t05_gis_digitization_noise_does_not_falsely_trigger_l_shape`. *(EU-13B T05, 2026-08-30)*
+
+- **`[OPEN, out of EU-13B scope]` `tests/test_eu_real_footprint_feasibility.py::test_real_layout_generator_fails_closed_for_unsupported_topology` fails on `COURTYARD_TOPOLOGY_UNSUPPORTED` and `NON_CONVEX_TOPOLOGY_UNSUPPORTED`** — confirmed present exactly as found at the start of this EU-13B session, before any EU-13B edit touched `generate_european_dwelling_layout`. The function's body already implemented the multi-angle-sweep/radial-sector partitioner (which *does* support non-convex and courtyard footprints) as an uncommitted change from a prior, undocumented session; this test still asserts the older, stricter single-strip contract (`git diff` against the committed `HEAD` shows the multi-angle-sweep rewrite as the difference — i.e. it predates EU-13B and was never reconciled with this test). Not fixed here: out of the EU-13B task list, and fixing it would mean deciding whether the test or the implementation is the ruled contract, which is not an EU-13B call. *(found while running the regression suite for EU-13B T08, 2026-08-30)*
+
+- **`ZeroDivisionError` inside geomeppy's `intersect_match` (`Vector3D.normalize` → `set_length`, a degenerate zero-length normal on a live T04 ruled-grid footprint) crashed the whole district's IDF regeneration instead of being caught** — `openubem/idf/surfaces.py`'s existing `intersect_match` exception wrapper only recognised two reroute-to-`one_zone_per_floor` safety nets: coreperim zones (`_is_coreperim_zone`) and `mode == "room_layout"` zones (LayoutGenerator's own). EU-13B's T04 ruled-grid/T05 morphology zones carry `mode == "european_dwelling_layout"` and matched neither, so the bare `raise` at the bottom of the handler re-raised the original `ZeroDivisionError` uncaught, aborting `scripts/run_eu_s2_district_campaign.py`'s `prepare()` loop entirely on the first affected building. Fix: `_force_reroute_room_layout_to_one_zone_per_floor` (`openubem/idf/surfaces.py:664`) now also matches `mode == "european_dwelling_layout"` — the same "union the floor-0 sub-zones back into one footprint" reconstruction applies to both, since both emit many per-storey sub-zones with no coreperim naming; its `total_height` is now derived from `max(z_ceiling) - min(z_floor)` across the matched zones rather than `n_floors * one_group's_height_m`, since a `european_dwelling_layout` storey group can span more than one physical floor (T02 floor absorption) unlike `room_layout`'s always-one-floor-per-group assumption. Even after this fix a residual cannot always be rerouted (the reconstructed union is a real courtyard, or collapses to a degenerate/multipart shape) — `scripts/run_eu_s2_district_campaign.py`'s `prepare()` now also catches `(RuntimeError, ZeroDivisionError, IndexError)` around `build_idf_for_building` and excludes that one building as `IDF_ASSEMBLY_FAILED_<ExceptionType>` instead of aborting the district. Measured residual after the fix, T09 resimulation IDF regeneration: Madrid 9/961 (0.94%), Lyon 14/297 (4.7%), London 2/82 (2.4%) buildings excluded this way. *(EU-13B T09, 2026-08-30; openubem/idf/surfaces.py:640-736; scripts/run_eu_s2_district_campaign.py:377-384)*
+
+- **`FileExistsError: [WinError 183]` on `schedules/<stem>/` inside `scripts/run_eu_s2_district_campaign.py`'s own `prepare()`, re-running it in place for a T09 regeneration** — same root cause as the `ship_eu11_fleet.sh` occurrence already logged above (a re-run of a preparer that unconditionally `mkdir()`s into a directory tree left over from the previous preparation, no `exist_ok`, no cleanup first), but at a different call site: `prepare()` itself, not the shipping script. Fix applied at the call site rather than the function: T09 clears `idfs/`, `weather/`, `schedules/`, `fleet.lst` under `openubem/outputs/eu_evidence/EU-11/<district>/` before every `prepare()` re-run. *(EU-13B T09, 2026-08-30; scripts/run_eu_s2_district_campaign.py:347)* **`[OPEN]` — recurred verbatim, 2026-09-08 (T05b, `implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md`), so the call-site fix above is not durable.** Re-running `prepare()` in place into the existing `GB-LDN-STDUNSTANS_recut_2026-09-08/` tree (to apply the `age_band` fix, `FINDING 268` part 1) hit the identical `FileExistsError` on `schedules/<stem>/` (`stem` is a content hash of `building_id`, stable across the fix, so the per-building schedule folder from the pre-fix run already existed) — the T09 clear-before-re-run pattern was not applied at this call site. Worked around by deleting the whole stale output tree before re-running (safe here only because a pre-fix baseline had been snapshotted separately for the hash-identity proof); no code change made, `prepare()` itself still lacks `exist_ok`/a pre-clean for a general re-run. Director-binding instruction: register here, do not fix inside this arc. *(`implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md`, T05b entry and director audit, 2026-09-08 14:55; T08)* **Recurred 2026-09-30 (rule-book T04 dry run):** a killed-and-restarted worker re-ran `prepare()` into its half-written scratch folder and died on the same `schedules/<stem>/` `mkdir()`. Fixed in the dry-run driver only: the worker deletes its own `--out` folder before `prepare()` (`scripts/analysis/eu_rulebook_dryrun_2026-09-30.py`, `worker`); `prepare()` itself unchanged. *(`implementation/PLAN_eu-rulebook-change-2026-09-30.md`, T04 entry)*
+
+## European locations EU-14B
+
+- **`TypeError: boolean value of NA is ambiguous` inside `scripts/cluster/harvest_eu11_district.py::parse_task`, crashing the whole district harvest on the first array task with no `task.rc`** — `completed = row["eplus_return_code"] == 0 and "Completed Successfully" in err_text` compares a `pd.NA` (when `task.rc` never got written, e.g. a task that crashed before `RC=$?; echo $RC > task.rc` ran) against `0`, which returns `pd.NA` itself, and Python's `and` then tries to coerce that to a bool. Silently masked in every prior EU-11/EU-13B harvest because the local extraction cache directory (`%TEMP%/ubem_eu11_harvest/<district>/`) is never cleared between harvest runs (`fetch_district_out`'s `sim_out.mkdir(parents=True, exist_ok=True)` extracts on top of whatever is already there): a stale `task.rc` left over from an earlier harvest of the same district silently stood in for a task that genuinely produced none this run, so the code path that divides by `pd.NA` was never exercised until Bologna's T05 resimulation hit it with a clean cache. Fix: `scripts/cluster/harvest_eu11_district.py:186` now guards with `pd.notna(row["eplus_return_code"])` before comparing. Measured on Bologna job `1298672`: 15 of 1,201 tasks had `eplusout.eio`/`.err`/`.sql` (EnergyPlus ran and wrote partial output) but no `task.rc` — consistent with EnergyPlus returning non-zero and the remote-deployed `submit_fleet_t08.sbatch` (see next entry) lacking the `set +e`/`set -e` guard around the EnergyPlus invocation that the local repo copy has, so the script's top-level `set -e` aborts before `RC=$?` runs. All 15 already carried genuine fatal errors in `eplusout.err` and were correctly excluded from `population_success` in both the stale-masked and the fixed run — no contamination of the reported pooled EUI, confirmed by re-running the harvest against a freshly cleared local cache and getting an identical `pooled_eui_kwh_m2` both times. *(EU-14B T05, 2026-08-30; scripts/cluster/harvest_eu11_district.py:186)*
+
+- **`[OPEN, cosmetic, non-blocking]` Bologna's T05 harvest (`summary.json`) shows `platform_observed: []` and `energyplus_version_observed: []`** — the remote-deployed `/speed-scratch/o_iseri/openubem/scripts/cluster/submit_fleet_t08.sbatch` on Speed is an older revision than the local repo copy: it never writes `platform.txt`/`energyplus_version.txt` into each task's `OUTDIR` at all (confirmed absent on every sampled `out/<stem>/` directory on the cluster for job `1298672`), and also lacks the `tr -d '\r'` fleet-list stripping and the `set +e`/`set -e` guard the local copy has. Every prior harvest silently carried this same gap forward as **stale, previous-run metadata** rather than an honest empty value, because of the same never-cleared local extraction cache described in the entry above — for Bologna specifically this meant 1,201/1,201 manifest rows showed a `platform`/`energyplus_version` value dated 2026-08-28 (the D-EU-35 run) even though this row's `heating_kwh` came from the fresh 2026-08-30 job. Not fixed here: fixing it means re-syncing the updated sbatch script to Speed and does not change any scientific figure (`heating_kwh`/`floor_area_m2`/`eui_kwh_m2` all come from `eplusout.sql`, confirmed genuinely fresh by direct remote file-timestamp inspection), so it is out of `EU-14B`'s scope; disclosed rather than silently left showing wrong dates. Harvested Bologna's `summary.json`/manifest now correctly show empty/`NA` for these two columns instead of misleadingly stale ones. *(found during EU-14B T05, 2026-08-30)*
+
+- **`scripts/emit_eu11_layout_sidecars.py` wiped `geometry_outcome` to blank/NaN across the entire Bologna (`IT-BOL-GALVANI2`) manifest** — the emitter's district dispatch (`scripts/emit_eu11_layout_sidecars.py:74-77`, pre-fix) special-cased only `GB-LDN-STDUNSTANS` and routed every other district, Bologna included, through the generic observed-attribute mapper `_mapped_rows` → `map_observed_building_to_tabula` (`openubem/semantic/european_archetype_mapping.py:204`), which requires an observed `year_built`/`building_tag` that Bologna's OSM extract never carries — Bologna's rows are produced only by the ISTAT 2011 census-section cascade `_it_rows` (`scripts/run_eu_s2_district_campaign.py:188`), which the real preparer `prepare()` already dispatches to correctly at `scripts/run_eu_s2_district_campaign.py:345`. Confirmed by direct call: `_mapped_rows("IT-BOL-GALVANI2", ...)` returns 0 mapped rows out of 1,220, all excluded `MISSING_OBSERVED_YEAR_BUILT;UNMAPPABLE_RESIDENTIAL_TYPE`. With `row_map` empty, the old write `manifest_df["geometry_outcome"] = [updated_outcomes.get(str(b), "") for b in manifest_df["building_id"]]` (previously at `scripts/emit_eu11_layout_sidecars.py:292`) defaulted every row to `""`, which pandas reads back as `NaN` on the next load — corrupting the only local record of the Speed harvest. Fix: (1) `emit_eu11_layout_sidecars.py` now dispatches `IT-BOL-GALVANI2` to `_it_rows`, mirroring `prepare()`; (2) the manifest write goes through a new `safe_update_manifest_columns()` (`scripts/emit_eu11_layout_sidecars.py`) that touches only the columns and building_ids it was actually given data for, never creates a column with zero updates, and asserts — before writing anything — that row count, the building_id set, and every previously non-blank cell anywhere in the manifest are unchanged; any violation raises `ManifestSafetyError` and leaves the file untouched. Regression: `tests/geometry/test_eu14b_sidecar_manifest_safety.py`. *(EU-14B T01, 2026-08-30)*
+
+- **`FINDING 206`: clicking a `DWELLING_LAYOUT_EMITTED` building in any EU 3D viewer pop-up shows colored dwelling slices with no corridor spine or stair core drawn anywhere, indistinguishable from the pre-`EU-13B` layout** — the ruled partitioner genuinely computes a real circulation shape (`openubem/geometry/european_residential.py:261`, `circulation_polygon: BaseGeometry | None`, non-null for every non-refused, non-`l_shape_decomposition`-combined building), but `scripts/emit_eu11_layout_sidecars.py` only ever serialized zones named `..._dwelling_N` into the sidecar and carried the circulation polygon's *area* (`circulation_area_m2`) forward, never the shape itself; `scripts/generate_eu_3d_viewers.py`'s `drawFloorPlan` in turn only ever iterated `floorData.zones`, so it had no path to draw a circulation shape even if supplied one. Fix: `emit_eu11_layout_sidecars.py` (per-`group` loop, ~line 293-308) now orients `storey_layout.circulation_polygon` the same way as a zone (`orient(poly, sign=ZONE_WINDING_SIGN)` + `list(poly.exterior.coords)[:-1]`) and stores it as a new `"circulation"` key on each floor dict, `None` when there is none; `generate_eu_3d_viewers.py`'s floor-remap loop carries it into the scene JSON as `floorData.circulation.r` (same offset/round as zone rings), and `drawFloorPlan` now draws that ring in a separate step (grey fill, dashed white stroke, "C" label) before the dwelling-zone loop, with its own `zonesTable` row, so the existing `z+1` dwelling numbering is untouched. `l_shape_decomposition`'s combined layout still serializes `circulation: None` by design (both wings had a corridor but the combiner deliberately drops the combined shape) — confirmed unchanged on `way/420409335` post-fix. Regenerated and mirrored all four districts; zone counts/areas on the investigation's 5-building cross-check are byte-for-byte unchanged, and all four `eu_*_viewer.html` files are `sha256`-identical to their `docs/docs_ACTIVE/europeanLocations/outputs_3D/` mirrors. Regression: `tests/geometry/test_eu13b_circulation_sidecar.py`. *(source: `docs/docs_ACTIVE/europeanLocations/debugs/docs/INVESTIGATION_viewer-circulation-not-drawn_2026-08-30.md` §1; fix: `docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-circulation-viewer-2026-08-30.md` T01-T04, 2026-08-30)*
+
+## European locations EU-15
+
+- **Routing multi-reflex-vertex footprints straight to the new `courtyard_secondary` handler regressed previously-successful `l_shape_decomposition` buildings into the strip cutter (net strip-cutter count went UP, not down)** — the first T02 implementation attempt widened `classify_building_morphology`'s courtyard branch from `has_courtyard` (a literal `Polygon.interiors` hole) to also fire on `reflex_count >= 2`, on the theory that an open U/C-shape (no hole, two reflex vertices) is architecturally a courtyard too. Measured effect on the real EU-11 fleet: Madrid's strip-cutter count rose 284→302 and its `l_shape_decomposition` success count collapsed 23→3, because many real footprints the old single-split `l_shape_decomposition` route already served successfully (ignoring the second, minor reflex vertex) got diverted into the new courtyard box-tiling unfolder, which failed audit/facade-contact far more often for those shapes than the old naive split ever did. Fix: reverted `classify_building_morphology` to route on `has_courtyard` (interior ring) only; `reflex_count > 0` (any count) still routes to `l_shape_decomposition`, and multi-reflex real footprints are instead served by the new recursive `_l_shape_wings`/`_split_at_reflex_vertex(..., tolerance_m=...)` escalation inside that route (T03). Net effect after the fix, replaying the same 843-building strip-cutter population: 843 → 767 (74 recovered via T03's hardened L-shape route, 2 via T02's courtyard unfolding), with only 2 buildings regressing to the secondary route (both from a residual tolerance-order effect below) and zero dwelling-count changes anywhere. *(EU-15 T02, 2026-08-30; `openubem/geometry/european_residential.py::classify_building_morphology`)*
+
+- **Changing `_split_at_reflex_vertex`'s pre-simplify tolerance from the historical `0.5` m to the pipeline's `regularization_tolerance_m` (`0.15` m, as T03 specifies) shifted the split line enough to regress a handful of previously-successful `l_shape_decomposition` buildings even with the recursion above disabled** — a finer denoise can retain a real-but-marginal second vertex near the cut that the coarser 0.5 m denoise used to smooth away, changing which polygon ends up hosting which dwelling count in a recursive wing partition, and occasionally dropping one dwelling's facade contact below the 2.50 m gate where the old, coarser split did not. Fix: `generate_european_ruled_storey_layout`'s `l_shape_decomposition` branch now tries wing candidates in order — the exact legacy `tolerance_m=0.5` two-wing split first, then the `regularization_tolerance_m` (0.15 m) two-wing split, then the recursive `_l_shape_wings` escalation — accepting the first candidate whose combined audit and facade-contact checks pass, so anything the legacy algorithm already solved is reproduced bit-for-bit before any new candidate is tried. Residual after this ordering fix: 2 of 843 buildings (`way/310771805` Madrid, `32293` Bologna) still regress from a ruled scheme to the secondary route on one specific per-storey dwelling count each, because the regression happens inside a *nested* wing's own recursive partition (a facade-contact margin of ~2.10 m vs the 2.50 m gate) rather than at the top-level split; not chased further, since dwelling count is conserved and the secondary route is the sanctioned disclosed fallback for exactly this case. *(EU-15 T03, 2026-08-30; `openubem/geometry/european_residential.py:925` `l_shape_decomposition` branch)*
+
+- **Retiring the strip cutter as a success path (T04) turned a previously-"passing" T03 unit test red: `test_t03_l_shape_survives_a_second_near_threshold_reflex_vertex` asserted `dwelling_layout_emitted` on a synthetic L-shape whose `l_shape_decomposition` wing combine was already failing (`L_SHAPE_DECOMPOSITION_FAILED`) before T04, both with and without T05's circulation carve** — confirmed by temporarily disabling circulation (`CIRCULATION_MIN_DWELLINGS_FOR_CIRCULATION` set arbitrarily high) and re-running: the combine still failed identically, so this was never a T05 regression. The test only ever "passed" because the pre-T04 `_secondary()` relabelled the legacy equal-strip sweep's clean 0.00%-area-error success as `dwelling_layout_emitted=True` under the retired `equal_strip_multi_angle_sweep` scheme — precisely `FINDING 207`'s masking, reproduced at unit-test scale. Fix: none needed in the partitioner; the test's assertion was stale. Updated to assert the true, honest outcome — `dwelling_layout_emitted=False`, `scheme=="equal_strip_multi_angle_sweep"`, `fallback_reason=="L_SHAPE_DECOMPOSITION_FAILED"` — a correct disclosed refusal, not a bug. *(EU-15 T04, 2026-08-30; `tests/geometry/test_eu15_ruled_coverage.py`)*
+
+- **Lowering `CIRCULATION_MIN_DWELLINGS_FOR_CIRCULATION` from 3 to 2 (T05, extending the carved core to `ruled_grid_2x1`) makes `european_building_layout_to_zone_specs` return one additional zone dict (the carved circulation zone, `conditioned=False`) per storey group that now carries a core — any caller counting `len(zones)` as "dwelling count" (rather than filtering to `conditioned is not False`) over-counts by the number of circulation zones emitted.** Surfaced as `tests/geometry/test_eu13b_dwelling_conservation.py::test_t01_way_51781396_like_case_gives_69_not_85` failing `69 == 86` (17 extra circulation zones, one per storey of a 17-storey building). Fix: filter to `conditioned is not False` before asserting a dwelling count; this is not a conservation defect, `dwellings_total` is unaffected, only the raw zone-spec list length grew by design. *(EU-15 T05, 2026-08-30; `openubem/geometry/european_residential.py::european_building_layout_to_zone_specs`)*
+
+- 🔴 **`_secondary()`'s pre-T04 mislabeling was not confined to top-level buildings — it also silently propagated through `l_shape_decomposition`/`courtyard_wing_unfold`'s own recursion, because a WING's own recursive call to `generate_european_ruled_storey_layout` can itself hit `_secondary()`, and `_combine_wing_results` only ever checked `dwelling_layout_emitted` on each wing before combining.** Pre-T04, a wing whose own ruled route failed but whose legacy strip-cut succeeded reported `dwelling_layout_emitted=True`, so `_combine_wing_results` accepted it — the *whole building* then reported a RULED top-level scheme (`l_shape_decomposition` or `courtyard_wing_unfold`) even though one of its wings was actually served by the (unlabelled) strip cutter internally. Measured: re-running the T03 replay's own reported figure ("1,469 ruled + 76 T02/T03 recovered = 1,545 of 2,541") against the fresh T04-fixed code (with T05's circulation threshold temporarily reverted to 3, isolating T04's own effect) gives **1,420 ruled of 2,516 prepared** — about 125 fewer than the pre-T04 count implied, entirely attributable to this wing-level unmasking, not to any dwelling-count reduction (0 buildings anywhere changed their declared count) and not to T05 (identical ruled count measured at circulation threshold 2 vs 3). This means the T01-T03 progress log's own "76 recovered" figure, and the original "1,469 (57.81%)" baseline, were themselves partially inflated by the same masking `FINDING 207` describes for the top level. *(EU-15 T04, 2026-08-30; `openubem/geometry/european_residential.py::_combine_wing_results`, `_secondary`)*
+
+## European locations EU-16
+
+- **`[OPEN]` A `geometry_outcome == DWELLING_LAYOUT_EMITTED[_IMPUTED_COUNT]` building's realized IDF zones are silently `one_zone_per_floor` (`_whole` names) instead of the ruled dwelling zones the side-car describes — measured fleet-wide after the T08 rebuild at 26–45 % of nominally-ruled buildings per district (Madrid 173/616 = 28.1 %, Lyon 52/198 = 26.3 %, London 18/40 = 45.0 %, Bologna 214/594 = 36.0 %)** — `_geometry()`/`_it_rows`/`_gb_rows`/`_mapped_rows` (`scripts/run_eu_s2_district_campaign.py`) compute and record `geometry_outcome` from the *intended* zone specs before `build_idf_for_building` ever runs; if `extrude_geometry`'s own internal `intersect_match` exception handler (`openubem/idf/surfaces.py:863-884`, the `_force_reroute_room_layout_to_one_zone_per_floor` / `_force_reroute_coreperim_to_one_zone_per_floor` safety nets already documented in the EU-13B chapter above) then rescues the building by silently rerouting it to `one_zone_per_floor`, that reroute succeeds (no exception reaches `prepare()`'s outer `except`, so it is never counted in `IDF_ASSEMBLY_FAILED_*`), but neither `geometry_outcome` in `prepared_buildings.csv` nor the `layouts/*.json` side-car (written earlier, independently, by `scripts/emit_eu11_layout_sidecars.py`) is ever updated to reflect it — the exact `D-EU-35` "pop-up and simulated IDF describe different geometry" failure mode, at a scale (26–45 %) an order of magnitude above the previously-documented `IDF_ASSEMBLY_FAILED_*` residual (0.94–4.7 %, EU-13B T09 entry above). Detected by `EU-16A` T08's own side-car-vs-IDF zone-structure parity check (per-floor dwelling-zone count + carved-core presence, matched by floor index since IDF zone names use the `stem` hash while the side-car uses the original `building_id` — raw string-set equality is never possible across the two). Not fixed here: `openubem/idf/surfaces.py` is out of scope for `EU-16A` T07/T08 (plan `PLAN_eu15-eu16-zoning-context-2026-08-30.md` §3 file layout), and correcting `geometry_outcome`/the side-car after the fact is a different task's file (`scripts/emit_eu11_layout_sidecars.py`, not touched by T07/T08 either); disclosed to the owner rather than silently absorbed into the T08 census. Note this is orthogonal to `EU-16`'s own T06/T07 changes — context shading and the adiabatic party-wall flip never change zone count (proven by `tests/idf/test_eu16_context_adiabatic.py`'s own zone-count-identical assertions) and are not implicated in this reroute. *(EU-16A T08, 2026-08-30; measured via a one-off census script, not committed to the repo — see `docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu15-eu16-zoning-context-2026-08-30.md` T08 progress-log entry for the exact counts)*
+
+**T09 update (2026-08-30, `D-EU-40`/`D-EU-41` T09 executor):** the 26–45 % figure above is the reroute count expressed as a fraction of the *nominally-ruled* (`DWELLING_LAYOUT_EMITTED*`) subset only. Measured directly by grepping the `rerouting to one_zone_per_floor` / `rerouting room_layout to one_zone_per_floor` warning pairs emitted by `openubem/idf/surfaces.py:868`/`:715` in each district's rebuild output (Madrid/Bologna: on-disk `openubem/outputs/eu_evidence/EU-11/{ES-MAD-BERRUGUETE,IT-BOL-GALVANI2}_t08_stdout.log`, dated 2026-08-30 18:26/18:30; Lyon/London: no stdout log existed on disk from the original T08 run, so `prepare()` was re-run locally once for each — deterministic, no sbatch, no geometry change — with stdout+stderr captured to reproduce the same counts). Counts are identical to T08's own numbers (173/52/18/214 — confirming they were already direct measurements, not an inference), but expressed **as a fraction of that district's total prepared IDFs** (the wording `D-EU-40`/`D-EU-41`'s T09 prompt asked for) the rate is materially lower: Madrid 173/961 = 18.00 %, Lyon 52/297 = 17.51 %, London 18/82 = 21.95 %, Bologna 214/1204 = 17.78 %. The `perimeter_core fallback to one_zone_per_floor` message (`surfaces.py:351`) fired 0 times in any of the four districts — every reroute observed went through the `room_layout`/`intersect_match`-exception path, none through the complexity-gate path. Still `[OPEN]`, still out of `EU-16`'s file layout (`surfaces.py` non-editable, `D-EU-41`).
+
+- **`FINDING 210`: `** Severe ** RoofCeiling:Detailed="BLOCK <STEM>_CIRCULATION STOREY N CEILING 0001_k", Vertex size mismatch between base surface ... and outside boundary surface: BLOCK <STEM>_CIRCULATION STOREY N+1 FLOOR 0001_k / ...The vertex sizes are 8 for base surface and 9 for outside boundary surface.** — `**Fatal**  GetSurfaceData: Errors discovered, program terminates` at 2–4 s, before warmup, on ~8 % of the `EU-16` T09 wave-1 tasks (Madrid: 66/961 confirmed by remote grep). Root cause: a stacked circulation (or dwelling) zone's ring, cut by a shapely boolean (`plate.difference(circulation_polygon)` in `generate_european_grid_layout`, or the wing `unary_union` in `_combine_wing_results`), carries a sub-millimetre floating-point artifact at its boundary that a different GEOS build resolves differently when EnergyPlus pairs the ceiling of one storey with the floor of the storey above. Confirmed **not** reproducible on this Windows/GEOS build: two independent local rebuilds of the named example (`relation/12771676`, stem `8b3598ac47b3f4a0`, Madrid) produced byte-identical, internally-consistent geometry both times (0 vertex-count mismatches) — verified directly against the actual failing `eplusout.err` on Speed (`/speed-scratch/o_iseri/fleets/EU11_ES-MAD-BERRUGUETE/out/8b3598ac47b3f4a0/eplusout.err`, task `1299912_33`), so this is a genuine cross-platform/cross-GEOS-build numerical-fragility bug (extends `FINDING 187`/`190`'s "a Speed number and a Windows number are not the same measurement" to geometry *validity*, not only simulation results), not a deterministic Python-logic defect reproducible by re-reading the code. A second example (`way/293591506`, stem `098e4fafcdf409c9`) showed the same signature on a non-circulation dwelling zone (`_0` block, merged 2×2-grid cell), confirming the fragility is general to any ring with a boolean-op-derived boundary, not circulation-specific. Fix: `_stabilize_ring_coords` (`openubem/geometry/european_residential.py`, new, ~1810) snaps every emitted dwelling/circulation ring to a fixed 1 mm precision grid (`RING_STABILIZATION_GRID_M = 0.001`, via `shapely.set_precision`) before `coords_m` is extracted in `european_building_layout_to_zone_specs`, with a fallback to the unsnapped ring if snapping ever degenerates the polygon (collapses below 3 vertices or to zero area). `openubem/idf/surfaces.py` was not touched (non-editable, `D-EU-41`). Tests: `tests/geometry/test_eu15_ruled_coverage.py`, `test_t09_*` (4 new: idempotency under a snap-then-reconstruct round trip up to vertex ordering, sub-mm near-duplicate-vertex removal, degenerate-sliver fallback, and that both dwelling and circulation zone specs actually route through the stabilizer). **Correction 2026-08-31 (reconstruction pass, after the killed session that wrote the paragraph above): NOT conclusively proved — the fix is measurably incomplete.** The `D-EU-42` v2 re-submission wave (jobs `1302748` Madrid 66 tasks, `1302781` Lyon 13 tasks, `1302782` London 2 tasks; superseding a v1 wave `1302150`/`1302151`/`1302152` that ran before the fixed IDFs existed and failed 100 %) recovered only Madrid 33/66 (50.0 %), Lyon 9/13 (69.2 %), London 1/2 (50.0 %) — 43/81 (53.1 %) overall, confirmed via `sacct -j <jobid> -X`. Every sampled remaining `FAILED` task's `eplusout.err` (checked across all three districts, e.g. Madrid stem `1d677f42eacf7815` task `1302748_8`, Lyon stem `489894ba3d990787` task `1302781_3`, London stem `5ff998a792035b20` task `1302782_2`) shows the **identical** `RoofCeiling:Detailed` vertex-size-mismatch fatal on a *different* surface pair each time (e.g. 5 vs 4, not always 8 vs 9), confirmed against freshly-rebuilt IDFs (`idfs/*.idf` mtime 2026-08-31 13:22, i.e. after the fix code's 09:17 commit, not stale). This means `_stabilize_ring_coords`'s 1 mm snap collapses only the sub-cases that really are sub-millimetre floating-point duplicates; roughly half the casualties have a **larger, non-sub-mm vertex-count discrepancy** between a storey's ceiling ring and the storey-above's floor ring — a genuine topological difference (plausibly a per-storey dwelling/circulation partition that differs in vertex count between adjacent storeys), which 1 mm snapping cannot and does not fix. Root cause of the residual defect was open until the root-cause pass below. See the T09 progress-log entry for the full per-district before/after count. **`RESOLVED` — root-cause pass 2026-08-31 (owner authorisation "vas-y, root-cause le défaut résiduel"):** the residual mismatch is **not** a ring-construction defect at all — `_stabilize_ring_coords` was already correct and its 1 mm-snapped rings going into extrusion were identical/consistent. Pulled the actual failing IDF for 3 named stems from the D-EU-42/D-EU-43 v2 fleets on Speed (`/speed-scratch/o_iseri/fleets/EU11_ES-MAD-BERRUGUETE_finding210fix/idfs/1d677f42eacf7815.idf` etc.) and read the real `BUILDINGSURFACE:DETAILED` vertex lists for the exact surfaces named in each `eplusout.err`: the mismatch is introduced **after** extrusion, by `geomeppy`'s own `intersect_match()` (`openubem/idf/surfaces.py:866`, non-editable, `D-EU-41`), which computes new boundary vertices via live floating-point intersection arithmetic when it cuts a same-zone-label block (e.g. one `_2` dwelling-index or `_circulation` block spanning every storey carrying that label) against its per-storey neighbours — independently for the ceiling of storey n and the floor of storey n+1 (and, contrary to the original symptom text, not always same-label: reproduced cross-block pairs too, e.g. `..._0 Storey 1 Floor...` mismatched against `..._2 Storey 0 Ceiling...`). This is downstream of every ring-construction stage, so no further change to `_stabilize_ring_coords` or the circulation/dwelling ring builders in `openubem/geometry/european_residential.py` can fix it. Directly confirmed on 3 named stems rebuilt locally (`1d677f42eacf7815` Madrid, `489894ba3d990787` Lyon, `5ff998a792035b20` London — none of the three reproduced the mismatch on this Windows/GEOS build, consistent with this finding's own cross-platform-fragility characterization above) and on 3 further stems that **did** reproduce locally (`8b3598ac47b3f4a0`: 6 vs 3 and 3 vs 6 verts; `b88b3c3325df733e`: 3 vs 8, 7 vs 6, 3 vs 8, 3 vs 8, 7 vs 6 verts across 6 pairs; `33299a5b2a5bb9c9`: 6 vs 3 and 3 vs 6 verts). Fix: `scripts/run_eu_s2_campaign.py::build_idf_for_building` (imports added ~line 49-56, gate inserted ~line 422-448) now calls the exact gate/reroute safety net `openubem/idf/builder.py` already wires for the same symptom on its own (`layout_assign`) pipeline — `find_mismatched_interzone_pairs` + `_force_reroute_room_layout_to_one_zone_per_floor` (both already exist in `openubem/idf/surfaces.py`, non-editable, and the latter already explicitly supports `mode="european_dwelling_layout"` zones) — right after `extrude_geometry`, before `apply_adiabatic_party_walls`. This was simply never wired into the EU S2 campaign build path (only into the unrelated `layout_assign` pipeline in `builder.py`), so every affected IDF shipped to Speed with the mismatch still live. `one_zone_per_floor` has no interzone perim pairs, so it cannot reproduce this class of mismatch by construction; `scripts/run_eu_s2_district_campaign.py:383-392` now also disclosifies the reroute into `geometry_outcome` (`..._INTERZONE_MISMATCH_REROUTED`) so a mid-build degrade is never silently masked in `prepared_buildings.csv`. Proof (first pass, later found incomplete): all 52 stems still `FAILED` under D-EU-42/D-EU-43's v2 wave (32 Madrid `finding210fix` + 11 Madrid `deu43fix` + 4 Lyon `finding210fix` + 4 Lyon `deu43fix` + 1 London `finding210fix`, confirmed by remote grep of every v2 `eplusout.err`) were rebuilt locally; `find_mismatched_interzone_pairs` returned empty for all 52 post-build. A first `v3` wave was submitted on this basis (jobs `1302881`/`1302908`/`1302920`) but **cancelled** (`scancel`) within minutes, mid-run, on catching real Speed `FAILED` tasks under the SAME `RoofCeiling:Detailed` fatal while it was still draining — the raw-`len(coords)`-count check is **not sufficient**: confirmed by running EnergyPlus 23.1.0 directly (Windows, this session, `C:\EnergyPlusV23-1-0\energyplus.exe`) on stem `e21bec78b937acf5`, which `find_mismatched_interzone_pairs` had passed clean (both paired surfaces carried 7 raw vertices, mirror-ordered) yet still FATALed identically to Speed — the culprit was a sub-mm near-duplicate vertex pair (~0.0002-0.0006 m apart) `intersect_match` had inserted into **both** surfaces' own rings, which EnergyPlus's own GetVertices/CheckConvexity collapses asymmetrically depending on ring winding direction. Extended the gate with `_has_near_duplicate_vertex_surfaces` (`scripts/run_eu_s2_campaign.py`, new): flags any surface whose own ring has two consecutive vertices closer than `NEAR_DUPLICATE_VERTEX_TOLERANCE_M = 0.005`. Rebuilt and re-verified against real EnergyPlus: stem `8cdf349a99934f0d` (a stem the *first* fix pass had also called clean) still FATALed — its ring carried no near-duplicate points at all, but vertex 7 of 9 sat at an interior angle of exactly 180.000000 deg (`cos(angle) = -1.0000000000000002`, i.e. collinear to machine precision) where a neighbouring zone's wall met the shared edge; EnergyPlus's convexity check legitimately drops that redundant point but not symmetrically between the ceiling and its mirrored floor. Extended the gate again with a collinearity check inside the same function (`COLLINEAR_VERTEX_ANGLE_TOLERANCE_DEG = 0.1`, i.e. interior angle > 179.9 deg) -- tuned tight enough (0.65 deg of headroom) to not fire on a real, naturally near-straight OSM corner measured at 179.348 deg on a known-clean building (`BATIMENT0000000240879449_part0`, `tests/test_eu_s2_campaign.py`), which the first, looser 2 deg tolerance had wrongly flagged. Final proof: all 52 stems rebuilt with the twice-extended gate, then run end-to-end through real local EnergyPlus 23.1.0 (`ExpandObjects` + `energyplus.exe`, matching `scripts/cluster/submit_fleet_t08.sbatch`'s exact invocation) -- **0/52 FATAL**, not merely 0 by the Python-level heuristic. The 52 rebuilt IDFs were re-shipped and a corrected `v3` `sbatch --array` wave submitted per the owner's separate authorisation ("continuer jusqu'a la fin"): jobs `1302937` (Madrid, 43 tasks), `1302954` (Lyon, 8 tasks), `1302962` (London, 1 task) — fire-and-forget, confirmed queued/running via one `squeue` check, not yet harvested; harvest/fold-in is a follow-up, not this pass. **Recurrence, job `1311158`, stem `cee45cbc2718154c` (`BATIMENT0000000240880410_part0`, `FR-LYO-HAUTCOEURPENTES`), 2026-09-07:** identical `RoofCeiling:Detailed` vertex-size-mismatch fatal repeated on every storey pair. `prepared_buildings.csv` carried `fallback_reason = near_duplicate_vertex_tolerated_box` — the post-extrude at-risk gate (`scripts/run_eu_s2_campaign.py::build_idf_for_building`) had detected the near-duplicate vertices, called `_force_reroute_room_layout_to_one_zone_per_floor`, and that safety net **correctly declined** (not a bug): the building's floor-0 union carries a genuine ~34.9 m² courtyard hole, and the function's own courtyard guard (`if any(Polygon(r).area >= 1.0 for r in footprint.interiors): return False`, `openubem/idf/surfaces.py:693-694`) refuses to collapse a holed footprint into a single donut block. With `mismatched` false, the gate then tolerated the unresolved near-duplicate vertices instead of raising — that toleration is what let the fatal ship. Remedy for this one building: a scratchpad driver script monkeypatched `scripts.run_eu_s2_campaign._force_reroute_room_layout_to_one_zone_per_floor` (module-reference swap only, no file edited, same technique as `scripts/eu17_reroute_trace.py`) with a forced variant that is identical except the courtyard-hole guard is removed — the interior ring is always filled (`Polygon(footprint.exterior)`, the same fill the real function already applies unconditionally to sub-1.0 m² slivers), sacrificing the courtyard void for this building only. Rebuilt from the repo root so `Schedule:File` paths came out in the portable `../../schedules/<stem>/...` form (`FINDING` at line ~1863). Zone count collapsed 29 dwelling-layout zones → 8 one-zone-per-floor zones. Proved on real EnergyPlus 23.1.0 (`ExpandObjects` then `energyplus.exe -w fr_lyon_bron_2023_era5.epw -d <outdir> expanded.idf`, matching `scripts/cluster/submit_fleet_t08.sbatch`'s exact invocation): exit code 0, 0 `** Fatal **`, 0 `** Severe **` (only the "0 Severe Errors" summary lines matched the grep), `EnergyPlus Completed Successfully-- 29 Warning; 0 Severe Errors`. Shipped: `idf_sha256` `55d5b0506399c7...` → `a8f0ad325d9daf...`; `openubem/outputs/eu_evidence/EU-11/FR-LYO-HAUTCOEURPENTES_final_2026-09-07/idfs/cee45cbc2718154c.idf` and `prepared_buildings.csv` updated (`fallback_reason` → `DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED`, the existing reroute-outcome token from `scripts/run_eu_s2_district_campaign.py:667`, not a new one); scp'd over the staged copy at `speed-submit2:/speed-scratch/o_iseri/fleets/EU11_FR-LYO-HAUTCOEURPENTES_final_2026-09-07/idfs/cee45cbc2718154c.idf` (sha256 verified post-transfer) and the stale `out/cee45cbc2718154c/` removed; `fleet.lst` line 54 in that staged fleet dir. Not resubmitted (`sbatch` deliberately not run this pass). *(EU-16 T09 / FINDING-210 root-cause pass, 2026-08-31; `scripts/run_eu_s2_campaign.py::build_idf_for_building`, `_has_near_duplicate_vertex_surfaces`; `scripts/run_eu_s2_district_campaign.py:387-392`, reusing `openubem/idf/surfaces.py::find_mismatched_interzone_pairs`/`_force_reroute_room_layout_to_one_zone_per_floor`)* **Recurrence, job `1311708` (Bologna `IT-BOL-GALVANI2_delta_2026-09-07`, 703 tasks), 2026-09-08: 8 `FAILED` tasks, all inside the `D-EU-58` tolerated set, none outside it.** Measured, not sampled: every one of the 8 failed stems (`4f47a3941f7067c9` idx 89, `c1a0da4dcda7a8e2` 96, `19aed30fa5b6afa7` 139, `acb6af4c0a661cee` 181, `56360df35f445afa` 343, `9845d84fa4365361` 352, `908ebf96c2b75929` 378, `f04a1a2ece7f9ca6` 386) carries `fallback_reason = near_duplicate_vertex_tolerated_box` in `prepared_buildings.csv`, i.e. the `D-EU-58` branch at `scripts/run_eu_s2_campaign.py:713-715` where the near-duplicate-vertex heuristic fired, the raw `mismatched` check did not, the reroute declined, and the already-emitted geometry was deliberately retained rather than discarded. Signature split: 7 of 8 the classic `RoofCeiling:Detailed` vertex-size mismatch, 1 of 8 (`acb6af4c0a661cee`) the `D-EU-43` `Zero or negative surface area[5.77027E-009]` sliver — both previously-accepted classes, no new signature (no `FINDING 253` construction-mirror, no `CalcCoordinateTransformation` class). Specificity is exact: of the 19 tolerated buildings in `fleet.lst`, 8 `FAILED` / 7 `COMPLETED` / 4 not yet run, and **0 `FAILED` tasks outside the tolerated set** across 463 finished tasks. So the toleration is the sole failure source in this campaign and its observed EnergyPlus survival rate is 7/15 (47 %) — the price of `D-EU-58` retaining geometry instead of losing the building outright. No fix applied and none proposed: the disposition is the owner's 2026-09-01 `D-EU-58` ruling. *(EU-11 Bologna delta harvest, 2026-09-08; `sacct -j 1311708 -X`, `grep "Last severe error" out/<stem>/eplusout.err`)* **Correction, job `1311708` fully drained (2026-09-08, corrected 2026-09-09):** the 463-finished-tasks figure above was mid-drain; the job finished at **694 `COMPLETED` / 9 `FAILED` of 703**, all nine inside the tolerated set (adding `_596`, stem `981bcdac6a8ba683`, to the eight named above), so the corrected, final specificity over the whole job is **tolerated-set survival 10 of 19 `COMPLETED` (52.6 %)**, **everything outside the tolerated set 684 of 684 (100 %)**, **0 failures outside the set** — this supersedes the 7/15 (47 %) mid-drain figure and the 463-task scope. **Extension, 2026-09-08 (director rulings 14:25/14:30): a proven remedy exists for the courtyard-hole decline sub-case, not authorised.** Filling the courtyard interior ring before the reroute (`Polygon(footprint.exterior)`, the same fill `_force_reroute_room_layout_to_one_zone_per_floor` already applies unconditionally to sub-1 m² slivers) is demonstrated end-to-end on `cee45cbc2718154c` (real EnergyPlus 23.1.0, `RC 0`, `0 Severe`, `0 Fatal`, zone count 29 → 8, see this entry's own 2026-09-07 recurrence paragraph above). Three costs: (1) the courtyard is sacrificed — floor area and heated volume both grow, a modelling change needing its own decision id and disclosed `fallback_reason`; (2) `openubem/idf/surfaces.py`'s guard is non-editable (`D-EU-41`), so the fix must be a new opt-in branch inside `scripts/run_eu_s2_campaign.py` that reconstructs the filled footprint itself; (3) it only covers the courtyard sub-case — the multipart/degenerate floor-0-union decline path is not fixed by filling a hole, and which of the 13 `IDF_ASSEMBLY_FAILED_RuntimeError` buildings hit which decline reason is not instrumented. **`[OPEN]`, not authorised**: owner ruling 2026-09-08 14:30, verbatim *"ok leave the 7 out"* (the count was later corrected fleet-wide to 13: Madrid 7, Lyon 1, Bologna 5), applies to the whole class; `D-EU-113` was deliberately left free rather than opened for this remedy (it was later consumed by an unrelated `CP-3` ruling, 2026-09-09). *(`implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md`, director notes 2026-09-08 14:25/14:30, T06a first-failure classification 15:12, and the T06a-closure table 2026-09-09; T08)*
+
+- **`D-EU-43` — `** Severe ** CheckConvexity: Surface="BLOCK <STEM>_<N> STOREY <k> CEILING/FLOOR/ROOF 0001_j" is non-planar. Coincident Vertices will be removed as possible.` followed by `** Severe ** GetSurfaceData: Zero or negative surface area[~1E-08 to 1E-09], Surface=...` then `**Fatal** GetSurfaceData: Errors discovered, program terminates`** — a second EnergyPlus-side symptom of the exact same `FINDING 210` root cause (not a new defect): 45 `EU-16` T09 wave-1 tasks (32 `ES-MAD-BERRUGUETE`, 13 `FR-LYO-HAUTCOEURPENTES`) excluded from `D-EU-42`'s FINDING-210 count because their `eplusout.err` shows no "Vertex size mismatch" line, only this convexity/zero-area pair. Classified by reading the actual `.err` for the named example (`way/435212756`, stem `b3a72cccb2b91f80`, Madrid, `/speed-scratch/o_iseri/fleets/EU11_ES-MAD-BERRUGUETE/out/b3a72cccb2b91f80/eplusout.err`): `CheckConvexity` prints the offending vertex triple for `BLOCK B3A72CCCB2B91F80_4 STOREY 0 CEILING 0001_3` as `(440040.878,4479054.608,3.000)`, `(440039.337,4479062.177,3.000)`, `(440040.878,4479054.608,3.000)` — the first and third listed vertices are literally coincident, a near-duplicate/near-degenerate point on a boolean-op-derived dwelling ring (the same class of GEOS-build-dependent artifact as `FINDING 210`, just resolved by EnergyPlus's convexity/zero-area check instead of its vertex-count-pairing check). No separate fix was needed: `_stabilize_ring_coords`'s 1 mm precision snap (the `FINDING 210` fix, same `file:line`) already collapses exactly this class of coincident vertex before `coords_m` is emitted — confirmed by `test_t09_stabilize_ring_coords_removes_a_sub_millimetre_near_duplicate_vertex` (synthetic direct proof of the mechanism) and by regenerating the named example locally (`way/435212756`): as on the `FINDING 210` examples, this building's geometry already regenerates clean/degenerate-artifact-free on this Windows/GEOS build, consistent with the defect being GEOS-build-dependent rather than a deterministic Python-logic bug. **Correction 2026-08-31 (reconstruction pass): NOT conclusively proved — same shortfall as `FINDING 210`.** The `D-EU-43` v2 wave (jobs `1302787` Madrid 32 tasks, `1302788` Lyon 13 tasks; superseding a v1 wave `1302265`/`1302266` that ran before the fixed IDFs existed and failed 100 %) recovered Madrid 20/32 (62.5 %) and Lyon 8-9/13 (one task still `RUNNING` at reconstruction time) — roughly 60-65 %, not the "clean" outcome implied above. Sampled remaining failures (e.g. Madrid stem `33299a5b2a5bb9c9` task `1302787_8`) still show the exact `RoofCeiling:Detailed` vertex-size-mismatch fatal, not a fresh convexity/zero-area symptom, confirming these residual failures are the same unresolved `FINDING 210` root cause described in that entry's correction, carried through here since `D-EU-43`'s 45 stems were a subset excluded from `D-EU-42`'s count only by which EnergyPlus check happened to fire first. See the T09 progress-log entry for the full per-district before/after count. **`RESOLVED` — root-cause pass 2026-08-31:** same real root cause and same fix as `FINDING 210`'s root-cause-pass correction (`intersect_match`-introduced post-extrusion vertex divergence, gated in `scripts/run_eu_s2_campaign.py::build_idf_for_building` via the existing `find_mismatched_interzone_pairs`/`_force_reroute_room_layout_to_one_zone_per_floor` safety net) — `33299a5b2a5bb9c9` is one of the 3 named proof stems there (6 vs 3 / 3 vs 6 vertex mismatches resolved to 0 by the reroute). The `D-EU-43` 11 Madrid + 4 Lyon residual stems are included in that entry's 52-stem rebuild and the corrected `v3` resubmission (jobs `1302937`/`1302954`/`1302962`); not tracked separately here. *(EU-16 T09 / `D-EU-43`, 2026-08-31; see `FINDING 210` for the fix file:line)*
+
+- **`** Severe ** CheckConvexity: Surface="BLOCK <STEM>_<N> STOREY <k> ROOF 0001_K1_K1" is non-planar` then `GetSurfaceData: Zero or negative surface area[2.37637E-010]`, and `** Severe ** RoofCeiling:Detailed="BLOCK <STEM>_<N>_A2 STOREY 0 FLOOR 0001_K1_H1", Vertex size mismatch ... The vertex sizes are 3 for base surface and 4 for outside boundary surface`** — extends the `D-EU-43` / sliver entries (`D-EU-137`, `T06f`, London job `1405523`, 23 of 191 `FAILED` at 1-5 s): pieces made by the T06e per-storey extrusion + clip (`_K1_K1`, `_K1_H1`) are 3 collinear vertices or carry two vertices under 1 cm apart, and `_drop_sliver_surfaces` misses them: it runs before `_pair_hidden_outdoor_surfaces` (`run_eu_s2_campaign.py:1853` vs `:1904`), keeps anything of 0.01 m2 or more (`:640`), and its `len(_clean_ring_3d(ring)) < 3` test (`:663`) can never be true because `_clean_ring_3d` returns the original ring when cleaning would leave under 3 vertices (`:171`). Fix: `ep_geometry_preflight` and `_remove_degenerate_surfaces` (`run_eu_s2_campaign.py`, last geometry step of `build_idf_for_building`, no all-or-nothing cap): merge vertices under 1 cm, drop collinear vertices, mirror the cleaned ring onto the partner, drop surfaces with under 3 vertices or under 0.01 m2 with partners and windows; a home that still fails preflight falls back to one zone per floor (`_PREFLIGHT_FALLBACK`). Preflight flags 23 of 23 failed London stems on the old IDF and 0 on the rebuild. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, T06f)*
+
+- **`FINDING 210` / `D-EU-43` — harvest of the corrected `v3` wave (jobs `1302937`/`1302954`/`1302962`), completed 2026-08-31.** `sacct -j 1302937,1302954,1302962 --format=JobID,State,ExitCode -X` shows all 52 array tasks `COMPLETED`, `0:0` (43 Madrid, 8 Lyon, 1 London) — the twice-extended gate holds on Speed, not only on the local Windows proof. **Separate finding, same harvest pass: the base `EU11_<district>/out/` tree (not the `_finding210v3` suffixed dir the job actually wrote to) held stale, non-Speed data for exactly these same 52 stems** — `find EU11_ES-MAD-BERRUGUETE/out -maxdepth 2 -name platform.txt | wc -l` returns 918/961 (43 missing), and the equivalent counts for Lyon (289/297, 8 missing) and London (81/82, 1 missing) match the 52-stem `v3` scope exactly; a normal `submit_fleet_t08.sbatch` task always writes `platform.txt`/`energyplus_version.txt` (confirmed on 3 untouched Madrid stems), so their absence marks non-sbatch data. Direct check on stem `8b3598ac47b3f4a0` (Madrid): the base tree's copy has `task.rc=0`/"Completed Successfully"/4 min runtime but mtime `2026-08-31 14:58:32`, which predates job `1302937`'s own per-task completions (15:13-15:19, fleet dir created 14:52) — this is a leftover of the session's own local-Windows proof run (`ExpandObjects`+`energyplus.exe` invocation cited above), copied into the base tree by an undocumented step, not a Speed measurement. Resolution: the harvest read the 52 results directly from `EU11_<district>_finding210v3/out/<stem>/` (real Speed data, `sacct`-confirmed) and overwrote the corresponding manifest rows, never trusting the base tree for these 52 stems; `platform`/`energyplus_version` are left blank for them in the manifest since the `_finding210v3` fleet-dir invocation itself never wrote those two sidecars (confirmed: `tar` over the same file list against the real job's own `out/` also warns `Cannot stat: platform.txt`/`energyplus_version.txt` — a property of that resubmission's script invocation, not of the base-tree contamination). **New, unresolved gap found during this harvest: 2 Madrid stems (`df490cc7ec52ebb4` = `way/380242666`, `5897ad5bdd60c3ae` = `way/941927233`) carry a zero/negative-surface-area (`degenerate surfaces`/`Invalid dot product`) fatal, are absent from the 43-stem `v3` `fleet.lst`, and were never resubmitted under any wave** — the plan's own T09-continuation entry enumerated 43 Madrid residual stems (32 `finding210fix` + 11 `deu43fix`) against an earlier v2-residual count of 45 (98 casualties − 53 v2-recovered) without reconciling the 2-stem gap; these 2 are that gap. `[OPEN]`, disclosed, not fixed here (outside this harvest's scope — no further Speed submission was authorised). *(EU-16 T09 harvest pass, 2026-08-31; `scripts/cluster/harvest_eu11_district.py`, ad hoc fold script; see `RESULTS_EU-11.md` for the corrected per-district counts)*
+
+- **`D-EU-43` signature reappears at a commit that already carries the fix — `** Severe ** CheckConvexity ... is non-planar` then `** Severe ** GetSurfaceData: Zero or negative surface area[1.4e-08]` then `**Fatal** GetSurfaceData: Errors discovered, program terminates`, on 77–79 of ~1,170 Bologna buildings (example `27683`) in an external driver (`4thJ_step10_nocore_campaign.py`, GSSCanada session) running at `9d6026af`, the same commit whose source contains `_stabilize_ring_coords` and `_snap_shared_interzone_vertices`.** Root cause: the driver calls `extrude_geometry()` directly, and the fix does not live there. `_stabilize_ring_coords` runs at *layout* time inside `european_building_layout_to_zone_specs` (`openubem/geometry/european_residential.py:2824`, `:2838`), so zone dicts built by any other path reach extrusion unstabilized; `_snap_shared_interzone_vertices` is inside `extrude_geometry` (`openubem/idf/surfaces.py:916`) but is gated on zone mode — `rl_zones = [z for z in zones if z.get("mode") in ("room_layout", "european_dwelling_layout")]` (`surfaces.py:800`) returns early and no-ops for any other `mode`; and the delivered `IT-BOL-GALVANI2_recut_2026-09-08` tree is built by `build_idf_for_building` (`scripts/run_eu_s2_campaign.py:596`), which brackets extrusion with `_drop_redundant_ring_vertices` on every `coords_m` before (`:641-643`, D-EU-109), and `find_mismatched_interzone_pairs` / `_has_near_duplicate_vertex_surfaces` / `_force_reroute_room_layout_to_one_zone_per_floor` / second `intersect_match` / `_repair_roof_roof_pairs` / `_repair_mismatched_horizontal_pairs` / `_pair_interfloor_surfaces` after (`:674-725`), then `_assign_envelope_constructions` (`:727`, `FINDING 253`). Source presence at the right commit is necessary but not sufficient: two of the three steps are outside the called function. Fix: call `build_idf_for_building` as the geometry entry point (occupancy schedules can be overwritten afterwards — geometry and schedules are independent), or replicate all three bracket steps, and confirm the zone dicts carry `mode = "european_dwelling_layout"`. Residual after the full chain is ~10 Bologna buildings carrying `fallback_reason = "near_duplicate_vertex_tolerated_box"`, which still fatal with this exact signature by design (reroute declines, `surfaces.py:640-696`; owner ruling 2026-09-01) and must be excluded with the denominator stated. *(cross-session diagnosis 2026-09-11; evidence `docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md:795`)*
+
+- **`[OPEN]` `FINDING 249` — `rerouting room_layout to one_zone_per_floor` fires on 1,306 of 2,262 buildings (57.7 %) once the no-core dwelling layouts replace the core-era ones, silently discarding every one of those layouts.** Same `intersect_match` root cause as `FINDING 210` above, same gate, but the gate has stopped being a rare rescue and become the majority path. Measured 2026-09-03 over the four rebuilt trees `openubem/outputs/eu_evidence/EU-11/<DISTRICT>_nocore_2026-09-03/prepared_buildings.csv`: `..._INTERZONE_MISMATCH_REROUTED` = Madrid 618, Bologna 529, Lyon 119, London 40 (**1,306**), against **2** fleet-wide in the delivered core-era build (`EU-11/<DISTRICT>/`, Madrid 2, others 0). Cause of the change in rate: `EUROPEAN_LAYOUT_REGIME = "nocore"` (`openubem/geometry/european_nocore.py`, seamed at T03) divides each plate into dwellings only — no core, no circulation — so a storey carries more, smaller zones and therefore many more shared interzone surfaces for geomeppy's `intersect_match` (`openubem/idf/surfaces.py:866`, non-editable, `D-EU-41`) to recompute by live floating-point intersection; the vertex divergence it introduces is per-surface, so the more shared surfaces there are the likelier at least one pair diverges. Effect: `_force_reroute_room_layout_to_one_zone_per_floor` throws the dwelling layout away and rebuilds the building as one whole-building zone per storey, while `scripts/run_eu_s2_district_campaign.py:387-392` still labels the row `DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED` — accurate, but it reads as an emitted layout in every downstream count. Verified in the IDFs, not from the label: 32 sampled stems, real ones carry `_F<n>_dwelling_<k>` zones (Bologna `387f4fea` 30, Lyon `a3fabf61` 29, London `ed827c95` 69), rerouted ones carry only `_F<n>_whole` and **zero** `_dwelling_` zones (Madrid `959c9188` 3/3, Lyon `197fe0f9` 7/7, Bologna `1ef46361` 7/7). Net effect on the fleet: real dwelling layouts **1,446 → 956** (−490) even though `FALLBACK_PENDING_LAYOUT*` collapsed 1,096 → 265, i.e. the new cutter divides 831 plates the old logic refused and the assembler discards more than it gains. **Not fixed, and deliberately not worked around** — no threshold moved, `NEAR_DUPLICATE_VERTEX_TOLERANCE_M` (0.005) and `COLLINEAR_VERTEX_ANGLE_TOLERANCE_DEG` (0.1) left as tuned, `MAX_FLAT_ASPECT` still 2.5. Two mechanism probes on Madrid failed to separate the groups: `k = 1` share 27.8 % rerouted vs 41.5 % clean (median `k` 2 both); median footprint vertices 6 vs 5, storeys 4 vs 4, reflex vertices 1 vs 0, rectangularity 0.847 vs 0.880. This is the finding that failed `CP-2` and stopped the Speed campaign. *(`PLAN_eu-engine-nocore-carryin-2026-09-03.md` §8 T05; audit artifact `openubem/outputs/eu_evidence/EU-21/engine_parity/idf_audit_2026-09-03.json`; full record `STATE_european_locations_v5.md` §3 `FINDING 249`)*
+
+- **`[OPEN]` `IDF_ASSEMBLY_FAILED_RuntimeError` appears on 17 buildings that assembled cleanly in the core-era build** — Madrid 9, Lyon 4, Bologna 4, London 0, recorded in each district's `summary.json` `blocker_exclusions` under `EU-11/<DISTRICT>_nocore_2026-09-03/`. These buildings get **no IDF at all**, so the prepared population is 2,527 against the census's 2,544 (Madrid 961→952, Lyon 297→293, Bologna 1204→1200, London 82→82); no *new* building appears and no attribute changed (`archetype_id`/`building_type`/`age_band` diff 0/0/0 on all 2,527 common rows). Caught by the `except (RuntimeError, ZeroDivisionError, IndexError)` arm at `scripts/run_eu_s2_district_campaign.py:434-441`, which records the exception type but not its message, so the underlying `RuntimeError` text is not on disk — retrieving it is the first step of any fix. Same trigger window as `FINDING 249` (the no-core seam), second-order beside it, disclosed rather than fixed. *(`PLAN_eu-engine-nocore-carryin-2026-09-03.md` §8 T05, deviation 2)* **Correction, 2026-09-08 (`implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md`, T01, owner ruling 14:25): the standing claim above is stale — the message is now on disk.** T01 of that plan added an `_ExclusionCounter`/`excluded_buildings.csv` (`building_id, stage, blocker, detail`) to `run_eu_s2_district_campaign.py`'s `prepare()`, whose `detail` column carries `str(exc)` for every `IDF_ASSEMBLY_FAILED_*` exclusion in every `_recut_2026-09-08` tree — confirmed on Lyon's single failure (`BATIMENT0000000240880120_part0`): `interzone_vertex_mismatch_unresolved: mismatched=[(...12 cross-block ceiling/floor pairs...)] near_duplicate_vertex=True`. The `_final_2026-09-07` trees predate this column and still carry no message; the population also grew to 13 fleet-wide (Madrid 7, Lyon 1, Bologna 5) at the 2026-09-08 recut, all confirmed the same `FINDING 210`/`D-EU-43` family, no new signature. Owner ruling: *"ok leave the 7 out"* — no remedy authorised for this class (see the `FINDING 210` entry's courtyard-fill extension above for the one proven-but-unauthorised remedy and its costs).
+
+- **`D-EU-44` — `RESOLVED`, 2026-08-31: both unaccounted Madrid stems recovered, `FINDING 210`'s Madrid/Lyon/London residual is now zero.** Owner authorisation, verbatim: *"oui, autorise D-EU-44 continuer jusqu'a la fin"* (owner, 2026-08-31). `df490cc7ec52ebb4` (`way/380242666`) and `5897ad5bdd60c3ae` (`way/941927233`) were rebuilt through the exact same fixed code path (`scripts/run_eu_s2_district_campaign.py::prepare`'s per-building loop, filtered to these 2 `building_id`s, calling `scripts/run_eu_s2_campaign.py::build_idf_for_building`, the twice-extended `find_mismatched_interzone_pairs`/`_has_near_duplicate_vertex_surfaces`/`_force_reroute_room_layout_to_one_zone_per_floor` gate from the root-cause pass above, unmodified) — the gate fired for both (`rerouting room_layout to one_zone_per_floor (near_duplicate_vertex)`), confirming the same mechanism. **Proven locally first, real EnergyPlus 23.1.0 (Windows, `ExpandObjects.exe`+`energyplus.exe`, matching `submit_fleet_t08.sbatch`'s own invocation), not a Python-heuristic-only check**: both rebuilt IDFs ran `RC=0`, `0 Severe Errors`, `0 Fatal Errors`, `EnergyPlus Completed Successfully`. Rebuilt IDFs confirmed byte-identical (`sha256sum`) between the local proof and the tarball shipped to Speed. Shipped to a dedicated fleet dir (`/speed-scratch/o_iseri/fleets/EU11_ES-MAD-BERRUGUETE_deu44`, never touching the shared `EU11_ES-MAD-BERRUGUETE` base tree) and submitted as **one** `sbatch --array=1-2%2` job, `1303012`. `sacct -j 1303012 -X --format=JobID,State,ExitCode,Elapsed` confirms both tasks `COMPLETED`/`0:0` (`1303012_1` 00:02:36, `1303012_2` 00:07:24); both `eplusout.err` on Speed also show `0 Severe Errors`/`EnergyPlus Completed Successfully`, matching the local proof — Speed-side confirmation, not only Windows. Heating recovered via the same `Zone Ideal Loads Zone Total Heating Energy` SQL query: `df490cc7ec52ebb4` 22,995.2274 kWh / 438.6929 m² = 52.4176 kWh/m²; `5897ad5bdd60c3ae` 7,352.8695 kWh / 194.5278 m² = 37.7986 kWh/m² (`floor_area_m2` for both moved slightly from the pre-fix `DWELLING_LAYOUT_EMITTED` value — 439.0326→438.6929, 195.5908→194.5278 — the same union-of-storey-floor-polygons effect already disclosed for the other 50 `D-EU-42`/`D-EU-43` reroutes). Both folded into `es_mad_berruguete_manifest.csv`/`prepared_buildings.csv`, replacing the two `FATAL`/blank rows; `platform`/`energyplus_version` left blank for these 2 rows, same cause as the 52-stem `v3` wave (the remote-deployed `submit_fleet_t08.sbatch` does not write those two sidecars — `[OPEN, cosmetic]`, EU-14B chapter, not a new defect). Madrid: **961/961 success, 0 Speed-failed** — pooled EUI moved 72.1258→72.1096 kWh/m². `generate_eu_3d_viewers.py` re-run for all four districts; `diff -rq` on every viewer file and data dir (Madrid + the three unchanged districts) — all 8 checks byte-identical, zero output. *(`D-EU-44`, 2026-08-31; `scripts/run_eu_s2_district_campaign.py::prepare`, `scripts/run_eu_s2_campaign.py::build_idf_for_building`, unmodified — same gate as `FINDING 210`'s fix; see `RESULTS_EU-11.md` §`D-EU-44` for the full write-up)*
+
+## European locations, ceiling82 (2026-09-05)
+
+- **`** Severe ** Schedule:File="EU_STEP8_GAINSCHEDULE_<STEM>_..." File Name: "../../schedules/<stem>/<stem>_..._gain.csv" not found` → `**Fatal** ProcessScheduleInput: Preceding Errors cause termination`, 100 % of a Speed array (317/317 across 4 jobs)** — the director staged a Speed submission tarball containing only `idfs/` + `weather/` + `fleet.lst`, omitting the `schedules/<stem>/` per-building directory that `run_eu_s2_district_campaign.py::prepare()` also writes and that every European IDF's `Schedule:File` objects reference by relative path (`../../schedules/<stem>/...`). Every EnergyPlus task fails at sizing, before warmup, 0.1-0.2 s in — a packaging omission, not a geometry or code defect (`ES-MAD-BERRUGUETE`/`FR-LYO-HAUTCOEURPENTES`/`GB-LDN-STDUNSTANS`/`IT-BOL-GALVANI2` Step 2 delta jobs `1307761`/`1307762`/`1307771`/`1307773`, confirmed via `eplusout.err` on the first task of each). Fix: always stage/tar/ship all three of `idfs/`, `weather/`, `schedules/` (plus `fleet.lst`) together for any EU district Speed submission — never `idfs/`+`weather/` alone, even though most fleets' schedules are static enough that this is easy to forget. Re-shipped with `schedules/` included and resubmitted (see `PLAN_eu-82pct-ceiling-2026-09-05.md` §8, "Step 2 delta wave" entry, correction). *(director packaging step for `PLAN_eu-82pct-ceiling-2026-09-05.md`'s Step 2 delta wave, 2026-09-05; `scripts/run_eu_s2_district_campaign.py::prepare`, `scripts/cluster/submit_fleet_t08.sbatch`)* **Recurred identically 2026-09-07** on the `_final_2026-09-07/` re-emission wave: FR job `1311066` failed 91/91 in 0.4 s with the same `Severe`/`Fatal` pair, and GB's staged fleet dir had the same omission (`ls schedules | wc -l` = 0 against `fleet.lst` = 299). Contributing detection miss: `grep -c "Schedule:File"` on a staged IDF returned 0 and was read as clean, but the emitted objects are uppercase `SCHEDULE:FILE` — grep case-insensitively, and treat `task.rc` / `sacct` State as the primary signal rather than a hand-written `Fatal` grep. Fix: shipped the per-stem `schedules/` dirs listed by `awk -F, 'NR>1{print "schedules/"$3}' simulate_list_<D>_2026-09-07.csv`, verified `ls <fleetdir>/schedules | wc -l` equals the `fleet.lst` line count and that `File Name` is the relative `../../schedules/<stem>/...` form, cleared `out/`, resubmitted as `1311158` (FR) / `1311214` (GB). Standing check before any EU Speed submission: four things, not three — `idfs/`, `weather/`, `schedules/`, `fleet.lst`. (`submit_fleet_t08_frgb_2026-09-07.sbatch`'s own header comment lists only three, which is what makes this recur.)
+
+- **Same symptom (`Schedule:File=... File Name: "C:\Users\...\scratchpad\t08_build\<stem>\<stem>_..._gain.csv" not found` → `**Fatal** ProcessScheduleInput`), third distinct root cause: an absolute local Windows path baked into the IDF instead of the `../../schedules/<stem>/...` relative convention** — T08's `FINDING 253` remedy rebuild ran the per-building build path from inside a Claude Code scratchpad directory (`scratchpad/t08_build/<stem>/`) via a non-repo driver script, so the schedule-CSV writer emitted a path relative-resolved from that cwd instead of the portable relative form every other IDF in the fleet uses. `schedules/<stem>/` *was* staged this time (the fix above was applied), but the absolute path made it irrelevant — 7/7 tasks (Madrid `1309342`, Bologna `1309346`) failed instantly, 100 %. Fix: rewrite each `SCHEDULE:FILE` object's `File Name` field, replacing the absolute `scratchpad/t08_build/<stem>/` prefix with `../../schedules/<stem>/`, on the 7 staged IDFs before re-shipping (117 substitutions across 7 files); resubmitted as `1309355`/`1309357`. Lesson: any IDF built by a script invoked from a non-canonical working directory needs its `Schedule:File` paths checked/rewritten before Speed submission, not just its `schedules/` directory staged. *(director packaging audit for `PLAN_eu-82pct-ceiling-2026-09-05.md` T08 remedy submission, 2026-09-05)*
+
+- 🔴 **`FINDING 252` — the backlog wave's `FAILED` tail (24 tasks: Madrid 11/`1306953`, Bologna 12/`1305186`, London 1/`1306951`, all `GetSurfaceData`/`Fatal` at 0.2-1.4 s) is NOT one accepted class, contrary to this session's earlier report — it is FOUR distinct signatures**, read directly from every failed `eplusout.err`'s `Last severe error=` line (not from `sacct` alone): (1) classic `FINDING 210` `RoofCeiling:Detailed` vertex-size mismatch — 13/24 (54 %: Madrid 7, Bologna 5, London 1); (2) **new** `GetSurfaceData: Construction EU_ROOF_CONSTRUCTION of interzone surface ... does not have the same materials in the reverse order as the construction EU_FLOOR_CONSTRUCTION of adjacent surface ...` — 7/24 (29 %: Madrid 2, Bologna 5), see `FINDING 253`; (3) `GetSurfaceData: Zero or negative surface area[~1E-07 to 1E-09]` sliver, the `D-EU-43` family — 3/24 (12.5 %: Madrid 1, Bologna 2); (4) **new** `CalcCoordinateTransformation: Invalid dot product` fatal, preceded by `CheckConvexity: ... is non-planar` (×13) and `114 degenerate surfaces` — 1/24 (4 %, Madrid task `1306953_9`, stem `c71e82e57d99bed1`), not yet root-caused, `[OPEN]`. Classes (1) and (3) are the previously-accepted `FINDING 210`/`D-EU-43` GEOS-build-fragility tail and need no action. Class (2) is deterministic and fixable (`FINDING 253`). Class (4) needs a dedicated pass if it recurs at scale — one occurrence so far, not blocking. *(`PLAN_eu-82pct-ceiling-2026-09-05.md`, backlog-wave harvest-monitoring pass, 2026-09-05; classified via `sacct -j <job> --format=State -n -X | grep -i fail` then `grep "Last severe error"` on each stem's `eplusout.err`)*
+
+- **`FINDING 253` — `** Severe ** GetSurfaceData: Construction EU_ROOF_CONSTRUCTION of interzone surface BLOCK <STEM>_<N> STOREY <k> ROOF 0001... does not have the same materials in the reverse order as the construction EU_FLOOR_CONSTRUCTION of adjacent surface BLOCK <STEM>_<M> STOREY <k+1> FLOOR 0001...` → `**Fatal** GetSurfaceData: Errors discovered, program terminates`, 7 of the backlog wave's 24 `FAILED` tasks (Madrid `04c3d8bc97b3aa32`/`dc4c8768bb34abb7`; Bologna `4d40e0364b2f0e16`/`8ffb2e11b301694b`/`e263ff00a0544470`/`ebeee3778fe053f0`/`a0e24919ff9d7e35`).** Root cause identified, not fixed: `scripts/run_eu_s2_campaign.py:587-594` assigns a single per-district `roof_construction` to every surface whose `Surface_Type` is `ROOF`/`ROOFCEILING` and a single `floor_construction` to every `FLOOR`/`CEILING`, purely by nominal type, with no check of `Outside_Boundary_Condition` (set earlier by `extrude_geometry`'s `intersect_match`, line ~503). Both constructions are single-layer `MATERIAL:NOMASS` (`openubem/idf/european_physics.py:34-54`, `add_nomass_construction`) built from **different** U-values (`u_roof_w_m2k` vs `u_floor_w_m2k`, `_envelope_construction`, line 453-457) — so `EU_roof_Construction` and `EU_floor_Construction` reference two different materials and can never satisfy EnergyPlus's interzone reverse-layer-order check, regardless of vertex geometry. This only fires when one dwelling block is shorter than its neighbour (a massing/wing height difference from the direct-cutter/no-core layout): the shorter block's top surface is locally typed `ROOF` (no zone above it *within that block*) while `intersect_match` still pairs it, correctly, as an interzone surface against the taller neighbour's `FLOOR` at that level — a real, deterministic construction-assignment gap, not a `FINDING 210`-class floating-point/GEOS fragility. Candidate fix (not applied): any surface with `Outside_Boundary_Condition == "Surface"` must take a construction that is the material-identical mirror of its partner's, regardless of its own nominal `Surface_Type` — e.g. one shared symmetric interzone floor/ceiling construction for every `ROOF`↔`FLOOR`/`CEILING` interzone pair, applied after `intersect_match`, leaving true exterior/ground surfaces on the existing per-type constructions. Not yet verified locally or on Speed. *(`PLAN_eu-82pct-ceiling-2026-09-05.md` backlog-wave harvest, 2026-09-05; `scripts/run_eu_s2_campaign.py:453-457,587-594`; `openubem/idf/european_physics.py:34-54`; handed to an external Gemini/Antigravity session for root-cause verification + fix proposal, see `prompts/DONE/EXECUTOR_PROMPT_debug-failed-sims-2026-09-05.md` (and its `-v2.md`, both now in `DONE/`))*
+
+- **`FINDING 253` — root cause CONFIRMED by external Gemini/Antigravity session, fix proposed and locally verified, not yet applied to production code.** Director (this session) audited the deliverable (`openubem/outputs/eu_evidence/EU-11/ceiling82_2026-09-05_debug/report.md`) and independently re-read the cited lines directly — citations match the live file (`scripts/run_eu_s2_campaign.py:544` reroute call, `:573-575` `near_duplicate_vertex_tolerated_box` bypass, `:584-591` construction-assignment block, current numbering; `openubem/idf/surfaces.py:693-694` courtyard-hole refusal `area >= 1.0 m²`) — not a hallucinated diagnosis. Local EnergyPlus 23.1.0 reproduction on all 3 named stems: `RC 1`, exactly the same `Last severe error=` text as the Speed logs. Proposed fix (unified diff against `scripts/run_eu_s2_campaign.py:587-594`): when a nominal `ROOF`/`ROOFCEILING` surface's `Outside_Boundary_Condition == "SURFACE"` (i.e. it is actually an interzone boundary, not a true exterior roof), assign `floor_construction` instead of `roof_construction`, so both sides of the interzone pair share one material-identical construction; true exterior roofs (`Outside_Boundary_Condition == "Outdoors"`) are untouched. Verified locally on stem `04c3d8bc97b3aa32` with the diff applied: `RC 0`, `EnergyPlus Completed Successfully`, full annual run. Not yet applied to the shipped `.py` file or resubmitted to Speed — that decision belongs to the plan owner, per the executor prompt's own scope limit. *(`report.md` §Task A, 2026-09-05; audited against `scripts/run_eu_s2_campaign.py` and `openubem/idf/surfaces.py` same date)*
+
+- **`FINDING 253` — fix applied to `scripts/run_eu_s2_campaign.py` (T08), rebuilt+verified on all 7 named stems, shipped and confirmed on Speed. CLOSED.** T08 (fresh Sonnet executor) extracted `_assign_envelope_constructions()`: a `ROOF`/`ROOFCEILING` surface with `Outside_Boundary_Condition == "Surface"` now gets `floor_construction` instead of `roof_construction`, matching its interzone partner; 4 new regression tests added to `tests/test_eu_s2_campaign_ceiling82.py`, full required suite 76/76 passed. Director audited the diff against the plan spec (matches exactly) and independently re-verified all 7 stems' local `eplusout.end`/`eplusout.err` (not just the executor's self-report): 7/7 `RC 0`, 0 Fatal, Severe counts matching T08's table exactly. Packaged as 2 small per-district Speed array jobs (Madrid `1309355`×2, Bologna `1309357`×5, `--time=7-00:00:00`) — first attempt (`1309342`/`1309346`) failed 7/7 instantly on a separate packaging defect (absolute local path baked into `Schedule:File`, see the dedicated entry above), fixed, resubmitted, confirmed 7/7 `RC 0`/0 Fatal on Speed matching local exactly. Staged at `openubem/outputs/eu_evidence/EU-11/finding253_remedy_2026-09-05/<stem>/<stem>.idf`. *(`PLAN_eu-82pct-ceiling-2026-09-05.md` §6b/T08, 2026-09-05; `scripts/run_eu_s2_campaign.py:_assign_envelope_constructions`; director packaging + Speed submission, jobs `1309355`/`1309357`)*
+
+- **`[OPEN]` `FINDING 254` — `CalcCoordinateTransformation: Invalid dot product` fatal (`FINDING 252`'s 4th signature, 1/24 at classification time, now 3 confirmed instances: Madrid `c71e82e57d99bed1` task `1306953_9`, Bologna `fd4b13e28f1c6f47`, Bologna `635e498716218cea` task `1305186_524`) is the SAME `intersect_match` sub-millimetre vertex-divergence family as `FINDING 210`/`D-EU-43`, but slips past the existing safety net by a distinct mechanism: a courtyard-hole refusal.** Classified by external Gemini/Antigravity session, director-audited (citations re-read directly against the live files, matched). Mechanism: `_has_near_duplicate_vertex_surfaces` sets `at_risk = True` as normal, triggering `did_reroute = _force_reroute_room_layout_to_one_zone_per_floor(...)` (`scripts/run_eu_s2_campaign.py:544`); this building (`relation/12700645`, Madrid) has a genuine courtyard void (interior ring area `>= 1.0 m²`), so `_force_reroute_room_layout_to_one_zone_per_floor` correctly refuses to collapse it into one block (`openubem/idf/surfaces.py:693-694`, by design, non-editable `D-EU-41`), and `did_reroute` returns `False`. With `mismatched` empty, the existing `D-EU-58`-era bypass (`scripts/run_eu_s2_campaign.py:573-575`) tags the zones `fallback_reason = "near_duplicate_vertex_tolerated_box"` and ships the IDF as-is rather than raising — a deliberate disclosed tolerance for courtyard buildings, not a bug in that bypass itself. The sub-mm vertex divergence it tolerates (quoted: a 1 mm-grid-snapped vertex at `(440388.567, 4478489.655)` vs an unsnapped 64-bit intersection point at `(440388.5670611691, 4478489.654910211)`, 0.1086 mm apart) is exactly `FINDING 210`'s known artifact class, but on a courtyard building EnergyPlus's own `CalcCoordinateTransformation` occasionally collapses the resulting 3-vertex sliver to 2 vertices and fatals on the degenerate dot product, instead of the `RoofCeiling` vertex-count-mismatch symptom `FINDING 210` describes. Both named instances confirmed shipped under `fallback_reason = "near_duplicate_vertex_tolerated_box"` in their district's `prepared_buildings.csv`. No fix proposed (courtyard buildings cannot be safely rerouted, by design) — this is a known-tolerance edge case of an existing accepted mechanism, expected to recur at low rate specifically on courtyard-holed buildings; no action needed unless it starts affecting a materially larger share of the fleet. **Follow-up pass (Task C, same session)** confirmed the mechanism on the Bologna instance too (courtyard void 856.02 m², sliver edge 0.315 mm, apex angle 0.0038°) and added one precision: **neither fatal surface is itself interzone** — Madrid's is `Outdoors`, Bologna's is `Ground` — so `find_mismatched_interzone_pairs` (which only inspects `Outside_Boundary_Condition == "Surface"` surfaces) structurally cannot see either one; this is a gap in that gate's scope by design, not a bug in it. *(`report.md` §Task B/C, 2026-09-05; `scripts/run_eu_s2_campaign.py:544,573-575`; `openubem/idf/surfaces.py:693-694`)*
+
+- **`FINDING 255` — harvest-monitoring undercounted Bologna job `1305186`'s remaining task count by ~48x (tracked as "8 RUNNING + 1 PENDING", true remaining was 431)** — `squeue`/`sacct -X` display a fully-undispatched array tail as a single compressed row (`1305186_[778-1200%8]`), which every `sacct -j ... | awk '{print $2}' | sort | uniq -c` poll this session read as exactly "1 PENDING" instead of the 423 tasks it represents. Root cause: job `1305186` is dual-purposed — it is the `FINDING 249` remedy's full-Bologna-fleet re-run (`--array=1-1200%8`, `PLAN_eu-nocore-finding249-remedy-2026-09-04.md:268`), reused by the ceiling82 harvest arc as "the Bologna backlog job" without ever correcting the tracked total (673, an intermediate done-count mistaken for the array size) against the job's actual `scontrol show job`/original `sbatch` submit line. Fix: when polling any Speed array job for remaining count, cross-check `squeue -j <job>` for a compressed `_[a-b%c]` range row (each such row is `b-a+1` tasks, not 1) rather than trusting a bare `sacct -X | uniq -c` state tally; for any job also referenced by an older plan doc, verify its true array width via that plan's original `sbatch --array=` line before quoting a total. Lyon `1306952` had no such hidden tail (confirmed absent from `squeue` entirely — genuinely fully drained at 469/469). No new failure signature, FAILED counts unaffected — does not trip the ceiling82 arc's >10% hard-stop; corrected fleet total 3,947 (was 3,420). *(`DIRECTOR_PROMPT_eu82pct-ceiling-harvest_2026-09-05.md` §1, harvest-monitoring pass, 2026-09-06; `PLAN_eu-nocore-finding249-remedy-2026-09-04.md:268`)*
+
+## European locations, dwelling-division recovery (2026-09-07)
+
+- **`** Severe ** Schedule:File="EU_STEP8_GAINSCHEDULE_<STEM>_F0_WHOLE_F000", File Name: "../../schedules/<stem>/<stem>_F0_whole_f000_gain.csv" not found.`** — a rebuilt IDF was staged into the fleet tree but its `schedules/<stem>/` directory was not re-staged, so the directory still held the previous layout's per-dwelling schedule names (`<stem>_F0_dwelling_0_f000_gain.csv`). Hit on `cee45cbc2718154c` after the courtyard-fill rebuild changed it from 29 dwelling zones to 8 `one_zone_per_floor` zones. Fix: re-copy `EU-11/<DISTRICT>/schedules/<stem>` over the staged `EU-11/<DISTRICT>_<tag>/schedules/<stem>`, re-scp, delete `out/<stem>`, resubmit that array index. Guard: assert every `Schedule:File` path named in the IDF exists under the staged `schedules/<stem>/` before tarring, not just that the directory exists. *(docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-dwelling-division-recovery-2026-09-07.md)*
+- **A district harvest reports `rc=<NA>` for the majority of its rows** — the harvest is reading a `_final_` fleet tree that only ever received the *simulate list* subset; every carried-over building has no `out/<stem>/` and so no rc. Not a staging defect. Fix: merge the delta-fleet harvest and the hash-identical ceiling82 carries into the manifest, recording the source of every row. See FINDING 265. *(docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-plan-homogeneity-2026-09-07.md)*
+- **A single-task array resubmission ends `FAILED`, `ExitCode 1:0`, `Elapsed 00:00:00`, no `out/<stem>/` directory created, and its only log line is `ERROR: FLEET_DIR not set`** — `scripts/cluster/submit_fleet_t08.sbatch:21` hard-fails when `FLEET_DIR` is absent, and a resubmission of one repaired task written as `sbatch --array=54-54%32 ... submit_fleet_t08.sbatch` omitted the `--export`, so the variable the original campaign submission had supplied was gone. `sacct` shows only `FAILED`; the cause is visible solely in `/speed-scratch/o_iseri/openubem/fleets/openubem_t08_<jobid>_<task>.log`, so always read that log before re-diagnosing the IDF. Fix: resubmit as `sbatch --array=54-54%32 --time=7-00:00:00 --export=ALL,FLEET_DIR=<fleet dir> submit_fleet_t08.sbatch` (job `1311891`, `FR-LYO-HAUTCOEURPENTES_final_2026-09-07`, stem `cee45cbc2718154c`); `--export=ALL,VAR=…` rather than `--export=VAR=…` so the login environment is still inherited. *(docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-plan-homogeneity-2026-09-07.md)*
+- **One task of a district `_delta_` fleet ends `FAILED` in ~3 s with `** Severe ** RoofCeiling:Detailed=... Vertex size mismatch between base surface ... and outside boundary surface` on every interzone ceiling/floor pair, then `Fatal error -- final processing. Program exited before simulations began.`** — a recurrence of `FINDING 210` on a building whose post-extrude at-risk gate tolerated the unresolved near-duplicate vertices; measured on stem `dd1d33feca834272`, task `1311699_95`, `EU11_FR-LYO-HAUTCOEURPENTES_delta_2026-09-07`. No per-building geometry remedy was applied in this pass: under `FINDING 265` the building is published as `eui_source = pending_resimulation` with every result column blank rather than carried with an EUI from a different IDF. Fix path if it must be recovered: the same forced-reroute driver used for `cee45cbc2718154c` (see the `FINDING 210` entry). *(docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-plan-homogeneity-2026-09-07.md)*
+- **A SLURM array task shows `R` in `squeue` for hours with a 0-byte `eplusout.audit` *and* a 0-byte `eplusout.err`, never writes `task.rc`, and `scancel` answers `Job has already finished`** — the EnergyPlus process died or was never really started on the allocated node while SLURM still accounted the step as running; the two 0-byte files prove it never reached the audit banner, which EnergyPlus writes within seconds of start, so elapsed time is not evidence of progress. Measured on stem `5e0376cc50cbea69`, task `1311699_81`, `EU11_FR-LYO-HAUTCOEURPENTES_delta_2026-09-07`, 5 h 10 m elapsed. Diagnosis rule: a delta task with `wc -c eplusout.err` = 0 after more than ~10 minutes is dead, not slow — check the two file sizes before waiting on any straggler. Fix: no recovery attempted in this pass; under `FINDING 265` the building ships as `eui_source = pending_resimulation` with blank result columns. To recover, resubmit that single index with `sbatch --array=<n>-<n>%32 --time=7-00:00:00 --export=ALL,FLEET_DIR=<fleet dir> submit_fleet_t08.sbatch` after deleting `out/<stem>`. *(docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-plan-homogeneity-2026-09-07.md)*
+- **A building coloured by a fresh EUI in `eu_<DISTRICT>_viewer.html` is drawn as `MASSING BOX (read from IDF)` with `Dwellings: 0` and one `…_F0_whole` zone per storey, although its manifest row says `geometry_outcome = DWELLING_LAYOUT_EMITTED_IMPUTED_COUNT` and `eui_source = delta_2026-09-07`** — the viewer joined two different vintages: `_load_eu11_eui()` prefers the `_merged_2026-09-07` manifest, but the plan reader resolved every building against `EU11_ROOT / f"{district}_ceiling82_2026-09-05"` only (`scripts/generate_eu_3d_viewers.py:1068`), the superseded 2026-09-05 emission in which those buildings had no interior partition. New number, old picture. Measured on `FR-LYO-HAUTCOEURPENTES`: 173 of 507 drawn as massing boxes while only 51 of 510 IDFs in `_final_2026-09-07/idfs` and 27 of 163 in `_delta_2026-09-07/idfs` actually contain a `_F0_whole` zone. Fix: layer two more roots over ceiling82 in `build_district`, in `eui_source` precedence order `ceiling82` < `final_2026-09-07` < `delta_2026-09-07` (`scripts/generate_eu_3d_viewers.py:1075-1081`). Second symptom met on the way: `FileNotFoundError: FR-LYO-HAUTCOEURPENTES: prepared_buildings.csv names 489894ba3d990787 but …_delta_2026-09-07\idfs\489894ba3d990787.idf is missing` — a `_delta_` evidence dir carries a whole-district `prepared_buildings.csv` (509 rows) beside only the delta subset of IDFs and manifest rows (163), so `read_district` raised on the first absent stem; fixed with an opt-in `skip_missing: bool = False` on `read_district` (`scripts/eu_idf_plan_reader.py:327,346-350`) passed only by the two 2026-09-07 roots, leaving every existing caller raising as before. After the fix Lyon reads 459 ruled / 51 massing box / 20 no IDF, and the `_delta_` IDFs must be staged locally first (`scp` from `/speed-scratch/o_iseri/fleets/EU11_<D>_delta_2026-09-07/idfs`) because only the `_final_` tree is mirrored by the harvest. *(docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-dwelling-division-recovery-2026-09-07.md)*
+
+## European locations, wall-B second pass (2026-09-08)
+
+- **`KeyError: 'way/398158943'` reading a London vertex-bug building out of a freshly-rebuilt `_gb_rows(gdf, records)` dict, although the id is in `GB-LDN-STDUNSTANS_final_2026-09-07/prepared_buildings.csv`** — the base GB mapping pass alone (`_gb_rows`) does not cover the London population; `_final_2026-09-07` was prepared with `--recover-terrace-neighbours`, so 255 of the 706 London rows only exist after `_gb_terrace_recovery_rows(gdf, records, base_rows)` is merged on top, and one of the 7 vertex-bug ids is one of them. Fix: call `_gb_terrace_recovery_rows` (network-free, same local `GB_EPC`/`GB_EPC_CERT_CACHE` inputs as the base pass) and merge its rows onto `_gb_rows`'s before indexing by `building_id`, exactly as `prepare(..., recover_terrace_neighbours=True)` does — `scripts/eu_wallb_measure_2026_09_08.py:236-251`. *(docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md, T03)*
+- **A near-duplicate/collinear vertex diagnostic classifies a defect as `chord_0.010m`/`cumulative_2e-3` (i.e. "a locally-redundant vertex the removal budget refused"), but its measured `perp_dist_m` comes out at metres, not millimetres (up to ~17 m observed)** — the classifier matched the flagged 3D surface vertex back to a point at the same (x, y) on the zone's own pre-extrusion 2D ring, then blindly recomputed a chord/area removal test against that ring's immediate neighbours without first checking whether the point was actually near-duplicate or collinear on that ring at all. A vertex that only becomes a defect through cross-surface `intersect_match` pairing (FINDING 210) can coincide in (x, y) with a real, non-redundant footprint or cut-line corner; recomputing a "removal" of a genuine corner naturally produces a large area/perp-distance, not evidence of a refused budget. Fix: run the same `near_duplicate`/`collinear` local-redundancy test `_drop_redundant_ring_vertices` itself uses on the matched vertex and its ring-neighbours *before* computing a chord/area reason; if it is not locally redundant there, classify `refused_by = "not_on_ring"` instead (the removal pass never had a vertex to remove) — `scripts/eu_wallb_measure_2026_09_08.py::classify_defect` (`_is_locally_redundant` guard). Cross-checked against an independent, unaffected measurement (an actual IDF rebuild with the chord tolerance monkeypatched to 0.020 m): both agree 0 of 184 buildings would clear. *(docs/docs_ACTIVE/europeanLocations/implementation/DONE/PLAN_eu-recut-95pct-2026-09-08.md, T03; FINDING 267)*
+- **`FINDING 268` — RETRACTED 2026-09-09, it was a consumer-side miscount, not an emitter bug.** Reported by peer session GSSCanada/4J on 2026-09-08 as "the no-core dwelling-layout emitter names every floor's single-dwelling zone the same string" — e.g. `relation/12638102_F0_dwelling_0` appearing five times in a 5-storey payload — and registered here as `[OPEN]`. **Measured on 2026-09-09 over the frozen payload sets and it does not hold.** The repeated entries are ONE zone, not five flats: a storey group whose `storey_span > 1` emits a single zone extruded across the whole span (`openubem/geometry/european_residential.py:2793-2799`, the `FINDING 201` fix — "never one zone per physical storey, so the emitted zone count still equals the declared dwelling total exactly"), and `scripts/emit_eu11_layout_sidecars.py:364-369,425-431` deliberately repeats that same zone object under each physical storey row so a viewer can draw every floor. Measurement over all 1,175 Madrid and 1,211 Bologna payloads: **233 of 1,175 and 35 of 1,211 buildings carry a repeated zone name; 233 of 233 and 35 of 35 of those repeats carry byte-identical `coords_m`, identical zone-level `z_floor` and identical `height_m`; 0 of 268 carry differing geometry.** The reporter read the storey row's own `z_floor_m` (which does advance, 0/3/6/9/12 m) as if it were the zone's `z_floor` (which stays at the group's base) and summed zone entries across storey rows, so `relation/12638102` — `storeys: 5`, `dwellings_total: 1`, `storey_span: 5` — counted as 5 flats instead of 1. The authoritative flat count is `dwellings_total` (or a group's `dwelling_count`), never the number of zone entries summed over `floors[]`. The `ValueError` from `openubem/idf/european_controls.py:48 add_european_heating_controls` (`"European heating controls already emitted for zone '<name>'"`) is that guard working as designed: it refuses a second emission for one zone, which is what a per-storey-row consumption loop attempts. Fix: none in this repo — nothing to fix; a consumer must iterate storey groups (or de-duplicate by zone name) rather than storey rows. **Confirmed independently by the reporter the same day**, who re-measured on their own machine (ES 233/435, IT 35/35, LDN 630/787, LYO 22/31; 0 of 1,288 repeated entries differ by md5 of the canonical zone json; distinct zone names == `dwellings_total` on 1,100 of 1,100 ES and 1,036 of 1,036 IT) and traced their read to `zone_records()` falling back to the storey row's `z_floor_m` via `float(zone.get("z_floor", z_floor))`. Secondary, unrated observation from the same report, still unexamined: `relation/12582234` fails in EnergyPlus with `"GetSurfaceData: There are 47 degenerate surfaces"` / `"CalcCoordinateTransformation: Invalid dot product"` on repeated consecutive vertices near UTM (440293, 4478595) — sample of one, no rate claimed, may point at vertex precision at UTM magnitudes; not gated, needs its own repro before it is a FINDING. *(docs/docs_ACTIVE/europeanLocations/messages_GSSCanada/2026-09-09_OpenUBEM_to_4J_finding268_retracted.md; docs/docs_ACTIVE/europeanLocations/prompts/DONE/DIRECTOR_PROMPT_eu-ceiling82-recut_2026-09-09.md §8)*
+
+## European locations, floor-division residual (2026-09-29)
+
+- **[OPEN] Pooled EUI rises 4–8 % per city after the 2026-09-29 fix fleet; rebuilt homes' EUI ×1.7–1.9 with unchanged floor area** — walls, floors and ceilings between flats that find no mirrored partner are written with `Outside Boundary Condition = Outdoors` (some `floor` also `Ground`), so 220 of 279 rebuilt homes gain outdoor envelope (median outdoor-wall area ×1.56, e.g. `way/311159684` 450 → 1,281 m² on an unchanged 179 m² footprint). A class census and a crash test both pass these models; only an envelope-area comparison by boundary condition finds it. Cause (T06c scan, 256 of 297 `fix_2026-09-29` homes with hidden outdoor area > 1.0 m2): 190 `match_partial_overlap` (`intersect_match` ran but the two sides were never cut to the same polygon, so `match()` paired neither) and 66 `intersect_raised_match_only` (`intersect_match` raised and the `match()`-alone retry ran). Fix: new final pass `_pair_hidden_outdoor_surfaces` splits each overlapped `Outdoors`/`Ground` surface and its opposite coplanar partner into overlap pieces (paired by exact mirror, or `Adiabatic` when the split fails) and remainders (`scripts/run_eu_s2_campaign.py:956`, called from `build_idf_for_building` at `:1569`); hidden area in the rebuilt `_fix_2026-09-30` trees is <= 0.01 m2 on 296 of 297 (one Bologna home, 0.028 m2). Still [OPEN] until the Speed re-run: the envelope gate against the 09-08 baseline passes on 57 of 297 only. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, §8 T06, T06c, FINDING 277)*
+- **Flats on one storey overlap: `floor_sum_m2` 3,437.5 vs `floor_union_m2` 1,138.4 for `way/435638870` (`d48b6476e707231d`), 5 flats of 56.9 m2 each whose IDF floors sum 859.4 m2 on a 284.6 m2 storey** — the dwelling zone polygons are disjoint going into `extrude_geometry` (sum = union = 284.6 on every storey) and stay disjoint after `_extrude_zone_groups`; the overlap first appears right after `idf.intersect_match()` (`openubem/idf/surfaces.py:928`): geomeppy `minimal_set` (`.venv/Lib/site-packages/geomeppy/geom/surfaces.py:151-166`) polygonizes the boundaries of every piece found for a surface, so a flat's floor receives pieces that lie on neighbouring flats. Census (`division_residual_2026-09-29/zone_overlap_scan.csv`, `zone_floor_overlap` in `scripts/run_eu_s2_campaign.py`): 85 of 4,171 `_recut_2026-09-08`, 167 of 297 each of `_fix_2026-09-29` and `_fix_2026-09-30`; cause trace on the 241 distinct homes: 239 `intersect_match`, 2 none (the `match()`-alone retry ran). Fix (T06e items 3-4, director option (a)): new step `_clip_zone_horizontals_to_own_polygon` in `scripts/run_eu_s2_campaign.py` (called in `build_idf_for_building` right after `extrude_geometry`) clips every Floor/Ceiling/Roof to its own zone polygon, drops pieces under 0.01 m2, and unpairs every interzone pair that touches a clipped piece so the mirror repair and the hidden-pair pass re-pair it; hard check `_storeys_overlap` after the last repair falls back to one zone per floor (`_OVERLAP_FALLBACK`). Trial of 20 homes: overlap `sum <= 1.01 x union` on 20 of 20, fallback on 0 of 20; side effect in the next entry. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, §8 T06e, FINDING 278)*
+- **After the T06e clip the per-storey floor union is smaller than the 09-08 IDF on 17 of 20 trial homes (min ratio 0.394, e.g. `way/298850489` storeys 1-3: 860 m2 of 2,441 m2; roof union 389.0 vs 475.9 on `way/388485191`)** — `_extrude_zone_groups` (`openubem/idf/surfaces.py`, `add_block(coordinates=group[0]["coords_m"], num_stories=n)`) extrudes the first storey's polygon of each dwelling label through every storey, so on upper storeys the surfaces of a label cover that first-storey polygon, not the label's own polygon there; clipping to the own polygon removes the wrong part and leaves the rest of the storey without a floor. `FINDING 279`: it is wider than the trial (director scan of the 09-08 layouts: a flat whose outline differs between storeys on Madrid 530 of 1,079, Lyon 192 of 471, London 130 of 1,190, Bologna 921 of 1,078 divided homes). Fix (T06e item 3(d), `D-EU-135`): new `_extrude_zone_groups_per_storey` in `scripts/run_eu_s2_campaign.py` splits each `(prefix, label)` group into runs of consecutive `F` indices with the same outline (symmetric difference <= 0.01 m2) and extrudes each run from its own polygon, raised by `a*h`; a bottom floor above z = 0 is set to `Outdoors` before `intersect_match`; a group with one constant outline from F0 makes the frozen call unchanged. `build_idf_for_building` installs it as `openubem.idf.surfaces._extrude_zone_groups` around `extrude_geometry` and restores the original in `finally`; `surfaces.py` stays frozen (`D-EU-41`). Re-trial on 30 homes: union floor ratio vs 09-08 >= 0.99 on 30 of 30, ground and roof within 1 % of the layout on 30 of 30. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, §8 T06e items 3d-4b, FINDING 278, FINDING 279)*
+- **`FileNotFoundError: ...\<district>_fix_2026-10-01_pass_stats.csv` in the T06e gate script right after a 30-home trial build** — the trial was built with `scratch/t05_build.py`, which does not write the hidden-pass statistics; only `scratch/t06c_build.py` (wraps `t05_build.main` and writes `<out>_pass_stats.csv`) does. Fix: rebuild with `t06c_build.py` (same arguments). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, §8 T06e items 3d-4b)*
+- **Item-5 gate shows G3/G9 failing on 159 of 1,183 Madrid homes whose layout side-car is a one-flat-per-floor `nocore_equal_area` cut (storey-0 layout area 0.0 m2, G9 zones at 0.0)** — the gate read each layout zone into a dict keyed by zone name, but those side-cars name every storey's zone `<id>_F0_dwelling_0`, so the last storey overwrote the others (no storey-0 entry); 35 homes with no side-car at all (`FALLBACK_PENDING_LAYOUT`) also read as failures. Fix: gate scratch script keeps a list of (name, storey, polygon), compares each IDF zone to the union of the polygons sharing its name, and measures G3 against the 09-08 IDF when no side-car exists (`scratch/t06e_item5_gate_MAD.py`). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, §8 T06e item 5 ES-MAD-BERRUGUETE)*
+- **Gate line G9 reads 0 of 30 with every zone at 0.0 m2 against its layout polygon** — the gate looked up the layout zone names (`<building_id>_F0_dwelling_2`) in the IDF, whose zone names are stem-based (`<stem>_F0_dwelling_2`) and upper-cased in the surface records; no zone was found. Fix: the gate maps the building id to the stem before the lookup (`division_residual_2026-09-29/scratch/t06e_gate_b.py`); result 29 of 30. *(same plan, §8 T06e items 3d-4b)*
+- **[OPEN] `tests/test_eu_s2_campaign_ceiling82.py::test_t05_four_named_zero_raw_mismatch_ids_no_longer_raise` fails 4 of 4 (`assert set() == {'near_duplicate_vertex_tolerated_box'}`, Madrid `way/311968163`, `way/333138113`, `way/432405737` and one more)** — the test pins the 09-05 outcome in which the four homes end tolerated with `near_duplicate_vertex_tolerated_box`; with the T04 repairs and the clip no `fallback_reason` is set any more. Same 4 failures with the per-storey extrusion bypassed, so not caused by item 3(d); the file is outside the G7 list. Fix: none yet (test expectation to be re-pinned by the director). *(same plan, §8 T06e items 3d-4b)*
+- **`interzone_vertex_mismatch_unresolved: mismatched=[('Block <id>_0 Storey 4 Ceiling 0001_1', 'Block <id>_0 Storey 5 Floor 0001_1'), ...]` on 4 published Bologna homes (`27931`, `30155`, `30186`, `32266`) right after adding the clip** — a clipped ceiling and the floor above it were cut to different polygons (storey polygons differ inside one label block), and geomeppy's `Outside_Boundary_Condition_Object` links are not symmetric (`Floor 0001_3` points to `Ceiling 0001_2` while `Ceiling 0001_1` still points to `Floor 0001_3`), so unpairing only the clipped surface and its own partner left a stale reference. Fix: `_clip_zone_horizontals_to_own_polygon` unpairs (`Outdoors`, `Ceiling` -> `Roof`) every `Surface` surface whose own name or whose partner is a touched name, then `_pair_hidden_outdoor_surfaces` re-pairs the overlaps by exact mirror (`scripts/run_eu_s2_campaign.py`, `_unpair_horizontal` and the closing loop of the clip). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, §8 T06e items 3-4)*
+- **After `_mirror_interzone_pairs`, `find_mismatched_interzone_pairs` is empty but `_has_near_duplicate_vertex_surfaces` still fires and the building is rerouted to `DWELLING_LAYOUT_EMITTED_INTERZONE_MISMATCH_REROUTED`; a first mirror pass that only handled reciprocal pairs left 6 of 110 pairs untouched on one Madrid building** — (a) `intersect_match` also emits non-reciprocal chains (`Block X_2 Storey 0 Ceiling 0001_1` -> `Block X_3 Storey 1 Floor 0001_2` -> `Block X_3 Storey 0 Ceiling 0001_2`: two ceilings naming one floor), and (b) it emits degenerate sliver triangles (area `1.3e-4` to `8.1e-4` m2, one 0.00014 m edge) that cleaning cannot reduce below 3 vertices. Fix: `_interzone_groups` (`scripts/run_eu_s2_campaign.py:~227`) rewrites whole linked groups, so (a) is repaired; (b) is not repairable by vertex cleaning and still trips the gate. Measured: 14 of 209 U1 buildings recovered. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md §8 T02)*
+- **`** Fatal ** GetSurfaceData: Errors discovered, program terminates.` on a mirror-recovered IDF (`eb12e1ba00541e12`, Bologna) after `** Severe ** GetSurfaceData: Zero or negative surface area[2.49612E-010], Surface=BLOCK EB12E1BA00541E12_3 STOREY 0 FLOOR 0001_1`** — a sliver surface of area ~1e-10 m2 that `intersect_match` created and that the at-risk gate does not flag once the vertex mirror has run. Fix: `_drop_sliver_surfaces` after the mirror (`scripts/run_eu_s2_campaign.py:321`); the building completed on Speed 2026-09-29. *(same plan, §8 T02)*
+- **`test_t04_relation_3730743_like_building_is_refused_not_approximated` fails with `assert building_layout.fallback_reason == DWELLING_DENSITY_REFUSAL_TOKEN`** — the test relied on the nocore regime refusing k > 12 before cutting; `D-EU-119` (T03) removed that refusal on the nocore path. Fix: test pins `EUROPEAN_LAYOUT_REGIME = "ruled"` via `monkeypatch` (`tests/geometry/test_eu13b_dwelling_conservation.py:~205`). *(same plan, §8 T03)*
+- **`** Severe  ** CalcCoordinateTransformation: Invalid dot product, surface="BLOCK 2542F2907E276CF1_2 STOREY 0 FLOOR 0001_5":` with `(440155.221,4479250.206,   0.000)` listed twice in a row (also Bologna `d1a9087437c27794`, `... STOREY 0 CEILING 0001_3`, `(687142.134,4928764.013,   3.000)` twice)** — a ground floor or ceiling ring keeps two consecutive vertices that print equal at 3 decimals; `_has_near_duplicate_vertex_surfaces` only inspects interzone-paired surfaces (FINDING 249), and the mirror only rewrote paired groups, so an unpaired ring was never cleaned. Fix: `_clean_surface_rings` runs `_clean_ring_3d` on every `BUILDINGSURFACE:DETAILED` ring outside an unresolved group, called after `_drop_sliver_surfaces` (`scripts/run_eu_s2_campaign.py`, `build_idf_for_building`). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, §8 T04d)*
+- **`** Severe  ** RoofCeiling:Detailed="BLOCK 803D0AFDBBBB83E9_1 STOREY 0 CEILING 0001_5", Vertex size mismatch between base surface ... and outside boundary surface: BLOCK 803D0AFDBBBB83E9_1 STOREY 1 FLOOR 0001_1` / `The vertex sizes are 7 for base surface and 6 for outside boundary surface.` (also Madrid `c5e730d9efda6799`, 14 vs 15 on six pairs)** — the two rings were already exact reverses with equal raw counts (8 and 8), so `find_mismatched_interzone_pairs` and the mirror saw nothing, but each ring carries an edge of 5.1 to 5.4 mm, just above `NEAR_DUPLICATE_VERTEX_TOLERANCE_M = 0.005`, and EnergyPlus collapses it asymmetrically. Fix: `_clean_ring_3d` now drops a vertex whose adjacent edge is under the new `RING_CLEAN_MIN_EDGE_M = 0.01` (the frozen 5 mm constant and the at-risk detector are untouched), so both members of a group are rewritten to the same shorter ring (`scripts/run_eu_s2_campaign.py:146-172`). *(same plan, §8 T04d)*
+- **`** Severe  ** CalcCoordinateTransformation: Invalid dot product, surface="BLOCK 2542F2907E276CF1_2 STOREY 0 FLOOR 0001_5":` although the gate counted 0 doubled vertices (Madrid `2542f2907e276cf1`, `u1e` IDF)** — the ring runs out to a far point and back to the same point (`(440155.221,4479250.206) -> (440155.991,4479248.945) -> (440155.221,4479250.206)`); EnergyPlus deletes the collinear points and only then two equal vertices sit side by side, so no pre-run count sees it. Fix: `_clean_ring_3d` first drops `P[i]` and `P[i+1]` while `P[i-1]` and `P[i+1]` are within `RING_CLEAN_MIN_EDGE_M`, keeping the input ring if fewer than 3 vertices remain (`scripts/run_eu_s2_campaign.py:149-170`). Side effect measured: Bologna `33063` (recovered in `u1f`) is rerouted again in `u1g`; with the spike step disabled it recovers. Still written after T04g: the spike ring on the ground floor surface was doubled (two equal points at the tip, two at the base), so the tip only became a spike after the duplicate was removed, and `_clean_ring_3d` ran the spike step before the duplicate/collinear step, once. Fix: `_clean_ring_3d` repeats both steps until the ring stops shrinking (16 vertices -> 8), and `_clean_surface_rings` is run again just before `saveas` (`scripts/run_eu_s2_campaign.py:149`, `build_idf_for_building`); the doubled-vertex scan now drops a vertex collinear in either direction (0 deg spike included) before counting duplicates (`scratch/t04h_scan.py`). *(same plan, §8 T04g, T04h)*
+- **`interzone_vertex_mismatch` reroute persists on 3 of 100 previously clean buildings (London `way/182927523`, `way/192335498`, Bologna `32328`) and `IDF_ASSEMBLY_FAILED_RuntimeError` (`expanded core/perim zones cannot be re-extruded from valid_zones`) on Bologna `31817`** — not the pair repair and not T04e/T04. Cause: the guard `if any(z.get("extruded") for z in zones): raise RuntimeError(...)` in `extrude_geometry` was evaluated after `_extrude_zone_groups`, which itself sets `z["extruded"] = True` on every zone it extrudes (`surfaces.py:867`), so the `match()`-alone retry after an `intersect_match` `ZeroDivisionError` never ran for any building. Fix: the flag is computed once before the first `_extrude_zone_groups` call (`_had_expanded_zones`) and the guard raises only on that value (`openubem/idf/surfaces.py`, `extrude_geometry`); OK-100 back to 100 of 100 not at risk. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, §8 T04f, T04g)*
+- **[OPEN] Four T02b-recovered homes (Madrid `way/428478249`, `way/434878289`, `way/400445219`, London `way/1054785381`) are rerouted to one zone per floor again in the T05 re-emission (`reroute_reason` `interzone_vertex_mismatch` or `near_duplicate_vertex`, 2 to 4 pair groups left in `pairs_still_skipped`), although each was recovered and ran clean on Speed in the T02b proof** — cause not yet isolated; the T02b proof used the T02b pair mirror, the T05 build uses the T04d `_repair_interzone_pairs` and the T04e cutter moves, and only the 92 T04d homes and the OK-100 were re-checked after those edits. Fix: none yet (T05 reports them as not recovered; three IDFs are byte-identical to the rerouted originals). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, §8 T05)*
+- **`ValueError: FR-LYO-HAUTCOEURPENTES: BATIMENT0000000013365727_part0 is in prepared_buildings.csv but not in the manifest`** (`scripts/eu_idf_plan_reader.py:354`) — a district built in two `--only-ids` shards leaves each shard's `<d>_manifest.csv` with only its own half, so the merged `prepared_buildings.csv` has ids the manifest lacks. Fix: concatenate the shard manifests into the final tree's `<d>_manifest.csv` (in the 09-08 order) before running `eu18_emit_plan_pages.py`; no code change. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md §8 T06e item 5 Lyon)*
+- **`ValueError: 'openubem\outputs\eu_evidence\EU-11\FR-LYO-HAUTCOEURPENTES_fix_2026-10-01' is not in the subpath of 'C:\Users\o_iseri\Desktop\OpenUBEM'`** (`eu18_emit_plan_pages.py:446`, `root.relative_to(ROOT)`) — `--evidence-root` given as a relative path. Fix: pass the absolute path (`DISTRICT=C:/Users/.../EU-11/<D>_fix_2026-10-01`). *(same doc)*
+- **`eu18_emit_plan_pages.py --district <D>` rewrites `plans3D/index.html` as a side effect** (`:459`), with only the districts of that run, so a one-district run drops the other three rows and points at `PLANS_<D>.html`. Fix: copy `index.html` before the run and restore it after (the director owns the index); no code change. *(same doc)*
+- **T06e gate G3/G9 on a full district: `G3` fails and `G9` reports `<STEM>_F1_DWELLING_0:0.0vs53.42` on one-flat-per-floor homes** — the 09-08 layout side-car names every storey's flat `<id>_F0_dwelling_0` (so a name-keyed dict keeps only the last storey), and the IDF holds one multi-storey zone `<stem>_F0_dwelling_0`, not one zone per storey. Fix (gate script only, no product code): key layout polygons by `storey_index`, and compare a storey's flat with the zone of its run start (outline equal within 1 %); homes with no layout side-car (U2 class in 09-08) are G3-checked against the 09-08 IDF and G9 n/a. *(scratch `division_residual_2026-09-29/scratch/t06e_gate_LDN.py`; docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, §8 T06e item 5 GB-LDN-STDUNSTANS)*
+- **`KeyError: 'BATIMENT0000000240877101_part0'` in `read_all` of the r2-template page builder** — the per-district `<d>_manifest.csv` of a fix tree is the harvest manifest and holds only the homes already simulated (Lyon 249 rows of 529 prepared), so it cannot give `geometry_outcome` for every home. Fix: `geometry_outcome` is read from `prepared_buildings.csv` of the tree the IDF comes from (`scripts/eu21/09_plans3d_from_idf.py:51`). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, T06i)*
+- **`ValueError: too many values to unpack (expected 2, got 3)` on a manifest footprint ring** — `eu02/<D>/02_residential_manifest.gpkg` geometries carry a Z coordinate. Fix: take `c[0], c[1]` of each coordinate (`scripts/eu21/09_plans3d_from_idf.py:167`). *(same doc)*
+- **`shapely.errors.GEOSException: TopologyException: side location conflict at 3.19 0.0917` while XOR-ing a zone's floor rings** — a floor ring in the IDF is self-touching, so `Polygon(ring)` is invalid. Fix: `shapely.make_valid` on each ring polygon before `symmetric_difference` (`scripts/eu21/09_plans3d_from_idf.py:zone_geom`). *(same doc)*
+- **`ValueError: a zone or the storey outline is not a single polygon` on 79 of 529 Lyon homes when running the seven plan checks on shipped zones** — the union of a storey's flats is a `MultiPolygon` because neighbouring zones leave sub-millimetre gaps. Fix: close the union with `buffer(0.02, join_style=2).buffer(-0.02, join_style=2)` before `run_checks` (0 errors on Lyon and London afterwards). *(same doc)*
+- **`** Severe  ** GetSurfaceData: There are 10 degenerate surfaces; Degenerate surfaces are those with number of sides < 3.` on a run that still completes (London 40 homes / 205 surfaces, Madrid 63, Lyon 15, Bologna 1 on `_win_2026-10-03`)** — sliver surfaces (corners within 0.01 m, or turn angle ≤ 1e-6 rad) are cut to 3 vertices by EnergyPlus `CheckConvexity` (`SurfaceGeometry.cc:15837-15858`) and counted in `TotalSevereErrors` (`:2876`); energy barely moves but the run carries a Severe. A first tolerance-based detector (10 mm triangle height) disagreed with EnergyPlus on 16 of 40 London homes. Fix: `openubem/idf/degenerate_surfaces.py` copies EnergyPlus's coincident-vertex walk and convexity test, including the stale-array state across surfaces (verified 273 of 273 runs in three districts), and `scripts/eu21/12_drop_degenerate.py` deletes flagged slivers (largest ≤ 0.2 m2) into `_win_2026-10-05`. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, T06q, FINDING 287)*
+- **Same `degenerate surfaces` Severe on real 3 m-high walls of 4–6 m2 in Lyon and Bologna (e.g. Lyon `cee45cbc2718154c` `Wall 0003_K1`, 6.36 m2)** — FINDING 288: at UTM coordinates the plane test `|Σ(x_n y_{n+1} − x_{n+1} y_n)| > 1e-4` (`SurfaceGeometry.cc:15712-15746`) sees float noise of ~5e-4 for a vertical wall (products ~3e12), picks the XY plane, reads the corners as collinear and cuts the wall to a triangle (area kept, outline wrong). Do not delete these walls. Fix: `openubem/idf/local_origin.py` `shift_to_local_origin` moves FR and IT IDFs by a 1 km-rounded offset (written to `origin_offset.json`, added back by T07) before the sliver pass (D-EU-142); after the shift Lyon has 0 events. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, T06q amendment B)*
+- **A building's total zone floor area is a fraction of its storeys x plate: Bologna `0177dae25178d27e` 4 storeys 27.8 m2 (10-03 111.1 m2), Madrid `5bce5fa408cac4fb` 3 storeys -> 1; one 12 m tall zone `F0_dwelling_0` with one `Floor`; also every London SFH/TH with 1 flat on 2-3 storeys (`7aae3e0ee341bc04`: one 9 m zone, one floor)** — a storey whose allocated flat count is 0 (flats < storeys, `allocate_european_dwellings` gives `quotient + (1 if index < remainder)`) was folded into the storey below as `storey_span + 1`, so `european_building_layout_to_zone_specs` emitted one zone of `span x 3.0 m` with one floor polygon, and `_extrude_zone_groups_per_storey` built each run with `height = m x first["height_m"]`, so the building kept only `min(flats, storeys)` storeys of floor and conditioned area (FINDING 289). Fix (D-EU-143): a 0-flat storey becomes its own `EuropeanStoreyGroup(start_storey_index=index, storey_span=1, layout=<group below>.layout)` (`openubem/geometry/european_residential.py:2753-2761`), so every storey has its own zones, floor and ceiling; `_extrude_zone_groups_per_storey` sums the member heights and raises `AssertionError` on any `storey_span != 1` (`scripts/run_eu_s2_campaign.py:1169-1174`). The flat count (`dwellings_used`) is unchanged. Affected set = every home with `dwellings_used < storeys` (ES 244, FR 32, GB 1,037, IT 186; 4 of them are the one-zone-per-floor fallback and come out byte-identical); rebuilt into `EU-11/<D>_win_2026-10-06`. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, T06s part 2)*
+- **[OPEN] Integrity check after the 10-06 rebuild: one zone with no `RoofCeiling` or no `Floor` (IT `7e4f0c98576b5d81` `_F4_dwelling_5`, IT `97d478bc56840531` `_F0_dwelling_3`, ES `722e9de69cd55e76`), or the same 27.57 m2 floor twice, once `Surface` and once `Adiabatic` (IT `595675e5f53ef10b` `_F2_dwelling_6`, names `Floor 0001_H1` / `Floor 0001_K1_K1_H1`); also undivided courtyard homes whose IDF floor is 17-30 % above `floor_area_m2`** — (a) the one-zone-per-floor fallback keeps only the footprint's outer ring (`openubem/geometry/zoning.py:102`, `european_residential.py:2803`, extruded at `scripts/run_eu_s2_campaign.py:1176`), so a courtyard is drawn filled in, while `floor_area_m2` keeps the hole; (b) the surface-pairing passes (`_pair_hidden_outdoor_surfaces`, `scripts/run_eu_s2_campaign.py:1366`, repeated `_K1` suffix chain) can drop a zone's roof or floor or keep a floor twice; the removing pass is not isolated (FINDING 291). Fix: none in code; (a) homes are undivided and never simulated (D-EU-139); the 4 (b) homes are left out of the results by `geometry_fault_excluded_2026-10-06.csv`. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-model-integrity-2026-10-02.md, §8 T03c and T03 triage)*
+- **[OPEN] Zero-floor flat: `97d478bc56840531_F0_dwelling_3` (Bologna, 1 flat of 20) has no `Floor` surface; its storey-0 floor is 165.0 m2 against 220.0 m2 on the other four storeys** — after `extrude_geometry` (`scripts/run_eu_s2_campaign.py:1895`) the ground floor of block `..._3` is split into `Floor 0001_1`, `_2` (about 0.001 m2 each) and `_3` (54.999 m2) by the geomeppy intersect step; `_3` lies on the neighbouring flat's side and shares no area with the flat's own triangle, so `_clip_zone_horizontals_to_own_polygon` (`:1057`, drop at `:1090`) removes it and `_drop_sliver_surfaces` removes the two fragments. The fault is upstream in the geomeppy `intersect_match` inside `extrude_geometry`; only 1 of 4,113 IDFs is affected (about 5 % of that building's floor area, below 0.01 % of the Bologna pooled EUI). Fix: none, known limitation (director ruling 2026-10-02); CP-3c check 6 lists the stem by name. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-floor-division-residual-2026-09-29.md, T06s part 1 and part 2)*
+- **Speed `sacct` state `OUT_OF_MEMORY` (`rc=137`) on big Bologna IT homes `366fc6fda9a1a946` (501 zones, 10-06 array 1410474 task `_261`, 32G limit after 50 s), `fd4b13e28f1c6f47` (`_1163`) and `d8a1a0d8ceb5dc73` (`_1000`); the 32G shared `--mem` is too small for these** — EnergyPlus sizing on a very large multi-zone IT building exceeds the baked `--mem=32G`; the sampled MaxRSS (8.3 GB for `_261`) misses the peak. Fix: re-run only the stem at a larger `--mem` set on the CLI, never in the shared `.sbatch`: `366fc6fda9a1a946` in array 1416442 at 64G; `fd4b13e28f1c6f47` in 1420405 at 64G; `d8a1a0d8ceb5dc73` failed at 32G and again at 64G (1419526, MaxRSS 62.7 GB) and was re-run in 1423059 at 200G. Delete `out/<stem>` before each re-run; carry the finished `out/<stem>` into the 10-06 IT `out/`. A stem that still fails at 200G is a broken-shell candidate: leave it out and record it under `FINDING 291`. *(docs/docs_ACTIVE/europeanLocations/prompts/PROMPT_MANAGER_handoff_2026-09-09.md, docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-model-integrity-2026-10-02.md §8)*
+
+- **[OPEN] `shapely.errors.GEOSException: TopologyException: side location conflict at -1.6469898329443389 -3.5802241007679405` inside `shapely.union_all` while cutting Lyon `8b773d3f6de6187f` (24-corner plate, 5 flats per floor; fallback reason `NOCORE_CUTTER_GEOSException`)** — the nocore cutter builds an invalid union at k = 5 (k = 6 passes). Not yet fixed (T14 stopped at diagnosis). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md, T14)*
+
+- **T17 test 4: fixed-home floor plans in the Lyon and Bologna 3D viewers drawn ~5.1e6 m (FR) / ~4.98e6 m (IT) away from their footprints; 46 of 193 origins within 2 m** — the 2026-10-08 fixed-home IDFs (`partner_fixed_homes_2026-10-08/<D>/idfs/`) hold absolute UTM coordinates (no local-origin shift), and the viewer added `origin_offset.json` to them as for the 10-06 tree, counting it twice. Fix: no offset for the 193 fixed homes in `scripts/generate_eu_3d_viewers.py` (`build_district`); test 4 now compares each fixed origin with the archived 10-06 origin (max 0.000 m). The 2 London homes at 2.10 / 2.21 m were not a bug: a plan origin is a bounding-box corner and can lie outside an L-shaped footprint. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-rulebook-change-2026-09-30.md, T17 amendment)*
+
+## European locations, new cities (2026-10-08)
+
+- **`build_records` leaves h_transmission parts at donor values after a U override** — in `_build_record` the loop wrote the new U into `record["u_components_w_m2k"][...]` before `rescale_transmission` ran, and `rescale_transmission` reads the old U from that same field, so U0 == U1 and `b·A/(1/U1 + R)` returned the donor part (the weighted `u_wall_w_m2k` changed, `h_transmission_components_w_k` did not). Fix: the loop only collects `(components, index, value)` in `pending_u`; the values are written after `rescale_transmission` (`openubem/data/construction/national_records.py:217,227,242-243`); test `test_build_records_wall_override_rescales_parts_from_donor_u` (`tests/eu22/test_records_tools.py`). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-cities-00-common-2026-10-08.md)*
+- **`ValueError: Sample larger than population or is negative` in `verify_district` of `09_plans3d_from_idf.py` on a fixture site of 3 buildings** — the spot-check drew a fixed 5 homes with `rng.sample(pool, 5)`, which fails when a site has fewer than 5 buildings. Fix: `rng.sample(pool, min(5, len(pool)))` (`scripts/eu21/09_plans3d_from_idf.py`, `verify_district`); the draw for any site of 5 or more is unchanged. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-cities-00-common-2026-10-08.md, C04)*
+- **`pdftotext -layout` on the Armstat PDF `bnakfond_2021_1.pdf` returns only the digits and `-`, no Armenian row labels or headings** — the PDF fonts carry no Unicode map, so the Armenian glyphs are dropped and rows cannot be told apart. Fix: render the pages to PNG with PyMuPDF (`pip install --target <scratchpad>/pylib pymupdf`, then `python -I` with that folder on `sys.path`) and read them as images; PDF page = printed page minus 4 for this file. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-city-AM-yerevan-2026-10-08.md §8 T01)*
+- **`shapely.errors.GEOSException: TopologyException: side location conflict at 439838.12848566531 4478909.7349311449` from `european_nocore.run_checks` (`sbuf(f, 0.05).intersection(poly.exterior)`) when scoring a built Madrid IDF in `scripts/eu22/score_division.py`** — a flat's floor rebuilt by `unary_union` of its `Floor` surfaces carried a zero-width spike, because `geomeppy` intersect/match splits the floor of a zone into fragments wherever the storey below is divided differently, and the fragments do not tile exactly. Fix: a zone with several `Floor` fragments goes through a 2 cm closing, spike removal and 5 mm simplify (`_clean_polygon`); a zone with one `Floor` surface is used as written (`_raw_polygon`), because a real thin wedge in a layout flat changes `flat_aspect`; a storey that still raises is rescored on cleaned polygons, then labelled `X_score_error`. `scripts/eu22/score_division.py`. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-cities-00-common-2026-10-08.md, C06)*
+- **`prepare` run for the division scorer leaves no `layouts/` folder in the output tree, so `score_division.py --layout-tree` finds no side-cars (the C06 amendment said `prepare` writes them)** — `run_eu_s2_district_campaign.py::prepare` writes only `prepared_buildings.csv`, the manifest csv, `fleet.lst`, `summary.json`, `excluded_buildings.csv` and `idfs/` (`:1278-1305`); the layout side-cars `<tree>/layouts/<building_id>.json` come from `scripts/emit_eu11_layout_sidecars.py::emit_layouts_for_district` (`:153`, written at `:627-630`). Fix: run `prepare --only-ids`, then `emit_layouts_for_district(site, tree, tree/prepared_buildings.csv)` on the same tree before scoring; `score_division.py:_sidecar_path` reads `<layout-tree>/layouts/<id>.json` and counts missing ones as `IDF_FALLBACK`. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-cities-00-common-2026-10-08.md, C06)*
+- **`ValueError: '...\layouts\relation\12582232.json' is not in the subpath of 'C:\Users\o_iseri\Desktop\OpenUBEM'` from `emit_layouts_for_district` (`scripts/emit_eu11_layout_sidecars.py:632`) when the tree is outside the repo** — the emitter stores the side-car path relative to `REPO_ROOT`, so a temp tree under `AppData` cannot be emitted; the side-cars are already on disk when it raises. Worked around in the scratch run only by making `pathlib.PurePath.relative_to` return the path unchanged on `ValueError`; emitter not edited. Fixed 2026-10-11 (T06b): `emit_eu11_layout_sidecars.py` falls back to the absolute path on `ValueError`, and `REPO_ROOT` can be set with `OPENUBEM_REPO_ROOT` (the old hard-coded `C:/Users/o_iseri/Desktop/OpenUBEM` also broke the `eu02` gpkg read on Speed). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-cities-00-common-2026-10-08.md, C06; PLAN_eu-division-fix-3cities-2026-10-10.md, T06b)*
+- **`HTTP Error 504: Gateway Timeout` from `https://overpass-api.de/api/interpreter` on every OSM query, even for a 400 m tile, while `/api/status` shows free slots** — the query header `[out:xml][timeout:600][maxsize:2000000000]` is refused by the public server; the same query with `[out:xml][timeout:180]` returns 200. Fix: `scripts/eu22/acquire_capetown.py` `overpass_query` uses `[timeout:180]` and no `maxsize`, requests go in a 6x6 tile grid with a second endpoint as fallback. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-city-ZA-capetown-2026-10-08.md)*
+- **`HTTP Error 503` (after about 60 s) from the City of Cape Town ArcGIS layer `ODP_SPLIT_12/MapServer/11/query` when paging 2,000 footprints over the whole city-bowl bounding box** — the server renders a 2,000-record GeoJSON page slowly (about 40-60 s even for a 2 km box) and gives up on a very large box. Fix: query only the bounding box of the three named suburbs with `returnZ=false` and `outSR=4326` (4 pages, about 6,900 footprints), timeout 400 s. *(same plan)*
+- **`osmnx._errors.InsufficientResponseError: No data elements in server response` from `ox.features.features_from_xml` on an Overpass tile** — the tile lies over sea/empty ground and the saved XML has no elements (270 bytes). Fix: `load_osm` in `scripts/eu22/acquire_capetown.py` skips empty tiles. *(same plan)*
+- **`FileNotFoundError: ... ZA-CPT-WOODSTOCK_dw_2026-10-09\left_out.csv` from `_write_new_site_population` when running `python -m scripts.emit_eu11_layout_sidecars --district <new site> --evidence-root SITE=<dw tree>`** — for a new site the emitter reads `left_out.csv` from the `_dw_` tree, but that file is written only by `score_division.py`, which itself needs the side-cars first (circular). Fix: pass the prepared population explicitly, `--population-manifest SITE=<dw tree>/prepared_buildings.csv`; no code change (`scripts/emit_eu11_layout_sidecars.py:193-194`). Same error at S9 (after the run, `--evidence-root SITE=<dw tree>`): `left_out.csv` and the harvested manifest live in the `_win_` tree, so use `--evidence-root SITE=<win tree>` (writes `<win tree>/layouts` and `sidecar_population.csv`). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-city-ZA-capetown-2026-10-08.md)*
+- **`RBAC: access denied` (19-byte reply) when downloading from donnees.montreal.ca** — the open-data host rejects the default curl User-Agent. Fix: send a browser User-Agent (`-A 'Mozilla/5.0'`). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-city-CA-montreal-2026-10-08.md)*
+- **`run_eu_s2_district_campaign.py --district AM-EVN-NORNORK` writes no new IDF for 1 h 40 min at 333 of 551 (python at 100 % CPU, `fleet.lst`/`summary.json` absent, no log line)** — one very large footprint in Nor Nork needs 63 flats per floor; `_nocore_cut_with_guard` runs `improve_cut_nocore` (shape pass, wide search, 12 rounds each) up to three times on it, every round re-scoring all flats with `run_checks` (about 33 min per attempt). Not a hang: `py-spy dump --pid <pid> --locals` (installed in the scratchpad with `pip install --target`) shows `_shape_pass` rounds advancing. Fix: none needed, wait; the same cost is paid again by `emit_eu11_layout_sidecars` (second 1 h 40 min), so run the side-car step in the background and budget about 4 h for a 500-home Yerevan site. Never kill it. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-city-AM-yerevan-2026-10-08.md T03)*
+- **`run_eu_s2_district_campaign.py --district FI-HEL-KALLIO` (one process) writes 4 IDFs in 28 min; the side-car emitter writes 3 side-cars in 20 min (about 2.5 min per 7-storey, 60-flat block, 580 homes = about 24 h each)** — both loops are single-process, one building after another. Fix: no code change; deal the ids largest-footprint-first into 4 CSVs, run 4 `prepare --only-ids part<k>.csv` into `_dwpart<k>_` trees and merge (sorted by `building_id`, excluded rows de-duplicated, summary recomputed), then run 4 emitters with `--population-manifest SITE=<part k prepared csv>`; Helsinki S3 took about 1 h 30 min and the emitters 1 h 20 min at 4 workers. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-city-FI-helsinki-2026-10-08.md T03/T04)*
+- **Weather gate 4 "solar closure" (any daytime hour > 5 W/m2) fails on all five TMYx typical-year weather files** — the hour-by-hour sun-balance check was written for our own converted ERA5 files and no measured station file can meet it; over the year EnergyPlus still sees 98.5–99.4 % of the file's horizontal sun (DHI + DNI·cos z vs GHI). Fix: for TMYx files the closure is replaced by the annual balance, which must lie within 0.97–1.03, every other gate-4 range check stays (D-EU-164, plan §4 line 100); Yerevan uses the registry's own station, Zvartnots airport (WMO 37788). Side finding: Cape Town and Yerevan files fit the sun best one hour later than their time stamps (FINDING 297), left as published. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-cities-00-common-2026-10-08.md:100)*
+- **`md5sum -c` on the 4J Madrid handover md5 file cannot be checked as written (the md5 file has CRLF line endings)** — the file was written on Windows, so each line ends in `\r` and the stored file name carries it. Fix: check with `tr -d '\r' < file | md5sum -c`, no file edited. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-4J-madrid-win6-sidecars-2026-10-09.md:89)*
+- **T03 per-home check FAIL: 589 of 1,163 Madrid side-cars fail (50.2 %, threshold 1 %) after replacing each zone's floor polygon by the IDF's** — a `_dwelling_` zone has more than one floor surface in the IDF (1 ring: 6,947 zones; 2: 752; 3: 515; 4: 243; 5 or more: 64) while a side-car holds one polygon per zone; the plan had no rule for several floor surfaces, and the executor did not invent one. Fix: [OPEN] at the time of the entry; the 589 failed side-cars were deleted (a failing building stays without one), plan decision pending. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-4J-madrid-win6-sidecars-2026-10-09.md:58,62,102-103)*
+- **`13_model_integrity.py` overwrote `summary_win_2026-10-09.csv` in the shared `integrity_2026-10-02/` folder (Vienna run, then Budapest run)** — the script always writes `summary_<tree>.csv` into that one folder, one file per date, so a later site's run replaces the rows an earlier site wrote the same day (CA/ZA rows may be lost; their per-district integrity CSVs are intact). Fix: no code change; re-run the summary for the earlier sites if that file is needed. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-new-city-AT-vienna-2026-10-08.md:166; PLAN_eu-new-city-HU-budapest-2026-10-08.md:108)*
+- **`ValueError` from the 4J exporter `scripts/cluster/export_flat_counts_4j.py` for `--district ES-MAD-BERRUGUETE`** — the exporter's `ALLOWED = ("GB-LDN-STDUNSTANS", "IT-BOL-GALVANI2")` rejects Madrid, and Madrid is not in `NEW_SITES`; the plan forbids a repo edit. Fix: a scratchpad wrapper runs `import scripts.cluster.export_flat_counts_4j as E; E.ALLOWED = E.ALLOWED + ("ES-MAD-BERRUGUETE",)` then `E.main()`; the exporter file stays unchanged (sha256 a7c18d88… before and after). *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-4J-madrid-win6-sidecars-2026-10-09.md:72,104,120)*
+- **A home keeps its best-effort tag (`NOCORE_BEST_EFFORT_*`) with `OPENUBEM_NOCORE_SWEEP=1` although the sweep finds a final-rules cut that passes every gated check (Vienna `AT-VIE-5403805`: spread 0.9997, C13 = 1)** — `_nocore_cut_with_guard` (`european_residential.py`) only takes the second cut if `_strictly_better` accepts it, and that rejects a cut whose bent-wall count (C13, not a gated check) rises, so the failing strict cut (C13 = 0) won. Fix: new `_nocore_accepts` in `european_residential.py` also takes a cut that passes every gated check and C12 when the old one does not, only while `OPENUBEM_NOCORE_SWEEP=1` (switch off = unchanged). `AT-VIE-5376819` still needs part-wise cutting and stays unrecovered. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-division-fix-3cities-2026-10-10.md T02)*
+- **Local run of the Speed array script writes 0 prepared homes for Vienna and Budapest (`blocker_exclusions: {"UNMAPPABLE_PERIOD_Vor_1919": 512}`) from a staged copy of the repo** — `openubem/semantic/new_country_rules.py::load_period_years` reads `openubem/outputs/eu_evidence/EU-22/<site>/acquisition_report.json` and returns `{}` when it is missing, so every census-period home is unmappable (Helsinki is unaffected because its homes carry an observed year). Fix: `scripts/cluster/stage_eu22_fix.sh` now copies that one file per site and stops if it is absent. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-division-fix-3cities-2026-10-10.md T04)*
+- **4J run: 24 buildings (Madrid 11, Bologna 13) fail with `Vertex size mismatch between base surface and outside boundary surface`, `Zero or negative surface area [~1e-8]` or `interzone_vertex_mismatch_unresolved`, although the same buildings build clean and ran in our own 10-06 / 10-08 results** — not the engine (version 0 of 24), not coordinate round-off (0), not the footprints (0), not the GEOS build (0): 4J's harness function `build_idf_for_cell` (`tools/4thJ_step10_nocore_campaign.py:1157-1330` on Speed) is a September fork of our `build_idf_for_building` and lacks ten safeguards (`_extrude_zone_groups_per_storey`, `_clip_zone_horizontals_to_own_polygon`, `_repair_interzone_pairs`, `_drop_sliver_surfaces`, `_clean_surface_rings`, `_remove_degenerate_surfaces`, `ep_geometry_preflight`, `_storeys_overlap`, `_fix_horizontal_orientation`, `_pair_hidden_outdoor_surfaces`); its zones carry no `mode`, so the one-zone-per-floor reroute gate always declines. Replaying the fork on our zones reproduces 22 of 24 (5 refused, 17 tolerated). Same family as FINDING 210 / D-EU-43. Fix: no engine edit; 4J built a separate `patch24` population whose geometry block runs our safeguard sequence (Madrid 11 builds 110/110, build-only; the safeguards alone without per-storey extrusion built 0 of 85). Open: Madrid 5808697 not reproduced; 4J surface counts (288-669) exceed ours (146-498) on 9 Bologna buildings. *(docs/docs_ACTIVE/europeanLocations/debugs/PLAN_geometry-24-madrid-bologna-2026-10-10.md)*
+- **Integrity check I8 (flats per floor) fails on every home that had flats removed by the one-flat-less retry (Vienna 11 of 12 failures, Budapest 43 of 44)** — `13_model_integrity.py` allocated `dwellings_used` flats per floor, but the IDF holds `dwellings_used - dwellings_removed`. Fix: `flats_expected()` in `scripts/eu21/13_model_integrity.py` subtracts the non-empty `dwellings_removed` column (switch-off: tree without the column gives a byte-identical CSV). Vienna 12 -> 2, Budapest 44 -> 21 on the `_win_2026-10-10` trees; the 20 Budapest and 1 Vienna remaining homes with removed flats still fail because the flat was removed from the failing floor, not re-allocated over all floors. *(docs/docs_ACTIVE/europeanLocations/implementation/PLAN_eu-division-fix-3cities-2026-10-10.md, T06b)*

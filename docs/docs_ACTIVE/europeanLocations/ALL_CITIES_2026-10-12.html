@@ -1,0 +1,217 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>All City Plans</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Fraunces:opsz,wght@9..144,600&display=swap">
+<style>
+:root{--bg:#f5f6f3;--panel:#ffffff;--fg:#1d2320;--muted:#5d6661;--line:#dde2dc;--ok:#3f8a5c;--warn:#c98a12;--bad:#c2452d;--plan:#4f76a8;--sel:#e9efe9;--todo:#e6e9e4;
+--display:"Fraunces",Georgia,serif;--body:"IBM Plex Sans",system-ui,sans-serif;--mono:"IBM Plex Mono",ui-monospace,monospace;color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141816;--panel:#1c211e;--fg:#e6ebe7;--muted:#9aa49e;--line:#2d3430;--ok:#5fb37f;--warn:#e0a53a;--bad:#e2664c;--plan:#77a0d4;--sel:#243029;--todo:#262c28;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141816;--panel:#1c211e;--fg:#e6ebe7;--muted:#9aa49e;--line:#2d3430;--ok:#5fb37f;--warn:#e0a53a;--bad:#e2664c;--plan:#77a0d4;--sel:#243029;--todo:#262c28;color-scheme:dark}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--fg);font:15px/1.5 var(--body);display:flex;flex-direction:column}
+header{padding:16px 16px 10px;border-bottom:1px solid var(--line)}
+h1{font:600 clamp(1.4rem,3vw,1.9rem)/1.15 var(--display);margin:0}
+header p{margin:4px 0 0;color:var(--muted);font-size:.9rem;max-width:90ch}
+.wrap{flex:1;display:grid;grid-template-columns:300px 1fr;min-height:0}
+nav{border-right:1px solid var(--line);overflow-y:auto;padding:12px}
+.grp{font:500 .72rem var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 4px 6px}
+.city{display:grid;grid-template-columns:1fr auto;gap:2px 8px;width:100%;text-align:left;background:var(--panel);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:9px 11px;margin-bottom:6px;cursor:pointer;font:inherit}
+.city:hover{border-color:var(--muted)}
+.city[aria-selected="true"]{background:var(--sel);border-color:var(--ok)}
+.city b{font-weight:600}
+.city small{grid-column:1/-1;color:var(--muted);font-size:.8rem}
+.chip{font:500 .68rem var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--c);align-self:center;white-space:nowrap}
+main{min-width:0;min-height:0;display:flex;flex-direction:column;overflow-y:auto}
+iframe{flex:1;width:100%;border:0;background:var(--bg);min-height:70vh}
+.card{padding:20px 16px;max-width:820px;display:grid;gap:14px}
+.card h2{font:600 1.5rem/1.2 var(--display);margin:0}
+.card .sub{color:var(--muted);margin:0}
+dl{display:grid;grid-template-columns:minmax(8rem,12rem) 1fr;gap:8px 16px;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px 16px}
+dt{color:var(--muted);font-size:.88rem}
+dd{margin:0}
+.note{border-left:4px solid var(--c);background:var(--panel);border-radius:6px;padding:10px 14px;margin:0}
+.bar{display:flex;align-items:center;gap:10px;padding:8px 16px;border-bottom:1px solid var(--line);font-size:.88rem;color:var(--muted)}
+.bar a{color:var(--plan)}
+.bar{flex-wrap:wrap}
+#fr{display:flex;flex-direction:column;flex:1;min-height:70vh;border-top:1px solid var(--line)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.seg button{font:inherit;font-size:.85rem;padding:5px 12px;border:0;background:var(--panel);color:var(--fg);cursor:pointer}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--sel);font-weight:600}
+.l3d{display:grid;grid-template-columns:minmax(6rem,9rem) auto auto;gap:8px 18px;align-items:baseline}
+.l3d a{color:var(--plan)}
+.prog{padding:20px 16px 40px;max-width:1000px;display:grid;gap:28px}
+.prog h2{font:600 1.5rem/1.2 var(--display);margin:0}
+.prog h3{font:600 1.15rem/1.2 var(--display);margin:0}
+.eyebrow{font:500 .72rem/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px}
+.lede{color:var(--muted);margin:6px 0 0;max-width:72ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:16px}
+.track{display:grid;grid-template-columns:7.5rem repeat(7,minmax(0,1fr));gap:4px;align-items:center;font-size:.85rem}
+.track .h{font:500 .66rem/1.2 var(--mono);letter-spacing:.04em;text-transform:uppercase;color:var(--muted);text-align:center;padding-bottom:4px}
+.track .n{font-weight:600}
+.cell{height:26px;border-radius:4px;background:var(--todo);display:flex;align-items:center;justify-content:center;font:500 .7rem var(--mono);color:#fff}
+.cell.done{background:var(--ok)} .cell.now{background:var(--plan)} .cell.stop{background:var(--warn)}
+.cell.now::after{content:"now"} .cell.stop::after{content:"below"} .cell.done::after{content:"✓"}
+.key{display:flex;gap:16px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-top:10px}
+.key span{display:inline-flex;align-items:center;gap:6px}
+.key i{display:inline-block;width:12px;height:12px;border-radius:2px}
+.share{display:grid;gap:12px}
+.srow{display:grid;grid-template-columns:7.5rem 1fr 6.5rem;gap:10px;align-items:center;font-size:.9rem}
+.srow b{font-weight:600}
+.sbar{position:relative;height:18px;border-radius:4px;background:var(--todo)}
+.sbar span{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.sbar .m{position:absolute;top:-4px;bottom:-4px;width:2px;background:var(--fg)}
+.sbar .m.g{background:var(--muted)}
+.sval{font:500 .85rem var(--mono);font-variant-numeric:tabular-nums;text-align:right}
+.scale{display:grid;grid-template-columns:7.5rem 1fr 6.5rem;gap:10px;font:500 .7rem var(--mono);color:var(--muted)}
+.scale div{position:relative;height:14px}
+.scale div span{position:absolute;transform:translateX(-50%)}
+.jobs{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:12px}
+.job{background:var(--panel);border:1px solid var(--line);border-top:4px solid var(--c);border-radius:6px;padding:12px 14px;display:grid;gap:6px}
+.job p{margin:0;font-size:.9rem}
+.job .tag{font:500 .7rem var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--c)}
+.mini{height:8px;border-radius:4px;background:var(--todo);position:relative;overflow:hidden}
+.mini span{position:absolute;left:0;top:0;bottom:0;background:var(--c)}
+.small{font-size:.82rem;color:var(--muted)}
+@media (max-width:760px){.wrap{grid-template-columns:1fr}nav{border-right:0;border-bottom:1px solid var(--line);max-height:42vh}dl{grid-template-columns:1fr}
+.track{grid-template-columns:5.5rem repeat(7,minmax(0,1fr));font-size:.78rem}.track .h{font-size:.56rem}.cell::after{font-size:.6rem}
+.srow,.scale{grid-template-columns:5.5rem 1fr 5rem}}
+</style>
+</head>
+<body>
+<header>
+<h1>All city plans</h1>
+<p>Every OpenUBEM neighbourhood in one place. Start with <b>Progress</b> for where the six new cities stand. Every city except Cape Town shows its 3D results (heating need per home) and its 3D floor plans exactly as simulated.</p>
+</header>
+<div class="wrap">
+<nav id="list" aria-label="Cities"></nav>
+<main id="view"></main>
+</div>
+<script>
+const ASOF = "12 October, 15:55";
+const STEPS = ["Buildings","Weather","Models","Floor plans","Plan page","Speed run","Results"];
+const C = [
+ {id:"madrid",p3:"plans/PLANS_ES-MAD-BERRUGUETE_2026-10-08.html",v3:"viewers/eu_ES-MAD-BERRUGUETE_viewer.html",g:"built",name:"Madrid",country:"Spain",site:"ES-MAD-BERRUGUETE",hood:"Berruguete",status:"built",homes:"1,119 homes with a result"},
+ {id:"lyon",p3:"plans/PLANS_FR-LYO-HAUTCOEURPENTES_2026-10-08.html",v3:"viewers/eu_FR-LYO-HAUTCOEURPENTES_viewer.html",g:"built",name:"Lyon",country:"France",site:"FR-LYO-HAUTCOEURPENTES",hood:"Haut-Cœur Pentes",status:"built",homes:"501 homes with a result"},
+ {id:"london",p3:"plans/PLANS_GB-LDN-STDUNSTANS_2026-10-08.html",v3:"viewers/eu_GB-LDN-STDUNSTANS_viewer.html",g:"built",name:"London",country:"United Kingdom",site:"GB-LDN-STDUNSTANS",hood:"St Dunstan's",status:"built",homes:"1,215 homes with a result"},
+ {id:"bologna",p3:"plans/PLANS_IT-BOL-GALVANI2_2026-10-08.html",v3:"viewers/eu_IT-BOL-GALVANI2_viewer.html",g:"built",name:"Bologna",country:"Italy",site:"IT-BOL-GALVANI2",hood:"Galvani 2",status:"built",homes:"1,035 homes with a result"},
+ {id:"vienna",p3:"plans/PLANS_AT-VIE-RUDOLFSHEIM_2026-10-11.html",v3:"viewers/eu_AT-VIE-RUDOLFSHEIM_viewer.html",g:"new",name:"Vienna",country:"Austria",site:"AT-VIE-RUDOLFSHEIM",hood:"Rudolfsheim-Fünfhaus (15th district)",status:"results",steps:["done","done","done","done","done","done","done"],good:517,total:536,run:[536,536],
+  wx:"The survey year 2008, from the European weather reanalysis (ERA5); kept on purpose as the one exception to the typical-year files.",
+  data:"City of Vienna open data: 536 buildings in the two densest small areas of the district; every building has a measured height and a floor count (CC BY 4.0).",age:"The city gives a year for 1 in 20 buildings; the rest take the most common age of their small area (census 2023).",build:"European building library (TABULA Austria), 38 national building types.",
+  note:"All 536 models are built. After the fix, 517 homes (96.5 %) have correctly divided floors, up from 448. That meets your goal of about 95 % (at least 509 homes). 19 homes are left out. The fix removed 33 flats from 11 homes where the floor could not hold them all. All 536 energy runs finished on Speed with no failure. Results for the 517 correctly divided homes: about 78 kWh of heating per m² a year. The 3D results and the 3D floor plans are below."},
+ {id:"montreal",p3:"plans/PLANS_CA-MTL-PLATEAU_2026-10-09.html",v3:"viewers/eu_CA-MTL-PLATEAU_viewer.html",g:"new",name:"Montréal",country:"Canada",site:"CA-MTL-PLATEAU",hood:"Plateau-Mont-Royal",status:"results",steps:["done","done","done","done","done","done","done"],good:701,total:710,
+  wx:"A typical year built from 15 years of airport measurements (2009–2023), Montréal-Trudeau airport.",
+  data:"City footprints cut along property lines, joined to the property roll: 710 buildings ready.",age:"Property roll, per lot: 98 % of buildings.",build:"Canadian housing-stock study values up to 2011, Québec 2012 rules after; 24 building types.",
+  note:"701 of 710 homes (98.7 %) are correctly divided; 9 are left out. All 710 runs finished on Speed with no failure. Results for the 701 correctly divided homes: about 141 kWh of heating per m² a year, much higher than the European cities because of the cold winters. 3D viewer built; the 3D results and the 3D floor plans are below."},
+ {id:"helsinki",p3:"plans/PLANS_FI-HEL-KALLIO_2026-10-11.html",v3:"viewers/eu_FI-HEL-KALLIO_viewer.html",g:"new",name:"Helsinki",country:"Finland",site:"FI-HEL-KALLIO",hood:"Kallio",status:"results",steps:["done","done","done","done","done","done","done"],good:542,total:580,run:[580,580],
+  wx:"A typical year built from 15 years of airport measurements (2009–2023), Helsinki-Vantaa airport.",
+  data:"City building register: 580 buildings with storeys, completion date and number of homes.",age:"Per building: 99 %.",build:"Finnish building insulation rules by edition (1976–2010); 28 building types.",
+  note:"All 580 models are built. After the fix, 542 homes (93.4 %) have correctly divided floors, up from 458. That is 9 homes short of your goal of about 95 % (551). 38 homes are left out. You accepted this on 11 October. All 580 energy runs finished on Speed with no failure. Results for the 542 correctly divided homes: about 96 kWh of heating per m² a year, the highest of the European cities because of the long winters. The 3D results and the 3D floor plans are below."},
+ {id:"capetown",g:"new",name:"Cape Town",country:"South Africa",site:"ZA-CPT-WOODSTOCK",hood:"Woodstock / Salt River",status:"results",steps:["done","done","done","done","done","done","done"],good:524,total:525,
+  wx:"A typical year built from 15 years of airport measurements (2009–2023), Cape Town International airport.",
+  data:"City footprints with heights measured from the air in 2023: 525 buildings ready.",age:"City heritage list period for 89 %; the rest from their street block.",build:"South African energy rules from 2011; older homes uninsulated.",
+  note:"Plan page ready. 524 of 525 homes (99.8 %) are correctly divided; 1 is left out. The page is not shown here: the City of Cape Town footprints must never be published, so its 3D floor plans and its 3D results stay on this computer (plans3D and outputs_3D folders). Maps credit the City of Cape Town. All 525 runs finished on Speed with no failure. Results for 524 homes: about 54 kWh of heating per m² a year. 3D viewer built, kept on this computer only."},
+ {id:"budapest",p3:"plans/PLANS_HU-BUD-ERZSEBETVAROS_2026-10-11.html",v3:"viewers/eu_HU-BUD-ERZSEBETVAROS_viewer.html",g:"new",name:"Budapest",country:"Hungary",site:"HU-BUD-ERZSEBETVAROS",hood:"Erzsébetváros (VII)",status:"results",steps:["done","done","done","done","done","done","done"],good:757,total:805,run:[805,805],
+  wx:"A typical year built from 15 years of airport measurements (2009–2023), Budapest Ferenc Liszt airport.",
+  data:"OpenStreetMap footprints: 805 buildings, the whole 7th district; about half have a floor count, the rest are filled from neighbouring buildings.",age:"Census 2011 per district: about 90 % of homes built before 1946.",build:"European building library (TABULA Hungary).",
+  note:"Split in six parts as you agreed, then joined. All 805 models are built. After the fix, 757 homes (94.0 %) have correctly divided floors, up from 609. That is 8 homes short of your goal of about 95 % (765). 48 homes are left out. The fix removed 99 flats from 43 homes where the floor could not hold them all. You accepted this on 11 October. All 805 energy runs finished on Speed with no failure. Results for the 757 correctly divided homes: about 63 kWh of heating per m² a year. The 3D results and the 3D floor plans are below."},
+ {id:"yerevan",p3:"plans/PLANS_AM-EVN-NORNORK_2026-10-09.html",v3:"viewers/eu_AM-EVN-NORNORK_viewer.html",g:"new",name:"Yerevan",country:"Armenia",site:"AM-EVN-NORNORK",hood:"Nor Nork",status:"results",steps:["done","done","done","done","done","done","done"],good:535,total:551,
+  wx:"A typical year built from 15 years of airport measurements (2009–2023), Yerevan Zvartnots airport.",
+  data:"OpenStreetMap footprints: 551 buildings; 61 % have a floor count, the rest filled from neighbours.",age:"National housing statistics per district: every building gets 1951–70.",build:"Soviet-era stone and panel values from national statistics; 2016 building norm.",
+  note:"535 of 551 homes (97.1 %) are kept; 16 are left out, including the one building with no outside wall you chose to leave out. All 551 runs finished on Speed with no failure. Results for 535 homes: about 49 kWh of heating per m² a year. Every building uses one construction period (1951–70), and many construction values are estimates, flagged as such. 3D viewer built; the 3D results and the 3D floor plans are below."}
+];
+const JOBS = [
+ {c:"var(--plan)",tag:"Bologna copy for the 6th journal team · waiting",t:"The copy is approved; we make it as soon as the 4th journal team says its Bologna work is finished.",p:0,s:"They expect to finish around 20 October. Then we send the 6th journal team the folder path."},
+ {c:"var(--ok)",tag:"Answers to the 6th journal team · sent",t:"Their five questions on the six new cities are answered; they confirmed both follow-ups are closed.",p:1,s:"Covered: data sources and licences, homes vs buildings, heat gains and heating set-point, Bologna copy, Seoul files."},
+ {c:"var(--ok)",tag:"Helsinki · Vienna · Budapest · done",t:"All 1,921 energy runs finished on Speed, none failed. Results collected and 3D viewers built.",p:1,s:"Heating per m² a year: Helsinki about 96 kWh (542 homes), Vienna about 78 (517 homes), Budapest about 63 (757 homes). Left-out homes ran too but are not in the results."},
+ {c:"var(--ok)",tag:"Helsinki · Vienna · Budapest · fix finished",t:"All 414 hard homes were rebuilt and their floor-plan files written on Speed, none failed. The three cities are scored.",p:1,s:"Correctly divided: Helsinki 542 of 580, Vienna 517 of 536, Budapest 757 of 805. Vienna meets the goal; you accepted the other two, 9 and 8 homes short."},
+ {c:"var(--ok)",tag:"Montréal · Yerevan · Cape Town · done",t:"All runs finished, results collected, 3D viewers built.",p:1,s:"1,786 runs, none failed. Results cover 1,760 homes."},
+ {c:"var(--ok)",tag:"Bologna question from the 4th journal team · closed",t:"13 Bologna buildings failed in their run; you ruled they count as losses, about 1 % of Bologna.",p:1,s:"They accepted on 10 October; their run is unchanged and we sent no new files."},
+ {c:"var(--ok)",tag:"Madrid files for the 4th journal team · sent",t:"Madrid floor-plan files, flat counts and fixed homes copied to Speed and checked.",p:1,s:"1,149 of 1,163 homes have a floor-plan file; the team was told which 14 do not and why."}
+];
+const S = {built:["built","var(--ok)"],page:["plan page ready","var(--ok)"],fixing:["fixing floor plans","var(--warn)"],building:["building","var(--plan)"],progress:["overview","var(--plan)"],speed:["running on Speed","var(--plan)"],results:["results ready","var(--ok)"]};
+const list = document.getElementById("list"), view = document.getElementById("view");
+function esc(t){return String(t).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function pct(n){return (100*n).toFixed(1)}
+function render(){
+  let h = '<div class="grp">Start here</div><button class="city" role="tab" data-id="progress" aria-selected="false"><b>Progress</b><span class="chip" style="--c:var(--plan)">'+esc(ASOF.split(",")[0])+'</span><small>Where the six new cities stand</small></button>';
+  for (const g of [["new","New for the 6th journal project"],["built","Built · 8 October set"]]) {
+    h += '<div class="grp">'+g[1]+'</div>';
+    for (const c of C.filter(x=>x.g===g[0])) {
+      const s = S[c.status];
+      h += '<button class="city" role="tab" data-id="'+c.id+'" aria-selected="false"><b>'+esc(c.name)+'</b><span class="chip" style="--c:'+s[1]+'">'+s[0]+'</span><small>'+esc(c.country)+' · '+esc(c.hood)+'</small></button>';
+    }
+  }
+  list.innerHTML = h;
+  list.addEventListener("click", e => { const b = e.target.closest(".city"); if (b) show(b.dataset.id); });
+}
+function links3d(){
+  let t = '<div class="l3d">';
+  for (const c of C) {
+    t += '<b>'+esc(c.name)+'</b>';
+    if (c.v3) t += '<a href="'+c.v3+'" target="_blank" rel="noopener">3D results</a><a href="'+c.p3+'" target="_blank" rel="noopener">3D floor plans</a>';
+    else t += '<span class="small">kept on this computer, the city footprints cannot be published</span><span></span>';
+  }
+  return t+'</div>';
+}
+function frame(c, w){
+  const src = w==="v" ? c.v3 : c.p3, lab = w==="v" ? "heating need per home" : "floor plans as simulated, no energy result";
+  return '<div class="bar"><span class="seg"><button data-w="v" aria-pressed="'+(w==="v")+'">3D results</button><button data-w="p" aria-pressed="'+(w==="p")+'">3D floor plans</button></span><span>'+esc(lab)+'</span><a href="'+src+'" target="_blank" rel="noopener">open full page</a></div><iframe title="'+esc(c.name)+' · '+esc(lab)+'" src="'+src+'"></iframe>';
+}
+function progress(){
+  const nc = C.filter(c=>c.g==="new");
+  let tr = '<div class="track"><div></div>'+STEPS.map(s=>'<div class="h">'+s+'</div>').join("");
+  for (const c of nc) tr += '<div class="n">'+esc(c.name)+'</div>'+c.steps.map((s,i)=>'<div class="cell '+s+'" title="'+esc(c.name)+' · '+STEPS[i]+'"></div>').join("");
+  tr += '</div><div class="key"><span><i style="background:var(--ok)"></i>done</span><span><i style="background:var(--plan)"></i>running now</span><span><i style="background:var(--warn)"></i>floor plans below the safety line</span><span><i style="background:var(--todo);border:1px solid var(--line)"></i>still to do</span></div>';
+  const lo = 70, sc = v => (100*(v-lo)/(100-lo));
+  let sh = '<div class="share">';
+  for (const c of nc) {
+    if (!c.total) { sh += '<div class="srow"><b>'+esc(c.name)+'</b><div class="sbar"><span class="m g" style="left:'+sc(85)+'%"></span><span class="m" style="left:'+sc(95)+'%"></span></div><span class="sval">not checked yet</span></div>'; continue; }
+    const v = 100*c.good/c.total, col = v>=95?"var(--ok)":v>=85?"var(--warn)":"var(--bad)";
+    sh += '<div class="srow" title="'+c.good+' of '+c.total+' homes"><b>'+esc(c.name)+'</b><div class="sbar"><span style="width:'+Math.max(0,sc(v))+'%;background:'+col+'"></span><span class="m g" style="left:'+sc(85)+'%"></span><span class="m" style="left:'+sc(95)+'%"></span></div><span class="sval">'+pct(c.good/c.total)+' %</span></div>';
+  }
+  sh += '<div class="scale"><span></span><div>'+[70,75,80,85,90,95,100].map(v=>'<span style="left:'+sc(v)+'%">'+v+'</span>').join("")+'</div><span></span></div></div>';
+  let rb = '<div class="share">';
+  for (const c of nc.filter(x=>x.run)) { const v = 100*c.run[0]/c.run[1]; rb += '<div class="srow" title="'+c.run[0]+' of '+c.run[1]+' runs"><b>'+esc(c.name)+'</b><div class="sbar"><span style="width:'+v.toFixed(1)+'%;background:var(--plan)"></span></div><span class="sval">'+v.toFixed(0)+' % · '+c.run[0]+'/'+c.run[1]+'</span></div>'; }
+  rb += '<div class="scale"><span></span><div>'+[0,25,50,75,100].map(v=>'<span style="left:'+v+'%">'+v+'</span>').join("")+'</div><span></span></div></div>';
+  let jb = '<div class="jobs">'+JOBS.map(j=>'<div class="job" style="--c:'+j.c+'"><span class="tag">'+esc(j.tag)+'</span><p>'+esc(j.t)+'</p><div class="mini"><span style="width:'+(100*j.p).toFixed(1)+'%"></span></div><span class="small">'+esc(j.s)+'</span></div>').join("")+'</div>';
+  view.innerHTML = '<div class="prog">'+
+   '<section><div class="eyebrow">Six new cities · position on '+esc(ASOF)+'</div><h2>All six new cities have results</h2><p class="lede">Montréal, Yerevan and Cape Town finished first; Helsinki, Vienna and Budapest finished on 12 October. No run failed. Seoul was dropped. Madrid, Lyon and Bologna are reused from the built set.</p></section>'+
+   '<section class="panel"><h3>Steps per city</h3><p class="lede" style="margin-bottom:12px">Each city goes through the same seven steps as the four built cities.</p>'+tr+'</section>'+
+   '<section class="panel"><h3>Homes with correctly divided floors</h3><p class="lede" style="margin-bottom:14px">Grey line: 85 %, below which work stops. Black line: your goal of about 95 %. The four built cities stopped at 94.4 % together.</p>'+sh+'</section>'+
+   '<section class="panel"><h3>Energy runs finished on Speed</h3><p class="lede" style="margin-bottom:14px">Share of each city’s runs that have finished, as of '+esc(ASOF)+'. All 1,921 finished; none failed.</p>'+rb+'</section>'+
+   '<section><div class="eyebrow">Jobs</div>'+jb+'</section>'+
+   '<section class="panel"><h3>3D pages</h3><p class="lede" style="margin-bottom:12px">3D results colour each home by its heating need; 3D floor plans show the homes as simulated, with no energy result. Each opens in a new tab.</p>'+links3d()+'</section>'+
+   '<section class="panel"><h3>What comes next</h3><p class="lede">A last check that every file agrees, then the files go to your 6th journal project. Nothing waits on you. Seoul’s leftover files are removed after the last city is built.</p></section>'+
+   '</div>';
+}
+function show(id){
+  const c = id==="progress" ? null : C.find(x=>x.id===id);
+  const sel = c ? c.id : "progress";
+  for (const b of list.querySelectorAll(".city")) b.setAttribute("aria-selected", b.dataset.id===sel ? "true" : "false");
+  try { localStorage.setItem("allcities.sel2", sel); } catch(e) {}
+  if (!c) { progress(); return; }
+  const s = S[c.status];
+  const note = c.note ? '<p class="note" style="--c:'+s[1]+'"><b>Status: '+s[0]+'.</b> '+esc(c.note)+'</p>' : '';
+  let top;
+  if (c.g==="built") top = '<div class="bar"><span>'+esc(c.name)+' · '+esc(c.hood)+' · '+esc(c.homes)+'</span></div>'+(note?'<div style="margin:10px 16px">'+note+'</div>':'');
+  else top = '<div class="card"><h2>'+esc(c.name)+'</h2><p class="sub">'+esc(c.country)+' · '+esc(c.hood)+' · site '+esc(c.site)+'</p>'+note+
+      '<dl><dt>Buildings and heights</dt><dd>'+esc(c.data)+'</dd><dt>Year built</dt><dd>'+esc(c.age)+'</dd><dt>Wall and window values</dt><dd>'+esc(c.build)+'</dd><dt>Weather</dt><dd>'+esc(c.wx)+'</dd><dt>Floor plans</dt><dd>Same steps as the built cities: homes cut per floor, windows from each building type\'s own window share.</dd></dl></div>';
+  view.innerHTML = top + (c.v3 ? '<div id="fr" data-id="'+c.id+'">'+frame(c,"v")+'</div>' : '');
+}
+view.addEventListener("click", e => { const b = e.target.closest(".seg button"), f = document.getElementById("fr"); if (!b || !f) return; f.innerHTML = frame(C.find(x=>x.id===f.dataset.id), b.dataset.w); });
+render();
+let start = "progress";
+try { start = localStorage.getItem("allcities.sel2") || start; } catch(e) {}
+show(start);
+</script>
+</body>
+</html>
+
+</body></html>

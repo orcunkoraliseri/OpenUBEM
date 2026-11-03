@@ -1,0 +1,764 @@
+Post-Processing Load Estimation
+
+Methods for Simplified Urban Building
+
+Energy Modelling
+
+Archetype-based Urban Building Energy Modelling (UBEM) frequently relies on simplified
+thermodynamic representations, such as the EnergyPlus "Ideal Loads" system, to accelerate
+simulation runtime across thousands of individual building geometries. While this approach
+effectively computes the thermal energy required to maintain indoor temperature setpoints, it
+inherently bypasses the modeling of physical secondary and tertiary systems, such as
+air-handling units, fluid distribution networks, service water heaters, and process loads.
+Consequently, critical auxiliary end-uses--including supply and extract fans, hydronic pumps,
+domestic hot water (DHW), and commercial refrigeration--are omitted. Because these
+neglected end-uses typically represent more than 40% of the total energy performance gap in
+single-building validation exercises, establishing defensible, simplified post-processing
+algorithms is essential to restore these loads without compromising the computational speed
+of the UBEM. This report presents validated, citation-backed equations, empirical coefficients,
+and engineering models designed to reconstruct these loads as a deterministic
+post-processing layer.
+
+Service Water Heating and Domestic Hot Water Loads
+
+The thermal demand associated with heating domestic water is decoupled from the building's
+space-conditioning thermodynamic balance, making it highly suitable for deterministic
+post-processing. The primary challenge lies in converting daily volume-draw expectations into
+hourly energy vectors. The energy required to raise the temperature of incoming cold water
+mains to the municipal or archetype-specific setpoint is calculated using a thermodynamic
+energy balance:
+
+In this formulation,  represents the daily or hourly water heating energy consumption in
+
+kilowatthours (       ). The volume of hot water consumed,  , is expressed in litres ( ),
+
+while represents the density of water (                at standard temperature and
+                                                                            )1. The water heater
+pressure) and         is the specific heat capacity (
+
+setpoint,      , and the incoming mains water temperature, , are both defined in degrees
+
+Celsius ( ). The system efficiency,  , is a decimal fraction representing the combined
+product of the water heater's thermal efficiency (      ) and a distribution system multiplier
+
+(      ) designed to account for piping conduction losses and recirculation loop degradation2.
+
+For imperial configurations, the thermal load is calculated in British thermal units (            )
+
+using the following equation:
+
+where       represents the average gallons per day (              ), represents the nominal
+
+weight density of water (             to                   depending on temperature), and
+
+temperatures are expressed in degrees Fahrenheit ( )1. Under ASHRAE Standard 90.2-2001,
+the domestic hot water load for multi-family living units is estimated dynamically based on the
+number of units and bedrooms4:
+
+The system's real-world thermal efficiency is heavily degraded by distribution losses. Empirical
+studies indicate that point-of-use systems reduce distribution losses significantly, operating
+
+with a baseline loss multiplier of    , whereas uninsulated central recirculation systems
+
+exhibit a high-loss multiplier of     due to continuous thermal dissipation through
+
+uninsulated pipe walls2. Incorporating pipe insulation brings the multiplier down to        , while
+
+incorporating time-clock or temperature-based recirculation controls achieves multipliers of
+
+       and  respectively2. Furthermore, ASHRAE Chapter 50 dictates that public
+
+lavatories restrict hot water delivery to a maximum of  (         ) to prevent scalding and
+
+save energy, while commercial food services require setpoints of  (               ) at the
+
+primary tank, often coupled with local booster water heaters designed to deliver            to
+
+       (    to                 ) sanitizing water5.
+
+Table 1: Service Water Heating (SWH) Demand Coefficients and Sizing
+
+Parameters
+
+   Archety  Sizing             Daily  Daily             Standard Standard Key
+   pe       Basis
+                               Coefficie Coefficie Setpoint Draw                        Referenc
+Building           nt        nt         (Tset)     Schedule e
+Type               (Metric)  (Imperial             Profile
+                             )
+
+Large     Floor                                 (  Daytime    LBL-3739
+Office    Area                                     occupan    88
+
+                                                ) cy peak
+
+                                                   (08:00­1
+
+                                                   7:00),
+
+                                                   zero
+
+                                                   weekend
+
+                                                   use
+
+Small     Floor                                 (  Daytime    LBL-3739
+Office    Area                                     occupan    88
+
+                                                ) cy peak
+
+                                                   (08:00­1
+
+                                                   7:00),
+
+                                                   zero
+
+                                                   weekend
+
+                                                   use
+
+Primary   Occupan                               (  Diurnal    ASHRAE
+School    cy                                       school     Chapter
+
+                                                ) hours       508
+
+                                                   peak,
+
+                                                   closed on
+
+                                                   weekend
+
+                                                   s
+
+Seconda   Occupan                               (  Diurnal    ASHRAE
+ry        cy                                       school     Chapter
+School
+                                                ) hours,      508
+
+                                                   gym-mid
+
+                                                   day
+
+                                                   shower
+
+                                                   spikes
+
+Stand-al  Floor                                 (  Smooth     LBL-3739
+one       Area                                     schedule   88
+
+                                                   matching
+Retail              )  store
+                       operating
+
+                       hours
+
+Superma    Floor    (  Constant    LBL-3739
+rket /     Area        low draw,   88
+Grocery
+                    ) high
+
+                       late-night
+
+                       cleaning
+
+                       peaks
+
+Full-Serv  Occupan  (  Heavy       ASHRAE
+ice        cy          lunch       Chapter
+Restaura
+nt                  ) (12:00)      506
+
+                       and
+
+                       dinner
+
+                       (18:00­21
+
+                       :00)
+
+                       peaks
+
+Quick-S    Occupan  (  Extended ASHRAE
+ervice     cy          operation Chapter
+Rest.
+                    )  al hours,   508
+
+                       continuo
+
+                       us draws
+
+Large      Occupan  (  High        LBL-3739
+Hotel /    cy          bimodal     88
+Lodging
+                    ) peaks
+
+                       (07:00­0
+
+                       9:00 and
+
+                       18:00­21:
+
+                       00)
+
+Hospital   Occupan  (  Relatively ASHRAE
+           cy
+                       flat        Chapter
+
+                    )  24-hour     508
+
+                       baseline,
+
+                       small
+
+                       morning
+                                                           peak
+
+Warehou Floor                                           (  Low        CADMUS
+                                                           draw,
+se        Area                                                        8
+
+                                                        ) clustered
+
+                                                           around
+
+                                                           operation
+
+                                                           al shift
+
+                                                           changes
+
+Multi-Fa  Floor                                         (  Bimodal LBL-3739
+mily      Area                                             residentia 88
+Mid-Rise
+                                                        ) l draw
+
+                                                           (morning
+
+                                                           and
+
+                                                           evening)
+
+Fan and Pump Energy Auxiliary Load Quantification
+
+Auxiliary HVAC loads--comprising air-handling fans and hydronic loops--can be mapped from
+simulated hourly ideal heating and cooling sensible thermal loads11. This translation leverages
+physics-based engineering definitions to convert thermal power demands into equivalent
+electrical fan and pump energy vectors12.
+
+Airside Fan Power Formulation
+
+Specific Fan Power (SFP) acts as a standardized index to quantify the energy performance of
+ventilation loops12. SFP represents the ratio of combined fan electrical power consumption to
+the gross air volumetric flow rate delivered12:
+
+where     is expressed in watts per litre per second (     ) or kilowatts per cubic
+
+metre per second (            ), which are equivalent units12. The total electrical power
+
+input to the fan,   ( ), includes motor, belt drive, and variable speed drive (VSD) losses12.
+
+The volumetric airflow rate,  ( ), is determined from the zone's sensible thermal
+cooling or heating load (     ) under design air loop temperature differences11:
+Using standard air density (             ) and specific heat capacity (
+
+                              ), the volumetric specific product                yields
+
+approximately                 11. A standard temperature differential (
+
+) of         (  ) is assumed for cooling, and                  (     ) is assumed for heating.
+
+For variable air volume (VAV) systems, the fan power scales non-linearly under part-load
+
+conditions. The actual electrical power used during any hour is the design fan power adjusted
+
+by a part-load performance fraction (    ) as specified in ASHRAE Standard 90.1 Appendix
+G16:
+
+where represents the airflow fraction (                        )16. Under frequency inverter
+
+(VSD) control, empirical auditing reveals that the fan power is proportional to the average
+
+airflow rate raised to an exponent of to depending on static pressure control resets,
+rather than a perfect cubic relation18.
+
+Hydronic Pump Power Formulation
+
+Specific Pump Power (SPP) normalizes the energy required to circulate heating and cooling
+fluids through distribution pipe networks13:
+
+where        is expressed in kilowatts per litre per second (        ) or equivalently in
+
+watts per litre per second (           )13. The volumetric flow rate of water,  ( ), is
+
+determined from the dynamic thermal heating or cooling load requirements at the zone coil (
+
+       )20:
+
+Standard water heat capacity limits the volumetric specific product             to
+approximately                   19. The standard hydronic loop temperature differential
+
+(  ) is assumed to be        (                ) for chilled water systems and               (
+
+   ) for hot water networks. Under part-load scenarios, secondary variable-flow pump
+
+power scales in direct proportion to the system flow rate raised to an exponent of to
+depending on dynamic differential pressure control19.
+Moreover, the inter-dependencies of internal loads heavily influence these auxiliary systems.
+Empirical modeling shows that reducing internal heat gains--for instance, by decreasing
+
+lighting power densities (LPD)--results in a           reduction in space cooling loads, a
+
+   decrease in HVAC fan power, and a disproportionate              reduction in
+
+chilled-water pump energy21. This non-linear pump sensitivity occurs because secondary
+
+chilled-water loops react directly and proportionally to reduced heat dissipation, whereas
+
+ventilation fans are bound by statutory minimum outdoor air flow requirements and must
+
+maintain their operating speeds regardless of load21.
+
+Table 2: Fan and Pump Energy Sizing and Scaling Methods
+
+   Method / Auxiliary  Coefficient / Sizing Applicable HVAC        Key Reference
+   Parameter
+                       Rule                   System
+
+   SFP - Central                              Central system with  EN 13779 / ISO
+   Mech. Ventilation                          heating, cooling,    580116
+                                              heat recovery
+
+   SFP - Central                              Central system with  EN 13779 /
+   Mech. Ventilation                          heating and cooling  DesignBuilder16
+                                              only
+
+   SFP - Central CAV                          Standard ducted      ASHRAE 90.1 / Tas16
+   / VAV Baseline                             multi-zone systems
+
+   SFP - Fan Coil                             Weighted multi-unit  BS 8850 /
+   Installation                               average fan coil     ClimateStudio16
+                                              systems
+
+   SFP -                                      Advanced             UK Approved
+   High-Efficiency                            low-pressure-drop    Document L24
+Fan Coil                             installations
+
+SFP - Local                          In-space window,      ISO 580116
+Decentralised                        wall, or local roof
+Vent.                                fans
+
+SFP - Remote                         Ceiling-void or       ISO 580116
+Decentralised                        inline roof exhaust
+Vent.                                fans
+
+SPP - Chilled                        Central chilled       ASHRAE 90.1 / SPP
+Water Circulation                    water distribution    Guide13
+                                     loops
+
+SPP - Hot Water                      Central gas/oil       ASHRAE 90.1 / SPP
+Hydronic Loop                        boiler heating loops  Guide13
+
+SPP - Low-Head                    (  Radiant slab          Gayeski / MIT
+Radiant Loop                         concrete-core         LLCS25
+
+                               )     heating/cooling
+
+SFP Part-Load                        VAV systems with      ASHRAE 90.1
+Power Fraction                       VSD motor controls    Appendix G16
+
+SPP Part-Load                        Variable-flow         Chalmers
+Pumping Fraction                     pumping hydronic      University19
+                                     systems
+
+Commercial Refrigeration Energy Profiles
+
+Commercial refrigeration stands out as a highly intensive, process-driven end-use with a
+continuous base-load profile that runs independently of occupancy schedules26. While it is
+fundamentally driven by internal retail activities, refrigeration remains dynamically linked to
+ambient indoor humidity and dry-bulb conditions because moist zone air increases frost
+accumulation on low-temperature evaporator coils26.
+
+Table 3: Commercial Refrigeration Electricity Intensities by Archetype
+
+Archetype          Metric EUI     Imperial EUI  Baseline       Key
+
+                                                Appliance and
+Building Type   (kWh/(m2yr)) (kBtu/(ft2yr))  System             Reference
+                                             Configuration
+                                             s
+
+Supermarket /                                26 display         AEDG /
+Grocery                                      cases (LT/MT),     CBECS26
+                                             10 walk-in
+                                             freezers,
+                                             centralized
+                                             compressor
+                                             racks
+
+Convenience                                  Walk-in            PNNL
+Store                                        self-contained     OpenStudio
+                                             beverage           Prototype29
+                                             coolers, ice
+                                             machines, high
+                                             unit-to-area
+                                             density
+
+Food Service /                               Walk-in            CBECS 2018
+Restaurant                                                      Food Service6
+                                             coolers (
+                                             ), commercial
+                                             ice makers (
+
+                                                    ), display
+
+                                             cabinets (
+                                             )
+
+Refrigerated                                 Industrial blast   CBECS 2018
+Warehouse                                    freezers,          Warehouse30
+                                             continuous
+                                             cold storage,
+                                             evaporator fan
+                                             arrays
+
+Large Office                                 Compact            CBECS 2018
+                                             breakroom          Office31
+                                             refrigerators (
+
+                                                    ),
+                                       drinking water
+                                       coolers
+
+Hospital /                             Laboratory      CBECS 2018
+Healthcare                             refrigeration,  Health32
+                                       blood storage
+                                       freezers, main
+                                       kitchen
+                                       storage
+
+Vacant                                 Minimum         CBECS 2018
+Building                               compact         Vacant34
+                                       security
+                                       refrigeration,
+                                       zero
+                                       commercial
+                                       refrigeration
+
+Baseline End-Use EUI Splits by Archetype
+
+To allow the back-calculation of auxiliary and service water heating energy vectors from basic
+UBEM spatial databases, a comprehensive breakdown of end-use fuel fractions has been
+synthesised. These ratios are derived from the latest 2018 CBECS datasets and the PNNL
+Commercial Prototype Building models30.
+
+Table 4: Consolidated End-Use Energy Fractions by Archetype (%)
+
+Build     Spac  Spac  Vent.  Pum  SWH  Light  Equi     Refri  Cook
+ing       e     e     (Fans  ps   (DH  ing    p.       g.     ing /
+Arch      Heat  Cool  )           W)          (Plug           Othe
+etyp                                          )               r
+e
+
+Larg
+e
+Offic
+e
+[cite:
+35,
+36]
+Small
+Offic
+e
+[cite:
+35,
+37]
+
+Prim
+ary
+Scho
+ol
+[cite:
+35,
+38]
+
+Seco
+ndar
+y
+Scho
+ol
+[cite:
+35,
+38]
+
+Stan
+d-alo
+ne
+Retai
+l
+[cite:
+35,
+37]
+
+Supe
+rmar
+ket
+[cite:
+26]
+
+Full-
+Servi
+ce
+Rest.
+  [cite:
+  6, 35]
+
+  Larg
+  e
+  Hotel
+  [cite:
+  9, 35]
+
+  Hosp
+  ital
+  [cite:
+  8, 35]
+
+  Ware
+  hous
+  e
+  [cite:
+  30,
+  38]
+
+  Mid-
+  Rise
+  Apt.
+  [cite:
+  4, 35]
+
+Computational Feasibility of Post-Processing
+Integration
+
+Implementing service and auxiliary loads as a deterministic post-processing layer represents a
+highly practical strategy for large-scale UBEM, though its applicability varies depending on the
+physical coupling between end-uses and the building's thermal envelope.
+First, service water heating (SWH) can be post-processed with high confidence. Because hot
+water consumption is a process load driven primarily by occupant behavior, it can be calculated
+hourly based on archetype-specific occupancy schedules and outdoor dry-bulb temperatures,
+which dictate the seasonal variation in mains water temperatures. However, this decoupled
+approach fails to capture the local standby losses of the water heater and its hot water
+distribution piping. In reality, these distribution heat losses act as uncontrolled, continuous
+internal sensible heat gains within the thermal zones. This omission slightly inflates the
+simulated space-heating loads and underpredicts the cooling loads, especially in buildings with
+central recirculation systems where distribution losses are continuous.
+Second, ventilation fan energy and hydronic circulation pump energy are moderately suited for
+decoupled post-processing. Because the volumetric flow rates of air and water are calculated
+directly from the simulated sensible loads at each timestep, the SFP and SPP multipliers can be
+applied deterministically to compute auxiliary electricity consumption. The main limitation is
+that this post-processing approach does not account for fan heat pick-up. In physical HVAC air
+loops, a portion of the electrical energy consumed by the fan motor is converted into thermal
+energy, raising the temperature of the supply air stream. Bypassing this thermodynamic
+feedback causes the ideal-loads simulation to slightly underestimate space-cooling loads and
+overestimate space-heating requirements. Additionally, variable-flow pump power estimation
+suffers from the simplified assumption of a static hydronic loop temperature difference, which
+does not reflect real-world variable-flow dynamics controlled by differential pressure resets.
+Third, commercial refrigeration is poorly suited for deterministic post-processing in food sales
+and food service archetypes, though it remains highly feasible for offices, schools, and
+hospitals where refrigeration is a minor plug load. In supermarkets and grocery stores,
+refrigeration display cases operate as powerful dehumidifiers and air coolers within the
+conditioned space. By drawing latent and sensible heat directly from the surrounding air, these
+open refrigerated cases significantly lower the active cooling load of the zone while
+simultaneously inflating the space-heating demand. Known as the refrigeration "case-credit"
+effect, this dynamic represents a major thermodynamic coupling. If refrigeration is estimated
+as a completely separate post-processing layer with no feedback into the thermal zone, the
+ideal-loads simulation will significantly overpredict cooling energy and underpredict heating
+energy, leading to systematic errors that can exceed 25% in the building's overall thermal
+energy balance.
+
+Operational Gaps and Model Sensitivity Analysis
+
+The reliance on deterministic, post-processed approximations introduces several structural
+uncertainties and empirical gaps that must be addressed to improve the reliability of
+urban-scale energy modeling.
+First, a major source of error stems from the divergence in occupant water draw patterns.
+Standard code baselines assume highly regimented, uniform daily hot water draws. However,
+high-resolution field monitoring reveals massive stochastic variation in both daily draw volumes
+and water-use profiles, even among identical building typologies. Because peak water heating
+demands are driven by short, clustered draws rather than average daily totals, deterministic
+schedules struggle to accurately predict peak load timing on the grid. This limitation represents
+a critical gap for grid-interactive building integration studies.
+Second, the structural thermal coupling of refrigeration equipment in food retail buildings
+remains an unaddressed limitation. In typical supermarkets, open display cases transfer
+substantial sensible and latent cooling loads directly into the zone air volume. Without a
+coupled thermal feedback loop, the simplified UBEM will model a highly distorted interior
+environment. To resolve this, future reduced-order algorithms must incorporate simplified,
+non-geometric coupling coefficients. These coefficients should inject a sensible cooling gain
+into the zone based on a fraction of the post-processed refrigeration power, establishing a
+pseudo-coupling without requiring full equipment modeling.
+Third, the assumption of static temperature differences (                 and
+
+                             ) overlooks the performance impacts of modern dynamic HVAC controls.
+Real-world systems continuously reset supply air and chilled water temperatures to minimize
+fan and compressor energy under partial loads. Assuming a static temperature difference
+forces the SFP and SPP formulations to calculate volumetric flow rates that do not match the
+physical behavior of smart building systems. This limitation can be addressed by applying
+
+dynamic temperature-reset curves as a pre-processing layer to adjust the  values based
+
+on outdoor air conditions before calculating the flow rates.
+
+Fourth, historical empirical baselines introduce temporal misalignment risks when modeling
+
+modern urban sectors. The EUI end-use splits derived from CBECS 2018 reflect building
+
+operations prior to the widespread shift to hybrid work models. Consequently, the ratios of
+
+base-load energy to occupant-driven peak energy in commercial offices have changed.
+
+Applying unadjusted historical EUI splits to post-simulate current or future urban environments
+
+will overpredict occupant-driven auxiliary loads. Modellers must therefore apply scaling factors
+
+to adjust these baseline fractions, aligning the post-processed loads with modern,
+
+lower-occupancy profiles.
+
+Works cited
+
+1. Water Heating Deemed Savings - Xcel Energy,
+    https://www.xcelenergy.com/staticfiles/xe-responsive/Company/Rates%20&%20R
+    egulations/Regulatory%20Filings/CO-DSM/Water%20Heating%20Deemed%20Sa
+    vings.pdf
+
+2. Hourly Water Heating Calculations - Title 24 Stakeholders,
+    https://title24stakeholders.com/wp-content/uploads/2020/01/2005_CASE-Report
+    _Code-Change-Proposal-for-Hourly-Water-Heating-Calculations.pdf
+
+3. ASHRAE 90.1 Appendix G/ PHIUS+/Passivhaus Comparison Evaluation for
+    Multifamily Buildings - nyserda,
+    https://www.nyserda.ny.gov/-/media/Project/Nyserda/Files/Publications/Energy-A
+    nalysis/Comparison-evaluation-ASHRAE-90.pdf
+
+4. Energy-Efficient Design of Low-Rise Residential Buildings - ASHRAE,
+    https://www.ashrae.org/file%20library/technical%20resources/standards%20and
+    %20guidelines/standards%20addenda/90-2-2001_adde.pdf
+
+5. SECTION 110.3 ­ MANDATORY REQUIREMENTS FOR SERVICE WATER-HEATING
+    SYSTEMS AND EQUIPMENT - Energy Code Ace,
+    https://energycodeace.com/site/custom/public/reference-ace-2016/Documents/s
+    ection1103mandatoryrequirementsforservicewaterheatingsystemsand.htm
+
+6. Commercial Buildings Energy Consumption Survey (CBECS) - EIA,
+    https://www.eia.gov/consumption/commercial/pba/food-service.php
+
+7. Normative Appendix C: Targeted Performance Simulation Guidelines | Mass.gov,
+    https://www.mass.gov/doc/updated-guidelines-for-tedi-and-ashrae-app-g-mod
+    eling/download
+8. TECHNICAL ADVISORY COMMITTEE FROM,
+    https://www.ilsag.info/wp-content/uploads/v10.0_Errata_Measures_Memo_FINAL
+    _09282022.pdf
+
+9. Technology Data Characterizing Water Heating in Commercial Buildings:
+    Application to End - OSTI, https://www.osti.gov/servlets/purl/272538
+
+10.2019 Illinois Statewide Technical Reference Manual for Energy Efficiency Version
+    7.0 Volume 2,
+    https://www.ilsag.info/wp-content/uploads/SAG_files/Technical_Reference_Manu
+    al/Version_7/Final_9-28-18/IL-TRM_Effective_010119_v7.0_Vol_2_C_and_I_092818_
+    Final.pdf
+
+11.EBC Working Group Final Report: HVAC Energy Calculation Methodologies for
+    Non-residential Buildings,
+    https://www.iea-ebc.org/Data/Sites/1/media/docs/working-groups/ebc_wg_hvac_
+    final_report_november_2020.pdf
+
+12.Specific fan power - Grokipedia, https://grokipedia.com/page/Specific_fan_power
+13.Specific pump power - Grokipedia,
+
+    https://grokipedia.com/page/specific_pump_power
+14.Specific fan power - Wikipedia, https://en.wikipedia.org/wiki/Specific_fan_power
+15.SPECIFIC FAN POWER ­ a tool for better performance of air handling systems,
+
+    https://www.irbnet.de/daten/iconda/CIB7187.pdf
+16.Fans - DesignBuilder, https://designbuilder.co.uk/helpv7.0/Content/Fans.htm
+17.COMPARISON OF ACTUAL SUPPLY AIR FAN PERFORMANCE DATA TO ASHRAE
+
+    90.1 STANDARD-2010 AND DOE COMMERCIAL REFERENCE BUILDINGS PART LO
+    - IBPSA Publications,
+    https://publications.ibpsa.org/proceedings/simbuild/2014/papers/simbuild2014_49
+    .pdf
+18.Energy Efficient HVAC Systems in Office Buildings ­With Emphasis on Air
+    Distribution Systems,
+    https://www.aceee.org/files/proceedings/1994/data/papers/SS94_Panel5_Paper13.
+    pdf
+19.Efficiency of building related pump and fan operation - Chalmers Publication
+    Library, https://publications.lib.chalmers.se/records/fulltext/146513.pdf
+20.Full article: A rule-based predictive control framework for market and
+    grid-oriented operation in thermally activated buildings - Taylor & Francis,
+    https://www.tandfonline.com/doi/full/10.1080/19401493.2025.2565652
+21.Thermal Analysis of Energy Efficiency Performance and Indoor Comfort in a
+    LEED-Certified Campus Building in the United Arab Emirates - MDPI,
+    https://www.mdpi.com/1996-1073/18/15/4155
+22.Simple HVAC with the Ideal Air Loads System - ClimateStudio,
+    https://climatestudiodocs.com/docs/thermal_system_IAL.html
+23.Tas Systems Project Wizard and 90.1 Baseline Systems - EDSL,
+    http://www.edsl.myzen.co.uk/downloads/manuals/TPDx_and_NPO.pdf
+24.Specific Fan Power (regarding Fan Coil Units),
+    https://feta.co.uk/client/files/HEVAC/1734700807-HEVAC_POS_SFP_for_fan_coil_u
+    nits_Iss2.pdf
+25.Predictive Pre-Cooling Control for Low Lift Radiant Cooling using Building
+    Thermal Mass - MIT,
+    https://web.mit.edu/parmstr/www/Theses/Gayeski_PredictivePrecoolingControlF
+    orLLCSdraft.pdf
+
+26.Frozen Freedom: Unleashing Grocery Store Demand Flexibility - Title (Use "Title"
+    style here),
+    https://www.aceee.org/sites/default/files/proceedings/ssb24/assets/attachments/2
+    0240722160736921_0034e312-daf9-48d1-bdfe-cd880fa85158.pdf
+
+27.ASHRAE HVACApplications Handbook SI 2015 PDF,
+    https://web.vzo-group.com/?u=/product/publishers/ashrae/ashrae-hvacapplicatio
+    ns-handbook-si-2015/
+
+28.7th International Building Physics Conference IBPC 2018 Proceedings: Healthy,
+    Intelligent and Resilient Buildings and Urban Envi,
+    https://surface.syr.edu/cgi/viewcontent.cgi?article=1334&context=ibpc
+
+29.Defining the Prototype Convenience Store Building Characteristics - INFO - Oak
+    Ridge National Laboratory,
+    https://info.ornl.gov/sites/publications/Files/Pub189705.pdf
+
+30.Winter Heat Pump - Slides.pdf - Better Buildings Solution Center,
+    https://betterbuildingssolutioncenter.energy.gov/sites/default/files/2024-01/Winte
+    r%20Heat%20Pump%20-%20Slides.pdf
+
+31.Commercial Buildings Energy Consumption Survey (CBECS) - EIA,
+    https://www.eia.gov/consumption/commercial/pba/office.php
+
+32.Commercial Buildings Energy Consumption Survey (CBECS) - EIA,
+    https://www.eia.gov/consumption/commercial/
+
+33.Commercial Buildings Energy Consumption Survey (CBECS) - EIA,
+    https://www.eia.gov/consumption/commercial/reports.php
+
+34.Commercial Buildings Energy Consumption Survey (CBECS) - EIA,
+    https://www.eia.gov/consumption/commercial/pba/vacant.php
+
+35.End-Use Analysis of ASHRAE Standard 90.1-2019 - OSTI.GOV,
+    https://www.osti.gov/servlets/purl/1975090
+
+36.Combined Heat and Power Market Sector Fact Sheet Series: Commercial Office
+    Buildings,
+    https://betterbuildingssolutioncenter.energy.gov/sites/default/files/attachments/M
+    arket_Sector_Fact_Sheet_Commercial_Office_Buildings.pdf
+
+37.A E o Achie Energ of AS eving gy and HRAE the 3 d Cos E Stan 0% G st Sav ndard
+    Goal: vings d 90.1 Analy -2010 ysis 0 - Pacific Northwest National Laboratory,
+    https://www.pnnl.gov/main/publications/external/technical_reports/pnnl-20405.p
+    df
+
+38.Energy and Energy Cost Savings Analysis of the 2015 IECC for Commercial
+    Buildings - Pacific Northwest National Laboratory,
+    https://www.pnnl.gov/main/publications/external/technical_reports/PNNL-24269.p
+    df
+
