@@ -1110,6 +1110,7 @@ def build_district(
     out_dir_3d: Path = OUT_3D_DEFAULT,
     mirror_dir_3d: Path = MIRROR_3D_DEFAULT,
     results_dir: Path = RESULTS_DIR,
+    with_geolibre: bool = True,
 ) -> None:
     new_site = district in NEW_SITES
     if new_site and not (tag and tag.startswith("win_")):
@@ -1565,6 +1566,43 @@ def build_district(
     shutil.copytree(target_data_dir, mirror_data_dir)
     print(f"[{district}] Mirrored viewer and data folder to {mirror_dir_3d}")
 
+    if with_geolibre:
+        try:
+            from openubem.viz.geolibre_export import export_geolibre_bundle
+
+            local_root = Path(__file__).resolve().parent.parent
+            gl_eu02_dir = (
+                eu02_dir
+                if eu02_dir.is_dir()
+                else local_root / "openubem" / "outputs" / "eu02" / district
+            )
+            gl_csv = (
+                results_per_home
+                if results_per_home.is_file()
+                else (
+                    local_root
+                    / "docs"
+                    / "docs_ACTIVE"
+                    / "europeanLocations"
+                    / "results"
+                    / results_per_home.name
+                )
+            )
+            gl_out_dir = out_dir_3d / f"eu_{district}_geolibre"
+            export_geolibre_bundle(
+                gl_eu02_dir,
+                output_dir=gl_out_dir,
+                results_csv_path=gl_csv if gl_csv.is_file() else None,
+                district_filter=district,
+            )
+            mirror_gl_dir = mirror_dir_3d / f"eu_{district}_geolibre"
+            if mirror_gl_dir.exists():
+                shutil.rmtree(mirror_gl_dir)
+            shutil.copytree(gl_out_dir, mirror_gl_dir)
+            print(f"[{district}] Generated and mirrored GeoLibre viewer to {mirror_gl_dir}")
+        except Exception as exc:
+            print(f"[{district}] WARNING: GeoLibre companion export failed (non-fatal): {exc}")
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -1573,11 +1611,19 @@ def main() -> None:
     parser.add_argument("--out-3d", type=Path, default=OUT_3D_DEFAULT)
     parser.add_argument("--mirror-dir", type=Path, default=MIRROR_3D_DEFAULT)
     parser.add_argument("--results-dir", type=Path, default=RESULTS_DIR)
+    parser.add_argument("--no-geolibre", action="store_true", help="Skip companion GeoLibre export")
     args = parser.parse_args()
     targets = args.district or list(FOUR_SITES)
     for district in targets:
         print(f"\n=== Generating 3D viewer for {district} ===")
-        build_district(district, args.tag, args.out_3d, args.mirror_dir, args.results_dir)
+        build_district(
+            district,
+            args.tag,
+            args.out_3d,
+            args.mirror_dir,
+            args.results_dir,
+            with_geolibre=not args.no_geolibre,
+        )
     print(f"\n{len(targets)} district 3D viewer(s) regenerated and mirrored successfully.")
 
 

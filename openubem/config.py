@@ -222,3 +222,38 @@ HEIGHT_CACHE_DIR: Path = Path(
 )
 PV_INJECTION_ENABLED: bool = True
 SCENARIO_LAYER_ENABLED: bool = False
+
+# Google Maps Platform integration (strictly opt-in, default-OFF).
+GMAPS_CACHE_DIR: Path = Path(
+    os.environ.get(
+        "OPENUBEM_GMAPS_CACHE",
+        str(Path.home() / ".openubem" / "gmaps"),
+    )
+)
+GMAPS_TIMEOUT_S: float = float(os.environ.get("OPENUBEM_GMAPS_TIMEOUT_S", "30"))
+FUSION_GMAPS_SOLAR_NDSM_PATH: "Path | None" = (
+    Path(os.environ["OPENUBEM_FUSION_GMAPS_SOLAR_NDSM_PATH"])
+    if os.environ.get("OPENUBEM_FUSION_GMAPS_SOLAR_NDSM_PATH")
+    else None
+)
+FUSION_GMAPS_SOLAR_DSM_PATH: "Path | None" = (
+    Path(os.environ["OPENUBEM_FUSION_GMAPS_SOLAR_DSM_PATH"])
+    if os.environ.get("OPENUBEM_FUSION_GMAPS_SOLAR_DSM_PATH")
+    else None
+)
+FUSION_GMAPS_SOLAR_DEM_PATH: "Path | None" = (
+    Path(os.environ["OPENUBEM_FUSION_GMAPS_SOLAR_DEM_PATH"])
+    if os.environ.get("OPENUBEM_FUSION_GMAPS_SOLAR_DEM_PATH")
+    else None
+)
+FUSION_GMAPS_PLACES_PATH: "Path | None" = (
+    Path(os.environ["OPENUBEM_FUSION_GMAPS_PLACES_PATH"])
+    if os.environ.get("OPENUBEM_FUSION_GMAPS_PLACES_PATH")
+    else None
+)
+FUSION_GMAPS_SVI_PATH: "Path | None" = (
+    Path(os.environ["OPENUBEM_FUSION_GMAPS_SVI_PATH"])
+    if os.environ.get("OPENUBEM_FUSION_GMAPS_SVI_PATH")
+    else None
+)
+FUSION_GMAPS_SVI_FIELDS: dict = {}

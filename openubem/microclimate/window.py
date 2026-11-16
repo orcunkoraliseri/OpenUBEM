@@ -71,6 +71,17 @@ def select_window(
         if not design_hours:
             raise ValueError("select_window(mode='design_hours') requires design_hours=[(month, day, hour), ...]")
         return _design_hours(epw_df, design_hours)
+    if mode == "forecast":
+        if (
+            wall_temp_tier == "energyplus"
+            and len(epw_df.index) > 240
+            and not override_annual_energyplus
+        ):
+            raise AnnualEnergyPlusWindowRefusedError(
+                "select_window(mode='forecast') refused EnergyPlus resimulation "
+                "beyond 240 forecast hours without override_annual_energyplus=True."
+            )
+        return epw_df.index
     if mode == "annual":
         if wall_temp_tier == "energyplus" and not override_annual_energyplus:
             raise AnnualEnergyPlusWindowRefusedError(

@@ -16,9 +16,12 @@ Two things are always true about every row below:
   the pip wheel — no network access needed to run a simulation once EnergyPlus and weather
   data are in place. Each subfolder with a `PROVENANCE.md` records the exact upstream
   commit/URL/retrieval date it was built from (cited per row below).
-- **Only two things are fetched at runtime:** the OpenStreetMap building footprints
+- **Only two things are fetched at runtime by default:** the OpenStreetMap building footprints
   themselves (via `osmnx` → Overpass API) and the EPW weather file for the resolved
-  location (via climate.onebuilding.org, cached locally afterward).
+  location (via climate.onebuilding.org, cached locally afterward). Optional **opt-in Google Maps
+  Platform** connectors (`openubem/acquisition/gmaps_*.py`) are default-OFF and only hit network
+  endpoints when explicitly invoked with a `GOOGLE_MAPS_API_KEY` (responses are SHA-256 cached
+  under `~/.openubem/gmaps` via `GmapsHttpClient` for offline replay).
 
 ---
 
@@ -169,6 +172,29 @@ Source prompts/results for the three city benchmarks live in
 
 ---
 
+## 5.1 Optional external inputs — Google Maps Platform (opt-in, default-OFF)
+
+Default Stage 1–5 runs remain self-contained and offline-reproducible (`FUSION_SOURCES_BY_TARGET = {}`
+in `openubem/config.py`). When `GOOGLE_MAPS_API_KEY` is provided (`resolve_gmaps_api_key` checks
+explicit `api_key` -> env -> `.env`), optional opt-in connectors cache requests under
+`GMAPS_CACHE_DIR` (`~/.openubem/gmaps`, `GMAPS_TIMEOUT_S`, `offline=True` replay supported via
+`GmapsHttpClient`, with credentials excluded from `build_cache_key`) and enforce report-only
+separation (`assert_no_eui_columns`):
+
+| Module / script | Data pulled | How OpenUBEM uses it |
+|---|---|---|
+| `openubem/acquisition/gmaps_solar_fetcher.py` | Solar API `buildingInsights` + GeoTIFF DSM / DEM / RGB | `derive_ndsm_from_solar_dsm` height & `roof_shape` (>5° pitch) fusion (`gmaps_solar`); `extract_canopy_cdsm_tdsm` (`crown_depth_fraction=0.6`) for Stage 6 CDSM/TDSM |
+| `openubem/acquisition/gmaps_places_fetcher.py` | Places API (New) POIs (`CLOSED_PERMANENTLY` excluded) | Stage 2 `gmaps_places` use-type enrichment (containment or 10 m nearest-footprint fallback, energy-intensity tie-breaking; never overwrites observed classes) |
+| `openubem/acquisition/gmaps_bigquery_scout.py` | Parameterized (`@param`) BigQuery Places Insights & Street View Insights queries | District scouting (`summarize_places_insights_df`, `high_process_load_alert`, `summarize_svi_df`) and `gmaps_svi` Stage 2 fusion (`FUSED_GMAPSSVI_MED`) |
+| `openubem/microclimate/gmaps_weather.py` | Google Weather API hourly forecast (up to 240 h, `nextPageToken`, `utcOffset` shifted) | Opt-in Stage 6 `window_mode="forecast"` via `scripts/run_step6_gmaps_forecast.py`; wind km/h→m/s and cloud-cover irradiance estimation |
+| `openubem/microclimate/gmaps_air_quality.py` | Air Quality API current/hourly AQI | Attaches macro-scale ambient AQI context (`GMAPS_AIR_QUALITY_AMBIENT_NOT_DISPERSED`) to Stage 6 outputs (`06_mc_risk_alerts.json`); **not** a street-canyon dispersion model |
+| `openubem/viz/gmaps_web_export.py` & `scripts/export_gmaps_3d_companion.py` | Companion web export (`buildings_wgs84.geojson`, `sources_manifest.json`, `companion_3d_app.html`, `ai_studio_prompt.md`) | Generates an optional `<gmp-map-3d>` online companion without modifying `viewer_export.py` |
+
+Configuration toggles in `openubem/config.py` use the `FUSION_GMAPS_*` prefix and keep
+`FUSION_SOURCES_BY_TARGET` empty unless opted into per run.
+
+---
+
 ## 6. Cross-reference — where each input is documented in depth
 
 | Input area | Provenance / detail doc |
@@ -203,4 +229,4 @@ Source prompts/results for the three city benchmarks live in
 
 *OpenUBEM — inputs reference. Cross-references the binding DESIGN spec, per-module
 PROVENANCE.md files, the Phase-E adopted baseline, and the I01–I03 classification deep-research
-audit. 2026-06-30.*
+audit (2026-06-30); updated 2026-11-13 with opt-in Google Maps Platform connectors (§5.1).*

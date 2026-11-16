@@ -402,3 +402,6 @@ def fuse(gdf, attr: str, cfg=None) -> "tuple[pd.Series, pd.Series]":
         remaining = remaining & ~hit
 
     return value, token
+
+
+from openubem.semantic import gmaps_fusion as _gmaps_fusion  # noqa: E402, F401

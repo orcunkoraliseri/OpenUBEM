@@ -501,6 +501,27 @@ and an absent `results.csv` is absent on purpose, not empty by accident.
 three.js shell of §8.4, because that shell builds its geometry from **per-building IDFs**, which a Step-2
 district does not have. Both obey §8.1: self-contained, offline, and faithful to what exists.
 
+### 8.6 Opt-in Google Maps 3D Web & AI Studio Companion
+
+Alongside the offline-first `viewer_export.py` HTMLs, `openubem/viz/gmaps_web_export.py` and
+`scripts/export_gmaps_3d_companion.py` provide an **opt-in online companion package** that exports
+WGS84 footprints (`buildings_wgs84.geojson`), source metadata (`sources_manifest.json`), a standalone
+`<gmp-map-3d>` web app (`companion_3d_app.html`), and an AI Studio prompt (`ai_studio_prompt.md`)
+when a Google Maps API key is supplied in the browser. It does not alter `viewer_export.py` or the
+default offline viewer artifacts.
+
+### 8.7 Opt-in GeoLibre Interactive GIS Workspace & Notebook Companion
+
+Alongside `viewer_export.py` and `gmaps_web_export.py`, `openubem/viz/geolibre_export.py` and
+`scripts/export_gmaps_3d_companion.py`'s GeoLibre counterpart `scripts/export_geolibre_project.py`
+provide an **opt-in, zero-API-key GeoLibre companion** (requiring only the optional `openubem[geolibre]`
+extra for Jupyter `anywidget` rendering). It reads Stage 1–6 artifacts read-only (joining optional
+results CSVs and Stage 6 OSM context layers), derives a non-destructive `extrusion_height_m` column,
+and emits `<cell>.geolibre.json` (with 2.5D `fill-extrusion`, graduated choropleths, click/hover
+popups, STAC-aligned provenance metadata, legend, camera bookmarks, and Story Map chapters),
+`buildings_wgs84.geojson` (ready for DuckDB-WASM SQL in `geolibre.app`), `geolibre_viewer.html`,
+and `sources_manifest.json`. See [`OpenUBEM_geolibre_integration.md`](OpenUBEM_geolibre_integration.md).
+
 ---
 
 ## 9. Two properties worth knowing
@@ -519,6 +540,7 @@ district does not have. Both obey §8.1: self-contained, offline, and faithful t
 | The full feature reference | `README.md` (root) |
 | **Outdoor analysis — UTCI, microclimate, site measurements** *(the outdoor counterpart to this document; §11 below, Stage 6 is built and live-run-verified on real geometry)* | [`OpenUBEM_outdoor_analysis_reference.md`](OpenUBEM_outdoor_analysis_reference.md) |
 | The interactive 3D viewer (§8) design + tasks | `docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md` |
+| **Opt-in GeoLibre GIS workspace & notebook companion (§8.7)** | [`OpenUBEM_geolibre_integration.md`](OpenUBEM_geolibre_integration.md) |
 | The simulated-vs-reconstructed energy method | `docs/docs_EXPLANATION/simulated_vs_reconstructed_methodology.md` |
 | The binding design specs | `docs/docs_main/` (cross-cutting) + `docs/docs_stepN/` (per step) |
 | The validation record | `docs/validations/` |
@@ -590,7 +612,11 @@ domain-mean CTSI of 780 °C·h. Four limitations are worth knowing before quotin
   forwarded to a future data-acquisition arc.
 
 **How to run it:** `scripts/run_step6_microclimate.py`, pointed at a completed run. It never runs
-implicitly. Full detail, every measured range, and the current status of each field:
+implicitly. For opt-in short-range forecast runs (`mode="forecast"`, up to 240 h from Google Weather),
+`06_mc_risk_alerts.json`, Solar DSM/canopy height inputs, or ambient Air Quality context
+(`GMAPS_AIR_QUALITY_AMBIENT_NOT_DISPERSED` — regional ambient AQ, not street-canyon dispersion), use
+`scripts/run_step6_gmaps_forecast.py`. Full detail, every measured range, and the current status of
+each field:
 [`OpenUBEM_outdoor_analysis_reference.md`](OpenUBEM_outdoor_analysis_reference.md).
 
 ---
@@ -598,4 +624,5 @@ implicitly. Full detail, every measured range, and the current status of each fi
 *OpenUBEM — fundamentals overview. Plain-language orientation; the design docs remain the
 binding source of truth. 2026-07-01 (§8 interactive 3D viewer added 2026-07-03, §11 outdoor
 microclimate added 2026-07-24, §11 expanded to the completed Stage-6 feature set 2026-07-25 on
-arc closure).*
+arc closure, opt-in Google Maps Platform companion & forecast extensions documented 2026-11-13,
+opt-in GeoLibre GIS workspace & notebook companion §8.7 added 2026-11-16).*

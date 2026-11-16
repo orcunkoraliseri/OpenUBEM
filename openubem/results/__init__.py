@@ -79,6 +79,7 @@ def aggregate_results(
     state: str | None = None,
     make_figures: bool = True,
     export_html: bool = False,
+    export_geolibre: bool | None = None,
     ep_version: str | None = None,
 ) -> gpd.GeoDataFrame:
     """Orchestrate Steps 3A-3G for a neighbourhood fleet (DESIGN §3F / PLAN P3/P4).
@@ -92,9 +93,13 @@ def aggregate_results(
     climate_sidecar : 02a_climate_epw.parquet (primary state source, F8)
     state        : explicit 2-letter state code (used when climate_sidecar is None)
     make_figures : render the three observability figures (Module 16)
-    export_html  : optionally emit the self-contained 3D viewer HTML (T13).
-        Off by default (adds ~geometry-parse cost); also enabled by the env
-        toggle OPENUBEM_EXPORT_HTML=1. Non-fatal, mirrors make_figures.
+    export_html  : optionally emit both the self-contained 3D viewer HTML (T13)
+        and the companion GeoLibre GIS bundle. Off by default (adds
+        ~geometry-parse cost); also enabled by the env toggle
+        OPENUBEM_EXPORT_HTML=1. Non-fatal, mirrors make_figures.
+    export_geolibre : explicit override for GeoLibre bundle export. ``None``
+        (default) follows ``export_html`` / ``OPENUBEM_EXPORT_HTML`` (or
+        ``OPENUBEM_EXPORT_GEOLIBRE=1``). Set ``False`` to skip GeoLibre.
     ep_version   : EnergyPlus version string for summary metadata
     """
     output_dir = Path(output_dir)
@@ -229,8 +234,11 @@ def aggregate_results(
         except Exception as exc:
             warnings.warn(f"Figure rendering failed (non-fatal): {exc}")
 
-    # ── T13: optional self-contained 3D viewer HTML (flag-gated, non-fatal) ────
-    if export_html or bool(int(os.environ.get("OPENUBEM_EXPORT_HTML", "0"))):
+    # ── T13: optional self-contained 3D viewer HTML + GeoLibre (non-fatal) ─────
+    should_export_html = export_html or bool(
+        int(os.environ.get("OPENUBEM_EXPORT_HTML", "0"))
+    )
+    if should_export_html:
         try:
             from openubem.viz.viewer_export import export_viewer
             run_id = output_dir.resolve().parent.name or "run"
@@ -243,6 +251,21 @@ def aggregate_results(
             )
         except Exception as exc:
             warnings.warn(f"Viewer HTML export failed (non-fatal): {exc}")
+
+    should_export_geolibre = (
+        export_geolibre
+        if export_geolibre is not None
+        else (
+            should_export_html
+            or bool(int(os.environ.get("OPENUBEM_EXPORT_GEOLIBRE", "0")))
+        )
+    )
+    if should_export_geolibre:
+        try:
+            from openubem.viz.geolibre_export import export_geolibre_bundle
+            export_geolibre_bundle(output_dir)
+        except Exception as exc:
+            warnings.warn(f"GeoLibre bundle export failed (non-fatal): {exc}")
 
     return results_gdf
 

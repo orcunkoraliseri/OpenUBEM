@@ -31,6 +31,7 @@ import subprocess
 import tempfile
 import warnings
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -225,6 +226,9 @@ def run_step6(
     ground_albedo_override: "float | None" = None,
     wall_albedo_override: "float | None" = None,
     canopy_tau_override: "float | None" = None,
+    weather_df_override: "pd.DataFrame | None" = None,
+    weather_location_override: "tuple[float, float, float, float] | None" = None,
+    air_quality_context: "dict[str, Any] | None" = None,
 ) -> Path:
     """Stage-6 entry point (T18). See the module docstring for the run_dir/output_dir contract.
 
@@ -274,14 +278,28 @@ def run_step6(
     manifest["buildings_path"] = str(buildings_path)
     manifest["n_buildings"] = int(len(buildings_gdf))
 
-    # ---- EPW (F-16) ----
-    epw_resolved_path, epw_source_step = _resolve_epw(run_dir, output_dir, buildings_gdf, epw_path)
-    lat, lon, utc_offset_h, _elev = _parse_epw_location(epw_resolved_path)
-    manifest["epw_path"] = str(epw_resolved_path)
-    manifest["epw_resolution_step"] = epw_source_step
-    manifest["epw_lat"], manifest["epw_lon"], manifest["epw_utc_offset_h"] = lat, lon, utc_offset_h
+    # ---- EPW (F-16) / optional GMaps forecast override ----
+    if weather_location_override is not None:
+        lat, lon, utc_offset_h, _elev = weather_location_override
+        epw_resolved_path = Path(epw_path) if epw_path is not None else None
+        manifest["epw_path"] = "gmaps_weather_override"
+        manifest["epw_resolution_step"] = "weather_override"
+    else:
+        epw_resolved_path, epw_source_step = _resolve_epw(
+            run_dir, output_dir, buildings_gdf, epw_path
+        )
+        lat, lon, utc_offset_h, _elev = _parse_epw_location(epw_resolved_path)
+        manifest["epw_path"] = str(epw_resolved_path)
+        manifest["epw_resolution_step"] = epw_source_step
+    manifest["epw_lat"] = lat
+    manifest["epw_lon"] = lon
+    manifest["epw_utc_offset_h"] = utc_offset_h
 
-    epw_df = read_epw_hourly(epw_resolved_path)
+    epw_df = (
+        weather_df_override.copy()
+        if weather_df_override is not None
+        else read_epw_hourly(epw_resolved_path)
+    )
 
     # ---- domain + vegetation (T08/T09) ----
     dom_kwargs = {}
@@ -505,6 +523,12 @@ def run_step6(
     if results_gpkg_path.exists():
         results_df = gpd.read_file(results_gpkg_path)  # read-only open, §6a — never written back to
     parcel_gdf = exposure.aggregate_to_parcels(buildings_gdf, results_df, dom, utci_peak, utci_mean, ctsi_raster)
+    if air_quality_context is not None:
+        from openubem.microclimate.gmaps_air_quality import (
+            attach_ambient_air_quality,
+        )
+
+        parcel_gdf = attach_ambient_air_quality(parcel_gdf, air_quality_context)
     parcel_gdf.to_file(output_dir / "06_mc_summary.gpkg", driver="GPKG")
 
     with warnings.catch_warnings():
@@ -518,7 +542,31 @@ def run_step6(
             "threshold_c": exposure.PHEH_THRESHOLD_C,
             "baseline_c": exposure.CTSI_BASELINE_C,
         }
+    if air_quality_context is not None:
+        exposure_metrics["air_quality"] = air_quality_context
     (output_dir / "06_mc_exposure_metrics.json").write_text(json.dumps(exposure_metrics, indent=2))
+
+    active_window_mode = window_mode or config.UTCI_ANALYSIS_WINDOW
+    if active_window_mode == "forecast":
+        from openubem.microclimate.gmaps_weather import (
+            build_municipal_risk_report,
+        )
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=RuntimeWarning)
+            hourly_mean = (
+                pd.Series(np.nanmean(utci_masked, axis=(1, 2)), index=window_index)
+                if outside.any()
+                else None
+            )
+        risk_report = build_municipal_risk_report(
+            exposure_metrics,
+            utci_series=hourly_mean,
+            air_quality_context=air_quality_context,
+        )
+        (output_dir / "06_mc_risk_alerts.json").write_text(
+            json.dumps(risk_report, indent=2)
+        )
 
     # ---- manifest (T18) ----
     manifest["vegetation_tier"] = vegetation_tier

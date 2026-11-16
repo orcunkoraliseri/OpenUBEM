@@ -140,6 +140,32 @@ Every completed simulation automatically compiles a standalone WebGL 3D viewer (
 - **Dwelling Floor Plan Modal**: Click any building to inspect its exact multi-dwelling floor partition and zoning geometry.
 - **Zero Server Setup**: Runs entirely in modern browsers without backend servers or proprietary tokens.
 
+### Opt-in GeoLibre GIS Workspace & Notebook Explorer
+
+Whenever the Step-5 pipeline runs with viewer export enabled (`aggregate_results(..., export_html=True)` or `OPENUBEM_EXPORT_HTML=1`), or when you run [scripts/generate_eu_3d_viewers.py](scripts/generate_eu_3d_viewers.py) / [scripts/update_eu_outputs_3d.py](scripts/update_eu_outputs_3d.py), OpenUBEM now automatically emits **both** the self-contained 3D viewer and a companion GeoLibre GIS bundle (pass `export_geolibre=False` or `--no-geolibre` to skip).
+
+For standalone export or two-way Jupyter inspection without any API keys:
+
+```bash
+# Install optional GeoLibre integration (Python 3.11+)
+pip install -e ".[geolibre]"
+
+# Export a district run to .geolibre.json, WGS84 GeoJSON, and web viewer HTML
+python scripts/export_geolibre_project.py \
+  --run-dir openubem/outputs/eu02/ES-MAD-BERRUGUETE \
+  --results-csv docs/docs_ACTIVE/europeanLocations/results/EU11_results_2026-10-08_per_home.csv \
+  --district ES-MAD-BERRUGUETE
+```
+
+Or open an interactive `geolibre.Map` widget directly in a Jupyter notebook:
+
+```python
+from openubem.viz.geolibre_export import create_geolibre_map
+
+m = create_geolibre_map("openubem/outputs/eu02/ES-MAD-BERRUGUETE")
+m
+```
+
 ---
 
 ## Validation & Empirical Grounding
@@ -164,6 +190,8 @@ Other essential resources:
 - [Graphical Abstract Image Prompts](docs/docs_ACTIVE/README_progress/prompt_graphical_abstract_3d.md): Full prompt suite (§2.1, §2.2, §2.3) for generating OpenUBEM imagery.
 - [Graphic Summary Prompt Styles Guide](docs/docs_EXPLANATION/OpenUBEM_graphic_summary_prompt_styles.md): General principles for scientific illustration in UBEM.
 - [Dwelling Layout Rules](docs/docs_ACTIVE/europeanLocations/rules/): Architectural subdivision specifications.
+- [GeoLibre Implementation & CLI Hub](docs/docs_ACTIVE/GeoLibre/README_geolibre_implementation.md): Architecture, CLI options, spatial SQL recipes, and district verification for the GeoLibre companion.
+- [GeoLibre Integration Guide](docs/docs_EXPLANATION/OpenUBEM_geolibre_integration.md): Design boundaries, provenance caveats, and Jupyter exploration guide.
 
 ---
 

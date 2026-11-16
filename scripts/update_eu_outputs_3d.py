@@ -40,7 +40,7 @@ OUT_DIR_3D = REPO_ROOT / "openubem" / "outputs" / "3D"
 MIRROR_DIR_3D = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "outputs_3D"
 
 
-def update_district_viewer(district: str) -> None:
+def update_district_viewer(district: str, *, with_geolibre: bool = True) -> None:
     spec = DISTRICT_SPECS[district]
     data_dir_name = f"eu_{district}_data"
     viewer_name = f"eu_{district}_viewer.html"
@@ -288,16 +288,40 @@ def update_district_viewer(district: str) -> None:
     shutil.copytree(target_data_dir, mirror_data_dir)
     print(f"[{district}] Successfully updated and mirrored to {MIRROR_DIR_3D}")
 
+    if with_geolibre:
+        try:
+            from openubem.viz.geolibre_export import export_geolibre_bundle
+
+            gl_out_dir = OUT_DIR_3D / f"eu_{district}_geolibre"
+            results_dir = REPO_ROOT / "docs" / "docs_ACTIVE" / "europeanLocations" / "results"
+            eu11_csv = results_dir / "EU11_results_2026-10-08_per_home.csv"
+            eu22_matches = sorted(results_dir.glob(f"EU22_results_{district}_*_per_home.csv"))
+            gl_csv = eu22_matches[-1] if eu22_matches else (eu11_csv if eu11_csv.is_file() else None)
+            export_geolibre_bundle(
+                eu02_dir,
+                output_dir=gl_out_dir,
+                results_csv_path=gl_csv,
+                district_filter=district,
+            )
+            mirror_gl_dir = MIRROR_DIR_3D / f"eu_{district}_geolibre"
+            if mirror_gl_dir.exists():
+                shutil.rmtree(mirror_gl_dir)
+            shutil.copytree(gl_out_dir, mirror_gl_dir)
+            print(f"[{district}] Generated and mirrored GeoLibre viewer to {mirror_gl_dir}")
+        except Exception as exc:
+            print(f"[{district}] WARNING: GeoLibre companion export failed (non-fatal): {exc}")
+
 
 def main():
     parser = argparse.ArgumentParser(description="Update 3D viewers and data with simulation results")
     parser.add_argument("--district", choices=list(DISTRICT_SPECS.keys()), help="Update single district")
     parser.add_argument("--all", action="store_true", help="Update all districts")
+    parser.add_argument("--no-geolibre", action="store_true", help="Skip companion GeoLibre export")
     args = parser.parse_args()
 
     districts = list(DISTRICT_SPECS.keys()) if args.all else ([args.district] if args.district else list(DISTRICT_SPECS.keys()))
     for d in districts:
-        update_district_viewer(d)
+        update_district_viewer(d, with_geolibre=not args.no_geolibre)
 
 
 if __name__ == "__main__":

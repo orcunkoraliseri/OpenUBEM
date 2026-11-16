@@ -313,8 +313,8 @@ S_str = 0.70 · K_abs  +  0.97 · L_abs             (shortwave absorptivity, lon
 | Horizon angles | `γ(φ)` | ° | Maximum obstacle elevation in each of 32 azimuths. Reused by every hour's shadow computation. |
 | Building shadow | `S_bldg` | {0, 1} | Binary — a wall either blocks the sun or it does not. |
 | Vegetation transmission | `τ_veg` | 0–1 | Fractional, via Beer–Lambert through the crown. Summer deciduous 0.10–0.30; winter leafless 0.40–0.70; coniferous 0.05–0.15. |
-| Digital surface model | `DSM` | m | Ground elevation + building heights, rasterised. |
-| Canopy surface model | `CDSM` / `TDSM` | m | Tree crown top and trunk-zone base heights. The trunk zone matters: low sun passes *under* a canopy. |
+| Digital surface model | `DSM` | m | Ground elevation + building heights, rasterised (optional Solar API DSM subtraction via `derive_ndsm_from_solar_dsm`). |
+| Canopy surface model | `CDSM` / `TDSM` | m | Tree crown top and trunk-zone base heights. The trunk zone matters: low sun passes *under* a canopy. Can optionally be extracted from Solar GeoTIFFs via `extract_canopy_cdsm_tdsm` (`crown_depth_fraction=0.6`). |
 
 Analytic cross-check for a uniform street canyon of height `H` and width `W`, observer at height
 `z` above the canyon floor (the platform computes at pedestrian height, `z = 1.1 m` by default):
@@ -407,6 +407,27 @@ the buildings' cooling loads. Two-way coupling and CFD wind fields are deliberat
 (§7). Anywhere a result depends on that feedback, it is an approximation and should be reported as
 one.
 
+### 3.6 Optional Google Maps forecast meteorology, canopy & ambient AQI (opt-in)
+
+For operational short-range heat-risk screening alongside historical EPW windows, Stage 6 exposes
+an optional forecast path wired through `scripts/run_step6_gmaps_forecast.py`:
+
+- **Forecast meteorology (`openubem/microclimate/gmaps_weather.py`, `window.select_window(mode="forecast")`)**:
+  `fetch_hourly_weather_forecast` pulls up to 240 h from the Google Weather API (`nextPageToken`
+  pagination, shifted to local standard time via `displayDateTime.utcOffset`), converts wind speeds
+  to m/s (`convert_wind_speed_to_ms`), and estimates global/direct/diffuse irradiance from cloud
+  cover (`estimate_irradiance_from_cloud_cover`) for injection via `weather_df_override` and
+  `weather_location_override` in `run_step6()`. When `wall_temp_tier="energyplus"`, windows `> 240 h`
+  raise `AnnualEnergyPlusWindowRefusedError` cleanly.
+- **Canopy & height rasters (`openubem/acquisition/gmaps_solar_fetcher.py`)**: `derive_ndsm_from_solar_dsm`
+  and `extract_canopy_cdsm_tdsm` (`crown_depth_fraction=0.6`) derive building nDSM and tree `CDSM`/`TDSM`
+  grids from Solar API GeoTIFFs.
+- **Ambient AQI context & risk alerts (`openubem/microclimate/gmaps_air_quality.py`)**:
+  `parse_air_quality_response` and `attach_ambient_air_quality` attach regional Air Quality API
+  telemetry via `air_quality_context` and emit `06_mc_risk_alerts.json` alongside `06_mc_exposure_metrics.json`
+  and `06_mc_summary.gpkg`. Values are explicitly tagged `GMAPS_AIR_QUALITY_AMBIENT_NOT_DISPERSED` —
+  they provide macro-scale ambient background context, **not** street-canyon pollutant dispersion.
+
 ---
 
 ## 4. Population heat exposure metrics
@@ -497,7 +518,7 @@ exist yet. **Adding any one of them requires a manager-authored plan doc first**
 | **Pedestrian wind comfort** (Lawson / NEN 8100) | Exceedance-probability classes of gust speed for sitting / standing / walking | The other half of outdoor comfort: UTCI covers thermal, this covers mechanical (papers blowing, doors, discomfort) | Needs a **CFD or fast wind solver** — our log/morphometric profiles cannot resolve corner vortices or downdrafts |
 | **UHI intensity** | Urban-minus-rural air temperature, diurnal | Directly comparable to the urban-climate literature and to municipal targets | Needs a defensible rural reference; partially available from the `Ta` offset layer |
 | **Outdoor daylight / glare** | Illuminance and glare on public space | Relevant for plaza and facade design; reuses the same shortwave geometry | Needs a photometric, not radiometric, treatment |
-| **Air quality dispersion** | Pollutant concentration at street level | High policy value; couples to the same canopy flow | Needs emission inventories and a dispersion model — a much larger arc |
+| **Air quality dispersion** | Pollutant concentration at street level | High policy value; couples to the same canopy flow | Street-canyon dispersion modeling remains unbuilt (needs emission inventories & a dispersion solver); opt-in macro-scale ambient AQI context is attached separately via `openubem/microclimate/gmaps_air_quality.py` (`GMAPS_AIR_QUALITY_AMBIENT_NOT_DISPERSED`, §3.6) |
 | **Outdoor acoustic comfort** | Street-level sound pressure | Completes the "outdoor liveability" picture | Entirely separate physics; no shared machinery |
 
 **Deliberately excluded, not merely unbuilt** — see §7.
@@ -590,4 +611,5 @@ The literature this registry rests on. Cited here once so individual sections ca
 
 *OpenUBEM — outdoor analysis reference. A living registry: every new outdoor metric is recorded here
 first (§8). The plan docs remain the binding specification for how each one is built.
-Opened 2026-07-23 with UTCI as the first entry.*
+Opened 2026-07-23 with UTCI as the first entry; opt-in Google Maps forecast, canopy & ambient
+AQI context (§3.6) documented 2026-11-13.*

@@ -93,6 +93,22 @@ cached Overture source is real-world data and can contain physically absurd valu
 per-run opt-in (there is no global Overture coverage) — it was configured for `height_m` on the
 4 E-UTCI-09-affected validation cells only, never turned on platform-wide.
 
+An optional second family of **opt-in Google Maps Platform fusion adapters** lives in
+`openubem/semantic/gmaps_fusion.py` (registered into `fusion.py` and default-OFF under
+`FUSION_SOURCES_BY_TARGET = {}`):
+- `gmaps_solar` (`GmapsSolarSource` / `enrich_buildings_with_solar_insights`): fuses height from
+  Solar API GeoTIFF DSM minus DEM (`FUSED_GMAPSSOLAR_HIGH` when DEM-referenced, `MED` when
+  morphological nDSM or level-derived), and updates `roof_shape` when Solar `buildingInsights`
+  reports roof pitch `> 5°`.
+- `gmaps_places` (`GmapsPlacesSource` / `enrich_buildings_with_gmaps_places`): maps active Places
+  (`CLOSED_PERMANENTLY` excluded) to archetypes via spatial containment (`FUSED_GMAPSPLACES_HIGH`)
+  or a 10 m nearest-footprint fallback (`MED`) using energy-intensity tie-breaking; never
+  overwrites observed classes/tags.
+- `gmaps_svi` (`StreetViewInsightsSource`): fuses BigQuery Imagery Insights streetscape signals
+  at `FUSED_GMAPSSVI_MED`, alongside BigQuery Geospatial Analytics scouting utilities
+  (`openubem/acquisition/gmaps_bigquery_scout.py`) that flag elevated process-load districts
+  (`high_process_load_alert`).
+
 **Measured coverage and residual, per cell** (fusion fill, floor-applied, then the `spatial` tier's
 in-cell donor pass; percentages of each cell's original gap): `nyc_suburban` 1271 fused + 303
 spatial-filled, **15 (0.9 %) still `NaN`**; `nyc_rural` 89 fused + 37 spatial-filled, **72 (36.4 %)
@@ -290,5 +306,6 @@ today.
 
 *OpenUBEM — missing-input imputation methods. Plain-language reference; the DESIGN spec (§3E)
 and the arc record remain the binding source of truth. Documents the four-tier cascade
-(`fusion`/`spatial`/`statistical`/`ml`), the Phase-A–E arc mapping, and the accepted
-variance-collapse limit of the Phase-B/Phase-C central-tendency methods. 2026-07-16.*
+(`fusion`/`spatial`/`statistical`/`ml`), the Phase-A–E arc mapping, the accepted
+variance-collapse limit of the Phase-B/Phase-C central-tendency methods (2026-07-16), and the
+opt-in `gmaps_fusion.py` Google Maps adapters (2026-11-13).*
