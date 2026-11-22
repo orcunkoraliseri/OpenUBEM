@@ -7,8 +7,8 @@
 - **Executor:** a Gemini session with repo access, run by the owner. **NO sub-agents.**
 - **Kickoff (paste into the executor session; one run for all of M1, owner choice 2026-11-22 after a clean M0):**
   ```
-  Read /Users/orcunkoraliseri/Desktop/OpenUBEM/docs/docs_ACTIVE/GPU_based_compute/Prompt/executors/EXEC_M1_stageA_numpy_s0.md.
-  Execute T01 through T06 in order. At CP1, CP2 and CP3, if every check passes, write that checkpoint's report
+  Read /Users/orcunkoraliseri/Desktop/OpenUBEM/docs/docs_ACTIVE/GPU_based_compute/Prompt/executors/EXEC_M1_stageA_numpy_s0.md again (T03 gate changed).
+  Do not redo T01–T02. Set the T03 view-factor test to the new gate, re-run it, write CP1, then continue T04 through T06 in order. At CP1, CP2 and CP3, if every check passes, write that checkpoint's report
   into the progress log and continue without waiting. STOP only if a test or gate fails, the spec is ambiguous,
   or the E+ source disagrees with the spec; then quote the problem and wait. Append one progress-log entry per
   completed task under §8 of that file, run the tests the tasks call for, and report all results at CP4.
@@ -90,7 +90,7 @@ All in spec rev. 3; the E+ line numbers were checked against v23.1.0 on 2026-11-
 - **What:** `viewfactors.py` (approximate view factors, `FixViewFactors` including the large-surface self-view branch, ScriptF) and `ctf.py` (read the internal-mass CTF from the golden `.eio`; check its timestep equals the zone timestep).
 - **Why:** spec §3.0 step 5, §3.3.
 - **How:** translate `HeatBalanceIntRadExchange.cc` (`CalcApproximateViewFactors`, `FixViewFactors`, `CalcScriptF`), float64, once per building. If the CTF timestep is not the zone timestep, STOP (that is S2a scope).
-- **How to test:** `tests/gpusim/test_viewfactors.py`: for the 3 golden cells, the final view factors and ScriptF match the `.eio` view-factor block (≤ 1e-5 absolute); internal-mass CTF: Σ outside = Σ cross = Σ inside within the print precision, and `(Σ Z) / (1 − Σ Φ)` equals `k / L = 10 W/m²K` within 0.1 %.
+- **How to test:** `tests/gpusim/test_viewfactors.py`: for the 3 golden cells, the final view factors and ScriptF match the `.eio` view-factor block to its print precision: each entry within half a unit of the last digit E+ printed (E+ writes them with `{:.4R}`, `HeatBalanceIntRadExchange.cc:709/:764`, so ≤ 5.0e-5 for 4 decimals; gate changed from 1e-5 by the manager on 2026-11-22 because 1e-5 is below what the `.eio` can show; the exact float64 check of ScriptF comes at T05 through the net radiation heat gain rates); internal-mass CTF: Σ outside = Σ cross = Σ inside within the print precision, and `(Σ Z) / (1 − Σ Φ)` equals `k / L = 10 W/m²K` within 0.1 %.
 
 ### CP1 — STOP and report
 T01–T03 measured maxima, test summary line, files touched.
@@ -160,3 +160,59 @@ T05 table, pytest summary line, Stage A wall time for B = 3.
 - Deviations: Run via `.venv/bin/pytest` (`uv` not on PATH). Checked against the 3 golden cells produced in M0 (T02 text mentions "5 golden cells" from before the Mac-only cut to 3).
 - Test status: `.venv/bin/pytest tests/gpusim/test_compile.py -q` -> `4 passed, 1 warning in 0.31s`. All 346 completed fleet `.expidf` pass `check_s0_subset`; injected `People` fails naming `People`; V15 fails naming `SunExposed`; V14 passes. Across the 3 golden cells vs `.eio`: `max_area_rel = 1.256e-06` (gate <= 1e-4), `max_tilt_abs = 0.000e+00 deg` (floor auto-flipped to `180.0 deg`), `max_az_abs = 0.000e+00 deg`, `max_zcen_abs = 4.059e-03 m` (within `.eio` 2-decimal print limit `0.005 m`).
 - Notes: Translated Newell normal/area, floor/roof vertex flip, `DetermineAzimuthAndTilt`, and gross-area-weighted zone centroid directly from `SurfaceGeometry.cc` and `Vectors.cc`.
+
+#### T03 — View factors, ScriptF and internal-mass CTF — stopped at .eio print-precision gate conflict 2026-11-22
+- Artifacts: `openubem/gpusim/viewfactors.py`, `openubem/gpusim/ctf.py`, `tests/gpusim/test_viewfactors.py`
+- Deviations: Run via `.venv/bin/pytest` (`uv` not on PATH). Stopped without loosening the T03 `<= 1e-5` absolute gate (hard rule 2).
+- Test status: `.venv/bin/pytest tests/gpusim -q` -> `1 failed, 27 passed, 1 xfailed, 1 warning in 1.35s` (`test_internal_mass_ctf_properties` PASSED; `test_view_factors_and_scriptf_match_eio` FAILED on the `<= 1e-5` absolute gate). Measured max abs diffs vs `.eio`: cell 1 (`it`) `F = 3.826e-5` (`0.464338` vs `0.4643`), `ScriptF = 4.926e-5` (`0.115649` vs `0.1156`); cell 2 (`uk`) `F = 4.661e-5` (`0.123347` vs `0.1233`), `ScriptF = 4.958e-5` (`0.338650` vs `0.3387`); cell 3 (`es`) `F = 4.816e-5` (`0.186852` vs `0.1869`), `ScriptF = 4.979e-5` (`0.124150` vs `0.1242`). Across all 730 matrix entries (`12x12 + 10x10 + 11x11` for both `F` and `ScriptF`), mismatches beyond EnergyPlus `{:.4R}` 4-significant-digit `.eio` print rounding = `0`. Internal-mass CTF (identical in all 3 cells): `sum_out = 0.29092886`, `sum_cross = 0.29092972`, `sum_in = 0.29092886`, `sum_in / (1 - sum_phi) = 9.999978 W/m2K` (vs `10.0 W/m2K`, `0.00022%`, gate `<= 0.1%`).
+- Notes: Conflict between E+ 23.1.0 source (`HeatBalanceIntRadExchange.cc:709,764`, which formats `.eio` view factors and ScriptF with `{:.4R}`, giving max rounding error `5.0e-5` on values `>= 0.1`) and M1 T03's `<= 1e-5 absolute` gate. Stopped before CP1/T04 pending manager/owner ruling.
+- Manager note (2026-11-22): CP1 stop audited. T01 and T02 pass (measured maxima as reported). T03's only failure was the 1e-5 gate, which was below the `.eio` print precision (`{:.4R}`); 0 of 730 entries differ beyond that precision. Gate changed in T03 to half a unit of the last printed digit (≤ 5.0e-5). Internal-mass CTF passes. Not re-run by the manager except `pytest tests/gpusim -q` → 1 failed (the view-factor gate), 27 passed, 1 xfailed.
+
+#### T03 — View factors, ScriptF and internal-mass CTF — completed 2026-11-22
+- Artifacts: `openubem/gpusim/viewfactors.py`, `openubem/gpusim/ctf.py`, `tests/gpusim/test_viewfactors.py`
+- Deviations: Run via `.venv/bin/pytest` (`uv` not on PATH).
+- Test status: `.venv/bin/pytest tests/gpusim -q` -> `28 passed, 1 xfailed, 1 warning in 0.96s`. Every entry of `Final ViewFactors` and `Script F Factors` across all 3 golden cells (730 entries total) is within half a unit of the last `.eio` printed digit and `<= 5.0e-5` (`it`: `F=3.826e-5`, `SF=4.926e-5`; `uk`: `F=4.661e-5`, `SF=4.958e-5`; `es`: `F=4.816e-5`, `SF=4.979e-5`). Internal-mass CTF passes (`sum_out=0.29092886`, `sum_cross=0.29092972`, `sum_in=0.29092886`, `U=9.999978 W/m2K`, `0.00022%` vs `10.0`).
+- Notes: CP1 checks all pass.
+
+#### CP1 — Checkpoint Report — 2026-11-22
+- T01 measured maxima (3 golden cells + V10, V11): `dry_bulb = 0.000e+00 K`, `hum_rat = 1.637e-09`, `baro_press = 0.000e+00 Pa`, `sky_temp = 5.684e-14 K`, `horiz_ir = 1.705e-13 W/m2`.
+- T02 measured maxima (3 golden cells + 346 fleet + V14/V15): `max_area_rel = 1.256e-06`, `max_tilt_abs = 0.000e+00 deg` (floor `180.0 deg`), `max_az_abs = 0.000e+00 deg`, `max_zcen_abs = 4.059e-03 m`; 346/346 fleet pass; `People` and V15 (`SunExposed`) rejected; V14 passes.
+- T03 measured maxima (3 golden cells): `F <= 4.816e-5`, `ScriptF <= 4.979e-5` (0/730 exceed half-ULP of `.eio` `{:.4R}`); CTF `U = 9.999978 W/m2K` (`0.00022%`).
+- Test summary: `.venv/bin/pytest tests/gpusim -q` -> `28 passed, 1 xfailed, 1 warning in 0.96s`.
+- Files touched (M1): `openubem/gpusim/physics/__init__.py`, `openubem/gpusim/physics/psychro.py`, `openubem/gpusim/weather.py`, `openubem/gpusim/subset.py`, `openubem/gpusim/schedules.py`, `openubem/gpusim/compile.py`, `openubem/gpusim/ctf.py`, `openubem/gpusim/viewfactors.py`, `tests/gpusim/test_weather.py`, `tests/gpusim/test_compile.py`, `tests/gpusim/test_viewfactors.py`. Continuing to T04.
+
+#### T04 — Physics functions with per-equation tests — completed 2026-11-22
+- Artifacts: `openubem/gpusim/physics/convection.py`, `openubem/gpusim/physics/lwr.py`, `openubem/gpusim/physics/window.py`, `openubem/gpusim/physics/surface_hb.py`, `openubem/gpusim/physics/zone_air.py`, `tests/gpusim/test_physics_units.py`
+- Deviations: Run via `.venv/bin/pytest` (`uv` not on PATH). Evaluated across the 3 golden cells produced in M0 (T04 text mentions "5 golden cells" from before the Mac-only cut to 3).
+- Test status: `.venv/bin/pytest tests/gpusim -q` -> `33 passed, 1 xfailed, 1 warning in 2.86s`. All 5 per-equation checks pass `p99.9 <= 1e-4` and `max <= 1e-3` by 3–12 orders of magnitude.
+- Notes: Verified E+ 23.1.0 `WindowManager.cc:2703` overwrites reported window `SurfHAirExt` post-solve with `-emiss*sigma*(1-split)*vf_sky_ir*(Tsout^4-Tout^4)/(Tsout-Tout)`; opaque `Outdoors` surfaces retain all 4 `InitExteriorConvectionCoeff` coefficients.
+
+#### CP2 — Checkpoint Report — 2026-11-22
+- T04 measured `(p99.9, max)` relative differences across all 105,120 timesteps of each golden cell (gates: `p99.9 <= 1e-4`, `max <= 1e-3`):
+  - `it__IT.MidClim.SFH.02.Gen.ReEx.001.001__f100`: Check 1 `(1.233e-16, 4.860e-16)`, Check 2 `(9.119e-11, 1.444e-07)`, Check 3a `T_in` `(3.632e-15, 5.589e-15)`, Check 3b `Q_conv` `(4.460e-12, 1.650e-11)`, Check 4 OSC `(1.806e-13, 1.819e-13)`, Check 5 predictor `(5.552e-11, 7.038e-10)`.
+  - `uk__GB.ENG.AB.03.Gen.ReEx.001.001__f000`: Check 1 `(1.239e-16, 4.874e-16)`, Check 2 `(1.829e-09, 1.555e-06)`, Check 3a `T_in` `(6.959e-14, 7.813e-14)`, Check 3b `Q_conv` `(4.094e-10, 5.397e-09)`, Check 4 OSC `(3.824e-13, 3.843e-13)`, Check 5 predictor `(3.418e-10, 1.874e-08)`.
+  - `es__ES.ME.AB.01.Gen.ReEx.001.001__f000`: Check 1 `(1.195e-16, 4.928e-16)`, Check 2 `(1.500e-10, 1.684e-07)`, Check 3a `T_in` `(2.025e-14, 2.231e-14)`, Check 3b `Q_conv` `(1.395e-10, 5.456e-10)`, Check 4 OSC `(2.108e-13, 2.122e-13)`, Check 5 predictor `(1.459e-10, 4.070e-09)`.
+- Test summary: `.venv/bin/pytest tests/gpusim -q` -> `33 passed, 1 xfailed, 1 warning in 2.86s`. Continuing to T05.
+
+#### T05 — Stage A time loop and single-cell conformance — completed 2026-11-22
+- Artifacts: `openubem/gpusim/backends/__init__.py`, `openubem/gpusim/backends/numpy_ref.py`, `openubem/gpusim/writer.py`, `tests/gpusim/test_cells.py`, `tests/gpusim/test_golden_fixtures.py` (xfail removed), `openubem/outputs/gpusim_m1_cells.csv`
+- Deviations: Run via `.venv/bin/pytest` (`uv` not on PATH).
+- Test status: `.venv/bin/pytest tests/gpusim -q` -> `35 passed, 1 warning in 168.17s (0:02:48)` (0 xfail remaining). All 3 golden cells (`B = 3`, `77.552 s`) and all 9 S0 variants (`B = 9`, `87.321 s`) pass every T05 gate with exact warm-up day matches (`12/12`, including `2/2` on V03 and `3/3` on the other 11).
+- Notes: Verified E+ 23.1.0 `HeatBalanceSurfaceManager.cc:7465` keeps `InternalMass` `SurfOutsideTempHist(1)` lagged by one timestep (`SurfTempIn[t-1]`, not in `IZSurfs`), matching E+ to ~`1e-5`–`5e-5` annual heating relative diff and `<= 0.0043 K` p99.9 zone temperature across all 12 fixtures.
+
+#### CP3 — Checkpoint Report — 2026-11-22
+- Stage A wall time: `B = 3` golden batch = `77.552 s`; `B = 9` variants batch = `87.321 s`.
+- T05 measured results (from `openubem/outputs/gpusim_m1_cells.csv`; all 12 pass every gate):
+  - `it__IT.MidClim.SFH.02.Gen.ReEx.001.001__f100`: E+ `23275.423`, SA `23275.675` kWh, rel `+0.00108%`, CV `0.01985%`, NMBE `+0.00112%`, dT p99.9 `0.002177 K`, dT max `0.002769 K`, warmup `3/3`.
+  - `uk__GB.ENG.AB.03.Gen.ReEx.001.001__f000`: E+ `429473.855`, SA `429469.261` kWh, rel `-0.00107%`, CV `0.01566%`, NMBE `-0.00080%`, dT p99.9 `0.001977 K`, dT max `0.002356 K`, warmup `3/3`.
+  - `es__ES.ME.AB.01.Gen.ReEx.001.001__f000`: E+ `177989.483`, SA `177985.742` kWh, rel `-0.00210%`, CV `0.00999%`, NMBE `-0.00204%`, dT p99.9 `0.001794 K`, dT max `0.001972 K`, warmup `3/3`.
+  - `V01`: E+ `33370.107`, SA `33370.496` kWh, rel `+0.00116%`, CV `0.01563%`, NMBE `+0.00118%`, dT `0.001986`/`0.002593 K`, warmup `3/3`.
+  - `V03`: E+ `29736.672`, SA `29737.294` kWh, rel `+0.00209%`, CV `0.02252%`, NMBE `+0.00223%`, dT `0.002543`/`0.003393 K`, warmup `2/2`.
+  - `V04`: E+ `12457.574`, SA `12458.251` kWh, rel `+0.00544%`, CV `0.05553%`, NMBE `+0.00568%`, dT `0.004317`/`0.005463 K`, warmup `3/3`.
+  - `V06`: E+ `22520.366`, SA `22520.799` kWh, rel `+0.00192%`, CV `0.02321%`, NMBE `+0.00193%`, dT `0.002617`/`0.003418 K`, warmup `3/3`.
+  - `V07`: E+ `21853.526`, SA `21853.752` kWh, rel `+0.00104%`, CV `0.02994%`, NMBE `+0.00111%`, dT `0.003982`/`0.004569 K`, warmup `3/3`.
+  - `V09`: E+ `25687.963`, SA `25688.337` kWh, rel `+0.00145%`, CV `0.01796%`, NMBE `+0.00146%`, dT `0.002353`/`0.003000 K`, warmup `3/3`.
+  - `V10`: E+ `56814.989`, SA `56814.916` kWh, rel `-0.00013%`, CV `0.01789%`, NMBE `-0.00010%`, dT `0.002845`/`0.003585 K`, warmup `3/3`.
+  - `V11`: E+ `54500.513`, SA `54500.121` kWh, rel `-0.00072%`, CV `0.01286%`, NMBE `-0.00072%`, dT `0.002982`/`0.004159 K`, warmup `3/3`.
+  - `V14`: E+ `23165.463`, SA `23165.931` kWh, rel `+0.00202%`, CV `0.02511%`, NMBE `+0.00204%`, dT `0.002986`/`0.003594 K`, warmup `3/3`.
+- Test summary: `.venv/bin/pytest tests/gpusim -q` -> `35 passed, 1 warning in 168.17s (0:02:48)`. Continuing to T06.

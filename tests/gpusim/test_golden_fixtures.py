@@ -1,9 +1,10 @@
-import importlib
 import json
 from pathlib import Path
 
 import pandas as pd
 import pytest
+
+from tests.gpusim.test_cells import assert_t05_gates, run_golden_b3_cached
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 GOLDEN_ROOT = REPO_ROOT / "tests/fixtures/gpusim/golden"
@@ -146,7 +147,8 @@ def test_golden_cell_eio_required_blocks(cell_id: str) -> None:
     assert len(view_factor_lines) >= 1
 
 
-@pytest.mark.xfail(strict=True, reason="M1 not built")
 def test_stage_a_matches_golden() -> None:
-    """Placeholder parity test that remains xfail until M1 numpy_ref exists."""
-    importlib.import_module("openubem.gpusim.backends.numpy_ref")
+    """Verify Stage A NumPy reference matches all 3 golden cells within T05 gates."""
+    _, _, rows_b3, _ = run_golden_b3_cached()
+    assert len(rows_b3) == len(GOLDEN_CELL_IDS)
+    assert_t05_gates(rows_b3)

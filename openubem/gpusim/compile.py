@@ -304,7 +304,9 @@ def _determine_azimuth_and_tilt(
     return az, tilt
 
 
-def _polygon_centroid(verts: np.ndarray, gross_area: float) -> tuple[float, float, float]:
+def _polygon_centroid(
+    verts: np.ndarray, gross_area: float
+) -> tuple[float, float, float]:
     """SurfaceGeometry.cc::CalcSurfaceCentroid"""
     n_sides = len(verts)
     if n_sides == 3:
@@ -312,9 +314,13 @@ def _polygon_centroid(verts: np.ndarray, gross_area: float) -> tuple[float, floa
         return float(cen[0]), float(cen[1]), float(cen[2])
     if n_sides == 4 and gross_area > 0.0:
         c1 = (verts[0] + verts[1] + verts[2]) / 3.0
-        a1 = 0.5 * float(np.linalg.norm(np.cross(verts[1] - verts[0], verts[2] - verts[0])))
+        a1 = 0.5 * float(
+            np.linalg.norm(np.cross(verts[1] - verts[0], verts[2] - verts[0]))
+        )
         c2 = (verts[0] + verts[2] + verts[3]) / 3.0
-        a2 = 0.5 * float(np.linalg.norm(np.cross(verts[2] - verts[0], verts[3] - verts[0])))
+        a2 = 0.5 * float(
+            np.linalg.norm(np.cross(verts[2] - verts[0], verts[3] - verts[0]))
+        )
         denom = a1 + a2
         cen = (c1 * a1 + c2 * a2) / denom if denom > 0.0 else verts.mean(axis=0)
         return float(cen[0]), float(cen[1]), float(cen[2])
