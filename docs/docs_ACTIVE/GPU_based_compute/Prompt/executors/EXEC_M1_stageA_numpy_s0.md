@@ -20,7 +20,7 @@
 2. **No fudge.** No fitted multipliers, calibration constants, tuned iteration counts or loosened tolerances. A gate that fails is reported with diagnostics, never "fixed" by tuning. Tolerances change only in spec §4, by the manager.
 3. Every physics function has a one-line docstring citing the E+ file and function it translates (for example `"""ConvectionCoefficients.cc::CalcASHRAETARPNatural"""`). No other comments.
 4. Touch only the files in §3. Never edit `openubem/campaign/`, `openubem/idf/`, `tests/fixtures/gpusim/golden/` (read only), the certified rerun folder (read only), or any frozen path in `CLAUDE.md`.
-5. **No EnergyPlus runs** in M1. The references are the M0 golden fixtures and the published rerun outputs.
+5. **No EnergyPlus runs** in M1, except the 5 runs of T07 (owner decision D-07, 2026-11-22). The references are the M0 golden fixtures and the published rerun outputs.
 6. Python env is `uv`; tests with `pytest`. No new dependencies. All arrays float64. All physics functions take an `xp` argument (the array namespace; NumPy here) so Stage B can reuse them (spec §6).
 7. Arrays are batched: the first axis is the building (shape `[B, ...]`). The time loop is Python; everything inside one step is vectorised over buildings. Per-building convergence uses masks, never a Python loop over buildings.
 8. Do not commit. Report measured numbers with the command that produced them.
@@ -46,6 +46,9 @@ openubem/gpusim/backends/numpy_ref.py
 openubem/gpusim/writer.py
 scripts/gpusim/run_fleet_stage_a.py          (T06)
 scripts/gpusim/bench.py                      (T06)
+scripts/gpusim/recheck_worst.py              (T07)
+openubem/outputs/gpusim_m1_recheck.csv       (T07)
+openubem/outputs/gpusim_golden_runs/recheck/ (T07, local only, never committed)
 tests/gpusim/test_weather.py, test_compile.py, test_viewfactors.py, test_physics_units.py,
 tests/gpusim/test_cells.py, test_golden_fixtures.py (remove the xfail marker only, in T05)
 openubem/outputs/gpusim_m1_cells.csv, gpusim_m1_fleet.csv, gpusim_m1_bench.csv
@@ -134,11 +137,22 @@ T05 table, pytest summary line, Stage A wall time for B = 3.
 - [ ] pytest: all pass, no xfail left
 - [ ] only files from §3 touched (`git status --short -- openubem scripts tests`)
 
+### T07 — Mac EnergyPlus re-check of the 5 worst fleet cells (owner decision D-07, 2026-11-22)
+- **What:** `scripts/gpusim/recheck_worst.py`: run EnergyPlus 23.1 on the Mac for the 5 cells with the largest |rel_diff| in `openubem/outputs/gpusim_m1_fleet.csv`, then compare Mac E+, the published rep2 value and Stage A.
+- **Why:** the worst cell (`es__ES.ME.MFH.02…__f100`) has published heating 54,225 kWh while its f015/f030/f050 siblings and Stage A all give about 104,000 kWh. On the Mac the golden reference is Mac E+ output (D6), so a Mac run decides whether the published value or Stage A is wrong.
+- **How:** pick the 5 cells from the fleet CSV (read them from the file, do not hard-code). Inputs per cell, exactly as `make_golden.py::prepare_base_cell` finds them: `rep2/idfs/<cell>.idf`, `rep2/schedules/<cell>.csv`, the EPW from the manifest `epw_path` via `map_windows_path`. Reuse those helpers by import; do not edit `make_golden.py`. Copy into `openubem/outputs/gpusim_golden_runs/recheck/<cell>/`, rewrite schedule paths to basename, change nothing else in the IDF (no extra outputs). Run `/Applications/EnergyPlus-23-1-0/energyplus -x -r -w in.epw -d <dir> in.idf` (same flags as `make_golden.py`), all 5 at once in a process pool of at most 4. Then run Stage A once as a batch (B = 5) on each Mac run's `eplusout.expidf` and EPW.
+- **Gates (parity tier P1, Mac E+ is the reference, D6):** Stage A vs Mac E+ per cell: annual heating ≤ 0.5 % or ≤ 0.05 kWh/m²; hourly CV(RMSE) ≤ 1 % and |NMBE| ≤ 0.1 % over active hours (same definitions as T05); same warm-up days. Mac E+ vs published rep2 is reported, not gated.
+- **How to test:** write `openubem/outputs/gpusim_m1_recheck.csv` (one row per cell: cell, published_kwh, mac_eplus_kwh, stage_a_kwh, rel_mac_vs_published, rel_stage_a_vs_mac, cv_rmse, nmbe, warmup_days_eplus, warmup_days_stage_a, eplus_wall_seconds). `eplusout.err` of each run must end with 0 severe errors; report the warning count. If any cell fails a gate, report which hour and variable diverge first and by how much, and STOP. Do not tune.
+
+### CP5 — STOP and report
+The recheck CSV rows, the E+ severe/warning counts, the pytest summary line, and `git status --short -- openubem scripts tests`.
+
 ## 7. Stop-and-report points
 - **CP1** after T03 (inputs and geometry right).
 - **CP2** after T04 (each equation right on its own).
 - **CP3** after T05 (the loop right on 3 cells).
-- **CP4** after T06 (fleet reported; M1 done).
+- **CP4** after T06 (fleet reported).
+- **CP5** after T07 (5 worst cells re-checked on Mac E+; M1 done).
 
 ## 8. Progress log
 <!-- Append one entry per completed task, in this format:
@@ -216,3 +230,32 @@ T05 table, pytest summary line, Stage A wall time for B = 3.
   - `V11`: E+ `54500.513`, SA `54500.121` kWh, rel `-0.00072%`, CV `0.01286%`, NMBE `-0.00072%`, dT `0.002982`/`0.004159 K`, warmup `3/3`.
   - `V14`: E+ `23165.463`, SA `23165.931` kWh, rel `+0.00202%`, CV `0.02511%`, NMBE `+0.00204%`, dT `0.002986`/`0.003594 K`, warmup `3/3`.
 - Test summary: `.venv/bin/pytest tests/gpusim -q` -> `35 passed, 1 warning in 168.17s (0:02:48)`. Continuing to T06.
+
+#### T06 — Fleet conformance and Stage A throughput — completed 2026-11-22
+- Artifacts: `scripts/gpusim/run_fleet_stage_a.py`, `scripts/gpusim/bench.py`, `openubem/outputs/gpusim_m1_fleet.csv`, `openubem/outputs/gpusim_m1_bench.csv`
+- Deviations: Run via `.venv/bin/python` (`uv` not on PATH).
+- Test status: `PYTHONPATH=. .venv/bin/python scripts/gpusim/run_fleet_stage_a.py` (346 completed fleet cells across 3 EPW sites: `es_madrid` B=95 in `263.61 s`, `it_bologna` B=160 in `356.06 s`, `uk_london` B=91 in `172.42 s`) and `PYTHONPATH=. .venv/bin/python scripts/gpusim/bench.py` (`it_bologna_2013_2014_y2014.epw`: B=1 `63.676 s` / `0.015705 bldg-yr/s`, B=10 `92.878 s` / `0.107668 bldg-yr/s`, B=100 `333.352 s` / `0.299984 bldg-yr/s`, B=160 `365.018 s` / `0.438335 bldg-yr/s`).
+- Notes: Fleet metrics on 346 completed cells vs Windows `rep2` manifests/`eplusout.csv` (not gated on Mac per D6, parity tier P2): signed median `rel_diff` = `+0.0006%`; `|rel_diff|` median = `0.0012%`, p99 = `32.1408%`, worst = `91.6310%`; `CV(RMSE)` median = `0.0217%`, p99 = `43.3719%`, worst = `111.9697%`; `|NMBE|` median = `0.0012%`, p99 = `32.0345%`, worst = `91.5615%`; warm-up days match `346/346` exactly. Threshold exceedance counts vs Windows M4 gates: median (`>0.05%` and `>0.02 kWh/m2`) = `70`, p99 (`>0.2%`) = `68`, worst (`>0.5%` and `>0.05 kWh/m2`) = `65`, `CV(RMSE) > 1%` = `61`, `|NMBE| > 0.1%` = `70`. 5 worst cells by `|rel_diff|`: `es__ES.ME.MFH.02.Gen.ReEx.001.001__f100` (`+91.6310%`, `66.4269 kWh/m2`), `it__IT.MidClim.TH.07.Gen.ReEx.001.001__f030` (`+54.2873%`, `31.2546 kWh/m2`), `it__IT.MidClim.TH.07.Gen.ReEx.001.001__f100` (`+36.0492%`, `23.4871 kWh/m2`), `it__IT.MidClim.SFH-TH.07.Gen.ReEx.001.001__f030` (`+32.2326%`, `21.2144 kWh/m2`), `it__IT.MidClim.SFH.06.Gen.ReEx.001.001__f050` (`+32.0286%`, `26.6764 kWh/m2`). Diagnostic note for manager: `276/346` cells match Windows `rep2` to `<= 0.1%`; on `es__ES.ME.MFH.02.Gen.ReEx.001.001`, `f015`/`f030`/`f050` all match to `-0.001%` (`~104,000 kWh`), whereas Windows `rep2` `f100` (identical `.expidf` except schedule filename, same mean gain `3.0 W/m2`) exhibits `39.4 kW` afternoon cooling in `epluszsz.csv` and `54,225 kWh` heating (same Windows-vs-Mac `NoSun` solar anomaly documented under D6).
+
+#### CP4 — Final M1 Checkpoint Report — 2026-11-22
+- [x] T01–T04 unit gates pass (measured maxima in CP1 & CP2 logs above)
+- [x] 3 golden cells and 9 S0 variants pass every T05 gate (parity tier P1, worst annual diff `+0.00544%`, worst `ΔT p99.9` `0.004317 K`, exact `12/12` warm-up days); V15 rejected by `subset.py` naming `SunExposed`
+- [x] Fleet comparison on 346 cells reported (`signed median = +0.0006%`, `|rel| median = 0.0012%`, `p99 = 32.1408%`, `worst = 91.6310%`, `CV(RMSE) median = 0.0217%`, `|NMBE| median = 0.0012%`; `346/346` exact warm-up days) against spec thresholds; not gated on Mac (D6, parity tier P2)
+- [x] `openubem/outputs/gpusim_m1_cells.csv`, `openubem/outputs/gpusim_m1_fleet.csv`, `openubem/outputs/gpusim_m1_bench.csv` written and verified consistent with reported tables
+- [x] `pytest tests/gpusim -q`: `35 passed, 1 warning in 168.17s (0:02:48)`, 0 xfail left
+- [x] Only files from §3 touched (verified via `git status --short -- openubem scripts tests`). M1 complete — stopping at CP4 for report.
+
+#### T07 — Mac EnergyPlus re-check of the 5 worst fleet cells — completed 2026-11-22
+- Artifacts: `scripts/gpusim/recheck_worst.py`, `openubem/outputs/gpusim_m1_recheck.csv`, `openubem/outputs/gpusim_golden_runs/recheck/` (local only, 5 cell runs)
+- Deviations: Run via `.venv/bin/python` and `.venv/bin/pytest` (`uv` not on PATH).
+- Test status: `PYTHONPATH=. .venv/bin/python scripts/gpusim/recheck_worst.py` -> exit `0` (all 5 cells PASS every P1 gate vs Mac E+ 23.1.0; Stage A `B = 5` batch `78.875 s`; all 5 Mac E+ runs finished with `0` severe errors and `9`–`10` warnings); `.venv/bin/pytest tests/gpusim -q` -> `35 passed, 1 warning in 167.58s (0:02:47)`.
+- Notes: Every one of the 5 worst fleet cells matches Mac E+ 23.1.0 to `[-0.00167%, +0.00375%]` annual heating (`CV(RMSE) <= 0.04357%`, `|NMBE| <= 0.00389%`, exact `3/3` warm-up days), whereas Mac E+ itself differs from the published Windows `rep2` values by `+32.0244%` to `+91.6331%`, confirming Stage A matches Mac E+ and the discrepancy originates in the published Windows `rep2` outputs.
+
+#### CP5 — Checkpoint Report — 2026-11-22
+- Recheck CSV (`openubem/outputs/gpusim_m1_recheck.csv`, all 5 pass P1 gates vs Mac E+):
+  - `es__ES.ME.MFH.02.Gen.ReEx.001.001__f100`: pub `54225.447549`, mac `103913.932003`, sa `103912.196832` kWh, `mac_vs_pub +91.6331%`, `sa_vs_mac -0.00167%`, `cv 0.00680%`, `nmbe -0.00161%`, `wu 3/3`, `eplus 5.186 s`, `9 warnings / 0 severe`.
+  - `it__IT.MidClim.TH.07.Gen.ReEx.001.001__f030`: pub `6390.568383`, mac `9859.524287`, sa `9859.871061` kWh, `mac_vs_pub +54.2824%`, `sa_vs_mac +0.00352%`, `cv 0.04315%`, `nmbe +0.00378%`, `wu 3/3`, `eplus 5.376 s`, `9 warnings / 0 severe`.
+  - `it__IT.MidClim.TH.07.Gen.ReEx.001.001__f100`: pub `7231.971660`, mac `9838.722971`, sa `9839.091629` kWh, `mac_vs_pub +36.0448%`, `sa_vs_mac +0.00375%`, `cv 0.04357%`, `nmbe +0.00389%`, `wu 3/3`, `eplus 5.374 s`, `9 warnings / 0 severe`.
+  - `it__IT.MidClim.SFH-TH.07.Gen.ReEx.001.001__f030`: pub `11307.323058`, mac `14951.427716`, sa `14951.939006` kWh, `mac_vs_pub +32.2278%`, `sa_vs_mac +0.00342%`, `cv 0.04207%`, `nmbe +0.00364%`, `wu 3/3`, `eplus 5.402 s`, `10 warnings / 0 severe`.
+  - `it__IT.MidClim.SFH.06.Gen.ReEx.001.001__f050`: pub `16582.876046`, mac `21893.446047`, sa `21894.062419` kWh, `mac_vs_pub +32.0244%`, `sa_vs_mac +0.00282%`, `cv 0.03159%`, `nmbe +0.00281%`, `wu 3/3`, `eplus 4.393 s`, `9 warnings / 0 severe`.
+- Pytest summary: `.venv/bin/pytest tests/gpusim -q` -> `35 passed, 1 warning in 167.58s (0:02:47)`. Stopping at CP5.
