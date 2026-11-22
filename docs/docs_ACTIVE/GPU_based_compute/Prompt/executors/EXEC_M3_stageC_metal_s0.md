@@ -137,3 +137,21 @@ Format (append only):
 - Deviations: none
 - Test status: `uv run --no-sync pytest tests/gpusim/test_stage_c.py::test_stage_c_p1 -q` -> `1 passed, 1 warning in 60.70s` (cached Stage A, Stage C locked+free `wall=58.190 s`); initial Stage A cache generation + P1 run: `1 passed, 1 warning in 157.18s`; all 12 cases pass both float32 gates (locked warmup) and S0 single-cell gates vs Mac E+ (free warmup), with `warmup_days_stage_c_free == warmup_days_stage_a` on 12/12 cases (`2` on V03, `3` on the remaining 11).
 - Notes: Worst values — `|rel_c_vs_a|=1.021e-04` (`V04`), `dt_p999_k=0.004657 K` (`V04`), `dt_max_k=0.005206 K` (`V04`); vs Mac E+: `|rel_c_vs_eplus|=5.966e-05` (`V07`), `cv_rmse=6.020e-05` (`V07`), `|nmbe|=5.818e-05` (`V07`), `dt_p999_eplus_k=0.001000 K` (`V07`), `dt_max_eplus_k=0.001028 K` (`V07`). Stopped at CP1.
+
+#### T04 — Parity tier P2 (fleet, 346 cells) — completed 2026-11-22
+- Artifacts: `scripts/gpusim/run_fleet_stage_c.py`, `openubem/outputs/gpusim_m3_fleet.csv`
+- Deviations: none
+- Test status: `uv run --no-sync python scripts/gpusim/run_fleet_stage_c.py` -> exit 0 (`346/346` pass annual float32 gate vs Stage A); worst `|rel_c_vs_a|=0.009771%` (`-9.77089123e-05`) on `uk__GB.ENG.MFH.08.Gen.ReEx.001.001__f100`; `fleet_wall_s=56.128 s` (`gpu_s=54.827 s`, `max_launch_s=0.192 s`, `compile_s=1.776 s`).
+- Notes: Stage C vs published (N=346): median `|rel|=0.0033%` (signed `-0.0025%`), p99 `32.1319%`, worst `91.6283%`, count > 0.5% = `65`; re-checked 5 cells vs `mac_eplus_kwh` range `-0.002524%` to `-0.003698%`.
+
+#### T05 — Benchmark — completed 2026-11-22
+- Artifacts: `scripts/gpusim/bench_stage_c.py`, `openubem/outputs/gpusim_m3_bench.csv`
+- Deviations: Owner updated spec to skip `B = 10,000` on the Mac (`B ∈ {1, 10, 100, 1,000}`, 4 rows).
+- Test status: `uv run --no-sync python scripts/gpusim/bench_stage_c.py` -> exit 0 (4 rows, all `max_launch_s < 1.0`: `0.449 s`, `0.701 s`, `0.779 s`, `0.573 s`); `B=1000` (`run_chunk_days=3`): `total_s=62.651 s`, `15.961359 bldg-yr/s`, `41.38x` vs E+ 1-proc (measured `0.385768 bldg-yr/s`), `10.34x` vs E+ 4-proc (computed `1.543074 bldg-yr/s`), `36.41x` vs Stage A (`B=160` `0.438335 bldg-yr/s`).
+- Notes: Stage C first beats the computed 4-process E+ baseline at `B = 100` (`2.167815 bldg-yr/s`, `1.40x`).
+
+#### T06 — Portability check for the Windows move — completed 2026-11-22
+- Artifacts: `tests/gpusim/test_isolation.py`
+- Deviations: none
+- Test status: `uv run --no-sync pytest tests/gpusim/test_isolation.py -q` -> `3 passed, 1 warning in 0.23s` (25 Python modules under `openubem/gpusim/`, 0 imports outside `openubem.gpusim`); `clang++ -std=c++17 -fsyntax-only -x c++ -DGPUSIM_HOST openubem/gpusim/backends/kernel/s0_common.h` -> exit 0.
+- Notes: Carry-list `du -sh`: `openubem/gpusim/` `772K`, `scripts/gpusim/` `220K`, `tests/gpusim/` `500K`, `tests/fixtures/gpusim/` `279M`, `docs/docs_ACTIVE/GPU_based_compute/` `780K`. Stopped at CP2.
