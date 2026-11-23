@@ -9,32 +9,18 @@ from openubem.gpusim.physics.psychro import (
     STEFAN_BOLTZMANN,
     psy_w_fn_tdb_rh_pb,
 )
+from openubem.gpusim.physics.solar import (
+    calc_perez_sky_factors,
+    calc_solar_direction_cosines,
+    interpolate_epw_solar_to_timestep,
+)
 
 STD_PRESSURE_SEA_LEVEL = 101325.0
 
 
 @dataclass(frozen=True)
 class WeatherSeries:
-    """Per-timestep weather arrays for one site run period and warm-up day.
-
-    Attributes:
-        dry_bulb: Outdoor dry-bulb temperature in degrees C, shape (N,).
-        dew_point: Outdoor dew-point temperature in degrees C, shape (N,).
-        rel_hum: Outdoor relative humidity fraction in [0, 1], shape (N,).
-        baro_press: Outdoor barometric pressure in Pa, shape (N,).
-        hum_rat: Outdoor humidity ratio in kgWater/kgDryAir, shape (N,).
-        horiz_ir: Horizontal infrared radiation rate in W/m2, shape (N,).
-        sky_temp: Sky temperature in degrees C, shape (N,).
-        warmup_dry_bulb: Day-1 warm-up dry-bulb temperature in C, shape (D,).
-        warmup_dew_point: Day-1 warm-up dew-point temperature in C, shape (D,).
-        warmup_rel_hum: Day-1 warm-up relative humidity fraction, shape (D,).
-        warmup_baro_press: Day-1 warm-up barometric pressure in Pa, shape (D,).
-        warmup_hum_rat: Day-1 warm-up humidity ratio, shape (D,).
-        warmup_horiz_ir: Day-1 warm-up horizontal IR in W/m2, shape (D,).
-        warmup_sky_temp: Day-1 warm-up sky temperature in C, shape (D,).
-        elevation: Site elevation in meters from the EPW LOCATION header.
-        steps_per_hour: Number of zone timesteps per hour.
-    """
+    """Per-timestep weather arrays for one site run period and warm-up day."""
 
     dry_bulb: np.ndarray
     dew_point: np.ndarray
@@ -52,6 +38,31 @@ class WeatherSeries:
     warmup_sky_temp: np.ndarray
     elevation: float
     steps_per_hour: int
+    latitude: float = 0.0
+    longitude: float = 0.0
+    time_zone: float = 0.0
+    dni: np.ndarray | None = None
+    dhi: np.ndarray | None = None
+    wind_speed: np.ndarray | None = None
+    wind_dir: np.ndarray | None = None
+    wet_bulb: np.ndarray | None = None
+    is_rain: np.ndarray | None = None
+    solcos_x: np.ndarray | None = None
+    solcos_y: np.ndarray | None = None
+    solcos_z: np.ndarray | None = None
+    perez_f1: np.ndarray | None = None
+    perez_f2: np.ndarray | None = None
+    warmup_dni: np.ndarray | None = None
+    warmup_dhi: np.ndarray | None = None
+    warmup_wind_speed: np.ndarray | None = None
+    warmup_wind_dir: np.ndarray | None = None
+    warmup_wet_bulb: np.ndarray | None = None
+    warmup_is_rain: np.ndarray | None = None
+    warmup_solcos_x: np.ndarray | None = None
+    warmup_solcos_y: np.ndarray | None = None
+    warmup_solcos_z: np.ndarray | None = None
+    warmup_perez_f1: np.ndarray | None = None
+    warmup_perez_f2: np.ndarray | None = None
 
 
 def calc_sky_emissivity_clark_allen(
@@ -96,18 +107,10 @@ def setup_interpolation_weights(steps_per_hour: int, xp: Any) -> Any:
     return xp.minimum(1.0, idx / float(steps_per_hour))
 
 
-def _read_epw_hourly(epw_path: Path) -> tuple[float, dict[str, np.ndarray]]:
-    """Read 8,760 hourly EPW records with EnergyPlus missing-value substitution.
-
-    Args:
-        epw_path: Path to the EPW weather file.
-
-    Returns:
-        Tuple of ``(elevation_m, hourly_arrays_dict)``.
-
-    Raises:
-        ValueError: If the EPW header or row count is invalid.
-    """
+def _read_epw_hourly(
+    epw_path: Path,
+) -> tuple[dict[str, float], dict[str, np.ndarray]]:
+    """Read 8,760 hourly EPW records with EnergyPlus missing-value substitution."""
     lines = epw_path.read_text(encoding="utf-8", errors="replace").splitlines()
     if len(lines) < 9:
         raise ValueError(f"{epw_path}: fewer than 9 lines")
@@ -115,6 +118,9 @@ def _read_epw_hourly(epw_path: Path) -> tuple[float, dict[str, np.ndarray]]:
     loc_cols = [part.strip() for part in lines[0].split(",")]
     if len(loc_cols) < 10 or loc_cols[0].upper() != "LOCATION":
         raise ValueError(f"{epw_path}: invalid LOCATION header")
+    latitude = float(loc_cols[6])
+    longitude = float(loc_cols[7])
+    time_zone = float(loc_cols[8])
     elevation = float(loc_cols[9])
     std_baro = STD_PRESSURE_SEA_LEVEL * (1.0 - 2.25577e-05 * elevation) ** 5.2559
 
@@ -123,13 +129,20 @@ def _read_epw_hourly(epw_path: Path) -> tuple[float, dict[str, np.ndarray]]:
     miss_rh = 50.0
     miss_pb = std_baro
     miss_osc = 5.0
+    miss_ws = 0.0
+    miss_wd = 0.0
 
     dry_bulb_list: list[float] = []
     dew_point_list: list[float] = []
     rel_hum_list: list[float] = []
     baro_press_list: list[float] = []
     ir_horiz_list: list[float] = []
+    dni_list: list[float] = []
+    dhi_list: list[float] = []
+    ws_list: list[float] = []
+    wd_list: list[float] = []
     osc_list: list[float] = []
+    rain_list: list[float] = []
 
     for line in lines[8:]:
         stripped = line.strip()
@@ -146,7 +159,26 @@ def _read_epw_hourly(epw_path: Path) -> tuple[float, dict[str, np.ndarray]]:
         rh = float(cols[8])
         pb = float(cols[9])
         ir = float(cols[12])
+        dni = float(cols[14])
+        dhi = float(cols[15])
+        wd = float(cols[20])
+        ws = float(cols[21])
         osc = float(cols[23])
+
+        # EnergyPlus WeatherManager.cc rain flag from WMO present weather codes or liquid precip
+        rain_flag = 0.0
+        pwo = cols[26].strip() if len(cols) > 26 else "9"
+        pwc = cols[27].strip() if len(cols) > 27 else "999999999"
+        if pwo == "0" and len(pwc) >= 9:
+            if pwc[1] in "012345678" or pwc[2] in "012345678":
+                rain_flag = 1.0
+        if len(cols) > 33:
+            try:
+                liq = float(cols[33])
+                if 0.6 <= liq < 999.0:
+                    rain_flag = 1.0
+            except ValueError:
+                pass
 
         if db >= 99.9:
             db = miss_db
@@ -160,32 +192,58 @@ def _read_epw_hourly(epw_path: Path) -> tuple[float, dict[str, np.ndarray]]:
             osc = miss_osc
         if ir <= 0.0:
             ir = 9999.0
+        if dni >= 9999.0 or dni < 0.0:
+            dni = 0.0
+        if dhi >= 9999.0 or dhi < 0.0:
+            dhi = 0.0
+        if ws >= 999.0 or ws < 0.0:
+            ws = miss_ws
+        if wd >= 999.0 or wd < 0.0:
+            wd = miss_wd
 
         miss_db = db
         miss_dp = dp
         miss_rh = float(round(rh))
         miss_pb = pb
         miss_osc = osc
+        miss_ws = ws
+        miss_wd = wd
 
         dry_bulb_list.append(db)
         dew_point_list.append(dp)
         rel_hum_list.append(rh)
         baro_press_list.append(pb)
         ir_horiz_list.append(ir)
+        dni_list.append(dni)
+        dhi_list.append(dhi)
+        ws_list.append(ws)
+        wd_list.append(wd)
         osc_list.append(osc)
+        rain_list.append(rain_flag)
 
     if len(dry_bulb_list) != 8760:
         raise ValueError(
             f"{epw_path}: expected 8760 hourly rows, got {len(dry_bulb_list)}"
         )
 
-    return elevation, {
+    loc = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "time_zone": time_zone,
+        "elevation": elevation,
+    }
+    return loc, {
         "dry_bulb": np.asarray(dry_bulb_list, dtype=np.float64),
         "dew_point": np.asarray(dew_point_list, dtype=np.float64),
         "rel_hum_pct": np.asarray(rel_hum_list, dtype=np.float64),
         "baro_press": np.asarray(baro_press_list, dtype=np.float64),
         "ir_horiz": np.asarray(ir_horiz_list, dtype=np.float64),
+        "dni": np.asarray(dni_list, dtype=np.float64),
+        "dhi": np.asarray(dhi_list, dtype=np.float64),
+        "wind_speed": np.asarray(ws_list, dtype=np.float64),
+        "wind_dir": np.asarray(wd_list, dtype=np.float64),
         "opaque_sky": np.asarray(osc_list, dtype=np.float64),
+        "is_rain": np.asarray(rain_list, dtype=np.float64),
     }
 
 
@@ -202,16 +260,8 @@ def _interpolate_hourly_to_timestep(
 
 
 def load_epw_weather(epw_path: Path, steps_per_hour: int = 12) -> WeatherSeries:
-    """Load an EPW file and interpolate to EnergyPlus zone-timestep arrays.
-
-    Args:
-        epw_path: Path to the EPW weather file.
-        steps_per_hour: Number of zone timesteps per hour (default 12).
-
-    Returns:
-        ``WeatherSeries`` containing 105,120 run-period steps and Day-1 warm-up steps.
-    """
-    elevation, hourly = _read_epw_hourly(epw_path)
+    """Load an EPW file and interpolate to EnergyPlus zone-timestep arrays."""
+    loc, hourly = _read_epw_hourly(epw_path)
     horiz_ir_hr, _ = calc_horiz_ir_and_sky_temp(
         hourly["opaque_sky"],
         hourly["dry_bulb"],
@@ -227,12 +277,36 @@ def load_epw_weather(epw_path: Path, steps_per_hour: int = 12) -> WeatherSeries:
     baro_press = _interpolate_hourly_to_timestep(hourly["baro_press"], wt_now)
     opaque_sky = _interpolate_hourly_to_timestep(hourly["opaque_sky"], wt_now)
     horiz_ir_interp = _interpolate_hourly_to_timestep(horiz_ir_hr, wt_now)
+    wind_speed = _interpolate_hourly_to_timestep(hourly["wind_speed"], wt_now)
+    wind_dir = _interpolate_hourly_to_timestep(hourly["wind_dir"], wt_now)
+
+    dni = interpolate_epw_solar_to_timestep(hourly["dni"], steps_per_hour=steps_per_hour)
+    dhi = interpolate_epw_solar_to_timestep(hourly["dhi"], steps_per_hour=steps_per_hour)
+    solcos_x, solcos_y, solcos_z, i_ext = calc_solar_direction_cosines(
+        loc["latitude"],
+        loc["longitude"],
+        loc["time_zone"],
+        steps_per_hour=steps_per_hour,
+        n_days=365,
+    )
+    perez_f1, perez_f2 = calc_perez_sky_factors(dni, dhi, solcos_z, i_ext)
 
     horiz_ir, sky_temp = calc_horiz_ir_and_sky_temp(
         opaque_sky, dry_bulb, dew_point, horiz_ir_interp, np
     )
     rel_hum = rel_hum_pct / 100.0
     hum_rat = psy_w_fn_tdb_rh_pb(dry_bulb, rel_hum, baro_press, np)
+    # Stull (2011) wet-bulb temperature approximation (within ~0.15 K)
+    rh_c = np.clip(rel_hum_pct, 1.0, 100.0)
+    wet_bulb = (
+        dry_bulb * np.arctan(0.151977 * np.sqrt(rh_c + 8.313659))
+        + np.arctan(dry_bulb + rh_c)
+        - np.arctan(rh_c - 1.676331)
+        + 0.00391838 * np.power(rh_c, 1.5) * np.arctan(0.023101 * rh_c)
+        - 4.686035
+    )
+    wet_bulb = np.minimum(wet_bulb, dry_bulb)
+    is_rain = np.repeat(hourly["is_rain"], steps_per_hour)
 
     day_steps = 24 * steps_per_hour
     return WeatherSeries(
@@ -250,6 +324,31 @@ def load_epw_weather(epw_path: Path, steps_per_hour: int = 12) -> WeatherSeries:
         warmup_hum_rat=hum_rat[:day_steps].copy(),
         warmup_horiz_ir=horiz_ir[:day_steps].copy(),
         warmup_sky_temp=sky_temp[:day_steps].copy(),
-        elevation=elevation,
+        elevation=loc["elevation"],
         steps_per_hour=steps_per_hour,
+        latitude=loc["latitude"],
+        longitude=loc["longitude"],
+        time_zone=loc["time_zone"],
+        dni=dni,
+        dhi=dhi,
+        wind_speed=wind_speed,
+        wind_dir=wind_dir,
+        wet_bulb=wet_bulb,
+        is_rain=is_rain,
+        solcos_x=solcos_x,
+        solcos_y=solcos_y,
+        solcos_z=solcos_z,
+        perez_f1=perez_f1,
+        perez_f2=perez_f2,
+        warmup_dni=dni[:day_steps].copy(),
+        warmup_dhi=dhi[:day_steps].copy(),
+        warmup_wind_speed=wind_speed[:day_steps].copy(),
+        warmup_wind_dir=wind_dir[:day_steps].copy(),
+        warmup_wet_bulb=wet_bulb[:day_steps].copy(),
+        warmup_is_rain=is_rain[:day_steps].copy(),
+        warmup_solcos_x=solcos_x[:day_steps].copy(),
+        warmup_solcos_y=solcos_y[:day_steps].copy(),
+        warmup_solcos_z=solcos_z[:day_steps].copy(),
+        warmup_perez_f1=perez_f1[:day_steps].copy(),
+        warmup_perez_f2=perez_f2[:day_steps].copy(),
     )

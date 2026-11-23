@@ -69,6 +69,16 @@ import sys as _sys
 ENERGYPLUS_PATH: Path = Path(os.environ.get("ENERGYPLUS_PATH", r"C:\EnergyPlusV23-1-0"))
 ENERGYPLUS_VERSION: str = "23.1"
 
+# ── GPU heat-balance engine ("gpusim") integration flags (M5, default-OFF) ───
+SIM_ENGINE: str = os.environ.get("OPENUBEM_SIM_ENGINE", "energyplus")  # "energyplus" | "gpusim" | "auto"
+GPUSIM_DEVICE: str = os.environ.get("OPENUBEM_GPUSIM_DEVICE", "auto")  # "auto" | "cuda" | "mps" | "cpu"
+GPUSIM_SPOT_CHECK_FRACTION: float = float(
+    os.environ.get("OPENUBEM_GPUSIM_SPOT_CHECK_FRACTION", "0.05")
+)
+EU_DISABLE_UNUSED_SIZING: bool = (
+    os.environ.get("OPENUBEM_EU_DISABLE_UNUSED_SIZING", "0") == "1"
+)
+
 _IDF_VERSION_OBJECT_RE = re.compile(r"VERSION\s*,\s*([0-9]+(?:\.[0-9]+){1,2})\s*;", re.IGNORECASE)
 
 

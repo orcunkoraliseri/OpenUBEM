@@ -35,6 +35,7 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from openubem import config as _openubem_config
 from openubem.config import ENERGYPLUS_IDD_PATH, ENERGYPLUS_PATH
 from openubem.idf.european_box import add_s0_equivalent_envelope
 from openubem.idf.european_controls import add_european_heating_controls
@@ -325,6 +326,35 @@ def load_archetype_record(country_stock_code: str, archetype_id: str) -> dict[st
     raise CampaignCellError(f"archetype {archetype_id!r} not found in {path}")
 
 
+def _guard_and_disable_unused_sizing(idf: Any) -> None:
+    """Verify IdealLoads NoLimit + no outdoor air, then turn off sizing pass (D5)."""
+    ideals = list(idf.idfobjects.get("HVACTEMPLATE:ZONE:IDEALLOADSAIRSYSTEM", []))
+    if not ideals:
+        raise CampaignCellError(
+            "disable_unused_sizing requires HVACTemplate:Zone:IdealLoadsAirSystem"
+        )
+    for ideal in ideals:
+        heat_lim = str(getattr(ideal, "Heating_Limit", "") or "NoLimit").strip()
+        oa_method = str(getattr(ideal, "Outdoor_Air_Method", "") or "None").strip()
+        if heat_lim.casefold() != "nolimit":
+            raise CampaignCellError(
+                f"disable_unused_sizing refused: Heating_Limit={heat_lim!r} != 'NoLimit'"
+            )
+        if oa_method.casefold() not in ("", "none"):
+            raise CampaignCellError(
+                f"disable_unused_sizing refused: Outdoor_Air_Method={oa_method!r} != 'None'"
+            )
+    sim_ctrls = list(idf.idfobjects.get("SIMULATIONCONTROL", []))
+    if not sim_ctrls:
+        raise CampaignCellError("disable_unused_sizing requires SimulationControl")
+    sc = sim_ctrls[0]
+    sc.Do_Zone_Sizing_Calculation = "No"
+    sc.Do_System_Sizing_Calculation = "No"
+    sc.Do_Plant_Sizing_Calculation = "No"
+    sc.Run_Simulation_for_Sizing_Periods = "No"
+    sc.Run_Simulation_for_Weather_File_Run_Periods = "Yes"
+
+
 def _build_idf(
     cell: Mapping[str, object],
     record: Mapping[str, Any],
@@ -333,6 +363,8 @@ def _build_idf(
     gain_csv_path: Path,
     presence: Any,
     chaining_rule: str | None,
+    *,
+    disable_unused_sizing: bool = False,
 ) -> dict[str, Any]:
     from geomeppy import IDF
     from eppy.modeleditor import IDDAlreadySetError
@@ -399,6 +431,8 @@ def _build_idf(
         Reporting_Frequency="Hourly",
     )
     idf.newidfobject("OUTPUT:SQLITE", Option_Type="SimpleAndTabular")
+    if disable_unused_sizing:
+        _guard_and_disable_unused_sizing(idf)
     idf.saveas(str(idf_path))
     return {"emitted": emitted, "envelope": envelope}
 
@@ -461,6 +495,9 @@ def run_campaign_cell(
     run_root: Path,
     dry_run: bool = False,
     energyplus_timeout: int = 900,
+    sim_engine: str | None = None,
+    gpusim_device: str | None = None,
+    disable_unused_sizing: bool | None = None,
 ) -> dict[str, Any]:
     """Run one cell of the frozen EU campaign spec and return its self-proving manifest.
 
@@ -535,17 +572,84 @@ def run_campaign_cell(
     run_dir.mkdir(parents=True, exist_ok=True)
     idf_path = Path(run_root) / str(cell["idf_path"])
     gain_csv_path = Path(run_root) / str(cell["gain_csv_path"])
+    eff_disable_sizing = (
+        _openubem_config.EU_DISABLE_UNUSED_SIZING
+        if disable_unused_sizing is None
+        else bool(disable_unused_sizing)
+    )
+    eff_sim_engine = (
+        _openubem_config.SIM_ENGINE if sim_engine is None else str(sim_engine)
+    ).strip().lower()
+    eff_gpu_device = (
+        _openubem_config.GPUSIM_DEVICE if gpusim_device is None else str(gpusim_device)
+    )
+
     built = _build_idf(
-        cell, record, epw_path, idf_path, gain_csv_path, presence_values, chaining_rule
+        cell,
+        record,
+        epw_path,
+        idf_path,
+        gain_csv_path,
+        presence_values,
+        chaining_rule,
+        disable_unused_sizing=eff_disable_sizing,
     )
 
     energy: dict[str, Any] = {
         "return_code": None, "severe_count": None, "fatal_count": None,
         "runtime_s": None, "heating_kwh": None,
     }
+    provenance_extra: dict[str, Any] = {
+        "engine": "energyplus",
+        "engine_version": f"energyplus-{_openubem_config.ENERGYPLUS_VERSION}",
+        "subset_rung": None,
+        "conformance_hash": None,
+        "routing_reason": "sim_engine=energyplus",
+    }
     energyplus_exe = _energyplus_exe()
     if dry_run:
         energyplus_version_measured = "not_run"
+    elif eff_sim_engine in {"gpusim", "auto"}:
+        from openubem.gpusim.router import route_idf_text, run_routed_gpusim_batch
+
+        idf_text = idf_path.read_text(encoding="utf-8", errors="replace")
+        decision = route_idf_text(
+            idf_text,
+            str(cell["cell_id"]),
+            sim_engine=eff_sim_engine,
+            device=eff_gpu_device,
+            spot_check_fraction=(
+                _openubem_config.GPUSIM_SPOT_CHECK_FRACTION
+                if eff_sim_engine == "auto"
+                else 0.0
+            ),
+            eplus_version=_openubem_config.ENERGYPLUS_VERSION,
+        )
+        provenance_extra = decision.to_provenance_dict()
+        if decision.selected_engine == "gpusim":
+            t0_gpu = time.time()
+            res_list = run_routed_gpusim_batch(
+                idf_paths=[idf_path],
+                epw_paths=[epw_path],
+                work_dirs=[run_dir],
+                building_ids=[str(cell["cell_id"])],
+                decisions=[decision],
+                device=eff_gpu_device,
+                schedule_dirs=[gain_csv_path.parent],
+            )
+            csv_path = run_dir / "eplusout.csv"
+            energy = {
+                "return_code": 0,
+                "severe_count": 0,
+                "fatal_count": 0,
+                "runtime_s": round(time.time() - t0_gpu, 3),
+                "heating_kwh": _extract_heating_kwh(csv_path),
+            }
+            energyplus_version_measured = decision.engine_version
+            _ = res_list
+        else:
+            energy = _run_energyplus(idf_path, epw_path, run_dir, energyplus_timeout)
+            energyplus_version_measured = _energyplus_version(energyplus_exe)
     else:
         energy = _run_energyplus(idf_path, epw_path, run_dir, energyplus_timeout)
         energyplus_version_measured = _energyplus_version(energyplus_exe)
@@ -629,6 +733,12 @@ def run_campaign_cell(
         "created_utc": datetime.datetime.now(datetime.timezone.utc)
             .replace(microsecond=0).isoformat(),
         "dry_run": bool(dry_run),
+        "disable_unused_sizing": eff_disable_sizing,
+        "engine": provenance_extra["engine"],
+        "engine_version": provenance_extra["engine_version"],
+        "subset_rung": provenance_extra["subset_rung"],
+        "conformance_hash": provenance_extra["conformance_hash"],
+        "routing_reason": provenance_extra["routing_reason"],
     }
 
     manifest_path = Path(run_root) / str(cell["manifest_path"])

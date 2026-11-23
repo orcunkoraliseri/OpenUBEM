@@ -1,3 +1,4 @@
+import argparse
 import csv
 import json
 import sys
@@ -8,7 +9,7 @@ import numpy as np
 
 from openubem.gpusim.backends.kernel.pack import deduplicate_weather, pack
 from openubem.gpusim.backends.numpy_ref import run_stage_a_batch
-from openubem.gpusim.backends.stage_c import run_packed_stage_c_mps
+from openubem.gpusim.backends.stage_c import run_packed_stage_c
 from openubem.gpusim.compile import BatchSpec, compile_expidf_batch
 from openubem.gpusim.weather import WeatherSeries, load_epw_weather
 
@@ -17,6 +18,7 @@ REP2_DIR = REPO_ROOT / "openubem/outputs/eu_certified_rerun_2026-08-28/rep2"
 SCHED_DIR = REP2_DIR / "schedules"
 M1_FLEET_CSV = REPO_ROOT / "openubem/outputs/gpusim_m1_fleet.csv"
 M1_RECHECK_CSV = REPO_ROOT / "openubem/outputs/gpusim_m1_recheck.csv"
+M4_WIN_EPLUS_CSV = REPO_ROOT / "openubem/outputs/gpusim_m4_win_eplus.csv"
 OUT_CSV = REPO_ROOT / "openubem/outputs/gpusim_m3_fleet.csv"
 
 EPW_SEARCH_DIRS: tuple[Path, ...] = (
@@ -156,19 +158,41 @@ def _diagnose_first_diverging_hour(
     return int(np.argmax(diff))
 
 
-def run_fleet_stage_c() -> list[dict[str, object]]:
+def load_win_eplus_reference(csv_path: Path) -> dict[str, float]:
+    """Load Windows EnergyPlus recheck annual heating totals by cell ID."""
+    win_ref: dict[str, float] = {}
+    with csv_path.open("r", encoding="utf-8", newline="") as fh:
+        for row in csv.DictReader(fh):
+            win_ref[str(row["cell"])] = float(row["win_eplus_kwh"])
+    return win_ref
+
+
+def run_fleet_stage_c(
+    device: str = "mps",
+    out_csv: Path = OUT_CSV,
+    win_eplus_csv: Path | None = None,
+) -> list[dict[str, object]]:
     """Run Stage C across all 346 completed fleet cells as one GPU batch.
 
+    Args:
+        device: Target Stage C backend (``"mps"`` or ``"cuda"``).
+        out_csv: Destination CSV path.
+        win_eplus_csv: Optional Windows E+ recheck CSV for M4 gated P2 check.
+
     Returns:
-        List of per-cell result rows written to ``gpusim_m3_fleet.csv``.
+        List of per-cell result rows written to ``out_csv``.
 
     Raises:
         RuntimeError: If any cell fails the Stage C vs Stage A annual float32
-            gate or if reference cell sets mismatch.
+            gate, if gated fleet checks fail, or if reference cell sets mismatch.
     """
     entries = load_completed_fleet_entries()
     m1_ref = load_m1_fleet_reference(M1_FLEET_CSV)
     recheck_ref = load_m1_recheck_reference(M1_RECHECK_CSV)
+    win_path = win_eplus_csv if win_eplus_csv is not None else M4_WIN_EPLUS_CSV
+    has_win_csv = win_path.is_file()
+    win_ref = load_win_eplus_reference(win_path) if has_win_csv else {}
+    use_m4_schema = device == "cuda" or win_eplus_csv is not None
 
     if len(entries) != len(m1_ref):
         raise RuntimeError(
@@ -209,17 +233,18 @@ def run_fleet_stage_c() -> list[dict[str, object]]:
     packed = pack(batch, weather_by_site, site_index, ctf=None)
     pack_s = time.perf_counter() - t_run0
 
-    res, timings = run_packed_stage_c_mps(
+    res, timings = run_packed_stage_c(
         packed=packed,
         cell_ids=batch.cell_ids,
         record_zone_temp=False,
         force_warmup_days=forced_wu,
         run_chunk_days=1,
+        device=device,
     )
     fleet_wall_s = time.perf_counter() - t_run0
 
     print(
-        f"Stage C fleet: B={batch.batch_size}, sites={len(weather_by_site)}, "
+        f"Stage C ({device}) fleet: B={batch.batch_size}, sites={len(weather_by_site)}, "
         f"compile_s={compile_s:.3f}, pack_s={pack_s:.3f}, "
         f"upload_s={timings['upload_s']:.3f}, gpu_s={timings['gpu_s']:.3f}, "
         f"download_s={timings['download_s']:.3f}, "
@@ -240,7 +265,18 @@ def run_fleet_stage_c() -> list[dict[str, object]]:
 
         rel_c_vs_a = (ann_sc - ann_sa) / ann_sa
         abs_c_vs_a_m2 = abs(ann_sc - ann_sa) / area
-        rel_c_vs_pub = (ann_sc - ann_pub) / ann_pub
+
+        if cid in win_ref:
+            ref_kwh = win_ref[cid]
+            ref_src = "win_eplus"
+        elif use_m4_schema:
+            ref_kwh = ann_sa
+            ref_src = "stage_a"
+        else:
+            ref_kwh = ann_pub
+            ref_src = "published"
+        rel_c_vs_ref = (ann_sc - ref_kwh) / ref_kwh
+        abs_c_vs_ref_m2 = abs(ann_sc - ref_kwh) / area
 
         if abs(rel_c_vs_a) > 0.0005 and abs_c_vs_a_m2 > 0.01:
             failing.append((bi, cid, rel_c_vs_a, abs_c_vs_a_m2))
@@ -248,41 +284,73 @@ def run_fleet_stage_c() -> list[dict[str, object]]:
         rows.append(
             {
                 "cell": cid,
+                "reference_kwh": ref_kwh,
+                "reference_source": ref_src,
                 "annual_published_kwh": ann_pub,
                 "annual_stage_a_kwh": ann_sa,
                 "annual_stage_c_kwh": ann_sc,
                 "rel_c_vs_a": rel_c_vs_a,
-                "rel_c_vs_published": rel_c_vs_pub,
+                "rel_c_vs_reference": rel_c_vs_ref,
+                "abs_c_vs_ref_m2": abs_c_vs_ref_m2,
+                "floor_area_m2": area,
                 "warmup_days_stage_a": wu_sa,
             }
         )
 
-    OUT_CSV.parent.mkdir(parents=True, exist_ok=True)
-    fieldnames = [
-        "cell",
-        "annual_published_kwh",
-        "annual_stage_a_kwh",
-        "annual_stage_c_kwh",
-        "rel_c_vs_a",
-        "rel_c_vs_published",
-        "warmup_days_stage_a",
-    ]
-    with OUT_CSV.open("w", newline="", encoding="utf-8") as fh:
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+    if use_m4_schema:
+        fieldnames = [
+            "cell",
+            "reference_kwh",
+            "reference_source",
+            "annual_stage_a_kwh",
+            "annual_stage_c_kwh",
+            "rel_c_vs_a",
+            "rel_c_vs_reference",
+            "floor_area_m2",
+            "warmup_days_stage_a",
+        ]
+    else:
+        fieldnames = [
+            "cell",
+            "annual_published_kwh",
+            "annual_stage_a_kwh",
+            "annual_stage_c_kwh",
+            "rel_c_vs_a",
+            "rel_c_vs_published",
+            "warmup_days_stage_a",
+        ]
+    with out_csv.open("w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
-            writer.writerow(
-                {
-                    "cell": row["cell"],
-                    "annual_published_kwh": f"{float(row['annual_published_kwh']):.6f}",
-                    "annual_stage_a_kwh": f"{float(row['annual_stage_a_kwh']):.6f}",
-                    "annual_stage_c_kwh": f"{float(row['annual_stage_c_kwh']):.6f}",
-                    "rel_c_vs_a": f"{float(row['rel_c_vs_a']):.8e}",
-                    "rel_c_vs_published": f"{float(row['rel_c_vs_published']):.8e}",
-                    "warmup_days_stage_a": int(row["warmup_days_stage_a"]),
-                }
-            )
-    print(f"Wrote {OUT_CSV} ({len(rows)} rows)")
+            if use_m4_schema:
+                writer.writerow(
+                    {
+                        "cell": row["cell"],
+                        "reference_kwh": f"{float(row['reference_kwh']):.6f}",
+                        "reference_source": row["reference_source"],
+                        "annual_stage_a_kwh": f"{float(row['annual_stage_a_kwh']):.6f}",
+                        "annual_stage_c_kwh": f"{float(row['annual_stage_c_kwh']):.6f}",
+                        "rel_c_vs_a": f"{float(row['rel_c_vs_a']):.8e}",
+                        "rel_c_vs_reference": f"{float(row['rel_c_vs_reference']):.8e}",
+                        "floor_area_m2": f"{float(row['floor_area_m2']):.4f}",
+                        "warmup_days_stage_a": int(row["warmup_days_stage_a"]),
+                    }
+                )
+            else:
+                writer.writerow(
+                    {
+                        "cell": row["cell"],
+                        "annual_published_kwh": f"{float(row['annual_published_kwh']):.6f}",
+                        "annual_stage_a_kwh": f"{float(row['annual_stage_a_kwh']):.6f}",
+                        "annual_stage_c_kwh": f"{float(row['annual_stage_c_kwh']):.6f}",
+                        "rel_c_vs_a": f"{float(row['rel_c_vs_a']):.8e}",
+                        "rel_c_vs_published": f"{float(row['rel_c_vs_reference']):.8e}",
+                        "warmup_days_stage_a": int(row["warmup_days_stage_a"]),
+                    }
+                )
+    print(f"Wrote {out_csv} ({len(rows)} rows)")
 
     if failing:
         bi0, cid0, rel0, m20 = failing[0]
@@ -310,42 +378,88 @@ def run_fleet_stage_c() -> list[dict[str, object]]:
         f"({float(worst_row['rel_c_vs_a']):+.8e}) on {worst_row['cell']}"
     )
 
-    pub_abs = np.asarray(
-        [abs(float(r["rel_c_vs_published"])) for r in rows], dtype=np.float64
+    ref_abs = np.asarray(
+        [abs(float(r["rel_c_vs_reference"])) for r in rows], dtype=np.float64
     )
-    pub_signed = np.asarray(
-        [float(r["rel_c_vs_published"]) for r in rows], dtype=np.float64
+    ref_signed = np.asarray(
+        [float(r["rel_c_vs_reference"]) for r in rows], dtype=np.float64
     )
-    cnt_gt_05pct = int(np.sum(pub_abs > 0.005))
+    ref_m2 = np.asarray(
+        [float(r["abs_c_vs_ref_m2"]) for r in rows], dtype=np.float64
+    )
+    n_win = sum(1 for r in rows if r["reference_source"] == "win_eplus")
+    n_pub = len(rows) - n_win
+    med_abs = float(np.median(ref_abs))
+    p99_abs = float(np.percentile(ref_abs, 99))
+    worst_ref_idx = int(np.argmax(ref_abs))
+    worst_ref_row = rows[worst_ref_idx]
+    p99_cell = sorted(rows, key=lambda r: abs(float(r["rel_c_vs_reference"])))[
+        min(len(rows) - 1, int(np.ceil(0.99 * len(rows))) - 1)
+    ]["cell"]
+    med_cell = sorted(rows, key=lambda r: abs(float(r["rel_c_vs_reference"])))[
+        len(rows) // 2
+    ]["cell"]
+    cnt_gt_05pct = int(np.sum(ref_abs > 0.005))
     print(
-        f"Stage C vs published (N={len(rows)}): "
-        f"median |rel|={float(np.median(pub_abs)) * 100:.4f}% "
-        f"(signed={float(np.median(pub_signed)) * 100:+.4f}%), "
-        f"p99 |rel|={float(np.percentile(pub_abs, 99)) * 100:.4f}%, "
-        f"worst |rel|={float(np.max(pub_abs)) * 100:.4f}%, "
+        f"Stage C vs reference (N={len(rows)}; win_eplus={n_win}, published={n_pub}): "
+        f"median |rel|={med_abs * 100:.5f}% ({med_cell}, "
+        f"signed={float(np.median(ref_signed)) * 100:+.5f}%), "
+        f"p99 |rel|={p99_abs * 100:.5f}% ({p99_cell}), "
+        f"worst |rel|={abs(float(worst_ref_row['rel_c_vs_reference'])) * 100:.5f}% "
+        f"({worst_ref_row['cell']}, abs={float(worst_ref_row['abs_c_vs_ref_m2']):.5f} kWh/m2), "
         f"count > 0.5%={cnt_gt_05pct}"
     )
 
-    by_cell = {str(r["cell"]): r for r in rows}
-    print("Rechecked 5 cells (Stage C vs Mac E+):")
-    for cid, mac_kwh in recheck_ref.items():
-        row = by_cell[cid]
-        sc_kwh = float(row["annual_stage_c_kwh"])
-        pub_kwh = float(row["annual_published_kwh"])
-        rel_mac = (sc_kwh - mac_kwh) / mac_kwh
-        rel_pub = (sc_kwh - pub_kwh) / pub_kwh
-        print(
-            f"  {cid}: stage_c={sc_kwh:.6f} kWh, mac_eplus={mac_kwh:.6f} kWh, "
-            f"rel_c_vs_mac={rel_mac * 100:+.6f}% ({rel_mac:+.8e}), "
-            f"rel_c_vs_pub={rel_pub * 100:+.4f}%"
-        )
+    if use_m4_schema:
+        med_ok = med_abs <= 0.0005 or float(np.median(ref_m2)) <= 0.02
+        p99_ok = p99_abs <= 0.002
+        bad_worst = [
+            r
+            for r in rows
+            if abs(float(r["rel_c_vs_reference"])) > 0.005
+            and float(r["abs_c_vs_ref_m2"]) > 0.05
+        ]
+        if not (med_ok and p99_ok and not bad_worst):
+            raise RuntimeError(
+                f"P2 fleet gate FAILED: med_ok={med_ok}, p99_ok={p99_ok}, "
+                f"worst_failures={[(r['cell'], r['rel_c_vs_reference']) for r in bad_worst[:5]]}"
+            )
+        print("P2 fleet gates PASSED (median <= 0.05%, p99 <= 0.2%, worst <= 0.5%).")
+    else:
+        by_cell = {str(r["cell"]): r for r in rows}
+        print("Rechecked 5 cells (Stage C vs Mac E+):")
+        for cid, mac_kwh in recheck_ref.items():
+            row = by_cell[cid]
+            sc_kwh = float(row["annual_stage_c_kwh"])
+            pub_kwh = float(row["annual_published_kwh"])
+            rel_mac = (sc_kwh - mac_kwh) / mac_kwh
+            rel_pub = (sc_kwh - pub_kwh) / pub_kwh
+            print(
+                f"  {cid}: stage_c={sc_kwh:.6f} kWh, mac_eplus={mac_kwh:.6f} kWh, "
+                f"rel_c_vs_mac={rel_mac * 100:+.6f}% ({rel_mac:+.8e}), "
+                f"rel_c_vs_pub={rel_pub * 100:+.4f}%"
+            )
 
     return rows
 
 
+def _parse_args() -> argparse.Namespace:
+    """Parse CLI arguments for fleet Stage C verification."""
+    parser = argparse.ArgumentParser(description="Run Stage C on the 346 EU fleet cells.")
+    parser.add_argument("--device", choices=("mps", "cuda"), default="mps")
+    parser.add_argument("--out", type=Path, default=OUT_CSV)
+    parser.add_argument("--win-recheck", type=Path, default=None)
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
     try:
-        run_fleet_stage_c()
+        args = _parse_args()
+        run_fleet_stage_c(
+            device=args.device,
+            out_csv=args.out,
+            win_eplus_csv=args.win_recheck,
+        )
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)

@@ -24,6 +24,28 @@
 #ifndef GPUSIM_LOG
 #define GPUSIM_LOG logf
 #endif
+#elif defined(__CUDACC__)
+#ifndef GPUSIM_FN
+#define GPUSIM_FN __device__ static inline
+#endif
+#ifndef GPUSIM_GLOBAL
+#define GPUSIM_GLOBAL
+#endif
+#ifndef GPUSIM_GLOBAL_CONST
+#define GPUSIM_GLOBAL_CONST const
+#endif
+#ifndef GPUSIM_THREAD
+#define GPUSIM_THREAD
+#endif
+#ifndef GPUSIM_POW
+#define GPUSIM_POW powf
+#endif
+#ifndef GPUSIM_EXP
+#define GPUSIM_EXP expf
+#endif
+#ifndef GPUSIM_LOG
+#define GPUSIM_LOG logf
+#endif
 #endif
 
 #define S0_MAX_SURF 16

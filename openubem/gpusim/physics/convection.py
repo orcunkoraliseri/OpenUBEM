@@ -25,6 +25,29 @@ POW_11_25: float = 0.56 * (1.0e11**0.25)
 POW_11_2: float = 0.58 * (1.0e11**0.2)
 
 
+TERRAIN_WIND_PARAMS: dict[str, tuple[float, float]] = {
+    "country": (270.0, 0.14),
+    "suburbs": (370.0, 0.22),
+    "city": (460.0, 0.33),
+    "ocean": (210.0, 0.10),
+    "urban": (370.0, 0.22),
+}
+
+
+def wind_speed_at(
+    site_wind_speed: Any,
+    centroid_z: Any,
+    terrain: str = "country",
+    xp: Any = np,
+) -> Any:
+    """DataEnvironment.cc::WindSpeedAt (ASHRAE boundary-layer profile)."""
+    delta_site, alpha_site = TERRAIN_WIND_PARAMS.get(terrain.casefold(), (270.0, 0.14))
+    met_factor = (270.0 / 10.0) ** 0.14
+    z_pos = xp.maximum(centroid_z, 0.0)
+    site_factor = xp.power(z_pos / delta_site, alpha_site)
+    return xp.where(centroid_z <= 0.0, 0.0, site_wind_speed * met_factor * site_factor)
+
+
 def out_dry_bulb_temp_at(
     site_dry_bulb: Any,
     centroid_z: Any,

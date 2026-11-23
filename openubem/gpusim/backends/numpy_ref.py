@@ -9,6 +9,7 @@ from openubem.gpusim.compile import (
     BOUND_OSC,
     BOUND_OUTDOORS,
     BOUND_WINDOW,
+    SURF_FLOOR,
     BatchSpec,
 )
 from openubem.gpusim.ctf import CtfCoefficients, load_ctf_from_eio
@@ -21,6 +22,11 @@ from openubem.gpusim.physics.convection import (
 )
 from openubem.gpusim.physics.lwr import calc_interior_rad_exchange
 from openubem.gpusim.physics.psychro import KELVIN_CONV, STEFAN_BOLTZMANN
+from openubem.gpusim.physics.solar import (
+    calc_surface_incident_solar,
+    distribute_full_exterior_interior_solar,
+    simple_glazing_angular_factors,
+)
 from openubem.gpusim.physics.surface_hb import (
     ITER_DAMP_CONST,
     ITERS_REEVAL_CONV_COEFF,
@@ -119,11 +125,149 @@ def _stack_weather(
     return t_db, w_out, pb, t_sky, wu_t_db, wu_w_out, wu_pb, wu_t_sky
 
 
+def _precompute_batch_solar(
+    batch: BatchSpec,
+    weather: WeatherSeries | list[WeatherSeries],
+    is_outdoors_op: np.ndarray,
+    is_window: np.ndarray,
+    is_non_window: np.ndarray,
+    sunlit_frac: np.ndarray | None = None,
+    wu_sunlit_frac: np.ndarray | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Precompute per-building, per-timestep solar fluxes for S1/S3 Stage A.
+
+    Returns ``(q_out, q_in, q_win, wu_q_out, wu_q_in, wu_q_win)`` with shapes
+    ``[B, T, S]`` and ``[B, D, S]``.
+    """
+    b_size = batch.batch_size
+    n_surf = batch.max_surfaces
+    w_list = [weather] * b_size if isinstance(weather, WeatherSeries) else weather
+    n_run = len(w_list[0].dry_bulb)
+    n_wu = len(w_list[0].warmup_dry_bulb)
+
+    q_out = np.zeros((b_size, n_run, n_surf), dtype=np.float64)
+    q_in = np.zeros((b_size, n_run, n_surf), dtype=np.float64)
+    q_win = np.zeros((b_size, n_run, n_surf), dtype=np.float64)
+    wu_q_out = np.zeros((b_size, n_wu, n_surf), dtype=np.float64)
+    wu_q_in = np.zeros((b_size, n_wu, n_surf), dtype=np.float64)
+    wu_q_win = np.zeros((b_size, n_wu, n_surf), dtype=np.float64)
+
+    sun_exp = (
+        batch.surf_sun_exposed
+        if batch.surf_sun_exposed is not None
+        else np.zeros((b_size, n_surf), dtype=bool)
+    )
+    alpha_out = (
+        batch.surf_solar_abs_out
+        if batch.surf_solar_abs_out is not None
+        else np.full((b_size, n_surf), 0.7, dtype=np.float64)
+    )
+    alpha_in = (
+        batch.surf_solar_abs_in
+        if batch.surf_solar_abs_in is not None
+        else np.full((b_size, n_surf), 0.7, dtype=np.float64)
+    )
+    is_floor = (batch.surf_class == SURF_FLOOR) & batch.surf_mask
+
+    for b in range(b_size):
+        if not bool(np.any(sun_exp[b] & batch.surf_mask[b])):
+            continue
+        w = w_list[b]
+        if w.dni is None or w.dhi is None or w.solcos_x is None:
+            raise ValueError("WeatherSeries missing solar arrays required for S1")
+
+        def _compute_period(
+            dni: np.ndarray,
+            dhi: np.ndarray,
+            sx: np.ndarray,
+            sy: np.ndarray,
+            sz: np.ndarray,
+            f1: np.ndarray,
+            f2: np.ndarray,
+            sf: np.ndarray | None,
+        ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+            i_beam, i_dsky, i_dgnd, cos_inc = calc_surface_incident_solar(
+                dni,
+                dhi,
+                sx,
+                sy,
+                sz,
+                f1,
+                f2,
+                batch.surf_tilt_deg[b],
+                batch.surf_azimuth_deg[b],
+                batch.surf_vf_ground[b],
+                sun_exp[b] & batch.surf_mask[b],
+                sunlit_frac=sf,
+            )
+            i_tot = i_beam + i_dsky + i_dgnd
+            i_diff = i_dsky + i_dgnd
+            op_mask = (is_outdoors_op[b] & sun_exp[b])[None, :]
+            qo = np.where(op_mask, i_tot * alpha_out[b][None, :], 0.0)
+
+            win_m = (is_window[b] & sun_exp[b])[None, :]
+            if bool(np.any(win_m)):
+                tau_b, abs_b, tau_d, abs_d = simple_glazing_angular_factors(
+                    cos_inc, batch.surf_u_value[b], batch.surf_shgc[b]
+                )
+                qw = np.where(win_m, i_beam * abs_b + i_diff * abs_d, 0.0)
+                areas = np.where(batch.surf_mask[b], batch.surf_area[b], 0.0)
+                q_tb = np.sum(np.where(win_m, i_beam * tau_b, 0.0) * areas[None, :], axis=1)
+                q_td = np.sum(np.where(win_m, i_diff * tau_d, 0.0) * areas[None, :], axis=1)
+                win_loss_area = float(
+                    np.sum(
+                        np.where(
+                            is_window[b] & batch.surf_mask[b],
+                            areas * (tau_d[0] + abs_d[0]),
+                            0.0,
+                        )
+                    )
+                )
+                qi, q_diff_inc = distribute_full_exterior_interior_solar(
+                    q_tb,
+                    q_td,
+                    areas,
+                    alpha_in[b],
+                    is_floor[b],
+                    is_non_window[b],
+                    win_back_loss_area=win_loss_area,
+                )
+                qw = qw + np.where(win_m, q_diff_inc[:, None] * abs_d, 0.0)
+            else:
+                qw = np.zeros_like(qo)
+                qi = np.zeros_like(qo)
+            return qo, qi, qw
+
+        q_out[b], q_in[b], q_win[b] = _compute_period(
+            w.dni,
+            w.dhi,
+            w.solcos_x,
+            w.solcos_y,
+            w.solcos_z,
+            w.perez_f1,
+            w.perez_f2,
+            sunlit_frac[b] if sunlit_frac is not None else None,
+        )
+        wu_q_out[b], wu_q_in[b], wu_q_win[b] = _compute_period(
+            w.warmup_dni,
+            w.warmup_dhi,
+            w.warmup_solcos_x,
+            w.warmup_solcos_y,
+            w.warmup_solcos_z,
+            w.warmup_perez_f1,
+            w.warmup_perez_f2,
+            wu_sunlit_frac[b] if wu_sunlit_frac is not None else None,
+        )
+    return q_out, q_in, q_win, wu_q_out, wu_q_in, wu_q_win
+
+
 def run_stage_a_batch(
     batch: BatchSpec,
     weather: WeatherSeries | list[WeatherSeries],
     ctf: CtfCoefficients | None = None,
     record_zone_temp: bool = False,
+    sunlit_frac: np.ndarray | None = None,
+    wu_sunlit_frac: np.ndarray | None = None,
     xp: Any = np,
 ) -> SimulationResult:
     """Run batched S0 warm-up and annual heat-balance simulation.
@@ -178,6 +322,25 @@ def run_stage_a_batch(
     is_window = (batch.surf_boundary == BOUND_WINDOW) & surf_mask
     is_non_window = surf_mask & (~is_window)
     has_window = bool(np.any(is_window))
+    has_solar = (
+        batch.surf_sun_exposed is not None
+        and bool(np.any(batch.surf_sun_exposed & surf_mask))
+    )
+    if has_solar:
+        q_sol_out_all, q_sw_in_all, q_sol_win_all, wu_q_out, wu_q_in, wu_q_win = (
+            _precompute_batch_solar(
+                batch,
+                weather,
+                is_outdoors_op,
+                is_window,
+                is_non_window,
+                sunlit_frac=sunlit_frac,
+                wu_sunlit_frac=wu_sunlit_frac,
+            )
+        )
+    else:
+        q_sol_out_all = q_sw_in_all = q_sol_win_all = None
+        wu_q_out = wu_q_in = wu_q_win = None
 
     area_masked = np.where(surf_mask, batch.surf_area, 0.0)
     h_min_2d = batch.h_conv_min[:, None]
@@ -252,6 +415,9 @@ def run_stage_a_batch(
         gain_w: np.ndarray,
         begin_envrn: bool,
         active_b: np.ndarray | None,
+        q_sol_out: Any = 0.0,
+        q_sw_in: Any = 0.0,
+        q_sol_win: Any = 0.0,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         nonlocal t_surf_in, t_surf_out, t_in_hist, t_out_hist, q_out_hist, q_in_hist
         nonlocal t_mat, xmat, dsxmat, w_zone, w_zone_avg, w_prev_ts, dsw_prev_ts
@@ -343,6 +509,8 @@ def run_stage_a_batch(
             hgrd_op,
             h_conv_in,
             q_lw_out_pass,
+            q_sol_out_abs=q_sol_out,
+            q_sw_in_abs=q_sw_in,
             xp=xp,
         )
 
@@ -417,6 +585,7 @@ def run_stage_a_batch(
                     theta1_init=th1_init,
                     theta2_init=th2_init,
                     win_mask=is_window,
+                    q_sol_win_abs_w_m2=q_sol_win,
                     xp=xp,
                 )
                 cur_t_in = np.where(is_window, win_tin, cur_t_in)
@@ -435,6 +604,7 @@ def run_stage_a_batch(
                 ctf_cross0=ctf_cross0,
                 ctf_const_in=ctf_const_in,
                 is_adiabatic=is_intmass,
+                q_sw_in_abs=q_sw_in,
                 iter_damp_const=ITER_DAMP_CONST,
                 xp=xp,
             )
@@ -686,6 +856,9 @@ def run_stage_a_batch(
                 wu_gain[:, step],
                 begin_envrn=(day == 1 and step == 0),
                 active_b=still_warming,
+                q_sol_out=wu_q_out[:, step, :] if wu_q_out is not None else 0.0,
+                q_sw_in=wu_q_in[:, step, :] if wu_q_in is not None else 0.0,
+                q_sol_win=wu_q_win[:, step, :] if wu_q_win is not None else 0.0,
             )
             max_t_day = np.maximum(max_t_day, ztav_step)
             min_t_day = np.minimum(min_t_day, ztav_step)
@@ -734,6 +907,9 @@ def run_stage_a_batch(
             gain_ts[:, step],
             begin_envrn=False,
             active_b=None,
+            q_sol_out=q_sol_out_all[:, step, :] if q_sol_out_all is not None else 0.0,
+            q_sw_in=q_sw_in_all[:, step, :] if q_sw_in_all is not None else 0.0,
+            q_sol_win=q_sol_win_all[:, step, :] if q_sol_win_all is not None else 0.0,
         )
         hourly_heating_j[:, step // sph] += heat_j
         if z_temp_rec is not None and z_mean_rec is not None:

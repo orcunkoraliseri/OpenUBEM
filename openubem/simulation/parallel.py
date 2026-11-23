@@ -121,8 +121,9 @@ def _split_resume(
 
 def _purge_work_dir(work_dir: Path) -> None:
     """Delete files not in config.SIM_RETAIN_FILES from a success work_dir (DESIGN §3F, F9)."""
+    retain = set(config.SIM_RETAIN_FILES) | {"gpusim_provenance.json"}
     for f in work_dir.iterdir():
-        if f.is_file() and f.name not in config.SIM_RETAIN_FILES:
+        if f.is_file() and f.name not in retain:
             f.unlink()
 
 
@@ -256,16 +257,33 @@ def run_neighbourhood(
     n_jobs: int = config.N_JOBS,
     backend: str = "loky",
     force_rerun: bool = False,
+    sim_engine: str | None = None,
+    gpusim_device: str | None = None,
+    spot_check_fraction: float | None = None,
 ) -> pd.DataFrame:
     """
-    Fan-out EnergyPlus over all generation-success IDFs; return 04 manifest DataFrame (DESIGN §3D).
+    Fan-out EnergyPlus (and optionally gpusim) over all generation-success IDFs;
+    return 04 manifest DataFrame (DESIGN §3D, BUILD_SPEC M5).
 
-    Writes 04_simulation_manifest.parquet into sim_root.
+    Writes 04_simulation_manifest.parquet into sim_root (plus 04_routing_report.csv
+    when ``sim_engine`` is ``"gpusim"`` or ``"auto"``).
     """
     sim_root = Path(sim_root)
     sim_root.mkdir(parents=True, exist_ok=True)
 
-    ep_version = _version_handshake()  # fail-fast before any dispatch (F5)
+    eff_engine = (
+        config.SIM_ENGINE if sim_engine is None else str(sim_engine)
+    ).strip().lower()
+    if eff_engine not in {"energyplus", "gpusim", "auto"}:
+        raise ValueError(f"Unsupported sim_engine={sim_engine!r}")
+    eff_device = (
+        config.GPUSIM_DEVICE if gpusim_device is None else str(gpusim_device)
+    )
+    eff_spot = (
+        config.GPUSIM_SPOT_CHECK_FRACTION
+        if spot_check_fraction is None
+        else float(spot_check_fraction)
+    )
 
     if config.PREP_ABORT_ON_FAILURE:
         failed_mask = idf_manifest["generation_status"] != "success"
@@ -280,13 +298,76 @@ def run_neighbourhood(
     tasks, skipped = build_task_list(idf_manifest, enriched_gdf, sim_root)
     fresh, cached = _split_resume(tasks, force_rerun, sim_root)
 
-    raw_results: list[dict] = []
-    if fresh:
-        raw_results = Parallel(n_jobs=n_jobs, backend=backend, verbose=10)(
-            delayed(_worker)(t) for t in fresh
+    if eff_engine == "energyplus":
+        ep_version = _version_handshake()  # fail-fast before any dispatch (F5)
+        raw_results: list[dict] = []
+        if fresh:
+            raw_results = Parallel(n_jobs=n_jobs, backend=backend, verbose=10)(
+                delayed(_worker)(t) for t in fresh
+            )
+        manifest_df = _emit_manifest(
+            raw_results, cached, skipped, idf_manifest, sim_root, ep_version
         )
+        manifest_df.to_parquet(
+            sim_root / "04_simulation_manifest.parquet",
+            engine="pyarrow", index=False,
+        )
+        return manifest_df
 
-    manifest_df = _emit_manifest(raw_results, cached, skipped, idf_manifest, sim_root, ep_version)
+    from openubem.gpusim.router import (
+        route_idf_text,
+        run_routed_gpusim_batch,
+        write_routing_report_csv,
+    )
+
+    decisions = []
+    ep_tasks: list[SimTask] = []
+    gpu_tasks: list[SimTask] = []
+    gpu_decisions = []
+    for t in fresh:
+        idf_text = Path(t.idf_path).read_text(encoding="utf-8", errors="replace")
+        dec = route_idf_text(
+            idf_text,
+            t.osm_id,
+            sim_engine=eff_engine,
+            device=eff_device,
+            spot_check_fraction=eff_spot if eff_engine == "auto" else 0.0,
+            eplus_version=config.ENERGYPLUS_VERSION,
+        )
+        decisions.append(dec)
+        if dec.selected_engine == "gpusim":
+            gpu_tasks.append(t)
+            gpu_decisions.append(dec)
+        else:
+            ep_tasks.append(t)
+
+    write_routing_report_csv(decisions, sim_root / "04_routing_report.csv")
+
+    ep_version = config.ENERGYPLUS_VERSION
+    if ep_tasks:
+        ep_version = _version_handshake()
+
+    raw_results = []
+    if ep_tasks:
+        raw_results.extend(
+            Parallel(n_jobs=n_jobs, backend=backend, verbose=10)(
+                delayed(_worker)(t) for t in ep_tasks
+            )
+        )
+    if gpu_tasks:
+        gpu_rows = run_routed_gpusim_batch(
+            idf_paths=[Path(t.idf_path) for t in gpu_tasks],
+            epw_paths=[Path(t.epw_path) for t in gpu_tasks],
+            work_dirs=[Path(t.work_dir) for t in gpu_tasks],
+            building_ids=[t.osm_id for t in gpu_tasks],
+            decisions=gpu_decisions,
+            device=eff_device,
+        )
+        raw_results.extend(gpu_rows)
+
+    manifest_df = _emit_manifest(
+        raw_results, cached, skipped, idf_manifest, sim_root, ep_version
+    )
     manifest_df.to_parquet(
         sim_root / "04_simulation_manifest.parquet",
         engine="pyarrow", index=False,

@@ -81,6 +81,7 @@ def solve_simple_window(
     theta1_init: Any,
     theta2_init: Any,
     win_mask: Any,
+    q_sol_win_abs_w_m2: Any = 0.0,
     xp: Any = np,
 ) -> tuple[Any, Any, Any, Any, Any]:
     """WindowManager.cc::SolveForWindowTemperatures"""
@@ -90,6 +91,7 @@ def solve_simple_window(
     out_ir = calc_window_outside_ir(
         t_out_k, t_sky_k, vf_sky_ir, vf_ground_ir, air_sky_split, xp=xp
     )
+    half_q_sol = 0.5 * q_sol_win_abs_w_m2
 
     theta1 = theta1_init
     theta2 = theta2_init
@@ -117,8 +119,8 @@ def solve_simple_window(
 
         a11 = hr1 + scon + h_out
         a22 = hr2 + scon + h_in
-        b1 = out_ir * eps_out + h_out * t_out_k
-        b2 = rmir * eps_in + h_in * t_in_k
+        b1 = out_ir * eps_out + h_out * t_out_k + half_q_sol
+        b2 = rmir * eps_in + h_in * t_in_k + half_q_sol
 
         det = a11 * a22 - scon * scon
         safe_det = xp.where(active, det, 1.0)

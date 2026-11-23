@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 import time
+from typing import Any, Callable
 
 import numpy as np
 import torch
@@ -29,14 +30,55 @@ from openubem.gpusim.ctf import CtfCoefficients
 from openubem.gpusim.weather import WeatherSeries
 
 
-def run_packed_stage_c_mps(
+def _resolve_device_hooks(
+    device: str,
+) -> tuple[
+    Callable[[], Any],
+    Callable[[PackedBatch, bool], Any],
+    Callable[[Any, np.ndarray], None],
+    Callable[..., None],
+    Callable[[], None],
+]:
+    """Return backend-specific compile, upload, mask, launch, and sync hooks."""
+    if device == "mps":
+        if not torch.backends.mps.is_available():
+            raise RuntimeError("Stage C Metal backend requires Apple MPS")
+        return (
+            compile_metal_s0_shader,
+            upload_packed_to_mps,
+            update_active_mask_mps,
+            lambda lib, bufs, **kw: launch_s0_chunk_mps(lib=lib, bufs=bufs, **kw),
+            torch.mps.synchronize,
+        )
+    if device == "cuda":
+        if not torch.cuda.is_available():
+            raise RuntimeError("Stage C CUDA backend requires an available CUDA GPU")
+        from openubem.gpusim.backends.kernel.s0_cuda import (
+            compile_cuda_s0_kernel,
+            launch_s0_chunk_cuda,
+            update_active_mask_cuda,
+            upload_packed_to_cuda,
+        )
+
+        return (
+            compile_cuda_s0_kernel,
+            upload_packed_to_cuda,
+            update_active_mask_cuda,
+            lambda lib, bufs, **kw: launch_s0_chunk_cuda(kernel=lib, bufs=bufs, **kw),
+            torch.cuda.synchronize,
+        )
+    raise ValueError(f"Unsupported Stage C device {device!r}; expected 'mps' or 'cuda'")
+
+
+def run_packed_stage_c(
     packed: PackedBatch,
     cell_ids: list[str],
     record_zone_temp: bool = False,
     force_warmup_days: Sequence[int] | np.ndarray | None = None,
     run_chunk_days: int = 1,
+    device: str = "mps",
 ) -> tuple[SimulationResult, dict[str, float]]:
-    """Execute a packed Stage C batch on MPS with phase and launch timings.
+    """Execute a packed Stage C batch on MPS or CUDA with phase and launch timings.
 
     Args:
         packed: Host ``PackedBatch`` built by ``pack``.
@@ -44,17 +86,19 @@ def run_packed_stage_c_mps(
         record_zone_temp: If True, download per-timestep zone temperatures.
         force_warmup_days: Optional per-building warm-up day counts ``[B]``.
         run_chunk_days: Number of simulation days per run-period kernel launch.
+        device: Target GPU backend (``"mps"`` or ``"cuda"``).
 
     Returns:
         Tuple ``(SimulationResult, timings_dict)`` where ``timings_dict``
         reports ``upload_s``, ``gpu_s``, ``download_s``, and ``max_launch_s``.
 
     Raises:
-        RuntimeError: If Apple MPS is unavailable.
-        ValueError: If ``run_chunk_days`` or ``force_warmup_days`` is invalid.
+        RuntimeError: If the requested GPU device is unavailable.
+        ValueError: If ``device``, ``run_chunk_days``, or ``force_warmup_days`` is invalid.
     """
-    if not torch.backends.mps.is_available():
-        raise RuntimeError("Stage C Metal backend requires Apple MPS")
+    compile_fn, upload_fn, update_mask_fn, launch_fn, sync_fn = _resolve_device_hooks(
+        device
+    )
     if run_chunk_days <= 0:
         raise ValueError(f"run_chunk_days must be positive, got {run_chunk_days}")
 
@@ -64,15 +108,13 @@ def run_packed_stage_c_mps(
     dt_zone_hr = 1.0 / float(sph)
     limit_num_sys = max(1, int(round(dt_zone_hr / MIN_TIME_STEP_SYS_HR)))
 
-    lib = compile_metal_s0_shader()
-    torch.mps.synchronize()
+    lib = compile_fn()
+    sync_fn()
     t_up0 = time.perf_counter()
-    bufs = upload_packed_to_mps(packed, record_zone_temp=record_zone_temp)
-    torch.mps.synchronize()
+    bufs = upload_fn(packed, record_zone_temp)
+    sync_fn()
     upload_s = time.perf_counter() - t_up0
 
-    wu_min_days = packed.bldg_f
-    _ = wu_min_days
     wu_min = packed.bldg_i[1]
     wu_max = packed.bldg_i[2]
     loads_tol = packed.bldg_f[12].astype(np.float64)
@@ -93,11 +135,11 @@ def run_packed_stage_c_mps(
             still_warming = forced >= day
             if not bool(np.any(still_warming)):
                 break
-            update_active_mask_mps(bufs, still_warming)
+            update_mask_fn(bufs, still_warming)
             t_l0 = time.perf_counter()
-            launch_s0_chunk_mps(
-                lib=lib,
-                bufs=bufs,
+            launch_fn(
+                lib,
+                bufs,
                 step_start=0,
                 step_end=steps_per_day,
                 is_warmup=True,
@@ -106,7 +148,7 @@ def run_packed_stage_c_mps(
                 rec_step_offset=0,
                 limit_num_sys=limit_num_sys,
             )
-            torch.mps.synchronize()
+            sync_fn()
             l_s = time.perf_counter() - t_l0
             if l_s > max_launch_s:
                 max_launch_s = l_s
@@ -121,11 +163,11 @@ def run_packed_stage_c_mps(
         for day in range(1, max_wu_days + 1):
             if not bool(np.any(still_warming)):
                 break
-            update_active_mask_mps(bufs, still_warming)
+            update_mask_fn(bufs, still_warming)
             t_l0 = time.perf_counter()
-            launch_s0_chunk_mps(
-                lib=lib,
-                bufs=bufs,
+            launch_fn(
+                lib,
+                bufs,
                 step_start=0,
                 step_end=steps_per_day,
                 is_warmup=True,
@@ -134,7 +176,7 @@ def run_packed_stage_c_mps(
                 rec_step_offset=0,
                 limit_num_sys=limit_num_sys,
             )
-            torch.mps.synchronize()
+            sync_fn()
             l_s = time.perf_counter() - t_l0
             if l_s > max_launch_s:
                 max_launch_s = l_s
@@ -172,9 +214,9 @@ def run_packed_stage_c_mps(
     for step_start in range(0, n_run_steps, chunk_steps):
         step_end = min(step_start + chunk_steps, n_run_steps)
         t_l0 = time.perf_counter()
-        launch_s0_chunk_mps(
-            lib=lib,
-            bufs=bufs,
+        launch_fn(
+            lib,
+            bufs,
             step_start=step_start,
             step_end=step_end,
             is_warmup=False,
@@ -183,7 +225,7 @@ def run_packed_stage_c_mps(
             rec_step_offset=0,
             limit_num_sys=limit_num_sys,
         )
-        torch.mps.synchronize()
+        sync_fn()
         l_s = time.perf_counter() - t_l0
         if l_s > max_launch_s:
             max_launch_s = l_s
@@ -223,6 +265,42 @@ def run_packed_stage_c_mps(
     return res, timings
 
 
+def run_packed_stage_c_mps(
+    packed: PackedBatch,
+    cell_ids: list[str],
+    record_zone_temp: bool = False,
+    force_warmup_days: Sequence[int] | np.ndarray | None = None,
+    run_chunk_days: int = 1,
+) -> tuple[SimulationResult, dict[str, float]]:
+    """Execute a packed Stage C batch on MPS with phase and launch timings."""
+    return run_packed_stage_c(
+        packed=packed,
+        cell_ids=cell_ids,
+        record_zone_temp=record_zone_temp,
+        force_warmup_days=force_warmup_days,
+        run_chunk_days=run_chunk_days,
+        device="mps",
+    )
+
+
+def run_packed_stage_c_cuda(
+    packed: PackedBatch,
+    cell_ids: list[str],
+    record_zone_temp: bool = False,
+    force_warmup_days: Sequence[int] | np.ndarray | None = None,
+    run_chunk_days: int = 1,
+) -> tuple[SimulationResult, dict[str, float]]:
+    """Execute a packed Stage C batch on CUDA with phase and launch timings."""
+    return run_packed_stage_c(
+        packed=packed,
+        cell_ids=cell_ids,
+        record_zone_temp=record_zone_temp,
+        force_warmup_days=force_warmup_days,
+        run_chunk_days=run_chunk_days,
+        device="cuda",
+    )
+
+
 def run_stage_c_batch(
     batch: BatchSpec,
     weather: WeatherSeries | list[WeatherSeries],
@@ -230,8 +308,9 @@ def run_stage_c_batch(
     record_zone_temp: bool = False,
     force_warmup_days: Sequence[int] | np.ndarray | None = None,
     run_chunk_days: int = 1,
+    device: str = "mps",
 ) -> SimulationResult:
-    """Run batched S0 simulation using the chunked Stage C Metal kernel.
+    """Run batched S0 simulation using the chunked Stage C kernel (MPS or CUDA).
 
     Args:
         batch: Compiled ``BatchSpec`` of shape ``[B, S]``.
@@ -240,17 +319,19 @@ def run_stage_c_batch(
         record_zone_temp: If True, record per-timestep zone temperatures ``[B, T]``.
         force_warmup_days: Optional per-building warm-up day counts ``[B]``.
         run_chunk_days: Number of simulation days per run-period GPU launch.
+        device: Target GPU backend (``"mps"`` or ``"cuda"``).
 
     Returns:
         ``SimulationResult`` matching Stage A outputs.
     """
     weather_by_site, site_index = deduplicate_weather(weather, batch.batch_size)
     packed = pack(batch, weather_by_site, site_index, ctf=ctf)
-    res, _ = run_packed_stage_c_mps(
+    res, _ = run_packed_stage_c(
         packed=packed,
         cell_ids=batch.cell_ids,
         record_zone_temp=record_zone_temp,
         force_warmup_days=force_warmup_days,
         run_chunk_days=run_chunk_days,
+        device=device,
     )
     return res

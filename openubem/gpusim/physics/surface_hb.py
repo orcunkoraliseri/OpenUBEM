@@ -38,11 +38,14 @@ def calc_outdoors_outside_temp(
     h_grd_ext: Any,
     h_conv_in: Any,
     q_rad_net_lw_in: Any,
+    q_sol_out_abs: Any = 0.0,
+    q_sw_in_abs: Any = 0.0,
     xp: Any = np,
 ) -> Any:
     """HeatBalanceSurfaceManager.cc::CalcOutsideSurfTemp"""
     ext_num = (
         -ctf_const_out
+        + q_sol_out_abs
         + (h_c_ext + h_air_ext) * t_out_surf_air
         + h_sky_ext * t_sky
         + h_grd_ext * t_ground_site
@@ -51,7 +54,9 @@ def calc_outdoors_outside_temp(
 
     safe_in_den = xp.maximum(ctf_in0 + h_conv_in, 1.0e-12)
     f1 = ctf_cross0 / safe_in_den
-    quick_num = ext_num + f1 * (ctf_const_in + h_conv_in * t_zone + q_rad_net_lw_in)
+    quick_num = ext_num + f1 * (
+        ctf_const_in + h_conv_in * t_zone + q_rad_net_lw_in + q_sw_in_abs
+    )
     quick_den = ext_den - f1 * ctf_cross0
 
     slow_num = ext_num + ctf_cross0 * t_in_prev
@@ -100,11 +105,12 @@ def calc_inside_surface_step(
     ctf_cross0: Any,
     ctf_const_in: Any,
     is_adiabatic: Any,
+    q_sw_in_abs: Any = 0.0,
     iter_damp_const: float = ITER_DAMP_CONST,
     xp: Any = np,
 ) -> Any:
     """HeatBalanceSurfaceManager.cc::CalcHeatBalanceInsideSurf2"""
-    temp_term = ctf_const_in + h_conv_in * t_zone + q_rad_net_lw_in
+    temp_term = ctf_const_in + h_conv_in * t_zone + q_rad_net_lw_in + q_sw_in_abs
     num_ad = temp_term + iter_damp_const * t_in_old
     den_ad = ctf_in0 - ctf_cross0 + h_conv_in + iter_damp_const
 

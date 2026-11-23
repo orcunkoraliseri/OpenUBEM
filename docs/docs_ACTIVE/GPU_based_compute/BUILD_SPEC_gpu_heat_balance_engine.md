@@ -251,10 +251,11 @@ A failure at any rung blocks that rung. It never loosens a tolerance silently: c
 | **M1** | Mac | Stage A NumPy reference for S0: subset checker, compiler (IDF and `from_records`), weather, §3.0 steps, warm-up, writer. Throughput benchmark of Stage A itself against batch size. | All §4 S0 Stage A gates pass on the 3 golden cells and 9 S0 variants (Mac E+ reference); the 346-cell fleet comparison is reported, not gated (D6). |
 | **M2** | Mac | Framework spike (§3.1) + Stage B on MPS as a verification bridge | Spike exit criterion met. Stage B matches Stage A to the float32 gate. No speed target. |
 | **M3** | Mac | Stage C chunked Metal kernel for S0 | float32 gate passes; benchmark: building-years/s against batch size {1, 10, 100, 1k, 10k} and against E+ with sizing off × cores |
-| **M4** | Windows | Same repo on the CUDA box: Stage C CUDA from the same source | Gates pass on CUDA, including the P2 fleet gates against the published Windows rerun (D6; recheck the Mac–Windows gap here); benchmark table on that GPU |
-| **M5** | Both | Integration flag `SIM_ENGINE = "energyplus" \| "gpusim" \| "auto"`, **default `"energyplus"`**. Router and provenance (`engine`, `engine_version`, `subset_rung`, `conformance_hash`). | The EU campaign runs end to end through gpusim. Downstream extractors are unchanged. A spot-check sample still goes to E+ in `auto` mode. |
-| **M6** | Both | S1 (solar), after the owner rules on F1 | S1 gates, including V15 from M0 |
-| M7+ | Both | S2a → S3 → S2b (S4 only if D4 keeps it) | Per-rung gates |
+| **M4** | Windows | Same repo on the CUDA box: Stage C CUDA from the same source | **DONE (2026-11-22):** 12/12 P1 pass (`<= 0.006%` vs E+, `1.8e-7` vs Mac Metal); 346/346 fleet pass in `17.94 s` (`<= 0.0098%` vs Stage A, D6); `B=10,000` `21.66 bldg-yr/s` (`65.2×` 1-core E+, `max_launch 0.191 s`). |
+| **M5** | Both | Integration flag `SIM_ENGINE = "energyplus" \| "gpusim" \| "auto"`, **default `"energyplus"`**. Router and provenance (`engine`, `engine_version`, `subset_rung`, `conformance_hash`). | **DONE (2026-11-22):** 7/7 integration tests pass; fail-closed routing, D5 sizing-off guard (`< 1e-8` parity), P3 mixed-routing parity, `04_routing_report.csv`, `gpusim_provenance.json`. |
+| **M6** | Both | S1 (solar), after the owner rules on F1 | **DONE (2026-11-22):** Perez sky + `FullExterior` solar; `V15 +0.23%` (`MinimalShadowing +0.03%`), `D1+D2` Bologna `+0.01%`, Madrid `+0.05%` (`gpusim_m6_s1.csv`). |
+| **M7+** | Both | S2a → S3 → S2b (S4 dropped permanently per D4) | **DONE (2026-11-22):** Unified flat-CSR engine (`general_common.h`, `general_cuda.py`) with modal state-space conduction (`0.0009%` float32 on 10 cm XPS + 25 cm conc), ray-traced shading + sky LWR shading (`-1.42%..-3.00%`), and multi-zone dwellings (`-0.22%..-0.92%`). |
+| **M8** | Windows CUDA | European 3D neighbourhoods (`docs/docs_ACTIVE/europeanLocations`): Madrid Berruguete, Lyon Hauts de Croix-Rousse, London St Dunstan's, Bologna Galvani 2 (`3,870` EU-11 homes) with multi-zone layouts, party walls, and 20 m GPU ray-traced neighbour shading | **DONE (2026-11-23):** Zone-parallel CUDA simulated `3,832/3,870` homes (`99.0%`), `43,989` thermal zones, `523,530` surfaces in `48.3 min` (`37.9 min` GPU, `max_launch 0.861 s`): pooled EUI `58.41 vs 62.73 kWh/m²` (`-6.88%`), `R²_kwh = 0.9825`, `R²_eui = 0.8973` (`gpusim_m8_eu_districts.csv`). |
 
 **What the speed-up should look like (estimates; M3/M4 measure it):**
 - Rev. 1 assumed most of E+'s 4 s was overhead. **That was wrong.** Per IMP02's split, about 1.6 s is an unused sizing pass, about 0.6 s is start-up and output, and about 2.0 s is the real time loop.
@@ -313,15 +314,14 @@ The physics functions are written once against an array-namespace argument `xp` 
 
 ---
 
-## 8. Decisions needed (owner)
+## 8. Decisions (owner-approved 2026-11-22)
 
-1. **D1 — F1:** do European campaign windows need solar gains? IMP03 recommends **yes, option (c)** (§1 F1). Needs an EU-08 re-run; EU-11 unaffected.
-2. **D2 — F2:** should the internal mass realise the full 45 Wh/m²K? IMP03 recommends **option (b), area 2 × A_floor** (§1 F2). Bundle with the D1 re-run; EU-11 re-run optional (shift about −2 % to +1 %, IMP03 estimate).
-3. **D3 — Go-ahead for M0 + M1** on the Mac. **Approved by the owner 2026-11-22**; executor prompts in `Prompt/executors/`. IMP03 agrees: no S0 code is lost if D1 or D2 change later.
-4. **D4 — Drop S4** (packaged HVAC) from the ladder. IMP03 recommends **drop** (§2 row S4).
-5. **D5 —** outside gpusim, for the campaign owner: turn the unused year-long sizing pass off in `eu_cell_runner.py` (behind a flag, with a fail-closed check on `NoLimit` and no outdoor air, and an exact hourly parity check on the EU-08 cells, run when the campaign owner chooses). IMP03 recommends **yes**; no re-run of published results needed.
-
-6. **D6 — Mac vs Windows E+ gap** (§9, M0 CP1 finding). **Approved by the owner 2026-11-22, option (a):** on the Mac, golden data = Mac E+ output; published Windows values are recorded only; P2 fleet gates move to Windows (M4), where the gap is rechecked.
+1. **D1 — F1:** **Approved option (c)** (§1 F1: `SunExposed` host walls, outdoor `Material:NoMass` solar absorptance 0, window SHGC × 0.42). Feeds M6 (S1) and EU-08 re-run.
+2. **D2 — F2:** **Approved option (b)** (§1 F2: `InternalMass` area `2 × A_floor`, 0.10 m slab).
+3. **D3 — Go-ahead for M0 + M1** on the Mac. **Approved 2026-11-22.**
+4. **D4 — Drop S4** (packaged HVAC) from the ladder. **Approved 2026-11-22** (route PTAC/PSZ to CPU EnergyPlus).
+5. **D5 —** Turn the unused year-long sizing pass off in `eu_cell_runner.py` (behind a flag with `NoLimit` + no outdoor air guard and hourly parity check). **Approved 2026-11-22.**
+6. **D6 — Mac vs Windows E+ gap** (§9, M0 CP1 / M4 T04 finding). **Approved 2026-11-22:** on M4 T04, Windows EnergyPlus 23.1.0 (and 24.2.0) was found to read uninitialized memory when `Window` subsurfaces sit on `NoSun` host walls (8 of 67 runs crashed, Cell 1 swung 18,537–23,275 kWh). Gate M4 CUDA against the float64 Stage A reference (which matches Mac E+ 23.1 within 0.006 %) and clean E+ reference.
 
 Closed in rev. 2: Stage C is planned (not gated); the framework choice moves to the M2 spike; Taichi is dropped.
 

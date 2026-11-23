@@ -8,7 +8,12 @@ from openubem.gpusim.schedules import (
     load_schedule_file_hourly,
     resolve_schedule_path,
 )
-from openubem.gpusim.subset import ParsedIdfObject, check_s0_subset, parse_expidf
+from openubem.gpusim.subset import (
+    ParsedIdfObject,
+    check_s0_subset,
+    check_s1_subset,
+    parse_expidf,
+)
 
 BOUND_OSC = 0
 BOUND_OUTDOORS = 1
@@ -92,6 +97,10 @@ class SurfaceRecord:
     roughness: int
     height: float
     width: float
+    sun_exposed: bool = False
+    wind_exposed: bool = False
+    solar_abs_out: float = 0.7
+    solar_abs_in: float = 0.7
 
 
 @dataclass(frozen=True)
@@ -203,6 +212,10 @@ class BatchSpec:
     loads_conv_tol: np.ndarray
     temp_conv_tol: np.ndarray
     site_elevation: np.ndarray
+    surf_sun_exposed: np.ndarray | None = None
+    surf_wind_exposed: np.ndarray | None = None
+    surf_solar_abs_out: np.ndarray | None = None
+    surf_solar_abs_in: np.ndarray | None = None
 
 
 def _field(obj: ParsedIdfObject, index: int, default: str = "") -> str:
@@ -365,24 +378,13 @@ def _compile_single_building(
     cell_id: str,
     epw_id: str,
     schedule_search_dirs: list[Path],
+    *,
+    max_rung: str = "S1",
 ) -> dict[str, object]:
-    """Parse and compile one S0 expanded IDF into geometry and zone fields.
-
-    Args:
-        idf_text: Expanded IDF text (``eplusout.expidf``).
-        cell_id: Identifier for this building.
-        epw_id: Identifier/filename for this building's EPW weather file.
-        schedule_search_dirs: Search directories for resolving ``Schedule:File``.
-
-    Returns:
-        Dictionary of compiled building properties and ``SurfaceRecord`` list.
-
-    Raises:
-        ValueError: If the IDF fails the S0 subset check or misses required objects.
-    """
-    check = check_s0_subset(idf_text)
+    """Parse and compile one S0/S1 expanded IDF into geometry and zone fields."""
+    check = check_s1_subset(idf_text) if max_rung == "S1" else check_s0_subset(idf_text)
     if not check.passed:
-        raise ValueError(f"{cell_id}: failed S0 subset check: {check.reason}")
+        raise ValueError(f"{cell_id}: failed {max_rung} subset check: {check.reason}")
 
     objects = parse_expidf(idf_text)
     by_type: dict[str, list[ParsedIdfObject]] = {}
@@ -463,6 +465,9 @@ def _compile_single_building(
         r_val = _float_field(mat_obj, 2)
         u_val = 1.0 / r_val
         eps_val = _float_field(mat_obj, 3, 0.9)
+        sol_abs_val = _float_field(mat_obj, 4, 0.7)
+        sun_exp = _field(surf, 7, "SunExposed").casefold() == "sunexposed"
+        wind_exp = _field(surf, 8, "WindExposed").casefold() == "windexposed"
 
         bc_str = _field(surf, 5).casefold()
         if bc_str == "outdoors":
@@ -540,6 +545,7 @@ def _compile_single_building(
                 f_u = _float_field(glass_obj, 1)
                 f_shgc = _float_field(glass_obj, 2)
                 f_eps = 0.84
+                f_sol_abs = 0.0
                 f_rough = ROUGHNESS_MAP["verysmooth"]
                 f_class = SURF_WINDOW
                 f_bound = BOUND_WINDOW
@@ -548,6 +554,7 @@ def _compile_single_building(
                 f_u = 1.0 / _float_field(dmat_obj, 2)
                 f_shgc = 0.0
                 f_eps = _float_field(dmat_obj, 3, 0.9)
+                f_sol_abs = _float_field(dmat_obj, 4, 0.7)
                 f_rough = ROUGHNESS_MAP[_field(dmat_obj, 1, "MediumRough").casefold()]
                 f_class = SURF_DOOR
                 f_bound = BOUND_DOOR
@@ -581,6 +588,10 @@ def _compile_single_building(
                     roughness=f_rough,
                     height=f_height,
                     width=f_width,
+                    sun_exposed=sun_exp,
+                    wind_exposed=wind_exp,
+                    solar_abs_out=f_sol_abs,
+                    solar_abs_in=f_sol_abs,
                 )
             )
 
@@ -613,6 +624,10 @@ def _compile_single_building(
                 roughness=rough_idx,
                 height=height,
                 width=width,
+                sun_exposed=sun_exp,
+                wind_exposed=wind_exp,
+                solar_abs_out=sol_abs_val,
+                solar_abs_in=sol_abs_val,
             )
         )
         surf_records.extend(sub_records)
@@ -630,6 +645,7 @@ def _compile_single_building(
         thickness = _float_field(mat_obj, 2)
         cond = _float_field(mat_obj, 3)
         eps_val = _float_field(mat_obj, 6, 0.9)
+        im_sol_abs = _float_field(mat_obj, 7, 0.7)
         rough_idx = ROUGHNESS_MAP[_field(mat_obj, 1, "MediumRough").casefold()]
         im_area = _float_field(im, 4)
         surf_records.append(
@@ -660,6 +676,10 @@ def _compile_single_building(
                 roughness=rough_idx,
                 height=1.0,
                 width=im_area,
+                sun_exposed=False,
+                wind_exposed=False,
+                solar_abs_out=im_sol_abs,
+                solar_abs_in=im_sol_abs,
             )
         )
 
@@ -746,21 +766,10 @@ def compile_expidf_batch(
     cell_ids: list[str] | None = None,
     epw_ids: list[str] | None = None,
     schedule_dirs: list[Path] | None = None,
+    *,
+    max_rung: str = "S1",
 ) -> BatchSpec:
-    """Compile a batch of expanded S0 IDFs into a padded ``BatchSpec``.
-
-    Args:
-        expidf_paths: List of paths to ``eplusout.expidf`` files.
-        cell_ids: Optional building identifiers (defaults to parent directory names).
-        epw_ids: Optional EPW identifiers per building.
-        schedule_dirs: Optional extra directories searched for ``Schedule:File``.
-
-    Returns:
-        ``BatchSpec`` with dense ``[B, S]`` float64 arrays and surface masks.
-
-    Raises:
-        ValueError: If ``expidf_paths`` is empty or timesteps differ across batch.
-    """
+    """Compile a batch of expanded S0/S1 IDFs into a padded ``BatchSpec``."""
     if not expidf_paths:
         raise ValueError("expidf_paths must not be empty")
 
@@ -773,7 +782,9 @@ def compile_expidf_batch(
     for path, cid, epw_id in zip(expidf_paths, ids, epws, strict=True):
         search_dirs = [path.parent, *extra_dirs]
         text = path.read_text(encoding="utf-8", errors="replace")
-        compiled.append(_compile_single_building(text, cid, epw_id, search_dirs))
+        compiled.append(
+            _compile_single_building(text, cid, epw_id, search_dirs, max_rung=max_rung)
+        )
 
     steps_per_hour = int(compiled[0]["steps_per_hour"])
     for item in compiled[1:]:
@@ -810,6 +821,10 @@ def compile_expidf_batch(
     surf_roughness = np.zeros((n_bldg, max_s), dtype=np.int32)
     surf_height = np.zeros((n_bldg, max_s), dtype=np.float64)
     surf_width = np.zeros((n_bldg, max_s), dtype=np.float64)
+    surf_sun_exposed = np.zeros((n_bldg, max_s), dtype=bool)
+    surf_wind_exposed = np.zeros((n_bldg, max_s), dtype=bool)
+    surf_solar_abs_out = np.zeros((n_bldg, max_s), dtype=np.float64)
+    surf_solar_abs_in = np.zeros((n_bldg, max_s), dtype=np.float64)
 
     zone_volume = np.zeros(n_bldg, dtype=np.float64)
     zone_floor_area = np.zeros(n_bldg, dtype=np.float64)
@@ -863,6 +878,10 @@ def compile_expidf_batch(
             surf_roughness[b_idx, s_idx] = rec.roughness
             surf_height[b_idx, s_idx] = rec.height
             surf_width[b_idx, s_idx] = rec.width
+            surf_sun_exposed[b_idx, s_idx] = rec.sun_exposed
+            surf_wind_exposed[b_idx, s_idx] = rec.wind_exposed
+            surf_solar_abs_out[b_idx, s_idx] = rec.solar_abs_out
+            surf_solar_abs_in[b_idx, s_idx] = rec.solar_abs_in
 
         zone_volume[b_idx] = float(item["zone_volume"])
         zone_floor_area[b_idx] = float(item["zone_floor_area"])
@@ -939,4 +958,8 @@ def compile_expidf_batch(
         loads_conv_tol=loads_conv_tol,
         temp_conv_tol=temp_conv_tol,
         site_elevation=site_elevation,
+        surf_sun_exposed=surf_sun_exposed,
+        surf_wind_exposed=surf_wind_exposed,
+        surf_solar_abs_out=surf_solar_abs_out,
+        surf_solar_abs_in=surf_solar_abs_in,
     )

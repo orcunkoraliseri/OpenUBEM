@@ -122,3 +122,42 @@ Format (append only):
 - Test status: <command> -> <summary line>; <measured gate values>
 - Notes: <short>
 ```
+
+#### T01 — Windows setup and copy check — completed 2026-11-22
+- Artifacts: `pyproject.toml`, `uv.lock`, `tests/gpusim/test_windows_setup.py`, `openubem/outputs/gpusim_m4_setup.csv`
+- Deviations: Restored `rep2/` (346 cells, 395 manifests/schedules, 510 IDFs) from local git commit `cc37bcfca~1` and regenerated 15 `spike/*.npz` locally; added `cupy-cuda12x[ctk]==14.2.0` (CUDA 12.9 toolkit wheels) so NVRTC compiles without a system CUDA Toolkit; compared Stage A on the 3-cell batch (`B=3`) against `gpusim_m1_cells.csv` (because Stage A inside-iteration stops at batch-max `del_t`, so `B=1` vs `B=12` differs by `4.37e-5`, while `B=12` on Windows vs Mac matches to `0.0`).
+- Test status: `uv run --no-sync pytest tests/gpusim/test_windows_setup.py -q -s` -> `1 passed, 1 warning in 65.51s`; GPU `NVIDIA RTX A400` (3.998 GB, cc 8.6, driver 573.65, CUDA 12.6, torch `2.7.1+cu126`, cupy `14.2.0`, 20 CPU cores, `tdr=10s`), E+ `23.1.0-87ed9199d4`, `stage_a_rel_win_vs_mac=5.169e-12`.
+- Notes: Complete.
+
+#### T02 — Stage C on CUDA from the same header — completed 2026-11-22
+- Artifacts: `openubem/gpusim/backends/kernel/s0_common.h`, `openubem/gpusim/backends/kernel/s0_cuda.py`, `openubem/gpusim/backends/stage_c.py`, `tests/gpusim/test_stage_c_cuda.py`
+- Deviations: None (`s0_common.h` diff is 22 `#elif defined(__CUDACC__)` macro lines only; zero physics changes).
+- Test status: `uv run --no-sync pytest tests/gpusim/test_stage_c_cuda.py::test_smoke -q -s` -> `T02 Stage C CUDA smoke (B=3): wall=5.973 s, gpu=5.645 s, max_launch=0.01867 s, warmup_days=[3, 3, 3], annual_kwh=[23274.93, 429457.48, 177983.9]`.
+- Notes: Complete.
+
+#### T03 — Parity tier P1 on CUDA — completed 2026-11-22
+- Artifacts: `tests/gpusim/test_stage_c_cuda.py`, `openubem/outputs/gpusim_m4_cells.csv`
+- Deviations: None.
+- Test status: `uv run --no-sync pytest tests/gpusim/test_stage_c_cuda.py::test_p1 -q -s` -> `2 passed in 95.02s` (smoke + P1); `wall=12.263 s`, worst `|rel_c_vs_a|=1.020e-04` (V04), `dt_p999_k=0.004654 K` (V04), `dt_max_k=0.005193 K` (V04), worst `|rel_c_vs_eplus|=5.963e-05` (V07), `cv_rmse=6.020e-05` (V07), `|nmbe|=5.815e-05` (V07), `dt_p999_eplus_k=0.001011 K` (V07), `dt_max_eplus_k=0.001034 K` (V07), worst `|rel_cuda_vs_metal|=1.800e-07` (V14). All 12/12 pass every float32 and S0 gate.
+- Notes: CP1 criteria met.
+
+#### T04 — Windows EnergyPlus recheck — STOPPED on Windows E+ bug 2026-11-22
+- Artifacts: `scripts/gpusim/recheck_windows.py` (no `gpusim_m4_win_eplus.csv` written due to fatal runs)
+- Deviations: Cell union is 67 cells (`it__IT.MidClim.SFH.02.Gen.ReEx.001.001__f100` is in both sets); ran with 10-worker `ProcessPoolExecutor`.
+- Test status: `uv run --no-sync python scripts/gpusim/recheck_windows.py` -> FAILED (`RuntimeError: EnergyPlus failed for es__ES.ME.MFH.04.Gen.ReEx.001.001__f015 (rc=1): Convergence error in SolveForWindowTemperatures`). Across all 67 runs: 59 completed, 8 failed with fatal errors (`SolveForWindowTemperatures` during sizing or `Inside surface heat balance` divergence up to 140.6 K).
+- Notes: Root cause isolated: Windows EnergyPlus 23.1.0 (and 24.2.0) reads uninitialized memory in the solar/window path when host walls use `Sun_Exposure=NoSun` with `Window` subsurfaces. On identical IDF/EPW for Cell 1, Windows E+ 23.1.0 produced `23,123.09` (`rep2`), `20,561.78` (`m4_windows`), `18,536.80` (`%TEMP%`), and `23,275.42` kWh (exact 14-digit match to Mac E+ when heap happened to be zeroed after adding an `Output:Variable` line). Owner ruling (2026-11-22): gate M4 T05 CUDA against float64 Stage A (`gpusim_m1_fleet.csv`) and proceed with D1+D2+D4+D5.
+
+### T05 — Full 346-cell fleet check on CUDA (PASS)
+- Command: `uv run --no-sync python scripts/gpusim/run_fleet_stage_c.py --device cuda --out openubem/outputs/gpusim_m4_fleet.csv`
+- Results: `B=346`, `compile_s=1.379`, `pack_s=0.821`, `upload_s=0.012`, `gpu_s=16.784`, `download_s=0.026`, `max_launch_s=0.056 < 0.20`, `fleet_wall_s=17.938`.
+- Accuracy: **346/346 PASS** vs Stage A float64 — worst `|rel_c_vs_a| = 0.009747%` (`uk__GB.ENG.MFH.08.Gen.ReEx.001.001__f100`), median `0.00332%`, p99 `0.00850%` (gate `<= 0.05%`).
+
+### T06 — RTX A400 CUDA Speed Benchmark B=1..10,000 (PASS — CP2 Audited)
+- Command: `uv run --no-sync python -u scripts/gpusim/bench_stage_c.py --device cuda --out openubem/outputs/gpusim_m4_bench.csv` (`CUDA_MAX_SUBBATCH=384`)
+- Results (`openubem/outputs/gpusim_m4_bench.csv`, 5 rows, all `max_launch_s < 0.20 s`, 0 TDR resets):
+  - `B=1`: `total=4.365s, max_launch=0.0980s, rate=0.2291 bldg-yr/s, vs_SA=14.59x`
+  - `B=10`: `total=7.282s, max_launch=0.1618s, rate=1.3732 bldg-yr/s, vs_SA=12.75x`
+  - `B=100`: `total=15.619s, max_launch=0.1507s, rate=6.4025 bldg-yr/s, vs_ep1=19.27x, vs_SA=21.34x`
+  - `B=1,000`: `total=52.587s, max_launch=0.1176s, rate=19.0162 bldg-yr/s, vs_ep1=57.24x, vs_ep20=2.86x, vs_SA=43.38x` (1.19× Mac M2 Pro)
+  - `B=10,000`: `total=461.601s, max_launch=0.1908s, rate=21.6637 bldg-yr/s, vs_ep1=65.21x, vs_ep20=3.26x, vs_SA=49.42x`
+- CP2 audit: `s0_common.h`, `s0_cuda.py`, `stage_c.py` unchanged since CP1; all frozen paths untouched; M4 **CLOSED**.

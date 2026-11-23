@@ -173,21 +173,33 @@ def _fail(reason: str) -> SubsetCheckResult:
 
 
 def check_s0_subset(idf_text: str) -> SubsetCheckResult:
-    """Validate an expanded IDF against the S0 rung whitelist.
+    """Validate an expanded IDF against the S0 rung whitelist."""
+    return _check_s0_s1_subset(idf_text, allow_sun=False)
+
+
+def check_s1_subset(idf_text: str) -> SubsetCheckResult:
+    """Validate an expanded IDF against the S1 rung whitelist (S0 + solar gains)."""
+    return _check_s0_s1_subset(idf_text, allow_sun=True)
+
+
+def _check_s0_s1_subset(idf_text: str, *, allow_sun: bool) -> SubsetCheckResult:
+    """Validate an expanded IDF against S0 or S1 rung whitelists.
 
     Args:
         idf_text: Full text of an expanded IDF (``eplusout.expidf``).
+        allow_sun: When True, permits ``SunExposed`` surfaces (S1).
 
     Returns:
         ``SubsetCheckResult`` indicating pass or the first failing reason.
     """
+    rung = "S1" if allow_sun else "S0"
     objects = parse_expidf(idf_text)
     if not objects:
         return _fail("Empty IDF")
 
     for obj in objects:
         if obj.obj_type not in S0_ALLOWED_OBJECT_TYPES:
-            return _fail(f"Unsupported object type for S0: {obj.raw_type}")
+            return _fail(f"Unsupported object type for {rung}: {obj.raw_type}")
 
     by_type: dict[str, list[ParsedIdfObject]] = {}
     for obj in objects:
@@ -195,7 +207,13 @@ def check_s0_subset(idf_text: str) -> SubsetCheckResult:
 
     zones = by_type.get("ZONE", [])
     if len(zones) != 1:
-        return _fail(f"S0 requires exactly 1 Zone, found {len(zones)}")
+        return _fail(f"{rung} requires exactly 1 Zone, found {len(zones)}")
+
+    if allow_sun:
+        for bldg in by_type.get("BUILDING", []):
+            sol_dist = _field(bldg, 5, "FullExterior").casefold()
+            if sol_dist not in ("fullexterior", "minimalshadowing", "fullinteriorandexterior"):
+                return _fail(f"Unsupported Solar Distribution for S1: '{_field(bldg, 5)}'")
 
     for hb in by_type.get("HEATBALANCEALGORITHM", []):
         algo = _field(hb, 0, "ConductionTransferFunction")
@@ -256,14 +274,19 @@ def check_s0_subset(idf_text: str) -> SubsetCheckResult:
                 f"Condition='{bc}'"
             )
         if sun_exp.casefold() != "nosun":
-            return _fail(
-                f"BuildingSurface:Detailed '{sname}' has Sun Exposure='{sun_exp}' "
-                f"(S0 requires NoSun)"
-            )
+            if not allow_sun:
+                return _fail(
+                    f"BuildingSurface:Detailed '{sname}' has Sun Exposure='{sun_exp}' "
+                    f"(S0 requires NoSun)"
+                )
+            if sun_exp.casefold() != "sunexposed":
+                return _fail(
+                    f"BuildingSurface:Detailed '{sname}' has unknown Sun Exposure='{sun_exp}'"
+                )
         if wind_exp.casefold() != "nowind":
             return _fail(
                 f"BuildingSurface:Detailed '{sname}' has Wind Exposure='{wind_exp}' "
-                f"(S0 requires NoWind)"
+                f"({rung} requires NoWind)"
             )
         layers = constructions.get(cons_name, [])
         if len(layers) != 1 or layers[0] not in nomass_names:

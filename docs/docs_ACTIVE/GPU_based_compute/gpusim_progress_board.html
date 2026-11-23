@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>gpusim Progress Board</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #fafafa;
+    --border: #e5e7eb;
+    --border-light: #f1f3f5;
+    --text: #111827;
+    --muted: #6b7280;
+    --subtle: #9ca3af;
+    --blue: #2563eb;
+    --blue-dark: #1d4ed8;
+    --green-bg: #ecfdf5;
+    --green-fg: #047857;
+    --green-bd: #a7f3d0;
+    --amber-bg: #fffbeb;
+    --amber-fg: #b45309;
+    --amber-bd: #fde68a;
+    --gray-bg: #f3f4f6;
+    --gray-fg: #4b5563;
+    --gray-bd: #d1d5db;
+    --blue-bg: #eff6ff;
+    --blue-fg: #1d4ed8;
+    --blue-bd: #bfdbfe;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 36px 24px 64px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .container {
+    max-width: 1080px;
+    margin: 0 auto;
+  }
+
+  header {
+    margin-bottom: 28px;
+  }
+
+  .title-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin: 0 0 10px 0;
+  }
+
+  .updated-tag {
+    font-size: 12px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 3px 10px;
+  }
+
+  .lead {
+    font-size: 14.5px;
+    color: #374151;
+    max-width: 780px;
+    margin: 0 0 10px 0;
+  }
+
+  .sublead {
+    font-size: 13px;
+    color: var(--muted);
+    max-width: 780px;
+    margin: 0;
+  }
+
+  section {
+    margin-top: 34px;
+  }
+
+  h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 12px 0;
+    color: var(--text);
+  }
+
+  .section-note {
+    font-size: 13px;
+    color: var(--muted);
+    margin: -6px 0 14px 0;
+    max-width: 780px;
+  }
+
+  /* Milestone cards */
+  .milestones {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  @media (max-width: 900px) {
+    .milestones {
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    }
+  }
+
+  .m-card {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 12px 10px;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .m-card.active {
+    border-color: var(--blue-bd);
+    background: #fafcff;
+  }
+
+  .m-id {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .m-name {
+    font-size: 12px;
+    color: var(--muted);
+    min-height: 32px;
+    line-height: 1.3;
+  }
+
+  .m-count {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  .pill {
+    display: inline-block;
+    width: fit-content;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+
+  .pill-done {
+    background: var(--green-bg);
+    color: var(--green-fg);
+    border-color: var(--green-bd);
+  }
+
+  .pill-progress {
+    background: var(--blue-bg);
+    color: var(--blue-fg);
+    border-color: var(--blue-bd);
+  }
+
+  .pill-ready {
+    background: var(--amber-bg);
+    color: var(--amber-fg);
+    border-color: var(--amber-bd);
+  }
+
+  .pill-not {
+    background: var(--gray-bg);
+    color: var(--gray-fg);
+    border-color: var(--gray-bd);
+  }
+
+  .pill-blocked {
+    background: #fef2f2;
+    color: #b91c1c;
+    border-color: #fecaca;
+  }
+
+  /* Tables */
+  .table-wrap {
+    overflow-x: auto;
+    border-top: 1px solid var(--border);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  th {
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 10px 10px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-light);
+    vertical-align: middle;
+  }
+
+  tbody tr:hover {
+    background: #f9fafb;
+  }
+
+  .num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .task-id {
+    font-weight: 600;
+    white-space: nowrap;
+    color: #1f2937;
+  }
+
+  .result-col {
+    color: #374151;
+  }
+
+  .muted {
+    color: var(--muted);
+  }
+
+  .filters {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .filter-btn {
+    border: 1px solid var(--border);
+    background: #fff;
+    color: #374151;
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+
+  .filter-btn.active {
+    background: var(--text);
+    color: #fff;
+    border-color: var(--text);
+  }
+
+  /* KPI cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  @media (max-width: 820px) {
+    .kpi-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  .kpi {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--surface);
+  }
+
+  .kpi-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .kpi-value {
+    font-size: 24px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text);
+  }
+
+  .kpi-value.pending {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--blue-fg);
+    padding-top: 5px;
+  }
+
+  .kpi-sub {
+    font-size: 11.5px;
+    color: var(--muted);
+    margin-top: 4px;
+    line-height: 1.35;
+  }
+
+  /* Charts */
+  .chart-box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    background: #fff;
+  }
+
+  .footnote {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 10px;
+    max-width: 820px;
+  }
+
+  .cooling-box {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: var(--surface);
+    font-size: 13px;
+    color: #374151;
+  }
+
+  svg text {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="title-row">
+      <h1>gpusim Progress Board</h1>
+      <span class="updated-tag" id="updated-tag">Updated 2026-11-23 · All milestones M0–M8 Done (29/29 tasks)</span>
+    </div>
+    <p class="lead" id="lead-summary">
+      <strong>All 29 of 29 tasks are done (M0–M8 complete).</strong> On the Windows RTX A400 (4 GB CUDA),
+      M4 reached 21.66 bldg-yr/s at B = 10,000 (65.2× 1-core E+), M5 delivered the fail-closed pipeline switch,
+      M6 added Perez solar gains (+0.01–0.23 %), M7+ added modal layered walls (0.0009 % float32 on thick walls),
+      3D ray-traced neighbour shading, and multi-zone dwellings (−0.22 to −0.92 %), and M8 simulated all four
+      European 3D neighbourhoods (3,832 homes, 43,989 thermal zones, 523,530 surfaces) in 48.3 min with R² = 0.9825.
+    </p>
+    <p class="sublead">
+      gpusim is our GPU-native re-implementation of EnergyPlus 23.1's heat balance engine, built from one portable
+      C/CUDA/Metal header and flat-CSR zone-parallel solver. M0–M3 ran on Mac (M2 Pro); M4–M8 ran and passed on
+      Windows (NVIDIA RTX A400, 4 GB VRAM, native EnergyPlus 23.1.0, zero Windows TDR resets).
+    </p>
+  </header>
+
+  <section>
+    <h2>Milestones</h2>
+    <div class="milestones" id="milestones-grid"></div>
+  </section>
+
+  <section>
+    <h2>Tasks and results</h2>
+    <div class="filters" id="task-filters"></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:76px;">Task</th>
+            <th style="width:32%;">What it does</th>
+            <th style="width:104px;">Status</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody id="tasks-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Computation time, one building-year: CPU vs GPU</h2>
+    <div class="kpi-grid" id="kpi-grid"></div>
+    <div class="chart-box">
+      <svg id="timing-svg" width="100%" viewBox="0 0 960 200" role="img" aria-label="Computation time comparison"></svg>
+    </div>
+    <p class="footnote">
+      Mac timings: EnergyPlus 23.1 under Rosetta (median of 3 runs) vs gpusim Stage C Metal at B = 1,000
+      (0.063 s/bldg-yr = 15.96 bldg-yr/s, 10.3× 4-core E+; earlier B = 10,000 run reached 0.017 s/bldg-yr =
+      58.6 bldg-yr/s). Windows RTX A400 CUDA timings and native Windows EnergyPlus baseline fill in during M4.
+    </p>
+  </section>
+
+  <section>
+    <h2>Annual heating: EnergyPlus vs gpusim</h2>
+    <p class="section-note">
+      Every case must stay within 0.05 % of the CPU reference (float32 gate) and within 0.5 % of
+      EnergyPlus. Both the CPU engine (M1) and Mac GPU kernel (M3) pass all 12 cases with wide margin.
+      The Windows CUDA (M4) column populates once M4-T03 completes. The sun variant (V15) is outside
+      the first scope and is not run.
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Case</th>
+            <th>Description</th>
+            <th class="num">EnergyPlus (kWh)</th>
+            <th class="num">gpusim CPU, M1 (kWh)</th>
+            <th class="num">gpusim Mac GPU, M3 (kWh)</th>
+            <th class="num">M3 vs E+</th>
+            <th class="num">Win CUDA, M4</th>
+            <th class="num">Change vs cell 1</th>
+          </tr>
+        </thead>
+        <tbody id="heating-tbody"></tbody>
+      </table>
+    </div>
+    <p class="footnote">
+      Mac EnergyPlus gives 0.66 % more heating than the published Windows run for cell 1 (the other two
+      cells match closely). By owner ruling D6, Stage A / Mac E+ is the S0 reference after M4 T04 diagnosed
+      an uninitialized-memory bug in Windows E+ 23.1/24.2 on NoSun window walls.
+    </p>
+  </section>
+
+  <section>
+    <h2>M8: Four European 3D Neighbourhoods (RTX A400 CUDA vs EU-11 EnergyPlus)</h2>
+    <p class="section-note">
+      Full multi-dwelling 3D geometry (5-minute timestep, 105,120 steps/year), exact TABULA constructions,
+      adiabatic party walls, and 20 m GPU ray-traced neighbour shading across 3,832 residential buildings
+      (43,989 thermal zones, 523,530 surfaces) in 48.3 min end-to-end (37.9 min GPU kernel, max launch 0.861 s).
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>District</th>
+            <th class="num">Homes</th>
+            <th class="num">Zones</th>
+            <th class="num">Pub EUI (kWh/m²)</th>
+            <th class="num">GPU EUI (kWh/m²)</th>
+            <th class="num">EUI Diff</th>
+            <th class="num">R² (kWh)</th>
+            <th class="num">GPU / Total (s)</th>
+          </tr>
+        </thead>
+        <tbody id="m8-tbody"></tbody>
+      </table>
+    </div>
+    <p class="footnote">
+      Pooled GPU EUI is −6.88 % below published EU-11 EnergyPlus (per-building R² = 0.9825 on heating kWh,
+      R² = 0.8973 on EUI). The residual negative offset matches the absence of gitignored non-residential context
+      footprints (01_buildings_clean.gpkg) on local disk, which slightly lowers winter neighbour shading.
+    </p>
+  </section>
+
+  <section>
+    <h2>How each test change moves heating (EnergyPlus, cell 1)</h2>
+    <p class="section-note">
+      These ten changed versions of cell 1 check that gpusim reacts to each input the same way EnergyPlus does.
+    </p>
+    <div class="chart-box">
+      <svg id="variants-svg" width="100%" viewBox="0 0 960 330" role="img" aria-label="Variant sensitivity chart"></svg>
+    </div>
+  </section>
+
+  <section>
+    <h2>Cooling</h2>
+    <div class="cooling-box">
+      There is no cooling comparison yet. The reference buildings have heating only, so EnergyPlus
+      reports no cooling for them. Cooling enters when a later milestone adds a building type with cooling.
+    </div>
+  </section>
+</div>
+
+<script>
+const BOARD_DATA = {
+  milestones: [
+    { id: "M0",  name: "Golden data",            status: "Done",        done: 5, total: 5 },
+    { id: "M1",  name: "CPU reference engine",   status: "Done",        done: 7, total: 7 },
+    { id: "M2",  name: "First GPU version (Mac)",status: "Done",        done: 6, total: 6 },
+    { id: "M3",  name: "Fast GPU kernel (Mac)",  status: "Done",        done: 1, total: 1 },
+    { id: "M4",  name: "Windows GPU (CUDA)",     status: "Done",        done: 6, total: 6 },
+    { id: "M5",  name: "Pipeline switch",        status: "Done",        done: 1, total: 1 },
+    { id: "M6",  name: "Sun on",                 status: "Done",        done: 1, total: 1 },
+    { id: "M7+", name: "More building types",    status: "Done",        done: 1, total: 1 },
+    { id: "M8",  name: "EU 3D neighbourhoods",   status: "Done",        done: 1, total: 1 }
+  ],
+  tasks: [
+    { id: "M0-T01", ms: "M0", what: "Package folder and licence file", status: "Done", result: "Licence copy is identical to the EnergyPlus original" },
+    { id: "M0-T02", ms: "M0", what: "Prepare 13 reference runs", status: "Done", result: "3 real cells and 10 changed versions of cell 1 prepared" },
+    { id: "M0-T03", ms: "M0", what: "Time EnergyPlus with and without the sizing pass", status: "Done", result: "Same heating in all 6 runs; sizing pass off saves 38 % of the time" },
+    { id: "M0-T04", ms: "M0", what: "Run the 13 reference simulations", status: "Done", result: "13 runs, 0 errors, 105,120 time steps each (272 MB, kept local)" },
+    { id: "M0-T05", ms: "M0", what: "Tests on the reference data", status: "Done", result: "17 tests pass, 1 expected fail (waits for M1)" },
+
+    { id: "M1-T01", ms: "M1", what: "Air properties and weather", status: "Done", result: "Weather and air values match EnergyPlus to essentially zero" },
+    { id: "M1-T02", ms: "M1", what: "Input checker and building compiler", status: "Done", result: "All 346 fleet buildings accepted, solar variant rejected, geometry matches" },
+    { id: "M1-T03", ms: "M1", what: "View factors, radiation exchange, internal mass", status: "Done", result: "Matches EnergyPlus to every printed digit (0 of 730 values off)" },
+    { id: "M1-T04", ms: "M1", what: "Physics functions with one test per equation", status: "Done", result: "All 5 equation checks pass, worst error far below the limit" },
+    { id: "M1-T05", ms: "M1", what: "Year-long time loop vs EnergyPlus (13 cases)", status: "Done", result: "All 12 cases match EnergyPlus heating within 0.006 %; same warm-up days" },
+    { id: "M1-T06", ms: "M1", what: "Fleet check (346 cells) and speed test", status: "Done", result: "281 of 346 cells match the published runs; the 65 misses come from the published runs (see T07); 160 buildings in 365 s" },
+    { id: "M1-T07", ms: "M1", what: "Re-run the 5 worst cells in EnergyPlus on the Mac", status: "Done", result: "All 5 match our engine within 0.004 %; the published values were 32–92 % too low" },
+
+    { id: "M2-T01", ms: "M2", what: "Install the GPU libraries", status: "Done", result: "PyTorch 2.7.1 and WebGPU 0.31.0 installed; both see the Mac GPU (audited)" },
+    { id: "M2-T02", ms: "M2", what: "GPU-ready copy of the engine checked on the CPU", status: "Done", result: "Same results as the CPU engine to essentially zero (largest gap 0.000000000002 K); re-run by manager, same numbers" },
+    { id: "M2-T03", ms: "M2", what: "Same engine in float32: full year on CPU, one week on the Mac GPU (12 cases)", status: "Done", result: "All 12 cases pass; year on CPU 4.6 min, week on Mac GPU 2.4 min; audited 2026-11-22" },
+    { id: "M2-T04", ms: "M2", what: "Test framework 1: PyTorch with a Metal kernel", status: "Done", result: "Passes: matches reference to 0.00001 K; fastest launch (about 1 ms); same code can run on NVIDIA; audited 2026-11-22" },
+    { id: "M2-T05", ms: "M2", what: "Test framework 2: WebGPU", status: "Done", result: "Passes: matches reference to 0.00001 K; launch 2–5 times slower; no NVIDIA path; audited 2026-11-22" },
+    { id: "M2-T06", ms: "M2", what: "Compare the two frameworks; owner picks one", status: "Done", result: "Both work; owner chose PyTorch + Metal (D-09, 2026-11-22)" },
+
+    { id: "M3",     ms: "M3", what: "Fast Metal kernel; first real GPU vs CPU timing", status: "Done", result: "Audited 2026-11-22: 12/12 P1 within 0.006 % of E+; 346/346 fleet within 0.01 % of Stage A; 1,000 buildings run 10.3× faster than 4-core E+ (38× at 10,000)" },
+
+    { id: "M4-T01", ms: "M4", what: "Windows CUDA setup, packages, and file check", status: "Done", result: "RTX A400 (4 GB, cc 8.6, driver 573.65, 20 CPU cores, TDR 10 s); torch 2.7.1+cu126 & cupy 14.2.0; E+ 23.1.0; all counts OK; Stage A Win vs Mac 5.2e-12" },
+    { id: "M4-T02", ms: "M4", what: "Compile shared C kernel for CUDA and smoke-test 3 cells", status: "Done", result: "Passes: 3 cells finish in 5.97 s (longest launch 18.7 ms < 200 ms); s0_common.h diff is 22 CUDA macro lines only" },
+    { id: "M4-T03", ms: "M4", what: "12-case accuracy check on CUDA (CP1)", status: "Done", result: "Passes 12/12: worst vs CPU ref 0.010 %, worst vs E+ 0.006 %, CUDA vs Mac Metal within 0.000018 %; B=12 locked+free in 12.3 s (4.6× faster than Mac)" },
+    { id: "M4-T04", ms: "M4", what: "Windows EnergyPlus recheck (65 + 3 cells, local pool ≤ 10)", status: "Done", result: "Diagnosed Windows E+ 23.1 & 24.2 uninitialized-memory bug on NoSun window walls (8/67 crashed); owner ruled Stage A float64 as M4 T05 reference" },
+    { id: "M4-T05", ms: "M4", what: "Full 346-cell fleet check on CUDA (gated)", status: "Done", result: "Passes 346/346 in 17.94 s (gpu 16.78 s, max launch 56 ms): worst vs Stage A 0.00975 %, median 0.00332 % (gate ≤ 0.05 %)" },
+    { id: "M4-T06", ms: "M4", what: "Speed benchmark on RTX A400 up to 10,000 buildings (CP2)", status: "Done", result: "B=1k: 52.6 s (19.02 bldg-yr/s, 1.19× Mac); B=10k: 461.6 s (21.66 bldg-yr/s, 65.2× 1-core E+, 3.26× 20-core E+, max launch 190.8 ms < 200 ms)" },
+
+    { id: "M5",     ms: "M5", what: "Choose EnergyPlus or gpusim per building", status: "Done", result: "7/7 integration tests pass: fail-closed router, Python IdealLoads expansion, D5 sizing-off exact parity (<1e-8), P3 mixed-routing parity, 04_routing_report.csv & provenance JSON" },
+    { id: "M6",     ms: "M6", what: "Add solar gains", status: "Done", result: "Passes on RTX A400 CUDA & Stage A: V15 +0.23 % (MinimalShadowing +0.03 %), D1+D2 Bologna +0.01 %, D1+D2 Madrid +0.05 % (all CV ≤ 0.71 %, NMBE ≤ 0.23 %)" },
+    { id: "M7+",    ms: "M7+", what: "Layered walls, shading, multi-zone", status: "Done", result: "Modal state-space (0.0009 % float32 on 10 cm XPS + 25 cm conc; ASHRAE 900 +1.85 %, 38 cm brick −2.31 %); ray-traced shading + sky LWR (canyon −1.42 %, overhang +1.73 %); multi-zone EU dwellings + uncond core + party wall (−0.22 % to −0.92 %)" },
+    { id: "M8",     ms: "M8", what: "Simulate EU 3D neighbourhoods (Madrid, Lyon, London, Bologna; 3,870 residential buildings)", status: "Done", result: "3,832/3,870 homes (99.0 %), 43,989 zones, 523,530 surfaces in 48.3 min (GPU 37.9 min, max launch 0.861 s): pooled EUI 58.41 vs 62.73 kWh/m² (−6.88 %), R²_kwh = 0.9825, R²_eui = 0.8973; 21/21 M4–M8 tests pass" }
+  ],
+  m8Districts: [
+    { name: "Madrid Berruguete (ES)",      homes: "1,107 / 1,119 (98.9 %)", zones: "11,120", pub: "68.93", gpu: "63.88", diff: "−7.33 %", r2: "0.9781", time: "687.7 / 870.0" },
+    { name: "Lyon Croix-Rousse (FR)",      homes: "478 / 501 (95.4 %)",     zones: "6,727",  pub: "57.97", gpu: "56.03", diff: "−3.34 %", r2: "0.9703", time: "475.6 / 562.4" },
+    { name: "London St Dunstan's (GB)",    homes: "1,215 / 1,215 (100 %)",  zones: "5,525",  pub: "68.31", gpu: "66.17", diff: "−3.12 %", r2: "0.9926", time: "232.9 / 305.8" },
+    { name: "Bologna Galvani 2 (IT)",      homes: "1,032 / 1,035 (99.7 %)", zones: "20,617", pub: "58.15", gpu: "52.85", diff: "−9.11 %", r2: "0.9848", time: "878.6 / 1,152.9" },
+    { name: "Pooled 4-City Fleet",         homes: "3,832 / 3,870 (99.0 %)", zones: "43,989", pub: "62.73", gpu: "58.41", diff: "−6.88 %", r2: "0.9825", time: "2,274.8 / 2,898.8" }
+  ],
+  kpis: [
+    { label: "EnergyPlus on Mac CPU, as built", value: "4.18 s", sub: "per building, median of 3 runs (Rosetta)" },
+    { label: "EnergyPlus on Mac CPU, sizing off", value: "2.59 s", sub: "38.0 % faster, identical heating to every digit" },
+    { label: "gpusim on Mac GPU (M3, B = 1,000)", value: "0.063 s", sub: "15.96 bldg-yr/s · 10.3× 4-core E+ (0.017 s at B = 10k)" },
+    { label: "gpusim on Win CUDA (M4, RTX A400)", value: "0.046 s", sub: "21.66 bldg-yr/s at B = 10k · 65.2× 1-core E+ · 3.26× 20-core E+" }
+  ],
+  timingRows: [
+    { label: "E+ Mac as built",   median: 4.18, dots: [4.16, 4.18, 4.59], note: "median 4.18 s", color: "#2563eb" },
+    { label: "E+ Win as built",   median: 3.01, dots: [3.01], note: "median 3.01 s (native)", color: "#2563eb" },
+    { label: "gpusim Mac GPU (B=1k)", median: 0.063, dots: [0.063], note: "0.063 s (15.96 bldg-yr/s)", color: "#059669" },
+    { label: "gpusim Win CUDA (B=10k)", median: 0.046, dots: [0.046, 0.053], note: "0.046 s (21.66 bldg-yr/s)", color: "#059669" }
+  ],
+  heating: [
+    { id: "IT cell", desc: "Cell 1 · Italy, Bologna (house)",          ep: 23275.4,  m1: 23275.7,  m3: 23274.9,  m3diff: "−0.0021 %", m4: "23,274.9 (−0.0021 %)", chg: "—" },
+    { id: "UK cell", desc: "Cell 2 · UK, London (apartments)",       ep: 429473.9, m1: 429469.3, m3: 429457.5, m3diff: "−0.0038 %", m4: "429,457.5 (−0.0038 %)", chg: "—" },
+    { id: "ES cell", desc: "Cell 3 · Spain, Madrid (apartments)",    ep: 177989.5, m1: 177985.7, m3: 177983.9, m3diff: "−0.0031 %", m4: "177,983.9 (−0.0031 %)", chg: "—" },
+    { id: "V01",     desc: "Ventilation ×3",                         ep: 33370.1,  m1: 33370.5,  m3: 33369.6,  m3diff: "−0.0015 %", m4: "33,369.6 (−0.0015 %)", chg: "+43.4 %" },
+    { id: "V03",     desc: "Heating setpoint +2 K",                  ep: 29736.7,  m1: 29737.3,  m3: 29736.2,  m3diff: "−0.0017 %", m4: "29,736.2 (−0.0017 %)", chg: "+27.8 %" },
+    { id: "V04",     desc: "Opaque walls U ×0.3",                    ep: 12457.6,  m1: 12458.3,  m3: 12457.2,  m3diff: "−0.0033 %", m4: "12,457.2 (−0.0033 %)", chg: "−46.5 %" },
+    { id: "V06",     desc: "Window U ×0.5",                          ep: 22520.4,  m1: 22520.8,  m3: 22519.9,  m3diff: "−0.0021 %", m4: "22,519.9 (−0.0021 %)", chg: "−3.2 %" },
+    { id: "V07",     desc: "Internal mass ×4",                       ep: 21853.5,  m1: 21853.8,  m3: 21852.2,  m3diff: "−0.0060 %", m4: "21,852.2 (−0.0060 %)", chg: "−6.1 %" },
+    { id: "V09",     desc: "All neighbour walls to outdoor air",     ep: 25688.0,  m1: 25688.3,  m3: 25687.4,  m3diff: "−0.0021 %", m4: "25,687.4 (−0.0021 %)", chg: "+10.4 %" },
+    { id: "V10",     desc: "Helsinki climate",                       ep: 56815.0,  m1: 56814.9,  m3: 56814.2,  m3diff: "−0.0014 %", m4: "56,814.2 (−0.0014 %)", chg: "+144.1 %" },
+    { id: "V11",     desc: "Montreal climate",                       ep: 54500.5,  m1: 54500.1,  m3: 54499.9,  m3diff: "−0.0012 %", m4: "54,499.9 (−0.0012 %)", chg: "+134.2 %" },
+    { id: "V14",     desc: "Internal mass ×2 (fix D2)",              ep: 23165.5,  m1: 23165.9,  m3: 23164.7,  m3diff: "−0.0034 %", m4: "23,164.7 (−0.0034 %)", chg: "−0.5 %" },
+    { id: "V15",     desc: "Sun on windows (M6 S1)",              ep: 21574.9,  m1: 21612.0,  m3: null,     m3diff: "M6 S1", m4: "21,623.7 (+0.23 %)", chg: "−7.3 %" }
+  ],
+  variants: [
+    { label: "V01 Ventilation ×3",                    pct: 43.4 },
+    { label: "V03 Heating setpoint +2 K",             pct: 27.8 },
+    { label: "V04 Opaque walls U ×0.3",               pct: -46.5 },
+    { label: "V06 Window U ×0.5",                     pct: -3.2 },
+    { label: "V07 Internal mass ×4",                  pct: -6.1 },
+    { label: "V09 All neighbour walls to outdoor air",pct: 10.4 },
+    { label: "V10 Helsinki climate",                  pct: 144.1 },
+    { label: "V11 Montreal climate",                  pct: 134.2 },
+    { label: "V14 Internal mass ×2 (fix D2)",         pct: -0.5 },
+    { label: "V15 Sun on windows (fix D1, not in S0)",pct: -7.3 }
+  ]
+};
+
+function pillClass(status) {
+  if (status === "Done") return "pill pill-done";
+  if (status === "In progress") return "pill pill-progress";
+  if (status === "Blocked") return "pill pill-blocked";
+  if (status === "Ready") return "pill pill-ready";
+  return "pill pill-not";
+}
+
+function fmtNum(v) {
+  if (v === null || v === undefined) return '<span class="muted">Not run yet</span>';
+  return v.toLocaleString("en-US", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+}
+
+// Render milestones
+const msGrid = document.getElementById("milestones-grid");
+BOARD_DATA.milestones.forEach(m => {
+  const card = document.createElement("div");
+  card.className = "m-card" + (m.status === "In progress" ? " active" : "");
+  card.innerHTML = `
+    <div class="m-id">${m.id}</div>
+    <div class="m-name">${m.name}</div>
+    <span class="${pillClass(m.status)}">${m.status}</span>
+    <div class="m-count">${m.done} of ${m.total} done</div>
+  `;
+  msGrid.appendChild(card);
+});
+
+// Render task filters & table
+let activeFilter = "All";
+const filterBar = document.getElementById("task-filters");
+const filterOptions = ["All", "M0", "M1", "M2", "M3", "M4", "M5+"];
+
+function renderFilters() {
+  filterBar.innerHTML = "";
+  filterOptions.forEach(opt => {
+    const btn = document.createElement("button");
+    btn.className = "filter-btn" + (activeFilter === opt ? " active" : "");
+    btn.textContent = opt;
+    btn.onclick = () => { activeFilter = opt; renderFilters(); renderTasks(); };
+    filterBar.appendChild(btn);
+  });
+}
+
+function renderTasks() {
+  const tbody = document.getElementById("tasks-tbody");
+  tbody.innerHTML = "";
+  BOARD_DATA.tasks
+    .filter(t => {
+      if (activeFilter === "All") return true;
+      if (activeFilter === "M5+") return ["M5", "M6", "M7+", "M8"].includes(t.ms);
+      return t.ms === activeFilter;
+    })
+    .forEach(t => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="task-id">${t.id}</td>
+        <td>${t.what}</td>
+        <td><span class="${pillClass(t.status)}">${t.status}</span></td>
+        <td class="result-col">${t.result}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+}
+renderFilters();
+renderTasks();
+
+// Render KPI cards
+const kpiGrid = document.getElementById("kpi-grid");
+BOARD_DATA.kpis.forEach(k => {
+  const div = document.createElement("div");
+  div.className = "kpi";
+  div.innerHTML = `
+    <div class="kpi-label">${k.label}</div>
+    <div class="kpi-value ${k.pending ? "pending" : ""}">${k.value}</div>
+    <div class="kpi-sub">${k.sub}</div>
+  `;
+  kpiGrid.appendChild(div);
+});
+
+// Render Timing SVG
+(function renderTiming() {
+  const svg = document.getElementById("timing-svg");
+  const left = 195, right = 920, top = 16, rowH = 38;
+  const maxS = 5.5;
+  const x = v => left + (v / maxS) * (right - left);
+
+  let html = "";
+  for (let s = 0; s <= 5; s++) {
+    const gx = x(s);
+    html += `<line x1="${gx}" y1="${top}" x2="${gx}" y2="${top + BOARD_DATA.timingRows.length * rowH}" stroke="#f1f3f5" stroke-width="1"/>`;
+    html += `<text x="${gx}" y="${top + BOARD_DATA.timingRows.length * rowH + 18}" text-anchor="middle" font-size="11" fill="#6b7280">${s} s</text>`;
+  }
+
+  BOARD_DATA.timingRows.forEach((r, i) => {
+    const cy = top + i * rowH + rowH / 2;
+    html += `<text x="${left - 12}" y="${cy + 4}" text-anchor="end" font-size="12" fill="#374151">${r.label}</text>`;
+    if (r.median !== null) {
+      const mx = x(r.median);
+      const barW = Math.max(4, mx - left);
+      html += `<rect x="${left}" y="${cy - 7}" width="${barW}" height="14" rx="4" fill="${r.color}" opacity="0.18"/>`;
+      r.dots.forEach(d => {
+        html += `<circle cx="${x(d)}" cy="${cy}" r="3.5" fill="${r.color}"/>`;
+      });
+      html += `<line x1="${mx}" y1="${cy - 10}" x2="${mx}" y2="${cy + 10}" stroke="${r.color}" stroke-width="2"/>`;
+      html += `<text x="${mx + 10}" y="${cy + 4}" font-size="11.5" font-weight="600" fill="${r.color}">${r.note}</text>`;
+    } else {
+      html += `<rect x="${left}" y="${cy - 7}" width="170" height="14" rx="4" fill="#f3f4f6" stroke="#d1d5db" stroke-dasharray="3,3"/>`;
+      html += `<text x="${left + 8}" y="${cy + 4}" font-size="11" fill="#6b7280">${r.note}</text>`;
+    }
+  });
+  svg.innerHTML = html;
+})();
+
+// Render Heating table
+const hTbody = document.getElementById("heating-tbody");
+BOARD_DATA.heating.forEach(row => {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td class="task-id">${row.id}</td>
+    <td>${row.desc}</td>
+    <td class="num">${fmtNum(row.ep)}</td>
+    <td class="num">${fmtNum(row.m1)}</td>
+    <td class="num">${fmtNum(row.m3)}</td>
+    <td class="num ${row.m3 === null ? "muted" : ""}">${row.m3diff}</td>
+    <td class="num ${row.m3 === null ? "muted" : ""}">${row.m4}</td>
+    <td class="num">${row.chg}</td>
+  `;
+  hTbody.appendChild(tr);
+});
+
+// Render M8 European Neighbourhoods table
+const m8Tbody = document.getElementById("m8-tbody");
+if (m8Tbody && BOARD_DATA.m8Districts) {
+  BOARD_DATA.m8Districts.forEach((d, idx) => {
+    const tr = document.createElement("tr");
+    const isFleet = idx === BOARD_DATA.m8Districts.length - 1;
+    if (isFleet) tr.style.fontWeight = "600";
+    tr.innerHTML = `
+      <td class="task-id">${d.name}</td>
+      <td class="num">${d.homes}</td>
+      <td class="num">${d.zones}</td>
+      <td class="num">${d.pub}</td>
+      <td class="num">${d.gpu}</td>
+      <td class="num">${d.diff}</td>
+      <td class="num">${d.r2}</td>
+      <td class="num">${d.time}</td>
+    `;
+    m8Tbody.appendChild(tr);
+  });
+}
+
+// Render Variants SVG
+(function renderVariants() {
+  const svg = document.getElementById("variants-svg");
+  const left = 240, right = 910, top = 16, rowH = 28;
+  const minP = -60, maxP = 160;
+  const x = p => left + ((p - minP) / (maxP - minP)) * (right - left);
+  const x0 = x(0);
+
+  let html = "";
+  [-50, 0, 50, 100, 150].forEach(p => {
+    const gx = x(p);
+    const isZero = p === 0;
+    html += `<line x1="${gx}" y1="${top}" x2="${gx}" y2="${top + BOARD_DATA.variants.length * rowH}" stroke="${isZero ? "#9ca3af" : "#f1f3f5"}" stroke-width="${isZero ? 1.3 : 1}"/>`;
+    const lbl = p > 0 ? `+${p} %` : `${p} %`;
+    html += `<text x="${gx}" y="${top + BOARD_DATA.variants.length * rowH + 18}" text-anchor="middle" font-size="11" fill="#6b7280">${lbl}</text>`;
+  });
+
+  BOARD_DATA.variants.forEach((v, i) => {
+    const cy = top + i * rowH + rowH / 2;
+    html += `<text x="${left - 12}" y="${cy + 4}" text-anchor="end" font-size="12" fill="#374151">${v.label}</text>`;
+    const xv = x(v.pct);
+    const bx = Math.min(x0, xv);
+    const bw = Math.max(2, Math.abs(xv - x0));
+    const fill = v.pct >= 0 ? "#2563eb" : "#3b82f6";
+    html += `<rect x="${bx}" y="${cy - 8}" width="${bw}" height="16" rx="3" fill="${fill}" opacity="${v.pct >= 0 ? 0.9 : 0.65}"/>`;
+    const txt = (v.pct > 0 ? "+" : "−") + Math.abs(v.pct).toFixed(1) + " %";
+    if (v.pct >= 0) {
+      html += `<text x="${xv + 6}" y="${cy + 4}" font-size="11" fill="#374151">${txt}</text>`;
+    } else {
+      html += `<text x="${xv - 6}" y="${cy + 4}" text-anchor="end" font-size="11" fill="#374151">${txt}</text>`;
+    }
+  });
+  svg.innerHTML = html;
+})();
+</script>
+</body>
+</html>
