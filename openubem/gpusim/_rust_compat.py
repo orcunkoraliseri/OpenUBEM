@@ -24,7 +24,7 @@ import numpy as np
 T = TypeVar("T")
 Bucket = Literal["B1", "B2", "B3"]
 _LOGGER = logging.getLogger(__name__)
-_VALID_MODES = ("off", "shadow", "on")
+_VALID_MODES = ("auto", "off", "shadow", "on")
 _TOL: dict[Bucket, tuple[float, float]] = {
     "B1": (0.0, 0.0),
     "B2": (1e-12, 1e-12),
@@ -32,10 +32,27 @@ _TOL: dict[Bucket, tuple[float, float]] = {
 }
 
 
+def is_gpusim_rust_available() -> bool:
+    """Return ``True`` when the compiled ``_openubem_rust`` extension imports."""
+    try:
+        import _openubem_rust  # type: ignore[import-not-found]
+    except ImportError:
+        return False
+    return _openubem_rust is not None
+
+
 def get_gpusim_rust_mode() -> str:
-    """Return active ``OPENUBEM_RUST_BACKEND`` mode (``off`` | ``shadow`` | ``on``)."""
-    mode = os.environ.get("OPENUBEM_RUST_BACKEND", "off").strip().lower()
-    return mode if mode in _VALID_MODES else "off"
+    """Return active ``OPENUBEM_RUST_BACKEND`` mode (``off`` | ``shadow`` | ``on``).
+
+    Defaults to ``"auto"``, which resolves to ``"on"`` whenever the compiled
+    ``_openubem_rust`` extension is available and ``"off"`` otherwise.
+    """
+    mode = os.environ.get("OPENUBEM_RUST_BACKEND", "auto").strip().lower()
+    if mode not in _VALID_MODES:
+        return "off"
+    if mode == "auto":
+        return "on" if is_gpusim_rust_available() else "off"
+    return mode
 
 
 def load_gpusim_rust_module() -> Any | None:

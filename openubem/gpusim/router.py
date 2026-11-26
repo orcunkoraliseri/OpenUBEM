@@ -11,6 +11,11 @@ import numpy as np
 from openubem.gpusim.backends.kernel.pack import deduplicate_weather, pack
 from openubem.gpusim.backends.numpy_ref import SimulationResult, run_stage_a_batch
 from openubem.gpusim.compile import BatchSpec, compile_expidf_batch
+from openubem.gpusim.dispatch import (
+    select_max_supported_rung,
+    select_optimal_general_backend,
+    select_optimal_s0_backend,
+)
 from openubem.gpusim.subset import ParsedIdfObject, SubsetCheckResult, check_s0_subset, parse_expidf
 from openubem.gpusim.weather import WeatherSeries, load_epw_weather
 from openubem.gpusim.writer import annual_heating_kwh, write_eplusout_csv
@@ -53,32 +58,26 @@ def conformance_hash() -> str:
     return h.hexdigest()[:16]
 
 
-def select_device(requested: str = "auto") -> str:
-    """Resolve GPU/CPU execution device (``cuda``, ``mps``, or ``cpu``)."""
-    req = requested.strip().lower()
-    if req not in {"auto", "cuda", "mps", "cpu"}:
-        raise ValueError(f"Unsupported gpusim device {requested!r}")
-    if req == "cpu":
-        return "cpu"
-    try:
-        import torch
+def select_device(
+    requested: str = "auto",
+    *,
+    batch_size: int = 1,
+    rung: str = "S0",
+) -> str:
+    """Resolve optimal GPU/CPU execution device (``cuda``, ``mps``, or ``cpu``).
 
-        if req == "cuda":
-            if torch.cuda.is_available():
-                return "cuda"
-            raise RuntimeError("Requested gpusim device 'cuda' is unavailable")
-        if req == "mps":
-            if torch.backends.mps.is_available():
-                return "mps"
-            raise RuntimeError("Requested gpusim device 'mps' is unavailable")
-        if torch.cuda.is_available():
-            return "cuda"
-        if torch.backends.mps.is_available():
-            return "mps"
-    except ImportError:
-        if req != "auto":
-            raise
-    return "cpu"
+    In ``"auto"`` mode, delegates to ``openubem.gpusim.dispatch`` so the
+    empirically fastest backend is selected for the host platform and batch
+    size (e.g., Rust multi-core CPU for small batches / macOS ``B < 1500``,
+    CUDA for Windows/Linux ``B >= 200`` or multi-zone S1-S2b, MPS for very
+    large macOS S0 batches).
+    """
+    if rung == "S0":
+        return select_optimal_s0_backend(
+            batch_size, requested_device=requested
+        ).device
+    choice = select_optimal_general_backend(batch_size, requested_device=requested)
+    return "cpu" if choice.device == "energyplus" else choice.device
 
 
 def _field(obj: ParsedIdfObject, index: int, default: str = "") -> str:
@@ -310,12 +309,13 @@ def route_idf_text(
     idf_text: str,
     building_id: str,
     *,
-    sim_engine: str = "energyplus",
+    sim_engine: str = "auto",
     device: str = "auto",
     spot_check_fraction: float = 0.05,
     spot_check_seed: int = 42,
     eplus_version: str = "23.1",
-    max_rung: str = "S0",
+    max_rung: str | None = None,
+    batch_size: int = 1,
 ) -> RoutingDecision:
     """Route a single building IDF fail-closed between EnergyPlus and gpusim."""
     mode = sim_engine.strip().lower()
@@ -336,7 +336,12 @@ def route_idf_text(
             conformance_hash=chash,
         )
 
-    rung, check = check_supported_subset(idf_text, max_rung=max_rung)
+    eff_max_rung = (
+        select_max_supported_rung(requested_device=device)
+        if max_rung is None
+        else max_rung
+    )
+    rung, check = check_supported_subset(idf_text, max_rung=eff_max_rung)
     if not check.passed or rung is None:
         return RoutingDecision(
             building_id=building_id,
@@ -361,7 +366,22 @@ def route_idf_text(
             conformance_hash=chash,
         )
 
-    resolved_dev = select_device(device)
+    if rung == "S0":
+        choice = select_optimal_s0_backend(batch_size, requested_device=device)
+    else:
+        choice = select_optimal_general_backend(batch_size, requested_device=device)
+        if choice.backend == "energyplus":
+            return RoutingDecision(
+                building_id=building_id,
+                requested_engine=mode,
+                selected_engine="energyplus",
+                subset_rung=None,
+                reason=f"fallback_energyplus:{choice.reason}",
+                spot_checked=False,
+                engine_version=f"energyplus-{eplus_version}",
+                conformance_hash=chash,
+            )
+
     return RoutingDecision(
         building_id=building_id,
         requested_engine=mode,
@@ -369,7 +389,7 @@ def route_idf_text(
         subset_rung=rung,
         reason=f"accepted:{rung}",
         spot_checked=False,
-        engine_version=f"gpusim-{GPUSIM_VERSION}-{resolved_dev}",
+        engine_version=f"gpusim-{GPUSIM_VERSION}-{choice.backend}",
         conformance_hash=chash,
     )
 
@@ -435,7 +455,6 @@ def run_routed_gpusim_batch(
     """Compile and execute a batch of gpusim-routed buildings, writing eplusout.csv."""
     if not building_ids:
         return []
-    resolved_dev = select_device(device)
     t0 = time.perf_counter()
 
     expidf_paths: list[Path] = []
@@ -460,12 +479,14 @@ def run_routed_gpusim_batch(
         weathers.append(weather_cache[epw_res])
         epw_names.append(epw_res.name)
 
-    # Split S0 buildings (ultra-fast S0 kernel) from general S1/S2a/S3/S2b buildings (general CUDA kernel)
+    # Split S0 buildings (fast S0 kernel: Rust CPU or CUDA/MPS) from general
+    # S1/S2a/S3/S2b buildings (general CUDA kernel)
     s0_indices = [i for i, d in enumerate(decisions) if (d.subset_rung or "S0") == "S0"]
     gen_indices = [i for i, d in enumerate(decisions) if (d.subset_rung or "S0") != "S0"]
 
     hourly_all = np.zeros((len(building_ids), 8760), dtype=np.float64)
     wu_all = np.zeros(len(building_ids), dtype=np.int32)
+    exec_backends: list[str] = [""] * len(building_ids)
 
     if s0_indices:
         s0_exp = [expidf_paths[i] for i in s0_indices]
@@ -480,10 +501,11 @@ def run_routed_gpusim_batch(
             max_rung="S0",
         )
         b_total = batch.batch_size
-        if resolved_dev in {"cuda", "mps"}:
+        s0_choice = select_optimal_s0_backend(b_total, requested_device=device)
+        if s0_choice.device in {"cuda", "mps"}:
             from openubem.gpusim.backends.stage_c import run_packed_stage_c
 
-            sub_limit = CUDA_MAX_SUBBATCH if resolved_dev == "cuda" else b_total
+            sub_limit = CUDA_MAX_SUBBATCH if s0_choice.device == "cuda" else b_total
             hourly_chunks: list[np.ndarray] = []
             wu_chunks: list[np.ndarray] = []
             for s0 in range(0, b_total, sub_limit):
@@ -498,7 +520,7 @@ def run_routed_gpusim_batch(
                     record_zone_temp=False,
                     force_warmup_days=None,
                     run_chunk_days=run_chunk_days,
-                    device=resolved_dev,
+                    device=s0_choice.device,
                 )
                 hourly_chunks.append(res_sub.hourly_heating_j)
                 wu_chunks.append(res_sub.warmup_days)
@@ -511,8 +533,16 @@ def run_routed_gpusim_batch(
         for j, orig_i in enumerate(s0_indices):
             hourly_all[orig_i] = s0_hr[j]
             wu_all[orig_i] = s0_wu[j]
+            exec_backends[orig_i] = s0_choice.backend
 
     if gen_indices:
+        gen_choice = select_optimal_general_backend(
+            len(gen_indices), requested_device=device
+        )
+        if gen_choice.device != "cuda":
+            raise RuntimeError(
+                f"General gpusim batch requires CUDA ({gen_choice.reason})"
+            )
         from openubem.gpusim.backends.general_cuda import run_general_cuda
         from openubem.gpusim.general_model import compile_general_batch
 
@@ -527,12 +557,13 @@ def run_routed_gpusim_batch(
             building_ids=gen_ids,
             schedule_dirs=extra_sched_dirs,
             compute_shading=True,
-            shading_device="cuda" if resolved_dev == "cuda" else "cpu",
+            shading_device="auto",
         )
         res_gen = run_general_cuda(gb, w_sites, record_zone_temp=False, run_chunk_days=run_chunk_days)
         for j, orig_i in enumerate(gen_indices):
             hourly_all[orig_i] = res_gen.hourly_heating_j[j]
             wu_all[orig_i] = res_gen.warmup_days[j]
+            exec_backends[orig_i] = gen_choice.backend
 
     b_total = len(building_ids)
     sim_res = SimulationResult(
@@ -555,6 +586,7 @@ def run_routed_gpusim_batch(
         ann_kwh = float(annual_heating_kwh(hourly_j))
         write_eplusout_csv(wd / "eplusout.csv", hourly_j)
         prov = dec.to_provenance_dict()
+        prov["execution_backend"] = exec_backends[bi]
         prov["warmup_days"] = int(sim_res.warmup_days[bi])
         prov["heating_kwh"] = ann_kwh
         prov["wall_clock_s"] = round(per_bldg_wall, 6)

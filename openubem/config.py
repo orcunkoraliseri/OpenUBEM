@@ -69,8 +69,8 @@ import sys as _sys
 ENERGYPLUS_PATH: Path = Path(os.environ.get("ENERGYPLUS_PATH", r"C:\EnergyPlusV23-1-0"))
 ENERGYPLUS_VERSION: str = "23.1"
 
-# ── GPU heat-balance engine ("gpusim") integration flags (M5, default-OFF) ───
-SIM_ENGINE: str = os.environ.get("OPENUBEM_SIM_ENGINE", "energyplus")  # "energyplus" | "gpusim" | "auto"
+# ── GPU / Rust heat-balance engine ("gpusim") integration flags (auto-fastest)
+SIM_ENGINE: str = os.environ.get("OPENUBEM_SIM_ENGINE", "auto")  # "auto" | "energyplus" | "gpusim"
 GPUSIM_DEVICE: str = os.environ.get("OPENUBEM_GPUSIM_DEVICE", "auto")  # "auto" | "cuda" | "mps" | "cpu"
 GPUSIM_SPOT_CHECK_FRACTION: float = float(
     os.environ.get("OPENUBEM_GPUSIM_SPOT_CHECK_FRACTION", "0.05")
@@ -266,17 +266,16 @@ FUSION_GMAPS_SVI_PATH: "Path | None" = (
     if os.environ.get("OPENUBEM_FUSION_GMAPS_SVI_PATH")
     else None
 )
-# ── Rust acceleration backend flags (rust-migration T03, default-OFF) ────────
-# Three-state rollout gate: "off" (default, pure Python) | "shadow" (dual-run
-# comparison returning Python result) | "on" (use Rust when compiled).
-RUST_BACKEND: str = os.environ.get("OPENUBEM_RUST_BACKEND", "off").strip().lower()
+# ── Rust acceleration backend flags (auto-fastest when compiled) ─────────────
+# Four-state rollout gate: "auto" (default: use Rust when compiled, else Python)
+# | "off" (pure Python) | "shadow" (dual-run comparison) | "on" (force Rust).
+RUST_BACKEND: str = os.environ.get("OPENUBEM_RUST_BACKEND", "auto").strip().lower()
 RUST_SHADOW_LOG_PATH: "Path | None" = (
     Path(os.environ["OPENUBEM_RUST_SHADOW_LOG"])
     if os.environ.get("OPENUBEM_RUST_SHADOW_LOG")
     else None
 )
-RUST_EXTRUDER_ENABLED: bool = (
-    os.environ.get("OPENUBEM_RUST_EXTRUDER", "0").strip() == "1"
-)
+RUST_EXTRUDER_MODE: str = os.environ.get("OPENUBEM_RUST_EXTRUDER", "auto").strip().lower()
+RUST_EXTRUDER_ENABLED: bool = RUST_EXTRUDER_MODE in {"1", "true", "on", "auto"}
 
 FUSION_GMAPS_SVI_FIELDS: dict = {}

@@ -426,7 +426,7 @@ def _compile_one_general_building(
     weather: WeatherSeries,
     *,
     compute_shading: bool = True,
-    shading_device: str = "cpu",
+    shading_device: str = "auto",
     periodic_shadow_days: int = 20,
 ) -> dict[str, Any]:
     """Compile a single arbitrary S0/S1/S2a/S3/S2b IDF into intermediate dicts."""
@@ -1071,7 +1071,7 @@ def compile_general_batch(
     schedule_dirs: list[Path] | None = None,
     *,
     compute_shading: bool = True,
-    shading_device: str = "cpu",
+    shading_device: str = "auto",
     periodic_shadow_days: int = 5,
     max_workers: int = 8,
 ) -> GeneralBatch:
@@ -1083,13 +1083,18 @@ def compile_general_batch(
     def _work(idx: int) -> dict[str, Any]:
         p = Path(idf_paths[idx])
         txt = p.read_text(encoding="utf-8", errors="replace")
+        eff_sh_dev = (
+            shading_device
+            if (max_workers == 1 or shading_device == "auto")
+            else "cpu"
+        )
         return _compile_one_general_building(
             txt,
             ids[idx],
             [p.parent, *extra_dirs],
             weathers[idx],
             compute_shading=compute_shading,
-            shading_device=shading_device if max_workers == 1 else "cpu",
+            shading_device=eff_sh_dev,
             periodic_shadow_days=periodic_shadow_days,
         )
 

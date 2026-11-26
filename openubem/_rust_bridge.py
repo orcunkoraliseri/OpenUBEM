@@ -17,7 +17,7 @@ from openubem import config
 
 RustBackendMode = Literal["off", "shadow", "on"]
 
-VALID_RUST_BACKEND_MODES: frozenset[str] = frozenset({"off", "shadow", "on"})
+VALID_RUST_BACKEND_MODES: frozenset[str] = frozenset({"auto", "off", "shadow", "on"})
 
 _LOGGER = logging.getLogger(__name__)
 _RUST_MODULE_UNLOADED = object()
@@ -35,7 +35,11 @@ def get_rust_backend_mode(mode_override: str | None = None) -> RustBackendMode:
     Resolution order:
         1. ``mode_override`` if provided.
         2. ``OPENUBEM_RUST_BACKEND`` environment variable if set at call time.
-        3. ``openubem.config.RUST_BACKEND`` default (``"off"``).
+        3. ``openubem.config.RUST_BACKEND`` default (``"auto"``).
+
+    When the resolved setting is ``"auto"``, it automatically activates ``"on"``
+    whenever the compiled ``_openubem_rust`` extension is loadable and falls
+    back cleanly to ``"off"`` otherwise.
 
     Args:
         mode_override: Optional explicit mode override for tests or callers.
@@ -45,7 +49,7 @@ def get_rust_backend_mode(mode_override: str | None = None) -> RustBackendMode:
 
     Raises:
         RustBackendError: If the configured mode is not in
-            ``{"off", "shadow", "on"}``.
+            ``{"auto", "off", "shadow", "on"}``.
     """
     if mode_override is not None:
         raw = mode_override
@@ -57,8 +61,10 @@ def get_rust_backend_mode(mode_override: str | None = None) -> RustBackendMode:
     if normalized not in VALID_RUST_BACKEND_MODES:
         raise RustBackendError(
             f"Invalid OPENUBEM_RUST_BACKEND={raw!r}; "
-            "expected one of 'off', 'shadow', or 'on'."
+            "expected one of 'auto', 'off', 'shadow', or 'on'."
         )
+    if normalized == "auto":
+        return "on" if is_rust_available() else "off"
     return normalized  # type: ignore[return-value]
 
 

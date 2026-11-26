@@ -31,8 +31,9 @@ WEATHER_DIR = REPO_ROOT / "openubem/data/weather"
 
 
 def test_config_defaults_and_provenance() -> None:
-    """Verify SIM_ENGINE defaults to energyplus and conformance_hash is stable."""
-    assert config.SIM_ENGINE == "energyplus"
+    """Verify SIM_ENGINE defaults to auto-fastest and conformance_hash is stable."""
+    assert config.SIM_ENGINE == "auto"
+    assert config.GPUSIM_DEVICE == "auto"
     assert config.EU_DISABLE_UNUSED_SIZING is False
     h1 = conformance_hash()
     h2 = conformance_hash()

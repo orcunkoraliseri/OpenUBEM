@@ -26,9 +26,15 @@ from openubem.rust_shadow import (
 )
 
 
-def test_default_rust_backend_is_off(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Default OPENUBEM_RUST_BACKEND must remain 'off' (Guardrail 1)."""
+def test_default_rust_backend_is_auto_and_off_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Default OPENUBEM_RUST_BACKEND is 'auto' (resolving on/off); 'off' still works."""
     monkeypatch.delenv("OPENUBEM_RUST_BACKEND", raising=False)
+    monkeypatch.setattr(config, "RUST_BACKEND", "auto")
+    expected_auto = "on" if is_rust_available() else "off"
+    assert get_rust_backend_mode() == expected_auto
+
     monkeypatch.setattr(config, "RUST_BACKEND", "off")
     assert get_rust_backend_mode() == "off"
 

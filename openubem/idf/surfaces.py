@@ -870,6 +870,25 @@ def _extrude_zone_groups(idf: GeomIDF, valid_zones: list[dict], _exc: tuple) -> 
                 z["fallback_to_bbox"] = True
 
 
+def _rust_extruder_enabled() -> bool:
+    """Return True when the Rust 3D shell extruder should run for this call.
+
+    Respects ``OPENUBEM_RUST_EXTRUDER`` (``"auto"`` default -> enabled whenever
+    the Rust backend is active and compiled; ``"1"``/``"on"``/``"true"`` forces
+    on; ``"0"``/``"off"``/``"false"`` forces pure-Python ``geomeppy``).
+    """
+    raw = os.environ.get("OPENUBEM_RUST_EXTRUDER", "auto").strip().lower()
+    if raw in {"0", "false", "off"}:
+        return False
+    if raw in {"1", "true", "on"}:
+        return True
+    if raw == "auto":
+        from openubem._rust_bridge import get_rust_backend_mode, is_rust_available
+
+        return get_rust_backend_mode() != "off" and is_rust_available()
+    return False
+
+
 def _extrude_zones_with_rust(
     idf: GeomIDF, valid_zones: list[dict], context: list[dict]
 ) -> bool:
@@ -985,7 +1004,7 @@ def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> No
             valid_zones.append(z)
 
     if (
-        os.environ.get("OPENUBEM_RUST_EXTRUDER", "0").strip() == "1"
+        _rust_extruder_enabled()
         and valid_zones
         and not any(z.get("extruded") for z in zones)
         and _extrude_zones_with_rust(idf, valid_zones, context)

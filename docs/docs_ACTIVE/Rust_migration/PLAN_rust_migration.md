@@ -3,7 +3,7 @@
 **Slug:** `rust-migration`
 **Date:** 2026-11-26
 **Workspace Root:** `/Users/orcunkoraliseri/Desktop/OpenUBEM`
-**Status:** CP-5 PASSED (2026-11-26) — MIGRATION COMPLETE (`T01`–`T18`, `CP-0`–`CP-5` passed; `R6` deferred per `D-RS-06`; defaults remain `OPENUBEM_RUST_BACKEND="off"`, `OPENUBEM_RUST_EXTRUDER=0`).
+**Status:** CP-5 PASSED + AUTO-FASTEST DISPATCH ENABLED (2026-11-27) — MIGRATION COMPLETE (`T01`–`T18`, `CP-0`–`CP-5` passed; `R6` deferred per `D-RS-06`; defaults set to cross-platform auto-fastest: `OPENUBEM_SIM_ENGINE="auto"`, `OPENUBEM_GPUSIM_DEVICE="auto"`, `OPENUBEM_RUST_BACKEND="auto"`, `OPENUBEM_RUST_EXTRUDER="auto"` via `openubem/gpusim/dispatch.py`).
 **Companions:** [`../GPU_based_compute/PLAN_gpu_accelerated_simulation.md`](../GPU_based_compute/PLAN_gpu_accelerated_simulation.md) · [`../GPU_based_compute/BUILD_SPEC_gpu_heat_balance_engine.md`](../GPU_based_compute/BUILD_SPEC_gpu_heat_balance_engine.md)
 **Research Prompts:** [`Prompt/deepResearch/README.md`](Prompt/deepResearch/README.md) (DR01–DR06)
 

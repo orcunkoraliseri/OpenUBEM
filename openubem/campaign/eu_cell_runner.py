@@ -624,6 +624,7 @@ def run_campaign_cell(
                 else 0.0
             ),
             eplus_version=_openubem_config.ENERGYPLUS_VERSION,
+            batch_size=1,
         )
         provenance_extra = decision.to_provenance_dict()
         if decision.selected_engine == "gpusim":

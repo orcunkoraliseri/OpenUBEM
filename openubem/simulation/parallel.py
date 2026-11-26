@@ -345,6 +345,7 @@ def run_neighbourhood(
     ep_tasks: list[SimTask] = []
     gpu_tasks: list[SimTask] = []
     gpu_decisions = []
+    fresh_batch_size = max(1, len(fresh))
     for t in fresh:
         idf_text = Path(t.idf_path).read_text(encoding="utf-8", errors="replace")
         dec = route_idf_text(
@@ -354,6 +355,7 @@ def run_neighbourhood(
             device=eff_device,
             spot_check_fraction=eff_spot if eff_engine == "auto" else 0.0,
             eplus_version=config.ENERGYPLUS_VERSION,
+            batch_size=fresh_batch_size,
         )
         decisions.append(dec)
         if dec.selected_engine == "gpusim":

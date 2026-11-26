@@ -16,6 +16,7 @@ from openubem.gpusim._rust_compat import (
     dispatch_gpusim_rust,
     load_gpusim_rust_module,
 )
+from openubem.gpusim.dispatch import select_optimal_shading_backend
 
 
 def _triangulate_polygon(verts: np.ndarray) -> np.ndarray:
@@ -231,13 +232,15 @@ def compute_exterior_shading(
     periodic_days: int = 20,
     n_grid: int = 3,
     n_sky_rays: int = 64,
-    device: str = "cpu",
+    device: str = "auto",
 ) -> tuple[np.ndarray, np.ndarray]:
     """Compute hourly sunlit fractions ``[8760, S]`` and sky diffuse factors ``[S]``.
 
     Matches EnergyPlus ``ShadowCalculation, PolygonClipping, Periodic, 20`` by
     evaluating representative solar positions every ``periodic_days`` days (or
     every day when ``periodic_days=1``) and broadcasting to each period.
+    In ``device="auto"`` mode, automatically picks the fastest available
+    backend: Rust CWBVH8 (``cpu_rust``) > CUDA > MPS > NumPy CPU.
     """
     n_surf = len(target_verts)
     sunlit_hr = np.ones((8760, n_surf), dtype=np.float32)
@@ -245,6 +248,8 @@ def compute_exterior_shading(
 
     if not occluder_verts or n_surf == 0 or not np.any(target_sun_exposed):
         return sunlit_hr, dif_sky
+
+    backend = select_optimal_shading_backend(requested_device=device)
 
     def _run_py() -> tuple[np.ndarray, np.ndarray]:
         tri_chunks = [_triangulate_polygon(np.asarray(v, dtype=np.float64)) for v in occluder_verts]
@@ -293,9 +298,9 @@ def compute_exterior_shading(
         )
         all_dirs = np.concatenate([beam_dirs, sky_dirs], axis=0)  # [R_beam + R_sky, 3]
 
-        use_torch = device in ("cuda", "mps")
+        use_torch = backend in ("cuda", "mps")
         if use_torch:
-            occ = _ray_triangle_any_hit_torch(origins, all_dirs, v0, e1, e2, device=device)
+            occ = _ray_triangle_any_hit_torch(origins, all_dirs, v0, e1, e2, device=backend)
         else:
             occ = _ray_triangle_any_hit_numpy(origins, all_dirs, v0, e1, e2)
 
@@ -335,7 +340,7 @@ def compute_exterior_shading(
     rust = load_gpusim_rust_module()
     rust_fn = None
     if (
-        device == "cpu"
+        backend == "cpu_rust"
         and rust is not None
         and hasattr(rust, "shading_compute_exterior")
     ):
