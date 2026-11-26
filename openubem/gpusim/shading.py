@@ -12,6 +12,11 @@ from typing import Sequence
 
 import numpy as np
 
+from openubem.gpusim._rust_compat import (
+    dispatch_gpusim_rust,
+    load_gpusim_rust_module,
+)
+
 
 def _triangulate_polygon(verts: np.ndarray) -> np.ndarray:
     """Fan-triangulate a planar polygon ``[V, 3]`` into ``[V-2, 3, 3]`` triangles."""
@@ -192,6 +197,30 @@ def _fibonacci_hemisphere_dirs(n_dirs: int = 64) -> np.ndarray:
     return np.stack([r * np.cos(phi), r * np.sin(phi), z], axis=1)
 
 
+def _flatten_poly_seq(
+    polys: Sequence[np.ndarray],
+) -> tuple[np.ndarray, np.ndarray]:
+    """Flatten a sequence of ``[V_i, 3]`` polygons into ``(verts_flat, offsets)``."""
+    arrays = [
+        (
+            np.zeros((0, 3), dtype=np.float64)
+            if len(v) == 0
+            else np.ascontiguousarray(v, dtype=np.float64)
+        )
+        for v in polys
+    ]
+    offsets = np.zeros(len(arrays) + 1, dtype=np.uint32)
+    if arrays:
+        lengths = np.fromiter(
+            (len(a) for a in arrays), dtype=np.uint32, count=len(arrays)
+        )
+        np.cumsum(lengths, out=offsets[1:])
+        verts_flat = np.concatenate(arrays, axis=0)
+    else:
+        verts_flat = np.zeros((0, 3), dtype=np.float64)
+    return verts_flat, offsets
+
+
 def compute_exterior_shading(
     target_verts: Sequence[np.ndarray],
     target_normals: np.ndarray,      # [S, 3]
@@ -217,85 +246,120 @@ def compute_exterior_shading(
     if not occluder_verts or n_surf == 0 or not np.any(target_sun_exposed):
         return sunlit_hr, dif_sky
 
-    tri_chunks = [_triangulate_polygon(np.asarray(v, dtype=np.float64)) for v in occluder_verts]
-    tri_chunks = [t for t in tri_chunks if len(t) > 0]
-    if not tri_chunks:
-        return sunlit_hr, dif_sky
-    tris = np.concatenate(tri_chunks, axis=0)  # [M, 3, 3]
-    v0 = tris[:, 0, :]
-    e1 = tris[:, 1, :] - v0
-    e2 = tris[:, 2, :] - v0
+    def _run_py() -> tuple[np.ndarray, np.ndarray]:
+        tri_chunks = [_triangulate_polygon(np.asarray(v, dtype=np.float64)) for v in occluder_verts]
+        tri_chunks = [t for t in tri_chunks if len(t) > 0]
+        if not tri_chunks:
+            return sunlit_hr.copy(), dif_sky.copy()
+        tris = np.concatenate(tri_chunks, axis=0)  # [M, 3, 3]
+        v0 = tris[:, 0, :]
+        e1 = tris[:, 1, :] - v0
+        e2 = tris[:, 2, :] - v0
 
-    # Sample origins for all sun-exposed target surfaces, nudged 2 mm along outward normal
-    pt_origins_list: list[np.ndarray] = []
-    surf_pt_slices: list[tuple[int, int, int]] = []  # (s_idx, start, end)
-    offset = 0
-    for s_idx in range(n_surf):
-        if not target_sun_exposed[s_idx]:
-            continue
-        verts = np.asarray(target_verts[s_idx], dtype=np.float64)
-        if len(verts) < 3:
-            continue
-        pts = _sample_polygon_points(verts, n_grid=n_grid)
-        pts = pts + 2.0e-3 * target_normals[s_idx][None, :]
-        pt_origins_list.append(pts)
-        surf_pt_slices.append((s_idx, offset, offset + len(pts)))
-        offset += len(pts)
-
-    if not pt_origins_list:
-        return sunlit_hr, dif_sky
-    origins = np.concatenate(pt_origins_list, axis=0)  # [P, 3]
-
-    # Build representative solar ray set matching EnergyPlus Periodic shadow update
-    rep_days = list(range(0, 365, max(1, periodic_days)))
-    rep_hours = []
-    for d in rep_days:
-        for h in range(24):
-            idx_h = d * 24 + h
-            if solcos_hourly[idx_h, 2] > 0.01:
-                rep_hours.append((d, h, idx_h))
-
-    sky_dirs = _fibonacci_hemisphere_dirs(n_sky_rays)
-    beam_dirs = (
-        solcos_hourly[[x[2] for x in rep_hours]]
-        if rep_hours
-        else np.zeros((0, 3), dtype=np.float64)
-    )
-    all_dirs = np.concatenate([beam_dirs, sky_dirs], axis=0)  # [R_beam + R_sky, 3]
-
-    use_torch = device in ("cuda", "mps")
-    if use_torch:
-        occ = _ray_triangle_any_hit_torch(origins, all_dirs, v0, e1, e2, device=device)
-    else:
-        occ = _ray_triangle_any_hit_numpy(origins, all_dirs, v0, e1, e2)
-
-    n_beam = len(rep_hours)
-    occ_beam = occ[:n_beam]       # [R_beam, P]
-    occ_sky = occ[n_beam:]        # [R_sky, P]
-
-    # Map representative-day beam sunlit fractions to all 365 days
-    # Build [len(rep_days), 24, S] table
-    day_to_rep = {d: i for i, d in enumerate(rep_days)}
-    rep_sunlit = np.ones((len(rep_days), 24, n_surf), dtype=np.float32)
-    for r_i, (d, h, idx_h) in enumerate(rep_hours):
-        di = day_to_rep[d]
-        ray = solcos_hourly[idx_h]
-        for s_idx, p0, p1 in surf_pt_slices:
-            if float(np.dot(ray, target_normals[s_idx])) <= 0.0:
+        # Sample origins for all sun-exposed target surfaces, nudged 2 mm along outward normal
+        pt_origins_list: list[np.ndarray] = []
+        surf_pt_slices: list[tuple[int, int, int]] = []  # (s_idx, start, end)
+        offset = 0
+        for s_idx in range(n_surf):
+            if not target_sun_exposed[s_idx]:
                 continue
-            rep_sunlit[di, h, s_idx] = float(1.0 - np.mean(occ_beam[r_i, p0:p1]))
+            verts = np.asarray(target_verts[s_idx], dtype=np.float64)
+            if len(verts) < 3:
+                continue
+            pts = _sample_polygon_points(verts, n_grid=n_grid)
+            pts = pts + 2.0e-3 * target_normals[s_idx][None, :]
+            pt_origins_list.append(pts)
+            surf_pt_slices.append((s_idx, offset, offset + len(pts)))
+            offset += len(pts)
 
-    for d in range(365):
-        di = min(d // max(1, periodic_days), len(rep_days) - 1)
-        sunlit_hr[d * 24 : (d + 1) * 24, :] = rep_sunlit[di]
+        if not pt_origins_list:
+            return sunlit_hr.copy(), dif_sky.copy()
+        origins = np.concatenate(pt_origins_list, axis=0)  # [P, 3]
 
-    # Sky diffuse shading factor: cosine-weighted fraction of visible upper hemisphere
-    for s_idx, p0, p1 in surf_pt_slices:
-        nrm = target_normals[s_idx]
-        cos_w = np.maximum(0.0, sky_dirs @ nrm)  # [R_sky]
-        denom = float(np.sum(cos_w))
-        if denom > 1.0e-9:
-            vis = 1.0 - np.mean(occ_sky[:, p0:p1], axis=1)  # [R_sky]
-            dif_sky[s_idx] = float(np.sum(cos_w * vis) / denom)
+        # Build representative solar ray set matching EnergyPlus Periodic shadow update
+        rep_days = list(range(0, 365, max(1, periodic_days)))
+        rep_hours = []
+        for d in rep_days:
+            for h in range(24):
+                idx_h = d * 24 + h
+                if solcos_hourly[idx_h, 2] > 0.01:
+                    rep_hours.append((d, h, idx_h))
 
-    return sunlit_hr, dif_sky
+        sky_dirs = _fibonacci_hemisphere_dirs(n_sky_rays)
+        beam_dirs = (
+            solcos_hourly[[x[2] for x in rep_hours]]
+            if rep_hours
+            else np.zeros((0, 3), dtype=np.float64)
+        )
+        all_dirs = np.concatenate([beam_dirs, sky_dirs], axis=0)  # [R_beam + R_sky, 3]
+
+        use_torch = device in ("cuda", "mps")
+        if use_torch:
+            occ = _ray_triangle_any_hit_torch(origins, all_dirs, v0, e1, e2, device=device)
+        else:
+            occ = _ray_triangle_any_hit_numpy(origins, all_dirs, v0, e1, e2)
+
+        n_beam = len(rep_hours)
+        occ_beam = occ[:n_beam]       # [R_beam, P]
+        occ_sky = occ[n_beam:]        # [R_sky, P]
+
+        # Map representative-day beam sunlit fractions to all 365 days
+        # Build [len(rep_days), 24, S] table
+        day_to_rep = {d: i for i, d in enumerate(rep_days)}
+        rep_sunlit = np.ones((len(rep_days), 24, n_surf), dtype=np.float32)
+        for r_i, (d, h, idx_h) in enumerate(rep_hours):
+            di = day_to_rep[d]
+            ray = solcos_hourly[idx_h]
+            for s_idx, p0, p1 in surf_pt_slices:
+                if float(np.dot(ray, target_normals[s_idx])) <= 0.0:
+                    continue
+                rep_sunlit[di, h, s_idx] = float(1.0 - np.mean(occ_beam[r_i, p0:p1]))
+
+        out_sunlit = sunlit_hr.copy()
+        out_dif = dif_sky.copy()
+        for d in range(365):
+            di = min(d // max(1, periodic_days), len(rep_days) - 1)
+            out_sunlit[d * 24 : (d + 1) * 24, :] = rep_sunlit[di]
+
+        # Sky diffuse shading factor: cosine-weighted fraction of visible upper hemisphere
+        for s_idx, p0, p1 in surf_pt_slices:
+            nrm = target_normals[s_idx]
+            cos_w = np.maximum(0.0, sky_dirs @ nrm)  # [R_sky]
+            denom = float(np.sum(cos_w))
+            if denom > 1.0e-9:
+                vis = 1.0 - np.mean(occ_sky[:, p0:p1], axis=1)  # [R_sky]
+                out_dif[s_idx] = float(np.sum(cos_w * vis) / denom)
+
+        return out_sunlit, out_dif
+
+    rust = load_gpusim_rust_module()
+    rust_fn = None
+    if (
+        device == "cpu"
+        and rust is not None
+        and hasattr(rust, "shading_compute_exterior")
+    ):
+        def _run_rust() -> tuple[np.ndarray, np.ndarray]:
+            t_flat, t_off = _flatten_poly_seq(target_verts)
+            o_flat, o_off = _flatten_poly_seq(occluder_verts)
+            return rust.shading_compute_exterior(
+                t_flat,
+                t_off,
+                np.ascontiguousarray(target_normals, dtype=np.float64),
+                np.ascontiguousarray(target_sun_exposed, dtype=bool),
+                o_flat,
+                o_off,
+                np.ascontiguousarray(solcos_hourly, dtype=np.float64),
+                int(max(1, periodic_days)),
+                int(n_grid),
+                int(n_sky_rays),
+            )
+
+        rust_fn = _run_rust
+
+    return dispatch_gpusim_rust(
+        "openubem.gpusim.shading.compute_exterior_shading",
+        _run_py,
+        rust_fn,
+        bucket="B3",
+    )

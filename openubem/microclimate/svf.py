@@ -14,6 +14,8 @@ import hashlib
 import numpy as np
 
 from openubem import config
+from openubem._rust_bridge import load_rust_module
+from openubem.rust_shadow import dispatch_with_rust
 
 
 def _step_distances(max_radius_px: int) -> np.ndarray:
@@ -37,32 +39,57 @@ def compute_svf(domain, n_azimuths: int = None, max_radius_px: "int | None" = No
     dsm = domain.dsm.astype(np.float64)
     res = domain.res_m
     rows, cols = dsm.shape
-    z_obs = domain.dem.astype(np.float64) + config.UTCI_PEDESTRIAN_HEIGHT_M
+    dem64 = domain.dem.astype(np.float64)
+    z_obs = dem64 + config.UTCI_PEDESTRIAN_HEIGHT_M
 
     if max_radius_px is None:
         max_radius_px = int(np.ceil(np.hypot(rows, cols)))
-    pad = max_radius_px
-    padded = np.pad(dsm, pad, mode="constant", constant_values=-1.0e6)
 
-    azimuths = np.linspace(0.0, 360.0, n_azimuths, endpoint=False)
-    horizon_angles = np.zeros((n_azimuths, rows, cols), dtype=np.float32)
-    distances = _step_distances(max_radius_px)
+    def _py():
+        pad = max_radius_px
+        padded = np.pad(dsm, pad, mode="constant", constant_values=-1.0e6)
 
-    for k, az in enumerate(azimuths):
-        az_r = np.radians(az)
-        sin_a, cos_a = np.sin(az_r), np.cos(az_r)
-        max_angle = np.zeros((rows, cols), dtype=np.float64)
-        for d in distances:
-            drow = -int(round(d * cos_a))  # north (+y) -> row decreases (transform origin at max y)
-            dcol = int(round(d * sin_a))   # east (+x) -> col increases
-            window = padded[pad + drow: pad + drow + rows, pad + dcol: pad + dcol + cols]
-            elev_angle = np.degrees(np.arctan2(window - z_obs, d * res))
-            np.maximum(max_angle, elev_angle, out=max_angle)
-        horizon_angles[k] = np.maximum(max_angle, 0.0).astype(np.float32)
+        azimuths = np.linspace(0.0, 360.0, n_azimuths, endpoint=False)
+        horizon_angles = np.zeros((n_azimuths, rows, cols), dtype=np.float32)
+        distances = _step_distances(max_radius_px)
 
-    svf = np.mean(np.cos(np.radians(horizon_angles)) ** 2, axis=0).astype(np.float32)
-    svf = np.clip(svf, 0.0, 1.0)
-    return svf, horizon_angles
+        for k, az in enumerate(azimuths):
+            az_r = np.radians(az)
+            sin_a, cos_a = np.sin(az_r), np.cos(az_r)
+            max_angle = np.zeros((rows, cols), dtype=np.float64)
+            for d in distances:
+                drow = -int(round(d * cos_a))
+                dcol = int(round(d * sin_a))
+                window = padded[pad + drow: pad + drow + rows, pad + dcol: pad + dcol + cols]
+                elev_angle = np.degrees(np.arctan2(window - z_obs, d * res))
+                np.maximum(max_angle, elev_angle, out=max_angle)
+            horizon_angles[k] = np.maximum(max_angle, 0.0).astype(np.float32)
+
+        svf = np.mean(np.cos(np.radians(horizon_angles)) ** 2, axis=0).astype(np.float32)
+        svf = np.clip(svf, 0.0, 1.0)
+        return svf, horizon_angles
+
+    rust = load_rust_module()
+    rust_fn = (
+        (
+            lambda: rust.micro_compute_svf(
+                np.ascontiguousarray(dsm, dtype=np.float64),
+                np.ascontiguousarray(dem64, dtype=np.float64),
+                float(res),
+                float(config.UTCI_PEDESTRIAN_HEIGHT_M),
+                int(n_azimuths),
+                int(max_radius_px),
+            )
+        )
+        if rust is not None and hasattr(rust, "micro_compute_svf")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.microclimate.svf.compute_svf",
+        _py,
+        rust_fn,
+        bucket="B3",
+    )
 
 
 def domain_hash(domain, n_azimuths: int) -> str:

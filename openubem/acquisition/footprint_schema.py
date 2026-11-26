@@ -12,6 +12,9 @@ from typing import Callable
 import geopandas as gpd
 import pandas as pd
 
+from openubem._rust_bridge import load_rust_module
+from openubem.rust_shadow import dispatch_with_rust
+
 
 SCHEMA_COLUMNS = [
     "geometry", "osm_id", "crs_utm", "building_tag", "function_tag", "levels", "height_m", "year_built",
@@ -111,39 +114,113 @@ def assign_provenance(gdf: gpd.GeoDataFrame, *, source: str) -> gpd.GeoDataFrame
 
 
 def build_quality_flag(gdf: gpd.GeoDataFrame, *, source: str | None = None) -> gpd.GeoDataFrame:
-    def flags(row: pd.Series) -> str:
-        out = []
-        if pd.isna(row.levels): out.append("no_floors")
-        if pd.isna(row.height_m): out.append("no_height")
-        if source == "OSM":
-            if row.building_tag in ("yes", "", None): out.append("generic_tag")
-            if row.function_tag == "" and row.building_tag in ("yes", "", None): out.append("no_function")
-            if row.provenance_geometry == "OSM_OVERLAP_RESOLVED": out.append("overlap_resolved")
-            if row.provenance_height_m == "OSM_OBSERVED_FT": out.append("height_only_ft")
-        elif not row.building_tag:
-            out.append("no_building_tag")
-        if pd.isna(row.year_built): out.append("no_year")
-        return ",".join(sorted(out))
-    out = gdf.copy(); out["data_quality_flag"] = out.apply(flags, axis=1); return out
+    def _py() -> list[str]:
+        def flags(row: pd.Series) -> str:
+            out = []
+            if pd.isna(row.levels): out.append("no_floors")
+            if pd.isna(row.height_m): out.append("no_height")
+            if source == "OSM":
+                if row.building_tag in ("yes", "", None): out.append("generic_tag")
+                if row.function_tag == "" and row.building_tag in ("yes", "", None): out.append("no_function")
+                if row.provenance_geometry == "OSM_OVERLAP_RESOLVED": out.append("overlap_resolved")
+                if row.provenance_height_m == "OSM_OBSERVED_FT": out.append("height_only_ft")
+            elif not row.building_tag:
+                out.append("no_building_tag")
+            if pd.isna(row.year_built): out.append("no_year")
+            return ",".join(sorted(out))
+        return [flags(row) for _, row in gdf.iterrows()]
+
+    rust = load_rust_module()
+
+    def _rust() -> list[str]:
+        import pyarrow as pa
+
+        table = pa.table({
+            "levels": pa.array([None if pd.isna(v) else int(v) for v in pd.to_numeric(gdf["levels"], errors="coerce")], type=pa.int64()),
+            "height_m": pa.array(pd.to_numeric(gdf["height_m"], errors="coerce").astype(float).tolist(), type=pa.float64()),
+            "year_built": pa.array([None if pd.isna(v) else int(v) for v in pd.to_numeric(gdf["year_built"], errors="coerce")], type=pa.int64()),
+            "building_tag": pa.array([None if pd.isna(v) else str(v) for v in gdf["building_tag"].tolist()], type=pa.string()),
+            "function_tag": pa.array([None if pd.isna(v) else str(v) for v in gdf["function_tag"].tolist()], type=pa.string()),
+            "provenance_geometry": pa.array([None if pd.isna(v) else str(v) for v in gdf["provenance_geometry"].tolist()], type=pa.string()),
+            "provenance_height_m": pa.array([None if pd.isna(v) else str(v) for v in gdf["provenance_height_m"].tolist()], type=pa.string()),
+        })
+        return list(rust.schema_build_step1_quality_flags(table, source, True))
+
+    rust_fn = (
+        _rust
+        if rust is not None and hasattr(rust, "schema_build_step1_quality_flags")
+        else None
+    )
+    flag_values = dispatch_with_rust(
+        "openubem.acquisition.footprint_schema.build_quality_flag",
+        _py,
+        rust_fn,
+        bucket="B1",
+    )
+    out = gdf.copy()
+    out["data_quality_flag"] = flag_values
+    return out
 
 
 def validate_schema(gdf: gpd.GeoDataFrame) -> None:
-    cols = list(gdf.columns)
-    if len(cols) != 23:
-        raise ValueError(f"Schema error: expected 23 columns, got {len(cols)}. Columns: {cols}")
-    if cols != SCHEMA_COLUMNS:
-        mismatches = [(i, actual, expected) for i, (actual, expected) in enumerate(zip(cols, SCHEMA_COLUMNS)) if actual != expected]
-        extra = set(cols) - set(SCHEMA_COLUMNS)
-        missing = set(SCHEMA_COLUMNS) - set(cols)
-        raise ValueError(f"Schema error: column order mismatch. Mismatches: {mismatches}. Extra: {extra}. Missing: {missing}.")
-    for col in ("levels", "year_built", "underground"):
-        if str(gdf[col].dtype) != "Int64": raise ValueError(f"Schema error: {col} must be Int64.")
-    for col in ("height_m", "roof_height_m", "footprint_area_m2", "perimeter_m"):
-        if gdf[col].dtype != "float64": raise ValueError(f"Schema error: {col} must be float64.")
-    if not hasattr(gdf["geometry"].dtype, "name") or "geom" not in str(gdf["geometry"].dtype).lower():
-        raise ValueError(f"Schema error: 'geometry' must be geometry dtype, got {gdf['geometry'].dtype}.")
-    if not gdf["osm_id"].is_unique:
-        raise ValueError("Schema error: 'osm_id' column is not unique.")
+    def _py() -> bool:
+        cols = list(gdf.columns)
+        if len(cols) != 23:
+            raise ValueError(f"Schema error: expected 23 columns, got {len(cols)}. Columns: {cols}")
+        if cols != SCHEMA_COLUMNS:
+            mismatches = [(i, actual, expected) for i, (actual, expected) in enumerate(zip(cols, SCHEMA_COLUMNS)) if actual != expected]
+            extra = set(cols) - set(SCHEMA_COLUMNS)
+            missing = set(SCHEMA_COLUMNS) - set(cols)
+            raise ValueError(f"Schema error: column order mismatch. Mismatches: {mismatches}. Extra: {extra}. Missing: {missing}.")
+        for col in ("levels", "year_built", "underground"):
+            if str(gdf[col].dtype) != "Int64": raise ValueError(f"Schema error: {col} must be Int64.")
+        for col in ("height_m", "roof_height_m", "footprint_area_m2", "perimeter_m"):
+            if gdf[col].dtype != "float64": raise ValueError(f"Schema error: {col} must be float64.")
+        if not hasattr(gdf["geometry"].dtype, "name") or "geom" not in str(gdf["geometry"].dtype).lower():
+            raise ValueError(f"Schema error: 'geometry' must be geometry dtype, got {gdf['geometry'].dtype}.")
+        if not gdf["osm_id"].is_unique:
+            raise ValueError("Schema error: 'osm_id' column is not unique.")
+        return True
+
+    rust = load_rust_module()
+
+    def _rust() -> bool:
+        import pyarrow as pa
+
+        if list(gdf.columns) != SCHEMA_COLUMNS:
+            raise ValueError("Schema error: column order mismatch.")
+        for col in ("levels", "year_built", "underground"):
+            if str(gdf[col].dtype) != "Int64":
+                raise ValueError(f"Schema error: {col} must be Int64.")
+        for col in ("height_m", "roof_height_m", "footprint_area_m2", "perimeter_m"):
+            if gdf[col].dtype != "float64":
+                raise ValueError(f"Schema error: {col} must be float64.")
+        if not hasattr(gdf["geometry"].dtype, "name") or "geom" not in str(gdf["geometry"].dtype).lower():
+            raise ValueError(f"Schema error: 'geometry' must be geometry dtype, got {gdf['geometry'].dtype}.")
+        arrays = []
+        for col in SCHEMA_COLUMNS:
+            if col == "geometry":
+                arrays.append(pa.array(gdf.geometry.to_wkb().tolist(), type=pa.binary()))
+            elif col in ("levels", "year_built", "underground"):
+                arrays.append(pa.array([None if pd.isna(v) else int(v) for v in gdf[col]], type=pa.int64()))
+            elif col in ("height_m", "roof_height_m", "footprint_area_m2", "perimeter_m"):
+                arrays.append(pa.array(gdf[col].to_numpy(dtype=float), type=pa.float64()))
+            else:
+                arrays.append(pa.array([None if pd.isna(v) else str(v) for v in gdf[col].tolist()], type=pa.string()))
+        rust.schema_validate_step1_table(pa.table(arrays, names=SCHEMA_COLUMNS))
+        return True
+
+    rust_fn = (
+        _rust
+        if rust is not None and hasattr(rust, "schema_validate_step1_table")
+        else None
+    )
+    dispatch_with_rust(
+        "openubem.acquisition.footprint_schema.validate_schema",
+        _py,
+        rust_fn,
+        bucket="B1",
+    )
 
 
 def serialize(gdf: gpd.GeoDataFrame, output_dir: Path | str, *, log_lines: list[str] | None = None) -> None:

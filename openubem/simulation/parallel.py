@@ -11,6 +11,7 @@ import pandas as pd
 from joblib import Parallel, delayed
 
 from openubem import config
+from openubem._rust_bridge import get_rust_backend_mode, load_rust_module
 from openubem.simulation.runner import (
     _version_handshake,
     classify_outcome,
@@ -222,6 +223,26 @@ def _emit_manifest(
     df["n_severe"] = df["n_severe"].astype("Int64")
     df["sql_path"] = df["sql_path"].fillna("").astype(str)
     df["error_summary"] = df["error_summary"].fillna("").astype(str)
+
+    if get_rust_backend_mode() != "off":
+        rust = load_rust_module()
+        if rust is not None and hasattr(rust, "schema_validate_sim_manifest_table"):
+            import pyarrow as pa
+
+            table = pa.table({
+                "osm_id": pa.array(df["osm_id"].astype(str).tolist(), type=pa.string()),
+                "idf_path": pa.array(df["idf_path"].astype(str).tolist(), type=pa.string()),
+                "work_dir": pa.array(df["work_dir"].astype(str).tolist(), type=pa.string()),
+                "sql_path": pa.array(df["sql_path"].astype(str).tolist(), type=pa.string()),
+                "status": pa.array(df["status"].astype(str).tolist(), type=pa.string()),
+                "n_warnings": pa.array([None if pd.isna(v) else int(v) for v in df["n_warnings"]], type=pa.int64()),
+                "n_severe": pa.array([None if pd.isna(v) else int(v) for v in df["n_severe"]], type=pa.int64()),
+                "wall_clock_s": pa.array(df["wall_clock_s"].to_numpy(dtype=float), type=pa.float64()),
+                "ep_version": pa.array(df["ep_version"].astype(str).tolist(), type=pa.string()),
+                "epw_path": pa.array(df["epw_path"].astype(str).tolist(), type=pa.string()),
+                "error_summary": pa.array(df["error_summary"].astype(str).tolist(), type=pa.string()),
+            })
+            rust.schema_validate_sim_manifest_table(table)
 
     return df
 

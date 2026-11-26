@@ -36,6 +36,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from openubem._rust_bridge import load_rust_module
+from openubem.rust_shadow import dispatch_with_rust
+
 FLAG_TA = np.uint8(0x01)
 FLAG_TMRT = np.uint8(0x02)
 FLAG_WIND = np.uint8(0x04)
@@ -305,27 +308,51 @@ def utci_approx(ta_c, tmrt_c, va10_ms, e_kpa):
     va = np.broadcast_to(va, shape)
     e_kpa_arr = np.broadcast_to(e_kpa_arr, shape)
 
-    flags = np.zeros(shape, dtype=np.uint8)
+    def _py():
+        flags = np.zeros(shape, dtype=np.uint8)
 
-    raw_d_tmrt = tmrt - ta
-    flags = np.where((ta < TA_BOUNDS[0]) | (ta > TA_BOUNDS[1]), flags | FLAG_TA, flags).astype(np.uint8)
-    flags = np.where(
-        (raw_d_tmrt < D_TMRT_BOUNDS[0]) | (raw_d_tmrt > D_TMRT_BOUNDS[1]), flags | FLAG_TMRT, flags
-    ).astype(np.uint8)
-    flags = np.where((va < VA10_BOUNDS[0]) | (va > VA10_BOUNDS[1]), flags | FLAG_WIND, flags).astype(np.uint8)
-    flags = np.where(
-        (e_kpa_arr < E_KPA_BOUNDS[0]) | (e_kpa_arr > E_KPA_BOUNDS[1]), flags | FLAG_VAPOUR, flags
-    ).astype(np.uint8)
+        raw_d_tmrt = tmrt - ta
+        flags = np.where((ta < TA_BOUNDS[0]) | (ta > TA_BOUNDS[1]), flags | FLAG_TA, flags).astype(np.uint8)
+        flags = np.where(
+            (raw_d_tmrt < D_TMRT_BOUNDS[0]) | (raw_d_tmrt > D_TMRT_BOUNDS[1]), flags | FLAG_TMRT, flags
+        ).astype(np.uint8)
+        flags = np.where((va < VA10_BOUNDS[0]) | (va > VA10_BOUNDS[1]), flags | FLAG_WIND, flags).astype(np.uint8)
+        flags = np.where(
+            (e_kpa_arr < E_KPA_BOUNDS[0]) | (e_kpa_arr > E_KPA_BOUNDS[1]), flags | FLAG_VAPOUR, flags
+        ).astype(np.uint8)
 
-    ta_clamped = np.clip(ta, *TA_BOUNDS)
-    d_tmrt_clamped = np.clip(raw_d_tmrt, *D_TMRT_BOUNDS)
-    va_clamped = np.clip(va, *VA10_BOUNDS)
-    e_kpa_clamped = np.clip(e_kpa_arr, *E_KPA_BOUNDS)
-    eh_pa = e_kpa_clamped * 10.0  # kPa -> hPa: the ONE conversion point (§4.4)
+        ta_clamped = np.clip(ta, *TA_BOUNDS)
+        d_tmrt_clamped = np.clip(raw_d_tmrt, *D_TMRT_BOUNDS)
+        va_clamped = np.clip(va, *VA10_BOUNDS)
+        e_kpa_clamped = np.clip(e_kpa_arr, *E_KPA_BOUNDS)
+        eh_pa = e_kpa_clamped * 10.0
 
-    offset = _brode_polynomial_offset(ta_clamped, va_clamped, d_tmrt_clamped, eh_pa)
-    utci_c = ta_clamped + offset  # P-03: polynomial evaluates the offset, UTCI = Ta + offset
-    return utci_c, flags
+        offset = _brode_polynomial_offset(ta_clamped, va_clamped, d_tmrt_clamped, eh_pa)
+        utci_c = ta_clamped + offset
+        return utci_c, flags
+
+    rust = load_rust_module()
+    rust_fn = None
+    if rust is not None and hasattr(rust, "micro_utci_approx"):
+        def _rust():
+            u_flat, f_flat = rust.micro_utci_approx(
+                np.ascontiguousarray(ta, dtype=np.float64).ravel(),
+                np.ascontiguousarray(tmrt, dtype=np.float64).ravel(),
+                np.ascontiguousarray(va, dtype=np.float64).ravel(),
+                np.ascontiguousarray(e_kpa_arr, dtype=np.float64).ravel(),
+            )
+            if shape == ():
+                return np.float64(u_flat[0]), np.uint8(f_flat[0])
+            return u_flat.reshape(shape), f_flat.reshape(shape)
+
+        rust_fn = _rust
+
+    return dispatch_with_rust(
+        "openubem.microclimate.utci.utci_approx",
+        _py,
+        rust_fn,
+        bucket="B2",
+    )
 
 
 # ── T07 — stress categories & official palette ────────────────────────────────────────────
@@ -353,11 +380,30 @@ def classify_stress(utci_c) -> np.ndarray:
     """10-class official UTCI stress category per cell. Bounds half-open [min, max).
     NaN -> UTCI_NODATA_CLASS (255)."""
     arr = np.asarray(utci_c, dtype=np.float64)
-    idx = np.searchsorted(_CLASS_MINS, arr, side="right") - 1
-    idx = np.clip(idx, 0, len(UTCI_CLASSES) - 1)
-    out = idx.astype(np.uint8)
-    out = np.where(np.isnan(arr), UTCI_NODATA_CLASS, out)
-    return out
+
+    def _py() -> np.ndarray:
+        idx = np.searchsorted(_CLASS_MINS, arr, side="right") - 1
+        idx = np.clip(idx, 0, len(UTCI_CLASSES) - 1)
+        out = idx.astype(np.uint8)
+        out = np.where(np.isnan(arr), UTCI_NODATA_CLASS, out)
+        return out
+
+    rust = load_rust_module()
+    rust_fn = (
+        (
+            lambda: rust.micro_classify_stress(
+                np.ascontiguousarray(arr, dtype=np.float64).ravel()
+            ).reshape(arr.shape)
+        )
+        if rust is not None and hasattr(rust, "micro_classify_stress")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.microclimate.utci.classify_stress",
+        _py,
+        rust_fn,
+        bucket="B1",
+    )
 
 
 # U01 §2.3 (lines 84-93) -- 4-tier municipal presentation layer over the 10 classes.

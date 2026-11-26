@@ -23,7 +23,9 @@ from typing import Any
 import pandas as pd
 
 from openubem import config
+from openubem._rust_bridge import load_rust_module
 from openubem.geometry.footprint import derive_num_floors
+from openubem.rust_shadow import dispatch_with_rust
 
 # ── §3A constants (DESIGN lines 45-57) ───────────────────────────────────────
 HOURLY_QUERY = """
@@ -118,12 +120,38 @@ _IOD_OCC_VAR = "Zone People Occupant Count"
 
 def parse_building_sql(sql_path: Path) -> pd.DataFrame:
     """Pull all hourly variables from eplusout.sql; convert J→kWh at the boundary."""
-    with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
-        df = pd.read_sql_query(HOURLY_QUERY, conn)
-    is_energy = df["units"] == "J"
-    df.loc[is_energy, "value"] *= J_TO_KWH
-    df.loc[is_energy, "units"] = "kWh"
-    return df
+    def _py() -> pd.DataFrame:
+        with sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True) as conn:
+            df = pd.read_sql_query(HOURLY_QUERY, conn)
+        is_energy = df["units"] == "J"
+        df.loc[is_energy, "value"] *= J_TO_KWH
+        df.loc[is_energy, "units"] = "kWh"
+        return df
+
+    rust = load_rust_module()
+    rust_fn = (
+        (lambda: rust.results_parse_building_sql(str(sql_path), 0).to_pandas())
+        if rust is not None and hasattr(rust, "results_parse_building_sql")
+        else None
+    )
+    # Shadow compares dict-of-arrays cleanly when Rust module is active.
+    if rust_fn is None:
+        return _py()
+    from openubem._rust_bridge import get_rust_backend_mode
+    mode = get_rust_backend_mode()
+    if mode == "off":
+        return _py()
+    if mode == "on":
+        return rust_fn()
+    py_df = _py()
+    rust_df = rust_fn()
+    dispatch_with_rust(
+        "openubem.results.parser.parse_building_sql",
+        lambda: {c: py_df[c].to_numpy() for c in py_df.columns},
+        lambda: {c: rust_df[c].to_numpy() for c in rust_df.columns},
+        bucket="B2",
+    )
+    return py_df
 
 
 def _read_abups_district_heating(conn: sqlite3.Connection) -> float:
@@ -283,11 +311,26 @@ def parse_building_csv(csv_path: Path) -> pd.DataFrame:
 
 def resolve_zone(key_value: str) -> dict | None:
     """Parse zone key → {osm_id_uc, floor, label}, or None for site-level keys."""
-    stripped = _strip_ideal_loads(key_value.strip())
-    m = ZONE_RX.match(stripped.upper())
-    if m is None:
-        return None
-    return {"osm_id_uc": m["osm_id"], "floor": int(m["floor"]), "label": m["label"]}
+    def _py() -> dict | None:
+        stripped = _strip_ideal_loads(key_value.strip())
+        m = ZONE_RX.match(stripped.upper())
+        if m is None:
+            return None
+        return {"osm_id_uc": m["osm_id"], "floor": int(m["floor"]), "label": m["label"]}
+
+    rust = load_rust_module()
+    def _rust() -> dict | None:
+        hit = rust.results_resolve_zone(str(key_value))
+        if hit is None:
+            return None
+        return {"osm_id_uc": hit[0], "floor": int(hit[1]), "label": hit[2]}
+
+    return dispatch_with_rust(
+        "openubem.results.parser.resolve_zone",
+        _py,
+        _rust if rust is not None and hasattr(rust, "results_resolve_zone") else None,
+        bucket="B1",
+    )
 
 
 def _check_zone_integrity(
@@ -375,75 +418,89 @@ def parse_eio_zone_area(path: Path) -> dict:
     edit the two independently; if the audit script's version changes, port the
     change here too rather than letting the two drift apart.
     """
-    header_idx = None
-    n_zones = 0
-    area_plain = 0.0
-    area_mult = 0.0
-    max_zm = 0.0
-    max_zlm = 0.0
-    n_excluded = 0
-    n_row_errors = 0
-    saw_header = False
-    in_block = False
+    def _py() -> dict:
+        header_idx = None
+        n_zones = 0
+        area_plain = 0.0
+        area_mult = 0.0
+        max_zm = 0.0
+        max_zlm = 0.0
+        n_excluded = 0
+        n_row_errors = 0
+        saw_header = False
+        in_block = False
 
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace", newline="") as f:
-            for line in f:
-                if not saw_header:
-                    if line.startswith(_EIO_HEADER_MARKER):
-                        raw = next(csv.reader([line]))
-                        names = [c.strip() for c in raw]
-                        header_idx = {name: i for i, name in enumerate(names)}
-                        saw_header = True
-                    continue
-                if line.startswith(_EIO_DATA_PREFIX):
-                    in_block = True
-                    n_zones += 1
-                    try:
-                        row = next(csv.reader([line]))
-                        floor_area = float(row[header_idx[_EIO_FIELD_FLOOR_AREA]])
-                        zm = float(row[header_idx[_EIO_FIELD_ZONE_MULT]])
-                        zlm = float(row[header_idx[_EIO_FIELD_ZONE_LIST_MULT]])
-                        part = row[header_idx[_EIO_FIELD_PART_OF_TOTAL]].strip()
-                    except (KeyError, ValueError, IndexError):
-                        n_row_errors += 1
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace", newline="") as f:
+                for line in f:
+                    if not saw_header:
+                        if line.startswith(_EIO_HEADER_MARKER):
+                            raw = next(csv.reader([line]))
+                            names = [c.strip() for c in raw]
+                            header_idx = {name: i for i, name in enumerate(names)}
+                            saw_header = True
                         continue
-                    if zm > max_zm:
-                        max_zm = zm
-                    if zlm > max_zlm:
-                        max_zlm = zlm
-                    if part == "Yes":
-                        area_plain += floor_area
-                        area_mult += floor_area * zm * zlm
-                    else:
-                        n_excluded += 1
-                elif in_block:
-                    break
-    except OSError as e:
+                    if line.startswith(_EIO_DATA_PREFIX):
+                        in_block = True
+                        n_zones += 1
+                        try:
+                            row = next(csv.reader([line]))
+                            floor_area = float(row[header_idx[_EIO_FIELD_FLOOR_AREA]])
+                            zm = float(row[header_idx[_EIO_FIELD_ZONE_MULT]])
+                            zlm = float(row[header_idx[_EIO_FIELD_ZONE_LIST_MULT]])
+                            part = row[header_idx[_EIO_FIELD_PART_OF_TOTAL]].strip()
+                        except (KeyError, ValueError, IndexError):
+                            n_row_errors += 1
+                            continue
+                        if zm > max_zm:
+                            max_zm = zm
+                        if zlm > max_zlm:
+                            max_zlm = zlm
+                        if part == "Yes":
+                            area_plain += floor_area
+                            area_mult += floor_area * zm * zlm
+                        else:
+                            n_excluded += 1
+                    elif in_block:
+                        break
+        except OSError as e:
+            return dict(
+                n_zones=0, area_plain_m2=0.0, area_multiplier_aware_m2=0.0,
+                max_zone_multiplier=0, max_zone_list_multiplier=0,
+                n_zones_excluded_not_in_total_area=0,
+                parse_status=f"file_error:{e}",
+            )
+
+        if not saw_header:
+            status = "no_zone_information_header"
+        elif n_zones == 0:
+            status = "header_found_zero_rows"
+        elif n_row_errors > 0:
+            status = f"ok_with_{n_row_errors}_row_errors"
+        else:
+            status = "ok"
+
         return dict(
-            n_zones=0, area_plain_m2=0.0, area_multiplier_aware_m2=0.0,
-            max_zone_multiplier=0, max_zone_list_multiplier=0,
-            n_zones_excluded_not_in_total_area=0,
-            parse_status=f"file_error:{e}",
+            n_zones=n_zones,
+            area_plain_m2=area_plain,
+            area_multiplier_aware_m2=area_mult,
+            max_zone_multiplier=int(round(max_zm)),
+            max_zone_list_multiplier=int(round(max_zlm)),
+            n_zones_excluded_not_in_total_area=n_excluded,
+            parse_status=status,
         )
 
-    if not saw_header:
-        status = "no_zone_information_header"
-    elif n_zones == 0:
-        status = "header_found_zero_rows"
-    elif n_row_errors > 0:
-        status = f"ok_with_{n_row_errors}_row_errors"
-    else:
-        status = "ok"
-
-    return dict(
-        n_zones=n_zones,
-        area_plain_m2=area_plain,
-        area_multiplier_aware_m2=area_mult,
-        max_zone_multiplier=int(round(max_zm)),
-        max_zone_list_multiplier=int(round(max_zlm)),
-        n_zones_excluded_not_in_total_area=n_excluded,
-        parse_status=status,
+    rust = load_rust_module()
+    rust_fn = (
+        (lambda: dict(rust.results_parse_eio_zone_area(str(path))))
+        if rust is not None and hasattr(rust, "results_parse_eio_zone_area")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.results.parser.parse_eio_zone_area",
+        _py,
+        rust_fn,
+        bucket="B2",
     )
 
 
@@ -460,37 +517,51 @@ _EIO_OK_STATUSES_PREFIX = ("ok", "ok_with_")
 # which callers treat as "no multiplier data available" (all zones default to 1.0).
 def parse_eio_zone_multipliers(path: Path) -> dict[str, float]:
     """Stream one .eio file; return {ZONE_NAME_UPPER: zone_multiplier * zone_list_multiplier}."""
-    result: dict[str, float] = {}
-    header_idx = None
-    saw_header = False
-    in_block = False
+    def _py() -> dict[str, float]:
+        result: dict[str, float] = {}
+        header_idx = None
+        saw_header = False
+        in_block = False
 
-    try:
-        with open(path, "r", encoding="utf-8", errors="replace", newline="") as f:
-            for line in f:
-                if not saw_header:
-                    if line.startswith(_EIO_HEADER_MARKER):
-                        raw = next(csv.reader([line]))
-                        names = [c.strip() for c in raw]
-                        header_idx = {name: i for i, name in enumerate(names)}
-                        saw_header = True
-                    continue
-                if line.startswith(_EIO_DATA_PREFIX):
-                    in_block = True
-                    try:
-                        row = next(csv.reader([line]))
-                        zone_name = row[header_idx[_EIO_FIELD_ZONE_NAME]].strip().upper()
-                        zm = float(row[header_idx[_EIO_FIELD_ZONE_MULT]])
-                        zlm = float(row[header_idx[_EIO_FIELD_ZONE_LIST_MULT]])
-                    except (KeyError, ValueError, IndexError):
+        try:
+            with open(path, "r", encoding="utf-8", errors="replace", newline="") as f:
+                for line in f:
+                    if not saw_header:
+                        if line.startswith(_EIO_HEADER_MARKER):
+                            raw = next(csv.reader([line]))
+                            names = [c.strip() for c in raw]
+                            header_idx = {name: i for i, name in enumerate(names)}
+                            saw_header = True
                         continue
-                    result[zone_name] = zm * zlm
-                elif in_block:
-                    break
-    except OSError:
-        return {}
+                    if line.startswith(_EIO_DATA_PREFIX):
+                        in_block = True
+                        try:
+                            row = next(csv.reader([line]))
+                            zone_name = row[header_idx[_EIO_FIELD_ZONE_NAME]].strip().upper()
+                            zm = float(row[header_idx[_EIO_FIELD_ZONE_MULT]])
+                            zlm = float(row[header_idx[_EIO_FIELD_ZONE_LIST_MULT]])
+                        except (KeyError, ValueError, IndexError):
+                            continue
+                        result[zone_name] = zm * zlm
+                    elif in_block:
+                        break
+        except OSError:
+            return {}
 
-    return result
+        return result
+
+    rust = load_rust_module()
+    rust_fn = (
+        (lambda: dict(rust.results_parse_eio_zone_multipliers(str(path))))
+        if rust is not None and hasattr(rust, "results_parse_eio_zone_multipliers")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.results.parser.parse_eio_zone_multipliers",
+        _py,
+        rust_fn,
+        bucket="B2",
+    )
 
 
 def parse_sql_zone_area(sql_path: Path) -> float:
@@ -856,84 +927,98 @@ def check_building_integrity(
     Returns dict with keys: abups_ok, meter_ok, gas_zero.
     Requires TabularDataWithStrings (ABUPS) + RunPeriod meter rows in the SQL.
     """
-    result: dict[str, Any] = {"abups_ok": None, "meter_ok": None, "gas_zero": None}
+    def _py() -> dict[str, Any]:
+        result: dict[str, Any] = {"abups_ok": None, "meter_ok": None, "gas_zero": None}
 
-    if not sql_path.exists():
+        if not sql_path.exists():
+            return result
+
+        try:
+            conn = sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True)
+
+            # ABUPS cross-check: compare hourly sum vs TabularDataWithStrings
+            hourly_q = """
+            SELECT COALESCE(SUM(r.Value), 0.0) AS total_j
+            FROM ReportData r
+            JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
+            WHERE d.Name IN ('Zone Lights Electricity Energy', 'Zone Electric Equipment Electricity Energy')
+              AND d.ReportingFrequency = 'Hourly'
+            """
+            hourly_j = conn.execute(hourly_q).fetchone()[0] or 0.0
+
+            abups_q = """
+            SELECT COALESCE(SUM(CAST(Value AS REAL)), 0.0)
+            FROM TabularDataWithStrings
+            WHERE ReportName = 'AnnualBuildingUtilityPerformanceSummary'
+              AND TableName = 'End Uses'
+              AND RowName IN ('Interior Lighting', 'Interior Equipment')
+              AND ColumnName = 'Electricity'
+              AND Units = 'GJ'
+            """
+            abups_gj = conn.execute(abups_q).fetchone()[0] or 0.0
+            abups_j = abups_gj * 1e9
+
+            if abups_j > 0:
+                diff = abs(hourly_j - abups_j) / abups_j
+                result["abups_ok"] = diff <= 0.005
+            else:
+                # Both zero is acceptable; if hourly_j > 0 but abups = 0 → fail
+                result["abups_ok"] = hourly_j == 0.0
+
+            # Meter closure: hourly zone-level elec vs Electricity:Facility RunPeriod
+            meter_q = """
+            SELECT COALESCE(SUM(r.Value), 0.0)
+            FROM ReportData r
+            JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
+            WHERE d.Name = 'Electricity:Facility'
+              AND d.ReportingFrequency = 'Run Period'
+            """
+            facility_j = conn.execute(meter_q).fetchone()[0] or 0.0
+
+            zone_elec_q = """
+            SELECT COALESCE(SUM(r.Value), 0.0)
+            FROM ReportData r
+            JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
+            WHERE d.Name IN ('Zone Lights Electricity Energy', 'Zone Electric Equipment Electricity Energy')
+              AND d.ReportingFrequency = 'Hourly'
+            """
+            zone_elec_j = conn.execute(zone_elec_q).fetchone()[0] or 0.0
+
+            if facility_j > 0:
+                diff = abs(zone_elec_j - facility_j) / facility_j
+                result["meter_ok"] = diff <= 0.01
+            else:
+                result["meter_ok"] = zone_elec_j == 0.0
+
+            # Gas-zero check (Phase-D PTAC: gas heating is expected; check is informational)
+            gas_q = """
+            SELECT COALESCE(SUM(r.Value), 0.0)
+            FROM ReportData r
+            JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
+            WHERE d.Name = 'NaturalGas:Facility'
+              AND d.ReportingFrequency = 'Run Period'
+            """
+            gas_j = conn.execute(gas_q).fetchone()[0] or 0.0
+            result["gas_zero"] = gas_j == 0.0  # False is expected for gas-heat archetypes in Phase-D
+
+            conn.close()
+        except Exception as exc:
+            warnings.warn(f"check_building_integrity failed for {sql_path}: {exc}")
+
         return result
 
-    try:
-        conn = sqlite3.connect(f"file:{sql_path}?mode=ro", uri=True)
-
-        # ABUPS cross-check: compare hourly sum vs TabularDataWithStrings
-        hourly_q = """
-        SELECT COALESCE(SUM(r.Value), 0.0) AS total_j
-        FROM ReportData r
-        JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
-        WHERE d.Name IN ('Zone Lights Electricity Energy', 'Zone Electric Equipment Electricity Energy')
-          AND d.ReportingFrequency = 'Hourly'
-        """
-        hourly_j = conn.execute(hourly_q).fetchone()[0] or 0.0
-
-        abups_q = """
-        SELECT COALESCE(SUM(CAST(Value AS REAL)), 0.0)
-        FROM TabularDataWithStrings
-        WHERE ReportName = 'AnnualBuildingUtilityPerformanceSummary'
-          AND TableName = 'End Uses'
-          AND RowName IN ('Interior Lighting', 'Interior Equipment')
-          AND ColumnName = 'Electricity'
-          AND Units = 'GJ'
-        """
-        abups_gj = conn.execute(abups_q).fetchone()[0] or 0.0
-        abups_j = abups_gj * 1e9
-
-        if abups_j > 0:
-            diff = abs(hourly_j - abups_j) / abups_j
-            result["abups_ok"] = diff <= 0.005
-        else:
-            # Both zero is acceptable; if hourly_j > 0 but abups = 0 → fail
-            result["abups_ok"] = hourly_j == 0.0
-
-        # Meter closure: hourly zone-level elec vs Electricity:Facility RunPeriod
-        meter_q = """
-        SELECT COALESCE(SUM(r.Value), 0.0)
-        FROM ReportData r
-        JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
-        WHERE d.Name = 'Electricity:Facility'
-          AND d.ReportingFrequency = 'Run Period'
-        """
-        facility_j = conn.execute(meter_q).fetchone()[0] or 0.0
-
-        zone_elec_q = """
-        SELECT COALESCE(SUM(r.Value), 0.0)
-        FROM ReportData r
-        JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
-        WHERE d.Name IN ('Zone Lights Electricity Energy', 'Zone Electric Equipment Electricity Energy')
-          AND d.ReportingFrequency = 'Hourly'
-        """
-        zone_elec_j = conn.execute(zone_elec_q).fetchone()[0] or 0.0
-
-        if facility_j > 0:
-            diff = abs(zone_elec_j - facility_j) / facility_j
-            result["meter_ok"] = diff <= 0.01
-        else:
-            result["meter_ok"] = zone_elec_j == 0.0
-
-        # Gas-zero check (Phase-D PTAC: gas heating is expected; check is informational)
-        gas_q = """
-        SELECT COALESCE(SUM(r.Value), 0.0)
-        FROM ReportData r
-        JOIN ReportDataDictionary d ON r.ReportDataDictionaryIndex = d.ReportDataDictionaryIndex
-        WHERE d.Name = 'NaturalGas:Facility'
-          AND d.ReportingFrequency = 'Run Period'
-        """
-        gas_j = conn.execute(gas_q).fetchone()[0] or 0.0
-        result["gas_zero"] = gas_j == 0.0  # False is expected for gas-heat archetypes in Phase-D
-
-        conn.close()
-    except Exception as exc:
-        warnings.warn(f"check_building_integrity failed for {sql_path}: {exc}")
-
-    return result
+    rust = load_rust_module()
+    rust_fn = (
+        (lambda: dict(rust.results_check_building_integrity(str(sql_path), 0)))
+        if rust is not None and hasattr(rust, "results_check_building_integrity")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.results.parser.check_building_integrity",
+        _py,
+        rust_fn,
+        bucket="B1",
+    )
 
 
 # ── Top-level per-building parse ──────────────────────────────────────────────
@@ -975,9 +1060,65 @@ def parse_building(
     # success path and every failure path report the same floor_area_m2/provenance pair.
     num_floors = _derive_num_floors_wired(manifest_row)
     footprint_area = float(manifest_row["footprint_area_m2"])
+
+    if sql_path is not None and sql_path.exists() and (csv_path is None or not csv_path.exists()):
+        rust = load_rust_module()
+        if rust is not None and hasattr(rust, "results_harvest_one_building"):
+            summer_lo, summer_hi = config.IOD_SUMMER_MONTHS
+
+            def _rust_one() -> dict[str, Any]:
+                return dict(
+                    rust.results_harvest_one_building(
+                        osm_id,
+                        str(sql_path),
+                        footprint_area,
+                        int(num_floors),
+                        int(num_zones),
+                        dq_flag,
+                        None if resolution_mode is None else str(resolution_mode),
+                        int(summer_lo),
+                        int(summer_hi),
+                        False,
+                        0,
+                    )
+                )
+
+            def _py_one() -> dict[str, Any]:
+                floor_area_inner, prov_inner = resolve_simulated_floor_area(
+                    sql_path, footprint_area, num_floors
+                )
+                return _parse_building_py(
+                    sql_path, csv_path, manifest_row, osm_id, num_zones, dq_flag,
+                    resolution_mode, floor_area_inner, prov_inner,
+                )
+
+            return dispatch_with_rust(
+                "openubem.results.parser.parse_building",
+                _py_one,
+                _rust_one,
+                bucket="B2",
+            )
+
     floor_area, floor_area_provenance = resolve_simulated_floor_area(
         sql_path, footprint_area, num_floors
     )
+    return _parse_building_py(
+        sql_path, csv_path, manifest_row, osm_id, num_zones, dq_flag,
+        resolution_mode, floor_area, floor_area_provenance,
+    )
+
+
+def _parse_building_py(
+    sql_path: "Path | None",
+    csv_path: "Path | None",
+    manifest_row: "pd.Series",
+    osm_id: str,
+    num_zones: int,
+    dq_flag: str,
+    resolution_mode: str | None,
+    floor_area: float,
+    floor_area_provenance: str,
+) -> dict[str, Any]:
 
     parse_status = "success"
     error_summary = ""

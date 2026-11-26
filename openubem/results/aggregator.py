@@ -20,6 +20,8 @@ import geopandas as gpd
 import pandas as pd
 
 from openubem import config
+from openubem._rust_bridge import load_rust_module
+from openubem.rust_shadow import dispatch_with_rust
 
 # ── F9: Step-5 output columns (Phase-E: 25 EUI/GWP + 3 meta) ─────────────────
 # Phase-E T14: expanded from 14 to 28 columns (9 EUI + 9 GWP + iod + parse_status + error_summary +
@@ -137,15 +139,30 @@ def _merge_flags(base: Any, delta: Any) -> str:
     import pandas as _pd
     base_str = "" if (_pd.isna(base) or base is None) else str(base)
     delta_str = "" if (_pd.isna(delta) or delta is None) else str(delta)
-    if not delta_str:
-        return base_str
-    if not base_str:
-        return delta_str
-    base_tokens = {t.strip() for t in base_str.split(",") if t.strip()}
-    new_tokens = [t.strip() for t in delta_str.split(",") if t.strip() and t.strip() not in base_tokens]
-    if not new_tokens:
-        return base_str
-    return base_str + "," + ",".join(new_tokens)
+
+    def _py() -> str:
+        if not delta_str:
+            return base_str
+        if not base_str:
+            return delta_str
+        base_tokens = {t.strip() for t in base_str.split(",") if t.strip()}
+        new_tokens = [t.strip() for t in delta_str.split(",") if t.strip() and t.strip() not in base_tokens]
+        if not new_tokens:
+            return base_str
+        return base_str + "," + ",".join(new_tokens)
+
+    rust = load_rust_module()
+    rust_fn = (
+        (lambda: str(rust.schema_merge_flags(base_str, delta_str, ",")))
+        if rust is not None and hasattr(rust, "schema_merge_flags")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.results.aggregator.merge_flags",
+        _py,
+        rust_fn,
+        bucket="B1",
+    )
 
 
 def compute_neighbourhood_summary(

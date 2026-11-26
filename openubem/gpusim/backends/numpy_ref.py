@@ -3,6 +3,11 @@ from typing import Any
 
 import numpy as np
 
+from openubem.gpusim._rust_compat import (
+    dispatch_gpusim_rust,
+    load_gpusim_rust_module,
+)
+
 from openubem.gpusim.compile import (
     BOUND_DOOR,
     BOUND_INTMASS,
@@ -341,6 +346,174 @@ def run_stage_a_batch(
     else:
         q_sol_out_all = q_sw_in_all = q_sol_win_all = None
         wu_q_out = wu_q_in = wu_q_win = None
+
+    def _run_py() -> SimulationResult:
+        nonlocal ctf
+        return _run_stage_a_numpy_loop(
+            batch=batch,
+            ctf=ctf,
+            script_f=script_f,
+            script_f_sigma=script_f_sigma,
+            t_db_all=t_db_all,
+            w_out_all=w_out_all,
+            pb_all=pb_all,
+            t_sky_all=t_sky_all,
+            wu_db=wu_db,
+            wu_w=wu_w,
+            wu_pb=wu_pb,
+            wu_sky=wu_sky,
+            gain_ts=gain_ts,
+            wu_gain=wu_gain,
+            surf_mask=surf_mask,
+            is_osc=is_osc,
+            is_outdoors_op=is_outdoors_op,
+            is_intmass=is_intmass,
+            is_window=is_window,
+            is_non_window=is_non_window,
+            has_window=has_window,
+            q_sol_out_all=q_sol_out_all,
+            q_sw_in_all=q_sw_in_all,
+            q_sol_win_all=q_sol_win_all,
+            wu_q_out=wu_q_out,
+            wu_q_in=wu_q_in,
+            wu_q_win=wu_q_win,
+            record_zone_temp=record_zone_temp,
+            xp=xp,
+        )
+
+    rust = load_gpusim_rust_module()
+    rust_fn = None
+    if xp is np and rust is not None and hasattr(rust, "sim_run_stage_a_batch"):
+        def _run_rust() -> SimulationResult:
+            payload: dict[str, Any] = {
+                "b_size": int(b_size),
+                "n_surf_max": int(n_surf),
+                "steps_per_hour": int(sph),
+                "n_run_steps": int(n_run_steps),
+                "ctf_n_terms": int(n_ctf_hist),
+                "record_zone_temp": bool(record_zone_temp),
+                "has_solar": bool(has_solar),
+                "warmup_min_days": np.ascontiguousarray(batch.warmup_min_days, dtype=np.int32),
+                "warmup_max_days": np.ascontiguousarray(batch.warmup_max_days, dtype=np.int32),
+                "temp_conv_tol": np.ascontiguousarray(batch.temp_conv_tol, dtype=np.float64),
+                "loads_conv_tol": np.ascontiguousarray(batch.loads_conv_tol, dtype=np.float64),
+                "h_conv_min": np.ascontiguousarray(batch.h_conv_min, dtype=np.float64),
+                "zone_volume": np.ascontiguousarray(batch.zone_volume, dtype=np.float64),
+                "zone_centroid_z": np.ascontiguousarray(batch.zone_centroid_z, dtype=np.float64),
+                "zone_vent_flow_m3s": np.ascontiguousarray(batch.zone_vent_flow_m3s, dtype=np.float64),
+                "zone_heat_setpoint": np.ascontiguousarray(batch.zone_heat_setpoint, dtype=np.float64),
+                "zone_cool_setpoint": np.ascontiguousarray(batch.zone_cool_setpoint, dtype=np.float64),
+                "zone_max_heat_supply_temp": np.ascontiguousarray(
+                    batch.zone_max_heat_supply_temp, dtype=np.float64
+                ),
+                "surf_mask": np.ascontiguousarray(batch.surf_mask, dtype=bool),
+                "surf_boundary": np.ascontiguousarray(batch.surf_boundary, dtype=np.int32),
+                "surf_area": np.ascontiguousarray(batch.surf_area, dtype=np.float64),
+                "surf_u_value": np.ascontiguousarray(batch.surf_u_value, dtype=np.float64),
+                "surf_centroid_z": np.ascontiguousarray(batch.surf_centroid_z, dtype=np.float64),
+                "surf_cos_tilt": np.ascontiguousarray(batch.surf_cos_tilt, dtype=np.float64),
+                "surf_sin_tilt": np.ascontiguousarray(batch.surf_sin_tilt, dtype=np.float64),
+                "surf_tilt_deg": np.ascontiguousarray(batch.surf_tilt_deg, dtype=np.float64),
+                "surf_height": np.ascontiguousarray(batch.surf_height, dtype=np.float64),
+                "surf_eps_out": np.ascontiguousarray(batch.surf_eps_out, dtype=np.float64),
+                "surf_eps_in": np.ascontiguousarray(batch.surf_eps_in, dtype=np.float64),
+                "surf_vf_sky_ir": np.ascontiguousarray(batch.surf_vf_sky_ir, dtype=np.float64),
+                "surf_vf_ground_ir": np.ascontiguousarray(batch.surf_vf_ground_ir, dtype=np.float64),
+                "surf_air_sky_rad_split": np.ascontiguousarray(
+                    batch.surf_air_sky_rad_split, dtype=np.float64
+                ),
+                "surf_osc_c_const": np.ascontiguousarray(batch.surf_osc_c_const, dtype=np.float64),
+                "surf_osc_t_const": np.ascontiguousarray(batch.surf_osc_t_const, dtype=np.float64),
+                "surf_osc_c_out": np.ascontiguousarray(batch.surf_osc_c_out, dtype=np.float64),
+                "surf_osc_c_zone": np.ascontiguousarray(batch.surf_osc_c_zone, dtype=np.float64),
+                "script_f": np.ascontiguousarray(script_f, dtype=np.float64),
+                "ctf_outside": np.ascontiguousarray(ctf.outside, dtype=np.float64),
+                "ctf_cross": np.ascontiguousarray(ctf.cross, dtype=np.float64),
+                "ctf_inside": np.ascontiguousarray(ctf.inside, dtype=np.float64),
+                "ctf_flux": np.ascontiguousarray(ctf.flux, dtype=np.float64),
+                "t_db_all": np.ascontiguousarray(t_db_all, dtype=np.float64),
+                "w_out_all": np.ascontiguousarray(w_out_all, dtype=np.float64),
+                "pb_all": np.ascontiguousarray(pb_all, dtype=np.float64),
+                "t_sky_all": np.ascontiguousarray(t_sky_all, dtype=np.float64),
+                "wu_db": np.ascontiguousarray(wu_db, dtype=np.float64),
+                "wu_w": np.ascontiguousarray(wu_w, dtype=np.float64),
+                "wu_pb": np.ascontiguousarray(wu_pb, dtype=np.float64),
+                "wu_sky": np.ascontiguousarray(wu_sky, dtype=np.float64),
+                "gain_ts": np.ascontiguousarray(gain_ts, dtype=np.float64),
+                "wu_gain": np.ascontiguousarray(wu_gain, dtype=np.float64),
+            }
+            if has_solar:
+                payload["q_sol_out_all"] = np.ascontiguousarray(q_sol_out_all, dtype=np.float64)
+                payload["q_sw_in_all"] = np.ascontiguousarray(q_sw_in_all, dtype=np.float64)
+                payload["q_sol_win_all"] = np.ascontiguousarray(q_sol_win_all, dtype=np.float64)
+                payload["wu_q_out"] = np.ascontiguousarray(wu_q_out, dtype=np.float64)
+                payload["wu_q_in"] = np.ascontiguousarray(wu_q_in, dtype=np.float64)
+                payload["wu_q_win"] = np.ascontiguousarray(wu_q_win, dtype=np.float64)
+
+            h_arr, a_arr, w_arr, zt_opt, zm_opt = rust.sim_run_stage_a_batch(payload, False)
+            return SimulationResult(
+                cell_ids=list(batch.cell_ids),
+                hourly_heating_j=h_arr,
+                annual_heating_kwh=a_arr,
+                warmup_days=w_arr,
+                zone_air_temp_c=zt_opt,
+                zone_mean_air_temp_c=zm_opt,
+            )
+
+        rust_fn = _run_rust
+
+    return dispatch_gpusim_rust(
+        "openubem.gpusim.backends.numpy_ref.run_stage_a_batch",
+        _run_py,
+        rust_fn,
+        bucket="B2",
+        rtol=1e-9 if b_size == 1 else 1e-4,
+        atol=1e-4 if b_size == 1 else 1e-1,
+    )
+
+
+def _run_stage_a_numpy_loop(
+    *,
+    batch: BatchSpec,
+    ctf: CtfCoefficients,
+    script_f: np.ndarray,
+    script_f_sigma: np.ndarray,
+    t_db_all: np.ndarray,
+    w_out_all: np.ndarray,
+    pb_all: np.ndarray,
+    t_sky_all: np.ndarray,
+    wu_db: np.ndarray,
+    wu_w: np.ndarray,
+    wu_pb: np.ndarray,
+    wu_sky: np.ndarray,
+    gain_ts: np.ndarray,
+    wu_gain: np.ndarray,
+    surf_mask: np.ndarray,
+    is_osc: np.ndarray,
+    is_outdoors_op: np.ndarray,
+    is_intmass: np.ndarray,
+    is_window: np.ndarray,
+    is_non_window: np.ndarray,
+    has_window: bool,
+    q_sol_out_all: np.ndarray | None,
+    q_sw_in_all: np.ndarray | None,
+    q_sol_win_all: np.ndarray | None,
+    wu_q_out: np.ndarray | None,
+    wu_q_in: np.ndarray | None,
+    wu_q_win: np.ndarray | None,
+    record_zone_temp: bool,
+    xp: Any,
+) -> SimulationResult:
+    b_size = batch.batch_size
+    n_surf = batch.max_surfaces
+    sph = batch.steps_per_hour
+    dt_zone_hr = 1.0 / float(sph)
+    dt_zone_sec = 3600.0 / float(sph)
+    steps_per_day = 24 * sph
+    limit_num_sys = max(1, int(round(dt_zone_hr / MIN_TIME_STEP_SYS_HR)))
+    n_ctf_hist = ctf.num_terms
+    n_run_steps = t_db_all.shape[1]
+    n_hours = n_run_steps // sph
 
     area_masked = np.where(surf_mask, batch.surf_area, 0.0)
     h_min_2d = batch.h_conv_min[:, None]

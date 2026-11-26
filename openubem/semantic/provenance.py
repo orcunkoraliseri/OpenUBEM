@@ -18,6 +18,9 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+from openubem._rust_bridge import load_rust_module
+from openubem.rust_shadow import dispatch_with_rust
+
 # Separator for multi-token data_quality_flag (matches construction_sets._FLAG_SEP,
 # Step 1/3 convention).
 _FLAG_SEP = "|"
@@ -58,12 +61,26 @@ LEGACY_TOKEN_WEIGHT = {
 
 def normalize_confidence(confidence: str) -> str:
     """Normalize a tier input ('HIGH'|'MEDIUM'|'MED'|'LOW') to a canonical tier."""
-    tier = _TIER_NORMALIZE.get(str(confidence).upper())
-    if tier is None:
-        raise ValueError(
-            f"confidence must be one of {sorted(_TIER_NORMALIZE)}, got {confidence!r}"
-        )
-    return tier
+    def _py() -> str:
+        tier = _TIER_NORMALIZE.get(str(confidence).upper())
+        if tier is None:
+            raise ValueError(
+                f"confidence must be one of {sorted(_TIER_NORMALIZE)}, got {confidence!r}"
+            )
+        return tier
+
+    rust = load_rust_module()
+    rust_fn = (
+        (lambda: str(rust.schema_normalize_confidence(str(confidence))))
+        if rust is not None and hasattr(rust, "schema_normalize_confidence")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.semantic.provenance.normalize_confidence",
+        _py,
+        rust_fn,
+        bucket="B1",
+    )
 
 
 def impute_token(method: str, source: str, confidence: str) -> str:
@@ -72,8 +89,26 @@ def impute_token(method: str, source: str, confidence: str) -> str:
     e.g. ``impute_token('DEFAULT', 'ASHRAE901', 'LOW') -> 'DEFAULT_ASHRAE901_LOW'``;
     ``impute_token('HOTDECK', 'NEIGHBOR', 'MEDIUM') -> 'HOTDECK_NEIGHBOR_MED'``.
     """
-    tier = normalize_confidence(confidence)
-    return f"{str(method).upper()}_{str(source).upper()}_{_TIER_SUFFIX[tier]}"
+    def _py() -> str:
+        tier = _TIER_NORMALIZE.get(str(confidence).upper())
+        if tier is None:
+            raise ValueError(
+                f"confidence must be one of {sorted(_TIER_NORMALIZE)}, got {confidence!r}"
+            )
+        return f"{str(method).upper()}_{str(source).upper()}_{_TIER_SUFFIX[tier]}"
+
+    rust = load_rust_module()
+    rust_fn = (
+        (lambda: str(rust.schema_impute_token(str(method), str(source), str(confidence))))
+        if rust is not None and hasattr(rust, "schema_impute_token")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.semantic.provenance.impute_token",
+        _py,
+        rust_fn,
+        bucket="B1",
+    )
 
 
 def parse_token(token: str) -> tuple[str, str, str] | None:
@@ -82,17 +117,31 @@ def parse_token(token: str) -> tuple[str, str, str] | None:
     SOURCE may itself contain underscores (method = first segment, tier = last
     segment, source = everything between).
     """
-    parts = str(token).split("_")
-    if len(parts) < 3:
-        return None
-    suffix = parts[-1]
-    tier = _SUFFIX_TO_TIER.get(suffix)
-    if tier is None:
-        return None
-    source = "_".join(parts[1:-1])
-    if not source:
-        return None
-    return parts[0], source, tier
+    def _py() -> tuple[str, str, str] | None:
+        parts = str(token).split("_")
+        if len(parts) < 3:
+            return None
+        suffix = parts[-1]
+        tier = _SUFFIX_TO_TIER.get(suffix)
+        if tier is None:
+            return None
+        source = "_".join(parts[1:-1])
+        if not source:
+            return None
+        return parts[0], source, tier
+
+    rust = load_rust_module()
+    rust_fn = (
+        (lambda: rust.schema_parse_token(str(token)))
+        if rust is not None and hasattr(rust, "schema_parse_token")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.semantic.provenance.parse_token",
+        _py,
+        rust_fn,
+        bucket="B1",
+    )
 
 
 # ── data_quality_flag helpers (idempotent `|`-append) ────────────────────────
@@ -193,13 +242,43 @@ def add_lineage_summary(gdf, prov_cols=None,
         gdf[conf_col] = np.full(n, _OBSERVED_SCORE, dtype=float)
         return gdf
 
-    counts = np.zeros(n, dtype=int)
-    score_sum = np.zeros(n, dtype=float)
-    for c in prov_cols:
-        for i, cell in enumerate(gdf[c].tolist()):
-            imp, score = _field_score(cell)
-            counts[i] += int(imp)
-            score_sum[i] += score
+    def _py() -> tuple[np.ndarray, np.ndarray]:
+        counts = np.zeros(n, dtype=int)
+        score_sum = np.zeros(n, dtype=float)
+        for c in prov_cols:
+            for i, cell in enumerate(gdf[c].tolist()):
+                imp, score = _field_score(cell)
+                counts[i] += int(imp)
+                score_sum[i] += score
+        return counts, score_sum / len(prov_cols)
+
+    rust = load_rust_module()
+
+    def _rust() -> tuple[np.ndarray, np.ndarray]:
+        import pyarrow as pa
+
+        arrays = [
+            pa.array(
+                [None if _is_missing(v) else str(v) for v in gdf[c].tolist()],
+                type=pa.string(),
+            )
+            for c in prov_cols
+        ]
+        table = pa.table(arrays, names=list(prov_cols))
+        counts_list, means_list = rust.schema_score_provenance_table(table, list(prov_cols))
+        return np.asarray(counts_list, dtype=int), np.asarray(means_list, dtype=float)
+
+    rust_fn = (
+        _rust
+        if rust is not None and hasattr(rust, "schema_score_provenance_table")
+        else None
+    )
+    counts, mean_conf = dispatch_with_rust(
+        "openubem.semantic.provenance.add_lineage_summary",
+        _py,
+        rust_fn,
+        bucket="B2",
+    )
     gdf[count_col] = counts
-    gdf[conf_col] = score_sum / len(prov_cols)
+    gdf[conf_col] = mean_conf
     return gdf

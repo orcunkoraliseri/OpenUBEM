@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 from openubem import config
+from openubem._rust_bridge import get_rust_backend_mode, load_rust_module
 from openubem.results.aggregator import (
     _STEP5_COLS,
     _SUCCESS_STATUSES,
@@ -20,7 +21,8 @@ from openubem.results.aggregator import (
     join_results,
 )
 from openubem.results.carbon import attach_gwp
-from openubem.results.parser import parse_building
+from openubem.results.parser import _derive_num_floors_wired, parse_building
+from openubem.rust_shadow import dispatch_with_rust
 
 # ── CBECS gate helpers ────────────────────────────────────────────────────────
 
@@ -138,68 +140,181 @@ def aggregate_results(
         str(r["osm_id"]): r for _, r in idf_manifest.iterrows()
     }
 
-    # ── P4: per-building sequential loop ────────────────────────────────────
-    metrics_rows: list[dict[str, Any]] = []
-
-    # OPEN-35 T06: computed once, classifier's own route, so parse_building() can reach
-    # the Scope B agreement fallback (derive_num_floors()'s levels_group_median /
-    # levels_global_median kwargs) via manifest_row -- it has no other access to the
-    # fleet-wide gdf. See _derive_num_floors_wired() in openubem/results/parser.py.
     _levels_group_median, _levels_global_median = _fleet_levels_medians(enriched_gdf)
 
-    for _, sim_row in success_rows.iterrows():
-        osm_id = str(sim_row["osm_id"])
-        sql_path = sim_row.get("sql_path")
-        csv_path = sim_row.get("csv_path")
+    def _build_metrics_py() -> pd.DataFrame:
+        metrics_rows: list[dict[str, Any]] = []
+        for _, sim_row in success_rows.iterrows():
+            osm_id = str(sim_row["osm_id"])
+            sql_path = sim_row.get("sql_path")
+            csv_path = sim_row.get("csv_path")
 
-        # Merge idf manifest info into manifest row for parse_building
-        idf_row = idf_lookup.get(osm_id, pd.Series(dtype=object))
-        manifest_row = sim_row.copy()
-        for col in ["num_zones", "zoning_strategy"]:
-            if col in idf_row.index and col not in manifest_row.index:
-                manifest_row[col] = idf_row[col]
-        # Carry enriched GDF columns needed for EUI denominator. archetype_source
-        # (OPEN-35 T06) added so parse_building() can gate the Scope B agreement fix.
-        enriched_rows = enriched_gdf[enriched_gdf["osm_id"].astype(str) == osm_id]
-        if len(enriched_rows) > 0:
-            enriched_row = enriched_rows.iloc[0]
-            for col in ["footprint_area_m2", "levels", "height_m", "data_quality_flag", "archetype_source"]:
-                if col in enriched_rows.columns and col not in manifest_row.index:
-                    manifest_row[col] = enriched_row[col]
-            from openubem.semantic.building_classifier import _normalise_use_class
-            manifest_row["_use_class"] = _normalise_use_class(enriched_row)[0]
-        manifest_row["_levels_group_median"] = _levels_group_median
-        manifest_row["_levels_global_median"] = _levels_global_median
+            idf_row = idf_lookup.get(osm_id, pd.Series(dtype=object))
+            manifest_row = sim_row.copy()
+            for col in ["num_zones", "zoning_strategy"]:
+                if col in idf_row.index and col not in manifest_row.index:
+                    manifest_row[col] = idf_row[col]
+            enriched_rows = enriched_gdf[enriched_gdf["osm_id"].astype(str) == osm_id]
+            if len(enriched_rows) > 0:
+                enriched_row = enriched_rows.iloc[0]
+                for col in ["footprint_area_m2", "levels", "height_m", "data_quality_flag", "archetype_source"]:
+                    if col in enriched_rows.columns and col not in manifest_row.index:
+                        manifest_row[col] = enriched_row[col]
+                from openubem.semantic.building_classifier import _normalise_use_class
+                manifest_row["_use_class"] = _normalise_use_class(enriched_row)[0]
+            manifest_row["_levels_group_median"] = _levels_group_median
+            manifest_row["_levels_global_median"] = _levels_global_median
 
-        try:
-            parsed = parse_building(sql_path, csv_path, manifest_row)
-        except RuntimeError as exc:
-            # I2 breach: foreign osm_id → abort whole run (DESIGN §3B)
-            raise RuntimeError(f"I2 breach in run for {osm_id}: {exc}") from exc
+            try:
+                parsed = parse_building(sql_path, csv_path, manifest_row)
+            except RuntimeError as exc:
+                raise RuntimeError(f"I2 breach in run for {osm_id}: {exc}") from exc
 
-        # Attach GWP
-        bld_state = _resolve_state(osm_id)
-        if bld_state and parsed["parse_status"] != "failed_parse" and parsed["parse_status"] != "failed_zone_mismatch":
-            parsed = attach_gwp(parsed, bld_state)
+            bld_state = _resolve_state(osm_id)
+            if bld_state and parsed["parse_status"] != "failed_parse" and parsed["parse_status"] != "failed_zone_mismatch":
+                parsed = attach_gwp(parsed, bld_state)
 
-        # Map parse_status → simulation_status (F9: extended token set)
-        parsed["simulation_status"] = parsed.pop("parse_status")
-        metrics_rows.append(parsed)
+            parsed["simulation_status"] = parsed.pop("parse_status")
+            metrics_rows.append(parsed)
 
-    # Non-success rows pass through with NaN metrics + their status
-    non_success = sim_manifest[~sim_manifest["status"].isin(success_statuses)].copy()
-    for _, row in non_success.iterrows():
-        nan_row: dict[str, Any] = {
-            "osm_id": str(row["osm_id"]),
-            "simulation_status": str(row.get("status", "not_simulated")),
-            "error_summary": str(row.get("error_msg", "")),
+        non_success = sim_manifest[~sim_manifest["status"].isin(success_statuses)].copy()
+        for _, row in non_success.iterrows():
+            nan_row: dict[str, Any] = {
+                "osm_id": str(row["osm_id"]),
+                "simulation_status": str(row.get("status", "not_simulated")),
+                "error_summary": str(row.get("error_msg", "")),
+            }
+            for col in _STEP5_COLS:
+                if col not in ("simulation_status", "error_summary"):
+                    nan_row[col] = float("nan") if "eui" in col or "gwp" in col or col == "iod" else None
+            metrics_rows.append(nan_row)
+        return pd.DataFrame(metrics_rows)
+
+    def _can_batch_rust() -> bool:
+        rust = load_rust_module()
+        if rust is None or not hasattr(rust, "results_harvest_batch_to_arrow"):
+            return False
+        if len(success_rows) == 0:
+            return False
+        for _, sim_row in success_rows.iterrows():
+            csv_p = sim_row.get("csv_path")
+            sql_p = sim_row.get("sql_path")
+            if csv_p and not (isinstance(csv_p, float) and np.isnan(csv_p)):
+                if not sql_p or (isinstance(sql_p, float) and np.isnan(sql_p)) or not Path(str(sql_p)).exists():
+                    return False
+        return True
+
+    def _build_metrics_rust() -> pd.DataFrame:
+        from openubem.results.carbon import load_egrid
+        from openubem.semantic.building_classifier import _normalise_use_class
+
+        rust = load_rust_module()
+        egrid = load_egrid()
+        state_elec_map = {k.upper(): float(v["factor_kgco2_kwh"]) for k, v in egrid.items()}
+        enriched_by_osm: dict[str, pd.Series] = {
+            str(r["osm_id"]): r for _, r in enriched_gdf.iterrows()
         }
-        for col in _STEP5_COLS:
-            if col not in ("simulation_status", "error_summary"):
-                nan_row[col] = float("nan") if "eui" in col or "gwp" in col or col == "iod" else None
-        metrics_rows.append(nan_row)
 
-    metrics_df = pd.DataFrame(metrics_rows)
+        osm_ids: list[str] = []
+        sql_paths: list[str | None] = []
+        footprint_areas: list[float] = []
+        num_floors: list[int] = []
+        num_zones: list[int] = []
+        dq_flags: list[str] = []
+        res_modes: list[str | None] = []
+        states: list[str | None] = []
+
+        for _, sim_row in success_rows.iterrows():
+            osm_id = str(sim_row["osm_id"])
+            sp = sim_row.get("sql_path")
+            sql_str = None if (sp is None or (isinstance(sp, float) and np.isnan(sp)) or not str(sp)) else str(sp)
+            idf_row = idf_lookup.get(osm_id, pd.Series(dtype=object))
+            manifest_row = sim_row.copy()
+            for col in ["num_zones", "zoning_strategy"]:
+                if col in idf_row.index and col not in manifest_row.index:
+                    manifest_row[col] = idf_row[col]
+            erow = enriched_by_osm.get(osm_id)
+            if erow is not None:
+                for col in ["footprint_area_m2", "levels", "height_m", "data_quality_flag", "archetype_source"]:
+                    if col in erow.index and col not in manifest_row.index:
+                        manifest_row[col] = erow[col]
+                manifest_row["_use_class"] = _normalise_use_class(erow)[0]
+            manifest_row["_levels_group_median"] = _levels_group_median
+            manifest_row["_levels_global_median"] = _levels_global_median
+
+            osm_ids.append(osm_id)
+            sql_paths.append(sql_str)
+            footprint_areas.append(float(manifest_row["footprint_area_m2"]))
+            num_floors.append(int(_derive_num_floors_wired(manifest_row)))
+            num_zones.append(int(manifest_row.get("num_zones", 1)))
+            dq_flags.append(str(manifest_row.get("data_quality_flag", "") or ""))
+            rm = manifest_row.get("resolution_mode")
+            res_modes.append(None if rm is None or (isinstance(rm, float) and np.isnan(rm)) else str(rm))
+            states.append(_resolve_state(osm_id))
+
+        summer_lo, summer_hi = config.IOD_SUMMER_MONTHS
+        arrow_table = rust.results_harvest_batch_to_arrow(
+            osm_ids,
+            sql_paths,
+            footprint_areas,
+            num_floors,
+            num_zones,
+            dq_flags,
+            res_modes,
+            states,
+            state_elec_map,
+            float(config.GWP_NATURAL_GAS_KGCO2_KWH),
+            float(config.GWP_DISTRICT_HEATING_KGCO2_KWH),
+            int(summer_lo),
+            int(summer_hi),
+            False,
+            0,
+        )
+        rust_df = arrow_table.to_pandas()
+        rust_df["simulation_status"] = rust_df.pop("parse_status")
+        metrics_rows = rust_df.to_dict(orient="records")
+        non_success = sim_manifest[~sim_manifest["status"].isin(success_statuses)].copy()
+        for _, row in non_success.iterrows():
+            nan_row: dict[str, Any] = {
+                "osm_id": str(row["osm_id"]),
+                "simulation_status": str(row.get("status", "not_simulated")),
+                "error_summary": str(row.get("error_msg", "")),
+            }
+            for col in _STEP5_COLS:
+                if col not in ("simulation_status", "error_summary"):
+                    nan_row[col] = float("nan") if "eui" in col or "gwp" in col or col == "iod" else None
+            metrics_rows.append(nan_row)
+        return pd.DataFrame(metrics_rows)
+
+    mode = get_rust_backend_mode()
+    if mode == "on" and _can_batch_rust():
+        metrics_df = _build_metrics_rust()
+    elif mode == "shadow" and _can_batch_rust():
+        metrics_df = _build_metrics_py()
+        rust_metrics_df = _build_metrics_rust()
+        compare_cols = [c for c in _STEP5_COLS if c in metrics_df.columns and c in rust_metrics_df.columns]
+        dispatch_with_rust(
+            "openubem.results.aggregate_results",
+            lambda: {
+                c: (
+                    metrics_df[c].to_numpy(dtype=float)
+                    if "eui" in c or "gwp" in c or c in ("iod", "floor_area_m2")
+                    else [None if pd.isna(v) else str(v) for v in metrics_df[c].tolist()]
+                )
+                for c in compare_cols
+            },
+            lambda: {
+                c: (
+                    rust_metrics_df[c].to_numpy(dtype=float)
+                    if "eui" in c or "gwp" in c or c in ("iod", "floor_area_m2")
+                    else [None if pd.isna(v) else str(v) for v in rust_metrics_df[c].tolist()]
+                )
+                for c in compare_cols
+            },
+            bucket="B2",
+        )
+    else:
+        metrics_df = _build_metrics_py()
 
     # ── F9: LEFT join onto 57-col enriched GDF ───────────────────────────────
     results_gdf = join_results(enriched_gdf, metrics_df)

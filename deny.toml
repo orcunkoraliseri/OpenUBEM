@@ -1,0 +1,48 @@
+# cargo-deny policy for OpenUBEM (PLAN_rust_migration.md Guardrail 5)
+# Enforces Apache-2.0 OR MIT compatibility and blocks copyleft / LGPL traps.
+
+[graph]
+all-features = false
+no-default-features = false
+
+[advisories]
+version = 2
+ignore = []
+
+[licenses]
+version = 2
+confidence-threshold = 0.8
+unused-allowed-license = "allow"
+allow = [
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "CC0-1.0",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+allow-wildcard-paths = true
+highlight = "all"
+deny = [
+    # LGPL-2.1-or-later C++ libgeos trap (Cargo.toml declares MIT) — DR06 / D-RS-06
+    { crate = "geos", reason = "Wraps LGPL-2.1-or-later libgeos; banned per D-RS-06" },
+    { crate = "geos-sys", reason = "Wraps LGPL-2.1-or-later libgeos; banned per D-RS-06" },
+    { crate = "geos-src", reason = "Bundles LGPL-2.1-or-later libgeos; banned per D-RS-06" },
+    # System OpenSSL breaks manylinux/Windows portability
+    { crate = "openssl-sys", reason = "Avoid dynamic OpenSSL dependency in portable wheels" },
+    # AGPL / GPL crates explicitly banned per DR02 / DR04 / Guardrail 5
+    { crate = "modelscript", reason = "AGPL-3.0; incompatible with Apache-2.0 OR MIT" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

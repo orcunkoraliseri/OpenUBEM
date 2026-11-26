@@ -1,5 +1,10 @@
 from dataclasses import dataclass
 
+from openubem.gpusim._rust_compat import (
+    dispatch_gpusim_rust,
+    load_gpusim_rust_module,
+)
+
 S0_ALLOWED_OBJECT_TYPES: frozenset[str] = frozenset(
     {
         "VERSION",
@@ -77,31 +82,50 @@ def parse_expidf(idf_text: str) -> list[ParsedIdfObject]:
     Returns:
         List of ``ParsedIdfObject`` instances in file order.
     """
-    stripped_lines: list[str] = []
-    for line in idf_text.splitlines():
-        bang = line.find("!")
-        if bang >= 0:
-            line = line[:bang]
-        stripped_lines.append(line)
-    blob = "\n".join(stripped_lines)
+    def _py() -> list[ParsedIdfObject]:
+        stripped_lines: list[str] = []
+        for line in idf_text.splitlines():
+            bang = line.find("!")
+            if bang >= 0:
+                line = line[:bang]
+            stripped_lines.append(line)
+        blob = "\n".join(stripped_lines)
 
-    objects: list[ParsedIdfObject] = []
-    for chunk in blob.split(";"):
-        text = chunk.strip()
-        if not text:
-            continue
-        parts = [part.strip() for part in text.split(",")]
-        raw_type = parts[0]
-        if not raw_type:
-            continue
-        objects.append(
-            ParsedIdfObject(
-                obj_type=raw_type.upper(),
-                raw_type=raw_type,
-                fields=parts[1:],
+        objects: list[ParsedIdfObject] = []
+        for chunk in blob.split(";"):
+            text = chunk.strip()
+            if not text:
+                continue
+            parts = [part.strip() for part in text.split(",")]
+            raw_type = parts[0]
+            if not raw_type:
+                continue
+            objects.append(
+                ParsedIdfObject(
+                    obj_type=raw_type.upper(),
+                    raw_type=raw_type,
+                    fields=parts[1:],
+                )
             )
+        return objects
+
+    rust = load_gpusim_rust_module()
+    rust_fn = (
+        (
+            lambda: [
+                ParsedIdfObject(obj_type=ot, raw_type=rt, fields=flds)
+                for ot, rt, flds in rust.idf_parse_objects(idf_text)
+            ]
         )
-    return objects
+        if rust is not None and hasattr(rust, "idf_parse_objects")
+        else None
+    )
+    return dispatch_gpusim_rust(
+        "openubem.gpusim.subset.parse_expidf",
+        _py,
+        rust_fn,
+        bucket="B1",
+    )
 
 
 def _field(obj: ParsedIdfObject, index: int, default: str = "") -> str:

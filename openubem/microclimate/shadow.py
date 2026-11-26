@@ -35,7 +35,9 @@ from __future__ import annotations
 import numpy as np
 
 from openubem import config
+from openubem._rust_bridge import load_rust_module
 from openubem.microclimate.svf import compute_svf
+from openubem.rust_shadow import dispatch_with_rust
 
 
 def cast_shadows(
@@ -76,19 +78,42 @@ def cast_shadows(
 
 
 def _building_shadow_from_horizon(domain, altitude_deg, azimuth_deg, horizon_angles, n_azimuths):
-    bin_step = 360.0 / n_azimuths
-    az = azimuth_deg % 360.0
-    idx_f = az / bin_step
-    idx0 = int(np.floor(idx_f)) % n_azimuths
-    idx1 = (idx0 + 1) % n_azimuths
-    frac = idx_f - np.floor(idx_f)
-    horizon_interp = (1.0 - frac) * horizon_angles[idx0] + frac * horizon_angles[idx1]
+    def _py():
+        bin_step = 360.0 / n_azimuths
+        az = azimuth_deg % 360.0
+        idx_f = az / bin_step
+        idx0 = int(np.floor(idx_f)) % n_azimuths
+        idx1 = (idx0 + 1) % n_azimuths
+        frac = idx_f - np.floor(idx_f)
+        horizon_interp = (1.0 - frac) * horizon_angles[idx0] + frac * horizon_angles[idx1]
 
-    z_obs = domain.dem.astype(np.float64) + config.UTCI_PEDESTRIAN_HEIGHT_M
-    self_occluded = domain.dsm.astype(np.float64) > z_obs
-    blocked = (altitude_deg <= horizon_interp) | self_occluded
+        z_obs = domain.dem.astype(np.float64) + config.UTCI_PEDESTRIAN_HEIGHT_M
+        self_occluded = domain.dsm.astype(np.float64) > z_obs
+        blocked = (altitude_deg <= horizon_interp) | self_occluded
 
-    return ~blocked  # sh_building is a SUNLIT indicator (module docstring) -> invert "blocked"
+        return ~blocked
+
+    rust = load_rust_module()
+    rust_fn = (
+        (
+            lambda: rust.micro_building_shadow_from_horizon(
+                np.ascontiguousarray(domain.dsm, dtype=np.float64),
+                np.ascontiguousarray(domain.dem, dtype=np.float64),
+                np.ascontiguousarray(horizon_angles, dtype=np.float32),
+                float(config.UTCI_PEDESTRIAN_HEIGHT_M),
+                float(altitude_deg),
+                float(azimuth_deg),
+            )
+        )
+        if rust is not None and hasattr(rust, "micro_building_shadow_from_horizon")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.microclimate.shadow._building_shadow_from_horizon",
+        _py,
+        rust_fn,
+        bucket="B1",
+    )
 
 
 def _vegetation_transmission(domain, altitude_deg, azimuth_deg, cdsm, tdsm, canopy_tau):
@@ -96,44 +121,69 @@ def _vegetation_transmission(domain, altitude_deg, azimuth_deg, cdsm, tdsm, cano
     if cdsm is None or tdsm is None or canopy_tau is None or not np.any(cdsm > 0):
         return np.ones((rows, cols), dtype=np.float32)
 
-    res = domain.res_m
-    z_obs = domain.dem.astype(np.float64) + config.UTCI_PEDESTRIAN_HEIGHT_M
-    alt_r = np.radians(altitude_deg)
-    az_r = np.radians(azimuth_deg)
-    sin_a, cos_a = np.sin(az_r), np.cos(az_r)
-    tan_alt = np.tan(alt_r)
+    def _py():
+        res = domain.res_m
+        z_obs = domain.dem.astype(np.float64) + config.UTCI_PEDESTRIAN_HEIGHT_M
+        alt_r = np.radians(altitude_deg)
+        az_r = np.radians(azimuth_deg)
+        sin_a, cos_a = np.sin(az_r), np.cos(az_r)
+        tan_alt = np.tan(alt_r)
 
-    cdsm64 = cdsm.astype(np.float64)
-    tdsm64 = tdsm.astype(np.float64)
-    crown_depth = np.clip(cdsm64 - tdsm64, 1e-6, None)
-    log_tau_ref = float(np.log(canopy_tau))
-    canopy_top = float(cdsm64.max())
+        cdsm64 = cdsm.astype(np.float64)
+        tdsm64 = tdsm.astype(np.float64)
+        crown_depth = np.clip(cdsm64 - tdsm64, 1e-6, None)
+        log_tau_ref = float(np.log(canopy_tau))
+        canopy_top = float(cdsm64.max())
 
-    max_radius_px = int(np.ceil(np.hypot(rows, cols)))
-    pad = max_radius_px
-    padded_cdsm = np.pad(cdsm64, pad, mode="constant", constant_values=0.0)
-    padded_tdsm = np.pad(tdsm64, pad, mode="constant", constant_values=0.0)
-    padded_depth = np.pad(crown_depth, pad, mode="constant", constant_values=1e-6)
+        max_radius_px = int(np.ceil(np.hypot(rows, cols)))
+        pad = max_radius_px
+        padded_cdsm = np.pad(cdsm64, pad, mode="constant", constant_values=0.0)
+        padded_tdsm = np.pad(tdsm64, pad, mode="constant", constant_values=0.0)
+        padded_depth = np.pad(crown_depth, pad, mode="constant", constant_values=1e-6)
 
-    accum_log_t = np.zeros((rows, cols), dtype=np.float64)
-    ray_h_prev = z_obs.copy()
+        accum_log_t = np.zeros((rows, cols), dtype=np.float64)
+        ray_h_prev = z_obs.copy()
 
-    for d in range(0, max_radius_px + 1):
-        drow = -int(round(d * cos_a))  # same convention as svf.py: north (+y) -> row decreases
-        dcol = int(round(d * sin_a))
-        ray_h_next = z_obs + (d + 1) * res * tan_alt
+        for d in range(0, max_radius_px + 1):
+            drow = -int(round(d * cos_a))
+            dcol = int(round(d * sin_a))
+            ray_h_next = z_obs + (d + 1) * res * tan_alt
 
-        cwin = padded_cdsm[pad + drow: pad + drow + rows, pad + dcol: pad + dcol + cols]
-        twin = padded_tdsm[pad + drow: pad + drow + rows, pad + dcol: pad + dcol + cols]
-        dwin = padded_depth[pad + drow: pad + drow + rows, pad + dcol: pad + dcol + cols]
+            cwin = padded_cdsm[pad + drow: pad + drow + rows, pad + dcol: pad + dcol + cols]
+            twin = padded_tdsm[pad + drow: pad + drow + rows, pad + dcol: pad + dcol + cols]
+            dwin = padded_depth[pad + drow: pad + drow + rows, pad + dcol: pad + dcol + cols]
 
-        top = np.minimum(cwin, ray_h_next)
-        bottom = np.maximum(ray_h_prev, twin)
-        seg = np.where(cwin > 0, np.maximum(top - bottom, 0.0), 0.0)
-        accum_log_t += (seg / dwin) * log_tau_ref
+            top = np.minimum(cwin, ray_h_next)
+            bottom = np.maximum(ray_h_prev, twin)
+            seg = np.where(cwin > 0, np.maximum(top - bottom, 0.0), 0.0)
+            accum_log_t += (seg / dwin) * log_tau_ref
 
-        ray_h_prev = ray_h_next
-        if float(ray_h_next.min()) > canopy_top:
-            break
+            ray_h_prev = ray_h_next
+            if float(ray_h_next.min()) > canopy_top:
+                break
 
-    return np.exp(accum_log_t).astype(np.float32)
+        return np.exp(accum_log_t).astype(np.float32)
+
+    rust = load_rust_module()
+    rust_fn = (
+        (
+            lambda: rust.micro_vegetation_transmission(
+                np.ascontiguousarray(domain.dem, dtype=np.float64),
+                np.ascontiguousarray(cdsm, dtype=np.float64),
+                np.ascontiguousarray(tdsm, dtype=np.float64),
+                float(domain.res_m),
+                float(config.UTCI_PEDESTRIAN_HEIGHT_M),
+                float(altitude_deg),
+                float(azimuth_deg),
+                float(canopy_tau),
+            )
+        )
+        if rust is not None and hasattr(rust, "micro_vegetation_transmission")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.microclimate.shadow._vegetation_transmission",
+        _py,
+        rust_fn,
+        bucket="B3",
+    )

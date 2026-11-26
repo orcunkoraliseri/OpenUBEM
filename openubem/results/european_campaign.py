@@ -7,6 +7,9 @@ import math
 from pathlib import Path
 from typing import Iterable, Mapping
 
+from openubem._rust_bridge import load_rust_module
+from openubem.rust_shadow import dispatch_with_rust
+
 
 EUROPEAN_ACCOUNTING_MODE = "four_end_use_tabula_dhw"
 SIMULATED_END_USES = ("heating", "cooling", "lighting", "equipment")
@@ -34,14 +37,8 @@ def _energyplus_columns(fieldnames: Iterable[str], variable_name: str) -> tuple[
     return columns
 
 
-def extract_four_end_use_eplus_csv(csv_path: Path | str) -> dict[str, object]:
-    """Read the ruled four simulated end uses from a retained ``eplusout.csv``.
-
-    The extractor is deliberately read-only and does not use facility or
-    service-load meters.  It sums every retained zone column for each of the
-    four configured EnergyPlus variables, converts J to kWh at the boundary,
-    and rejects a non-hourly/non-leap result before it can enter EU-10.
-    """
+def _extract_four_end_use_eplus_csv_py(csv_path: Path | str) -> dict[str, object]:
+    """Pure-Python reference extractor for four simulated end-uses."""
     source = Path(csv_path)
     if not source.is_file():
         raise ValueError("retained EnergyPlus CSV does not exist: {}".format(source))
@@ -97,6 +94,64 @@ def extract_four_end_use_eplus_csv(csv_path: Path | str) -> dict[str, object]:
         "monthly_simulated_four_end_use_kwh": monthly_total,
         "hourly_simulated_four_end_use_kwh": tuple(hourly_total),
     }
+
+
+def extract_four_end_use_eplus_csv(csv_path: Path | str) -> dict[str, object]:
+    """Read the ruled four simulated end uses from a retained ``eplusout.csv``.
+
+    The extractor is deliberately read-only and does not use facility or
+    service-load meters.  It sums every retained zone column for each of the
+    four configured EnergyPlus variables, converts J to kWh at the boundary,
+    and rejects a non-hourly/non-leap result before it can enter EU-10.
+    """
+    source = str(Path(csv_path))
+    rust = load_rust_module()
+    rust_fn = (
+        (lambda: rust.results_extract_four_end_use_csv(source))
+        if rust is not None and hasattr(rust, "results_extract_four_end_use_csv")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.results.european_campaign.extract_four_end_use_eplus_csv",
+        lambda: _extract_four_end_use_eplus_csv_py(csv_path),
+        rust_fn,
+        bucket="B2",
+    )
+
+
+def extract_heating_only_eplus_csv_batch(csv_paths: Iterable[Path | str]) -> list[float]:
+    """Extract annual heating kWh for a batch of heating-only EU ``eplusout.csv`` files."""
+    paths = [Path(p) for p in csv_paths]
+
+    def _py() -> list[float]:
+        out: list[float] = []
+        for path in paths:
+            with path.open(newline="", encoding="utf-8-sig") as stream:
+                reader = csv.DictReader(stream)
+                if not reader.fieldnames:
+                    raise ValueError(f"Empty eplusout.csv header: {path}")
+                cols = _energyplus_columns(
+                    reader.fieldnames,
+                    FOUR_END_USE_OUTPUT_VARIABLES["heating"],
+                )
+                total_j = 0.0
+                for row in reader:
+                    total_j += sum(float(row[c]) for c in cols)
+            out.append(total_j * ENERGYPLUS_J_TO_KWH)
+        return out
+
+    rust = load_rust_module()
+    rust_fn = (
+        (lambda: [float(v) for v in rust.results_harvest_heating_csv_batch([str(p) for p in paths])])
+        if rust is not None and hasattr(rust, "results_harvest_heating_csv_batch")
+        else None
+    )
+    return dispatch_with_rust(
+        "openubem.results.european_campaign.extract_heating_only_eplus_csv_batch",
+        _py,
+        rust_fn,
+        bucket="B2",
+    )
 
 
 def assemble_european_cell_result_from_eplus_csv(

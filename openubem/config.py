@@ -266,4 +266,17 @@ FUSION_GMAPS_SVI_PATH: "Path | None" = (
     if os.environ.get("OPENUBEM_FUSION_GMAPS_SVI_PATH")
     else None
 )
+# ── Rust acceleration backend flags (rust-migration T03, default-OFF) ────────
+# Three-state rollout gate: "off" (default, pure Python) | "shadow" (dual-run
+# comparison returning Python result) | "on" (use Rust when compiled).
+RUST_BACKEND: str = os.environ.get("OPENUBEM_RUST_BACKEND", "off").strip().lower()
+RUST_SHADOW_LOG_PATH: "Path | None" = (
+    Path(os.environ["OPENUBEM_RUST_SHADOW_LOG"])
+    if os.environ.get("OPENUBEM_RUST_SHADOW_LOG")
+    else None
+)
+RUST_EXTRUDER_ENABLED: bool = (
+    os.environ.get("OPENUBEM_RUST_EXTRUDER", "0").strip() == "1"
+)
+
 FUSION_GMAPS_SVI_FIELDS: dict = {}

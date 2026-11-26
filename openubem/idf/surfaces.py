@@ -12,6 +12,7 @@ SHADING:SITE:DETAILED. With a real EnergyPlus 23.1 IDD the object type may diffe
 """
 import logging
 import math
+import os
 from dataclasses import dataclass
 from itertools import groupby
 
@@ -869,6 +870,79 @@ def _extrude_zone_groups(idf: GeomIDF, valid_zones: list[dict], _exc: tuple) -> 
                 z["fallback_to_bbox"] = True
 
 
+def _extrude_zones_with_rust(
+    idf: GeomIDF, valid_zones: list[dict], context: list[dict]
+) -> bool:
+    """Opt-in Rust 3D shell extrusion & rstar reciprocal matcher (``OPENUBEM_RUST_EXTRUDER=1``)."""
+    try:
+        from openubem import _rust as rust
+    except ImportError:
+        return False
+    if not hasattr(rust, "extrude_and_match"):
+        return False
+
+    # Compute per-zone z extents deterministically (matching storey grouping when explicit z_floor missing).
+    z_cursor_by_group: dict[tuple, float] = {}
+    max_top_by_x: dict[tuple[str, int], float] = {}
+    zone_extents: list[tuple[dict, float, float]] = []
+    for z in valid_zones:
+        if "z_floor" in z and "z_ceiling" in z:
+            zf, zc = float(z["z_floor"]), float(z["z_ceiling"])
+        else:
+            key = _group_key(z)
+            zf = z_cursor_by_group.get(key, 0.0)
+            zc = zf + float(z["height_m"])
+            z_cursor_by_group[key] = zc
+        zone_extents.append((z, zf, zc))
+        bkey = (_group_key(z)[0], 0)
+        max_top_by_x[bkey] = max(max_top_by_x.get(bkey, zc), zc)
+
+    inputs = []
+    for z, zf, zc in zone_extents:
+        poly = z.get("floor_polygon")
+        outer = [[float(p[0]), float(p[1])] for p in z["coords_m"]]
+        holes = (
+            [[[float(c[0]), float(c[1])] for c in list(r.coords)[:-1]] for r in poly.interiors]
+            if poly is not None and hasattr(poly, "interiors")
+            else []
+        )
+        bkey = (_group_key(z)[0], 0)
+        is_top = abs(zc - max_top_by_x[bkey]) < 1.0e-3
+        inputs.append((str(z["name"]), outer, holes, zf, zc, is_top))
+
+    try:
+        surfaces = rust.extrude_and_match(inputs, 0.001, 0.001, 0.002)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Rust extruder failed (%s) — falling back to geomeppy", exc)
+        return False
+
+    for z, _, _ in zone_extents:
+        idf.newidfobject("ZONE", Name=str(z["name"]))
+        z["extruded"] = True
+
+    for sname, zname, skind, bc, bobj, sun_exp, wind_exp, verts in surfaces:
+        surf = idf.newidfobject(
+            "BUILDINGSURFACE:DETAILED",
+            Name=sname,
+            Surface_Type=skind,
+            Construction_Name="",
+            Zone_Name=zname,
+            Outside_Boundary_Condition=bc,
+            Outside_Boundary_Condition_Object=bobj,
+            Sun_Exposure="SunExposed" if sun_exp else "NoSun",
+            Wind_Exposure="WindExposed" if wind_exp else "NoWind",
+        )
+        surf.setcoords([(float(v[0]), float(v[1]), float(v[2])) for v in verts])
+
+    for ctx in context:
+        idf.add_shading_block(
+            name=ctx["name"],
+            coordinates=ctx["coords"],
+            height=ctx["height"],
+        )
+    return True
+
+
 def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> None:
     """Extrude zones into IDF, call intersect_match once, then add shading blocks.
 
@@ -909,6 +983,14 @@ def extrude_geometry(idf: GeomIDF, zones: list[dict], context: list[dict]) -> No
             logger.warning("zone %s has empty coords_m — skipping extrusion", z["name"])
         else:
             valid_zones.append(z)
+
+    if (
+        os.environ.get("OPENUBEM_RUST_EXTRUDER", "0").strip() == "1"
+        and valid_zones
+        and not any(z.get("extruded") for z in zones)
+        and _extrude_zones_with_rust(idf, valid_zones, context)
+    ):
+        return
 
     # FINDING 221: snap coincident interzone-edge vertices before extrusion so
     # geomeppy's intersect_match sees identical coordinates on both sides of a
