@@ -29,6 +29,8 @@ documents were moved and, in a few cases, renamed. Use this table to resolve any
 | `docs/docs_ACTIVE/TechTransfer/` *(archived 2026-09-28, nothing renamed)* | `docs/docs_DONE/TechTransfer/` |
 | `docs/docs_ACTIVE/europeanLocations/` *(archived 2026-10-08, nothing renamed)* | `docs/docs_DONE/SETUP/europeanLocations/` — **brought back to `docs/docs_ACTIVE/europeanLocations/` 2026-10-08 (owner), citations repointed** |
 | `docs/docs_ACTIVE/openings/` *(archived 2026-10-08, nothing renamed; 181 files swept, 14 other `docs_DONE/` files left as standing exclusion)* | `docs/docs_DONE/openings/` |
+| `docs/docs_ACTIVE/GPU_based_compute/` *(archived 2026-11-27, nothing renamed — M0–M8 + auto-fastest dispatch complete)* | `docs/docs_DONE/SETUP/GPU_based_compute/` |
+| `docs/docs_ACTIVE/Rust_migration/` *(archived 2026-11-27, nothing renamed — `T01`–`T19` + `CP-0`–`CP-5` complete)* | `docs/docs_DONE/SETUP/Rust_migration/` |
 
 🔒 **Added 2026-08-20 — a rotation, and then a move. Both, in that order.**
 Book I was **closed** at 8,246 lines and the live register became

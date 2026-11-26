@@ -11,7 +11,7 @@ CARRY_LIST: tuple[Path, ...] = (
     REPO_ROOT / "scripts/gpusim",
     REPO_ROOT / "tests/gpusim",
     REPO_ROOT / "tests/fixtures/gpusim",
-    REPO_ROOT / "docs/docs_ACTIVE/GPU_based_compute",
+    REPO_ROOT / "docs/docs_DONE/SETUP/GPU_based_compute",
 )
 
 

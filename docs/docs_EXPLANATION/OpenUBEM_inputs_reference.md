@@ -47,7 +47,7 @@ Two things are always true about every row below:
 | 16 | Archetype ↔ CBECS mapping | Maps OpenUBEM's 30 archetypes to CBECS Principal Building Activity codes for national benchmarking; crosswalk validated against the CBECS 2018 codebook in `RESULT_I03` (§6) | CBECS 2018 (Commercial Buildings Energy Consumption Survey) | `cbecs_pba_map.json` | validation/aggregation scripts |
 | 17 | Carbon intensity (electricity) | kg CO₂e/kWh, state-level and eGRID-subregion-level | EPA eGRID 2022 | `carbon/egrid_2022.json`, `carbon/egrid_2022_subregions.json` | `results/carbon.py` |
 | 18 | Carbon intensity (natural gas) | Fixed factor, 0.181 kg CO₂e/kWh | Iseri et al. (2025), Energy & Buildings 337 | hard-coded constant, `openubem/config.py` | `results/carbon.py` |
-| 19 | EnergyPlus engine | The physics solver itself | EnergyPlus 23.1 (energyplus.net), user-installed binary | *(not bundled — path via `ENERGYPLUS_PATH` env var)* | `simulation/runner.py` |
+| 19 | Physics & acceleration engines | EnergyPlus 23.1 + GPU/Rust `gpusim` heat-balance engine + 8-crate Rust extension (`_openubem_rust`) | EnergyPlus 23.1 (`ENERGYPLUS_PATH`), CUDA/Metal `gpusim`, optional compiled Rust wheel (`openubem-rust`) | *(EnergyPlus external; `gpusim` bundled; Rust optional compiled extension with Python fallback)* | `simulation/{runner,parallel}.py`, `gpusim/{dispatch,router}.py`, `_rust_bridge.py` |
 
 **Classification audit (rows 2, 3, 16).** Three deep-research reports
 (`docs/docs_DONE/BUGS/input-framework/deepResearch/RESULT_I01`–`I03`, full citations in §6) checked the OSM tag
@@ -195,6 +195,24 @@ Configuration toggles in `openubem/config.py` use the `FUSION_GMAPS_*` prefix an
 
 ---
 
+## 5.2 Runtime execution & acceleration flags (auto-fastest by default)
+
+OpenUBEM probes host hardware (OS, CPU cores, compiled `_openubem_rust`, PyTorch CUDA/MPS, and
+CuPy) via `openubem/gpusim/dispatch.py` and selects the empirically fastest valid backend
+automatically. All flags live in `openubem/config.py` and can be overridden via environment
+variables:
+
+| Environment variable | Default | Allowed values | Effect |
+|---|---|---|---|
+| `OPENUBEM_SIM_ENGINE` | `"auto"` | `"auto"`, `"energyplus"`, `"gpusim"` | `"auto"` routes supported buildings to the fastest `gpusim` backend (plus 5% EnergyPlus spot-checks) and fails closed to EnergyPlus 23.1 for unsupported objects; `"energyplus"` forces pure EnergyPlus. |
+| `OPENUBEM_GPUSIM_DEVICE` | `"auto"` | `"auto"`, `"cuda"`, `"mps"`, `"cpu"` | `"auto"` picks `cpu_rust` (`B < 200` on CUDA, `B < 1500` on macOS MPS) vs GPU for large `S0` batches, `cuda` for multi-zone `S1`–`S2b` when CUDA+CuPy exist (failing closed to EnergyPlus otherwise), and Rust CWBVH8 for exterior shading. |
+| `OPENUBEM_RUST_BACKEND` | `"auto"` | `"auto"`, `"on"`, `"shadow"`, `"off"` | `"auto"` activates `_openubem_rust` when compiled and falls back cleanly to pure Python otherwise; `"shadow"` dual-runs Python and Rust, logs diffs to `OPENUBEM_RUST_SHADOW_LOG`, and returns Python output. |
+| `OPENUBEM_RUST_EXTRUDER` | `"auto"` | `"auto"`, `"1"`/`"on"`, `"0"`/`"off"` | Controls the Rust 3D zone extruder (`openubem-extrude`) in `openubem/idf/surfaces.py`; falls back cleanly to `geomeppy` when disabled or uncompiled. |
+| `OPENUBEM_GPUSIM_SPOT_CHECK_FRACTION` | `"0.05"` | float in `[0, 1]` | Deterministic fraction of `gpusim`-eligible buildings routed to EnergyPlus in `"auto"` mode for ongoing conformance verification. |
+| `OPENUBEM_EU_DISABLE_UNUSED_SIZING` | `"0"` | `"0"`, `"1"` | Guarded opt-in to skip unused annual sizing passes on `NoLimit` + `NoOA` EU IdealLoads cells. |
+
+---
+
 ## 6. Cross-reference — where each input is documented in depth
 
 | Input area | Provenance / detail doc |
@@ -212,6 +230,8 @@ Configuration toggles in `openubem/config.py` use the `FUSION_GMAPS_*` prefix an
 | External validation ground truth | `docs/docs_VALIDATION/step1/external_literature/` |
 | Full bundled-data inventory + config constants | root `README.md` §"Data Assets" and §"Configuration & Constants" |
 | Binding architecture / data-model spec | `docs/docs_main/DESIGN_openubem-open-source-urban-building-energy-modeling-platform-design-the-full-sys.md` §5–§7 |
+| GPU heat-balance engine (`gpusim`) & auto-dispatch | `docs/docs_DONE/SETUP/GPU_based_compute/BUILD_SPEC_gpu_heat_balance_engine.md` |
+| Selective Rust acceleration core (`_openubem_rust`) | `docs/docs_DONE/SETUP/Rust_migration/PLAN_rust_migration.md` |
 
 ---
 
@@ -229,4 +249,5 @@ Configuration toggles in `openubem/config.py` use the `FUSION_GMAPS_*` prefix an
 
 *OpenUBEM — inputs reference. Cross-references the binding DESIGN spec, per-module
 PROVENANCE.md files, the Phase-E adopted baseline, and the I01–I03 classification deep-research
-audit (2026-06-30); updated 2026-11-13 with opt-in Google Maps Platform connectors (§5.1).*
+audit (2026-06-30); updated 2026-11-13 with opt-in Google Maps Platform connectors (§5.1) and
+2026-11-27 with GPU/Rust auto-fastest execution flags (§5.2).*

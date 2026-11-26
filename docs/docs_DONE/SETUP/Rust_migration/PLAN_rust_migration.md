@@ -3,7 +3,7 @@
 **Slug:** `rust-migration`
 **Date:** 2026-11-26
 **Workspace Root:** `/Users/orcunkoraliseri/Desktop/OpenUBEM`
-**Status:** CP-5 PASSED + AUTO-FASTEST DISPATCH ENABLED (2026-11-27) — MIGRATION COMPLETE (`T01`–`T18`, `CP-0`–`CP-5` passed; `R6` deferred per `D-RS-06`; defaults set to cross-platform auto-fastest: `OPENUBEM_SIM_ENGINE="auto"`, `OPENUBEM_GPUSIM_DEVICE="auto"`, `OPENUBEM_RUST_BACKEND="auto"`, `OPENUBEM_RUST_EXTRUDER="auto"` via `openubem/gpusim/dispatch.py`).
+**Status:** ARCHIVED TO `docs/docs_DONE/SETUP/Rust_migration/` (2026-11-27) — MIGRATION COMPLETE (`T01`–`T18`, `CP-0`–`CP-5` passed in `e4caed745`; `R6` deferred per `D-RS-06`) + **Auto-Fastest Cross-Platform Dispatch ENABLED (`c9e02c01b`)**: defaults are now `OPENUBEM_SIM_ENGINE="auto"`, `OPENUBEM_GPUSIM_DEVICE="auto"`, `OPENUBEM_RUST_BACKEND="auto"`, `OPENUBEM_RUST_EXTRUDER="auto"` via `openubem/gpusim/dispatch.py`.
 **Companions:** [`../GPU_based_compute/PLAN_gpu_accelerated_simulation.md`](../GPU_based_compute/PLAN_gpu_accelerated_simulation.md) · [`../GPU_based_compute/BUILD_SPEC_gpu_heat_balance_engine.md`](../GPU_based_compute/BUILD_SPEC_gpu_heat_balance_engine.md)
 **Research Prompts:** [`Prompt/deepResearch/README.md`](Prompt/deepResearch/README.md) (DR01–DR06)
 
@@ -399,3 +399,11 @@ All six decisions below were approved by the owner on 2026-11-26 (`lets go start
   - `maturin build --release --locked` produced `openubem_rust-0.1.0-cp310-abi3-macosx_11_0_arm64.whl` (`pyo3_abi='abi3-py310'`, `CONF_HASH='8449b4f11ef9614d'`); installed & verified inside an isolated `uv venv` with `rustc` stripped from `PATH`; `uv lock --dry-run` resolved `195 packages in 11ms` without `rustc`.
   - Default config flags remain `OPENUBEM_RUST_BACKEND = "off"` and `OPENUBEM_RUST_EXTRUDER = 0` (`False`) pending owner rollout toggle. Speed HPC cluster was not accessed per owner ruling.
   - **CP-5 PASSED — MIGRATION COMPLETE.**
+
+#### T19 — Embedded Cross-Platform Auto-Fastest Backend Dispatch & Archival — DONE 2026-11-27
+- **Artifacts:** `openubem/gpusim/dispatch.py`, `openubem/gpusim/{_rust_compat,router,shading,general_model}.py`, `openubem/{config,_rust_bridge}.py`, `openubem/simulation/parallel.py`, `openubem/campaign/eu_cell_runner.py`, `openubem/idf/surfaces.py`, `tests/test_auto_dispatch.py`, `tests/test_rust_bridge.py`, `tests/gpusim/test_m5_router_integration.py` (commit `c9e02c01b`).
+- **Policy (verified against live Mac M2 Pro & Windows RTX A400 benchmarks):**
+  - **Defaults:** `OPENUBEM_SIM_ENGINE="auto"`, `OPENUBEM_GPUSIM_DEVICE="auto"`, `OPENUBEM_RUST_BACKEND="auto"`, `OPENUBEM_RUST_EXTRUDER="auto"` (explicit overrides preserved).
+  - **1,000-building S0 speedups:** Rust CPU (`f64`, 12 cores M2 Pro) **`52.40 s`** (`19.08 bldg/s`, **43.5×** vs Python NumPy CPU `~2,281 s`, **79.7×** vs 1-core as-built Mac E+ `~4,177 s`, **1.20×** vs Mac Metal `62.65 s`); Windows RTX A400 CUDA **`52.59 s`** (`19.02 bldg/s`, **43.4×** vs Python CPU, **79.4×** vs 1-core E+). Auto-dispatcher routes `cpu_rust` for `B < 200` on CUDA / `B < 1,500` on macOS MPS, switching to GPU above threshold.
+  - **1,000-building multi-zone shaded (`S1`–`S2b`):** Windows/Linux CUDA + CuPy runs `general_cuda` + Rust CWBVH8 shading (`~10.2 min` per 1,000 pooled EU homes vs `~12.6 min` before Rust shading, dropping shading from `~132 s` → `~0.3 s`); macOS and CPU-only hosts fail closed cleanly to parallel EnergyPlus while keeping Rust shading/extrusion/microclimate/harvesting active.
+- **Verification:** `198 passed, 0 failed` (`PEP8 <= 88` clean, `test_isolation.py` clean). Arc archived to `docs/docs_DONE/SETUP/Rust_migration/`.

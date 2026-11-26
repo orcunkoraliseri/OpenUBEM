@@ -98,7 +98,7 @@ steady-state solutions of it.
 | Inputs | exactly four: `Ta`, `Tmrt`, wind speed, water-vapour pressure |
 | Approximation error vs full Fiala model | **RMSE 0.11 °C**, max abs 0.29 °C, R² 0.9995 |
 | For context | human inter-individual comfort variation is **±1.5 °C** — the approximation error is negligible beside it |
-| Evaluation cost | < 1 µs per point, vectorised |
+| Evaluation cost | < 1 µs per point, vectorised; accelerated **21.3×** by clean-room SIMD/rayon Rust (`openubem-microclimate`, `4.57M` evaluations in `0.124 s`, matching Python within `1e-6 K`) when `_openubem_rust` is compiled (`OPENUBEM_RUST_BACKEND="auto"`) |
 
 ### 2.2 The reference environment and the standardised person
 
@@ -323,7 +323,11 @@ Analytic cross-check for a uniform street canyon of height `H` and width `W`, ob
 form was wrong (a different configuration factor, not this one), and E-UTCI-02 for the
 pedestrian-height correction to the `z=0` floor-level special case. **Status: ✅ built and
 live-run-verified** — measured mean SVF outside building footprints on `nyc_centre` (200 m
-buffer around 738 real buildings): **0.873**.
+buffer around 738 real buildings): **0.873**. Since 2026-11-26, SVF slope maximization,
+building/canopy shadow casting, and UTCI evaluation also ship a clean-room Apache-2.0/MIT Rust
+implementation (`crates/openubem-microclimate/`, zero GPL dependencies, **53.6×** SVF speedup and
+**21.3×** UTCI speedup, `0` shadow-parity mismatches vs Python), enabled automatically via
+`OPENUBEM_RUST_BACKEND="auto"` (`docs/docs_DONE/SETUP/Rust_migration/PLAN_rust_migration.md`).
 
 #### 3.3.1 `height_m` provenance feeding the DSM — the multi-source fusion path
 

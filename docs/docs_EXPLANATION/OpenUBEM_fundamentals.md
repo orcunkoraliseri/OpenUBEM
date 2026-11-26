@@ -49,9 +49,9 @@ next stage reads, so any stage can be re-run on its own.
 |---|---|---|
 | **1** | Data Acquisition | Downloads + cleans building footprints from OpenStreetMap → `01_buildings_clean.gpkg` |
 | **2** | Semantic Enrichment | Classifies each building into an archetype, assigns a climate zone + weather file, and attaches envelope / loads / schedules → `02b_buildings_enriched.gpkg` |
-| **3** | IDF Generation | Builds one EnergyPlus input file (`.idf`) per building — geometry, zoning, constructions, loads, schedules, HVAC, shading → `idfs/*.idf` |
-| **4** | EnergyPlus Simulation | Runs EnergyPlus on the whole fleet in parallel → `04_simulation_manifest.parquet` |
-| **5** | Results, Carbon & Validation | Parses outputs into EUI, converts to carbon, aggregates to neighbourhood level, validates against measured data → `05_results.gpkg` + figures + interactive 3D viewer (§8) |
+| **3** | IDF Generation | Builds one EnergyPlus input file (`.idf`) per building — geometry (accelerated by the Rust 3D extruder `openubem-extrude` when compiled, falling back to `geomeppy`), zoning, constructions, loads, schedules, HVAC, shading → `idfs/*.idf` |
+| **4** | Physics Simulation | Runs the auto-selected fastest valid engine — native GPU/Rust `gpusim` (`cpu_rust`, NVIDIA CUDA, or Apple Metal) for supported subsets, failing closed to parallel EnergyPlus 23.1 for everything else (plus 5% automatic EnergyPlus spot-checks) → `04_simulation_manifest.parquet` + `04_routing_report.csv` |
+| **5** | Results, Carbon & Validation | Parses SQL/CSV/EIO outputs (accelerated 11–158× by Rust `openubem-results` + `openubem-schema` when compiled) into EUI, converts to carbon, aggregates to neighbourhood level, validates against measured data → `05_results.gpkg` + figures + interactive 3D viewer (§8) |
 
 > **A sixth stage exists, and it is deliberately not part of this spine.** **Stage 6 — Outdoor
 > Microclimate & Thermal Comfort** (§11) answers a different question — *what does it feel like to
@@ -64,12 +64,44 @@ next stage reads, so any stage can be re-run on its own.
 
 ## 4. What gets simulated
 
-### 4.1 The engine
+### 4.1 The engine — EnergyPlus 23.1 + GPU/Rust acceleration (`gpusim` & `_openubem_rust`)
 
-- **EnergyPlus 23.1** — a whole-building physics engine (heat balance, solar gains,
-  conduction, infiltration, internal gains, HVAC).
-- **Full year, hourly.** Each building is simulated over an annual run period at **8760
-  hourly timesteps**, driven by a real weather file (EPW) for the nearest station.
+- **EnergyPlus 23.1** — the authoritative whole-building physics engine (heat balance, solar
+  gains, conduction, infiltration, internal gains, HVAC), simulated over a full **8760-hour**
+  annual run period driven by a real EPW weather file.
+- **Native GPU/Rust heat-balance engine (`openubem/gpusim/`)** — a validated re-implementation
+  of the declared EnergyPlus 23.1 Ideal-Loads physics ladder (`S0` single-zone through `S2b`
+  multi-zone, solar, modal layered walls, and 3D exterior shading), backed by a **fail-closed
+  router** (`openubem/gpusim/router.py`). Any building containing unsupported HVAC or EnergyPlus
+  objects routes automatically to EnergyPlus 23.1 unchanged, and `auto` mode spot-checks 5% of
+  accepted buildings against EnergyPlus for ongoing parity verification.
+- **8-crate Rust acceleration core (`crates/`, compiled as `_openubem_rust`)** — replaces
+  CPU-bound Python bottlenecks while preserving pure-Python fallbacks and bit-exact/shadow-parity
+  guarantees: BVH exterior ray shading (**460.5×** vs Python CPU, **42.9×** vs Mac Metal),
+  float64 multi-core `S0` thermal solver (**221.4×**), parallel SQLite/CSV results harvesting
+  (**10.9–158.3×**), zero-copy IDF/schedule/CTF/ScriptF compilation (**2.0–33.1×**), clean-room
+  microclimate SVF & UTCI (**21.3–53.6×**), compile-time physical-unit/provenance schemas
+  (`openubem-schema`), and 3D zone extrusion (`openubem-extrude`, **1.7×**).
+- **Automatic cross-platform fastest-backend selection (`openubem/gpusim/dispatch.py`)** —
+  enabled by default (`OPENUBEM_SIM_ENGINE="auto"`, `OPENUBEM_GPUSIM_DEVICE="auto"`,
+  `OPENUBEM_RUST_BACKEND="auto"`, `OPENUBEM_RUST_EXTRUDER="auto"`). At runtime OpenUBEM probes
+  OS, CPU cores, `_openubem_rust`, PyTorch CUDA/MPS, and CuPy and chooses the empirically fastest
+  valid backend automatically:
+  - **1,000 single-zone (`S0`) buildings:** on macOS Apple Silicon, **Rust multi-core CPU
+    (`52.40 s`, `f64`)** beats both Python CPU (`~38 min`, **43.5×**) and Mac Metal (`62.65 s`,
+    `f32`); auto-dispatch uses `cpu_rust` below 1,500 buildings and switches to `mps` at
+    `>= 1,500`. On Windows/Linux NVIDIA CUDA + CuPy, auto-dispatch uses `cpu_rust` below 200
+    buildings (avoiding GPU launch overhead) and `cuda` at `>= 200` (`52.59 s` on an RTX A400,
+    **79×** faster than 1-core EnergyPlus).
+  - **1,000 complex multi-zone shaded (`S1`–`S2b`) neighbourhood buildings:** on Windows/Linux
+    CUDA + CuPy, hybrid **CUDA thermal kernels + Rust CWBVH8 shading** runs ~1,000 pooled
+    European neighbourhood homes in **~10.2 min** (validated across 3,832 homes / 43,989 zones in
+    Madrid, Lyon, London, and Bologna, `R²_kwh = 0.9825`). On macOS or CPU-only hosts, multi-zone
+    buildings fail closed to parallel EnergyPlus while keeping Rust extrusion, shading,
+    microclimate, and harvesting active.
+  - Any backend can still be forced explicitly via environment variables (`energyplus`, `gpusim`,
+    `cpu`, `mps`, `cuda`, `off`, `shadow`, `on`). Full records:
+    `docs/docs_DONE/SETUP/GPU_based_compute/` and `docs/docs_DONE/SETUP/Rust_migration/`.
 
 ### 4.2 The end-uses
 
@@ -540,6 +572,8 @@ and `sources_manifest.json`. See [`OpenUBEM_geolibre_integration.md`](OpenUBEM_g
 | The full feature reference | `README.md` (root) |
 | **Outdoor analysis — UTCI, microclimate, site measurements** *(the outdoor counterpart to this document; §11 below, Stage 6 is built and live-run-verified on real geometry)* | [`OpenUBEM_outdoor_analysis_reference.md`](OpenUBEM_outdoor_analysis_reference.md) |
 | The interactive 3D viewer (§8) design + tasks | `docs/docs_DONE/VISUALS/3D-visualization/PLAN_3dviz_implementation.md` |
+| **GPU-accelerated simulation engine (`gpusim` M0–M8 + auto-dispatch)** | `docs/docs_DONE/SETUP/GPU_based_compute/BUILD_SPEC_gpu_heat_balance_engine.md` |
+| **Selective Rust migration (8 crates, benchmarks, parity gates)** | `docs/docs_DONE/SETUP/Rust_migration/PLAN_rust_migration.md` |
 | **Opt-in GeoLibre GIS workspace & notebook companion (§8.7)** | [`OpenUBEM_geolibre_integration.md`](OpenUBEM_geolibre_integration.md) |
 | The simulated-vs-reconstructed energy method | `docs/docs_EXPLANATION/simulated_vs_reconstructed_methodology.md` |
 | The binding design specs | `docs/docs_main/` (cross-cutting) + `docs/docs_stepN/` (per step) |
@@ -575,10 +609,10 @@ Everything below is **built and live-run-verified on real geometry**, not design
 
 | Layer | What it is | Where it comes from |
 |---|---|---|
-| **Radiative geometry** | Sky view factor `Ψsky` (how much sky a point can see) and 32-azimuth horizon angles; per-hour building and vegetation shadow rasters | Computed once per site from the building massing — the dominant cost of a run |
+| **Radiative geometry** | Sky view factor `Ψsky` (how much sky a point can see) and 32-azimuth horizon angles; per-hour building and vegetation shadow rasters | Computed once per site from the building massing — accelerated **53.6×** by clean-room Rust (`openubem-microclimate`) when compiled |
 | **Surface temperatures** | Ground temperature and facade temperature | Empirical tier by default; an optional tier reads **real EnergyPlus exterior surface temperatures** back out of Stage 4 |
 | **Four driver fields** | Air temperature `Ta`, humidity, wind speed `v`, mean radiant temperature `Tmrt` | `Tmrt` from a 6-directional radiant flux balance on a standing person; wind downscaled from the EPW's 10 m reading to pedestrian height |
-| **UTCI** | The four fields synthesised into one equivalent temperature on the official 10-class cold/heat stress scale | The COST-730 Bröde 210-term operational polynomial, transcribed from the canonical Fortran source and matched to the reference table at `1e-6` |
+| **UTCI** | The four fields synthesised into one equivalent temperature on the official 10-class cold/heat stress scale | The COST-730 Bröde 210-term operational polynomial, matched to the reference table at `1e-6` and accelerated **21.3×** by SIMD/rayon Rust (`openubem-microclimate`) |
 | **Exposure metrics** | **CTSI** (cumulative thermal stress, °C·h above the comfort threshold) and **PHEH** (person-hours above 46 °C), aggregated per parcel | Joined onto each building's own energy results |
 | **Mitigation scenarios** | Tree canopy, PV canopy, cool pavement, cool roof, high-albedo facade — each a *domain-layer* edit (albedo, canopy), never a physics change | Compared against published effect sizes |
 
@@ -625,4 +659,6 @@ each field:
 binding source of truth. 2026-07-01 (§8 interactive 3D viewer added 2026-07-03, §11 outdoor
 microclimate added 2026-07-24, §11 expanded to the completed Stage-6 feature set 2026-07-25 on
 arc closure, opt-in Google Maps Platform companion & forecast extensions documented 2026-11-13,
-opt-in GeoLibre GIS workspace & notebook companion §8.7 added 2026-11-16).*
+opt-in GeoLibre GIS workspace & notebook companion §8.7 added 2026-11-16; GPU-accelerated
+`gpusim` engine, 8-crate Rust acceleration core, and cross-platform auto-fastest backend
+selection documented 2026-11-27).*
